@@ -322,6 +322,26 @@ typedef struct bGPDstroke {
   /** Curve used to edit the stroke using Bezier handlers. */
   struct bGPDcurve *editcurve;
 
+  /*********************************/
+  /** Ondine watercolor additions */
+  /*******************************/
+
+  /** Stroke internal id */
+  int id_internal;
+
+  /** Seed for watercolor randomness */
+  int seed;
+
+  /** Brush shape */
+  int brush_shape;
+  char _pad6[12];
+
+  /** Wetness */
+  float wetness;
+
+  /** Self coverage */
+  float self_coverage;
+
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as
    * well! */
 
@@ -597,6 +617,7 @@ typedef enum eGPLayerBlendModes {
   eGplBlendMode_Subtract = 3,
   eGplBlendMode_Multiply = 4,
   eGplBlendMode_Divide = 5,
+  eGplBlendMode_ColorMix = 6,
 } eGPLayerBlendModes;
 
 /* ***************************************** */

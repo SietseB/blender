@@ -224,7 +224,8 @@ void GpencilExporterSVG::export_gpencil_layers()
               BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false, 0);
             }
 
-            export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
+            /* SB addition TEMP */
+            export_stroke_to_path(gpl, gps_perimeter, node_gpl, false, gps_duplicate);
 
             BKE_gpencil_free_stroke(gps_perimeter);
           }
@@ -239,7 +240,8 @@ void GpencilExporterSVG::export_gpencil_layers()
 void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
                                                bGPDstroke *gps,
                                                pugi::xml_node node_gpl,
-                                               const bool do_fill)
+                                               const bool do_fill,
+                                               bGPDstroke *gps_dupl)
 {
   pugi::xml_node node_gps = node_gpl.append_child("path");
 
@@ -278,6 +280,28 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
   }
 
   node_gps.append_attribute("d").set_value(txt.c_str());
+
+  /* Ondine watercolor addition TEMP */
+  /* Add stroke width, id, seed, brush, wetness, self coverage */
+  node_gps.append_attribute("s-width").set_value(gps_dupl->thickness);
+  node_gps.append_attribute("s-id").set_value(gps_dupl->id_internal);
+  node_gps.append_attribute("s-seed").set_value(gps_dupl->seed);
+  node_gps.append_attribute("s-brush-shape").set_value(gps_dupl->brush_shape);
+  node_gps.append_attribute("s-wetness").set_value(gps_dupl->wetness);
+  node_gps.append_attribute("s-self-coverage").set_value(gps_dupl->self_coverage);
+
+  /* Add stroke points, pressure and strength */
+  txt = "";
+  for (const int i : IndexRange(gps_dupl->totpoints)) {
+    if (i > 0) {
+      txt.append(",");
+    }
+    bGPDspoint &pt = gps_dupl->points[i];
+    const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
+    txt.append(std::to_string(screen_co.x) + " " + std::to_string(screen_co.y) + " " +
+               std::to_string(pt.pressure) + " " + std::to_string(pt.strength));
+  }
+  node_gps.append_attribute("s").set_value(txt.c_str());
 }
 
 void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,

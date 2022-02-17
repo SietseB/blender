@@ -135,6 +135,7 @@ static const EnumPropertyItem rna_enum_layer_blend_modes_items[] = {
     {eGplBlendMode_Subtract, "SUBTRACT", 0, "Subtract", ""},
     {eGplBlendMode_Multiply, "MULTIPLY", 0, "Multiply", ""},
     {eGplBlendMode_Divide, "DIVIDE", 0, "Divide", ""},
+    {eGplBlendMode_Divide, "COLORMIX", 0, "Color Mix", ""},
     {0, NULL, 0, NULL, NULL}};
 
 static const EnumPropertyItem rna_enum_gpencil_caps_modes_items[] = {
@@ -1748,6 +1749,52 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   prop = RNA_def_property(srna, "select_index", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "select_index");
   RNA_def_property_ui_text(prop, "Select Index", "Index of selection used for interpolation");
+
+  /*********************************/
+  /** Ondine watercolor additions */
+  /*******************************/
+
+  /* Internal id */
+  prop = RNA_def_property(srna, "id_internal", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "id_internal");
+  RNA_def_property_range(prop, 0, INT_MAX);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Internal id", "Internal id of stroke");
+
+  /* Seed */
+  prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "seed");
+  RNA_def_property_range(prop, 0, INT_MAX);
+  RNA_def_property_int_default(prop, 0);
+  RNA_def_property_ui_text(prop, "Seed", "Watercolor random seed");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Brush shape TEMP */
+  prop = RNA_def_property(srna, "brush_shape", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "brush_shape");
+  RNA_def_property_range(prop, 0, INT_MAX);
+  RNA_def_property_int_default(prop, 0);
+  RNA_def_property_ui_text(prop, "Brush shape", "Brush shape of stroke");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Wetness */
+  prop = RNA_def_property(srna, "wetness", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "wetness");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Wetness", "Wetness of stroke");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Self coverage (kind of dryness) */
+  prop = RNA_def_property(srna, "self_coverage", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "self_coverage");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Self coverage", "Self coverage of stroke (dryness)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /** end Ondine additions **/
 }
 
 static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
