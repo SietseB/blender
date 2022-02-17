@@ -76,7 +76,8 @@ class GpencilExporterSVG : public GpencilExporter {
   void export_stroke_to_path(struct bGPDlayer *gpl,
                              struct bGPDstroke *gps,
                              pugi::xml_node node_gpl,
-                             bool do_fill);
+                             bool do_fill,
+                             struct bGPDstroke *gps_dupl);
 
   /**
    * Export a stroke using poly-line or polygon
