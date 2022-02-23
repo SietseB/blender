@@ -494,6 +494,10 @@ struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *r
  */
 float BKE_gpencil_stroke_average_pressure_get(struct bGPDstroke *gps);
 /**
+ * Get max pressure.
+ */
+float BKE_gpencil_stroke_max_pressure_get(struct bGPDstroke *gps);
+/**
  * Check if the thickness of the stroke is constant.
  */
 bool BKE_gpencil_stroke_is_pressure_constant(struct bGPDstroke *gps);

@@ -4286,6 +4286,23 @@ float BKE_gpencil_stroke_average_pressure_get(bGPDstroke *gps)
   return tot / (float)gps->totpoints;
 }
 
+float BKE_gpencil_stroke_max_pressure_get(bGPDstroke *gps)
+{
+  if (gps->totpoints == 1) {
+    return gps->points[0].pressure;
+  }
+
+  float max_pressure = 0.0f;
+  for (int i = 0; i < gps->totpoints; i++) {
+    const bGPDspoint *pt = &gps->points[i];
+    if (pt->pressure > max_pressure) {
+      max_pressure = pt->pressure;
+    }
+  }
+
+  return max_pressure;
+}
+
 bool BKE_gpencil_stroke_is_pressure_constant(bGPDstroke *gps)
 {
   if (gps->totpoints == 1) {

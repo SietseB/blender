@@ -786,13 +786,6 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
   gps->dvert = NULL;
   gps->editcurve = NULL;
 
-  /* Ondine additions */
-  gps->seed = 0;
-  gps->id_internal = 0;
-  gps->brush_shape = 0;
-  gps->wetness = 0;
-  gps->self_coverage = 0;
-
   return gps;
 }
 
@@ -1062,12 +1055,6 @@ void BKE_gpencil_stroke_copy_settings(const bGPDstroke *gps_src, bGPDstroke *gps
   gps_dst->uv_scale = gps_src->uv_scale;
   gps_dst->select_index = gps_src->select_index;
   copy_v4_v4(gps_dst->vert_color_fill, gps_src->vert_color_fill);
-
-  /* Ondine additions */
-  gps_dst->seed = gps_src->seed;
-  gps_dst->brush_shape = gps_src->brush_shape;
-  gps_dst->wetness = gps_src->wetness;
-  gps_dst->self_coverage = gps_src->self_coverage;
 }
 
 bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)

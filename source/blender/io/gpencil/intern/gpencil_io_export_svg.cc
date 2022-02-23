@@ -282,13 +282,23 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
   node_gps.append_attribute("d").set_value(txt.c_str());
 
   /* Ondine watercolor addition TEMP */
-  /* Add stroke width, id, seed, brush, wetness, self coverage */
-  node_gps.append_attribute("s-width").set_value(gps_dupl->thickness);
-  node_gps.append_attribute("s-id").set_value(gps_dupl->id_internal);
-  node_gps.append_attribute("s-seed").set_value(gps_dupl->seed);
-  node_gps.append_attribute("s-brush-shape").set_value(gps_dupl->brush_shape);
-  node_gps.append_attribute("s-wetness").set_value(gps_dupl->wetness);
-  node_gps.append_attribute("s-self-coverage").set_value(gps_dupl->self_coverage);
+
+  /* Get the thickness in pixels using a simple 1 point stroke. */
+  const float max_pressure = BKE_gpencil_stroke_max_pressure_get(gps_dupl);
+  bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps_dupl, false, false);
+  gps_temp->totpoints = 1;
+  gps_temp->points = MEM_cnew<bGPDspoint>("gp_stroke_points");
+  bGPDspoint *pt_src = &gps->points[0];
+  bGPDspoint *pt_dst = &gps_temp->points[0];
+  copy_v3_v3(&pt_dst->x, &pt_src->x);
+  pt_dst->pressure = max_pressure;
+
+  const float radius = stroke_point_radius_get(gpl, gps_temp);
+
+  BKE_gpencil_free_stroke(gps_temp);
+
+  /* Add stroke width */
+  node_gps.append_attribute("s-width").set_value((radius * 2.0f) - gpl->line_change);
 
   /* Add stroke points, pressure and strength */
   txt = "";
