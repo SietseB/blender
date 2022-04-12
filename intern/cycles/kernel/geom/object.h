@@ -263,6 +263,16 @@ ccl_device_inline float3 object_color(KernelGlobals kg, int object)
   return make_float3(kobject->color[0], kobject->color[1], kobject->color[2]);
 }
 
+/* Alpha of the object */
+
+ccl_device_inline float object_alpha(KernelGlobals kg, int object)
+{
+  if (object == OBJECT_NONE)
+    return 0.0f;
+
+  return kernel_tex_fetch(__objects, object).alpha;
+}
+
 /* Pass ID number of object */
 
 ccl_device_inline float object_pass_id(KernelGlobals kg, int object)
@@ -271,6 +281,26 @@ ccl_device_inline float object_pass_id(KernelGlobals kg, int object)
     return 0.0f;
 
   return kernel_tex_fetch(__objects, object).pass_id;
+}
+
+/* Lightgroup of lamp */
+
+ccl_device_inline int lamp_lightgroup(KernelGlobals kg, int lamp)
+{
+  if (lamp == LAMP_NONE)
+    return LIGHTGROUP_NONE;
+
+  return kernel_tex_fetch(__lights, lamp).lightgroup;
+}
+
+/* Lightgroup of object */
+
+ccl_device_inline int object_lightgroup(KernelGlobals kg, int object)
+{
+  if (object == OBJECT_NONE)
+    return LIGHTGROUP_NONE;
+
+  return kernel_tex_fetch(__objects, object).lightgroup;
 }
 
 /* Per lamp random number for shader variation */

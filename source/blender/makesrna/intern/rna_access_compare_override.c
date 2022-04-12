@@ -37,6 +37,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "rna_access_internal.h"
 #include "rna_internal.h"
@@ -218,7 +219,7 @@ bool RNA_property_copy(
 
   /* IDprops: destination may not exist, if source does and is set, try to create it. */
   /* NOTE: this is sort of quick hack/bandage to fix the issue,
-   * we need to rethink how IDProps are handled in 'diff' RNA code completely, imho... */
+   * we need to rethink how IDProps are handled in 'diff' RNA code completely, IMHO. */
   if (prop_src != NULL && prop_dst == NULL && RNA_property_is_set(fromptr, prop)) {
     BLI_assert(prop_src->magic != RNA_MAGIC);
     IDProperty *idp_dst = RNA_struct_idprops(ptr, true);
@@ -611,10 +612,6 @@ static bool rna_property_override_operation_apply(Main *bmain,
                                       ptr_item_src,
                                       ptr_item_storage,
                                       opop);
-  if (success) {
-    RNA_property_update_main(bmain, NULL, ptr_dst, prop_dst);
-  }
-
   return success;
 }
 

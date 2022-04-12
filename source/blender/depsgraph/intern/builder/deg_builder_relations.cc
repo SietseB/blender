@@ -82,6 +82,7 @@
 #include "BKE_world.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "SEQ_iterator.h"
@@ -1422,7 +1423,7 @@ void DepsgraphRelationBuilder::build_animation_images(ID *id)
   const bool can_have_gpu_material = ELEM(GS(id->name), ID_MA, ID_WO);
 
   /* TODO: can we check for existence of node for performance? */
-  if (BKE_image_user_id_has_animation(id) || can_have_gpu_material) {
+  if (can_have_gpu_material || BKE_image_user_id_has_animation(id)) {
     OperationKey image_animation_key(
         id, NodeType::IMAGE_ANIMATION, OperationCode::IMAGE_ANIMATION);
     TimeSourceKey time_src_key;
@@ -1597,6 +1598,14 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
       OperationKey parameters_key(id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EVAL);
       add_relation(property_exit_key, parameters_key, "Driven Property -> Properties");
     }
+  }
+
+  /* Assume drivers on a node tree affect the evaluated output of the node tree. In theory we could
+   * check if the driven value actually affects the output, i.e. if it drives a node that is linked
+   * to the output. */
+  if (GS(id_ptr->name) == ID_NT) {
+    ComponentKey ntree_output_key(id_ptr, NodeType::NTREE_OUTPUT);
+    add_relation(driver_key, ntree_output_key, "Drivers -> NTree Output");
   }
 }
 
@@ -1830,9 +1839,8 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
         /* We do not have to update the objects final transform after the simulation if it is
          * passive or controlled by the animation system in blender.
          * (Bullet doesn't move the object at all in these cases).
-         * But we can't update the depgraph when the animated property in changed during playback.
-         * So always assume that active bodies needs updating.
-         */
+         * But we can't update the depsgraph when the animated property in changed during playback.
+         * So always assume that active bodies needs updating. */
         OperationKey rb_transform_copy_key(
             &object->id, NodeType::TRANSFORM, OperationCode::RIGIDBODY_TRANSFORM_COPY);
         /* Rigid body synchronization depends on the actual simulation. */
@@ -2080,7 +2088,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
         ctx.node = reinterpret_cast<::DepsNodeHandle *>(&handle);
         mti->updateDepsgraph(md, &ctx);
       }
-      if (BKE_object_modifier_use_time(scene_, object, md, graph_->mode)) {
+      if (BKE_object_modifier_use_time(scene_, object, md)) {
         TimeSourceKey time_src_key;
         add_relation(time_src_key, obdata_ubereval_key, "Time Source");
       }

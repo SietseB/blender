@@ -16,7 +16,7 @@ struct Main;
 struct PointerRNA;
 
 /**
-   Callbacks for One Off Actions
+ * Callbacks for One Off Actions
  * =============================
  *
  * - `{ACTION}` use in cases where only a single callback is required,
@@ -95,6 +95,8 @@ typedef enum {
   BKE_CB_EVT_LOAD_FACTORY_USERDEF_POST,
   BKE_CB_EVT_LOAD_FACTORY_STARTUP_POST,
   BKE_CB_EVT_XR_SESSION_START_PRE,
+  BKE_CB_EVT_ANNOTATION_PRE,
+  BKE_CB_EVT_ANNOTATION_POST,
   BKE_CB_EVT_TOT,
 } eCbEvent;
 

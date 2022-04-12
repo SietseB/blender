@@ -24,7 +24,7 @@
 
 void bpy_app_generic_callback(struct Main *main,
                               struct PointerRNA **pointers,
-                              const int num_pointers,
+                              const int pointers_num,
                               void *arg);
 
 static PyTypeObject BlenderAppCbType;
@@ -64,6 +64,8 @@ static PyStructSequence_Field app_cb_info_fields[] = {
     {"load_factory_preferences_post", "on loading factory preferences (after)"},
     {"load_factory_startup_post", "on loading factory startup (after)"},
     {"xr_session_start_pre", "on starting an xr session (before)"},
+    {"annotation_pre", "on drawing an annotation (before)"},
+    {"annotation_post", "on drawing an annotation (after)"},
 
 /* sets the permanent tag */
 #define APP_CB_OTHER_FIELDS 1
@@ -276,7 +278,7 @@ void BPY_app_handlers_reset(const short do_all)
         }
         else {
           /* remove */
-          /* PySequence_DelItem(ls, i); */ /* more obvious but slower */
+          // PySequence_DelItem(ls, i); /* more obvious but slower */
           PyList_SetSlice(ls, i, i + 1, NULL);
         }
       }
@@ -303,7 +305,7 @@ static PyObject *choose_arguments(PyObject *func, PyObject *args_all, PyObject *
 /* the actual callback - not necessarily called from py */
 void bpy_app_generic_callback(struct Main *UNUSED(main),
                               struct PointerRNA **pointers,
-                              const int num_pointers,
+                              const int pointers_num,
                               void *arg)
 {
   PyObject *cb_list = py_cb_array[POINTER_AS_INT(arg)];
@@ -318,14 +320,14 @@ void bpy_app_generic_callback(struct Main *UNUSED(main),
     Py_ssize_t pos;
 
     /* setup arguments */
-    for (int i = 0; i < num_pointers; ++i) {
+    for (int i = 0; i < pointers_num; ++i) {
       PyTuple_SET_ITEM(args_all, i, pyrna_struct_CreatePyObject(pointers[i]));
     }
-    for (int i = num_pointers; i < num_arguments; ++i) {
+    for (int i = pointers_num; i < num_arguments; ++i) {
       PyTuple_SET_ITEM(args_all, i, Py_INCREF_RET(Py_None));
     }
 
-    if (num_pointers == 0) {
+    if (pointers_num == 0) {
       PyTuple_SET_ITEM(args_single, 0, Py_INCREF_RET(Py_None));
     }
     else {

@@ -56,12 +56,12 @@ typedef struct bScreen {
   short flag;
   /** Winid from WM, starts with 1. */
   short winid;
-  /** User-setting for which editors get redrawn during anim playback. */
+  /** User-setting for which editors get redrawn during animation playback. */
   short redraws_flag;
 
-  /** Temp screen in a temp window, don't save (like user prefs). */
+  /** Temp screen in a temp window, don't save (like user-preferences). */
   char temp;
-  /** Temp screen for image render display or fileselect. */
+  /** Temp screen for image render display or file-select. */
   char state;
   /** Notifier for drawing edges. */
   char do_draw;
@@ -540,6 +540,8 @@ enum {
   AREA_FLAG_STACKED_FULLSCREEN = (1 << 7),
   /** Update action zones (even if the mouse is not intersecting them). */
   AREA_FLAG_ACTIONZONES_UPDATE = (1 << 8),
+  /** For off-screen areas. */
+  AREA_FLAG_OFFSCREEN = (1 << 9),
 };
 
 #define AREAGRID 4
@@ -662,7 +664,7 @@ typedef enum eRegion_Type {
    * context (surface, mirror view). Does not represent any real region. */
   RGN_TYPE_XR = 13,
 
-#define RGN_TYPE_LEN (RGN_TYPE_XR + 1)
+#define RGN_TYPE_NUM (RGN_TYPE_XR + 1)
 } eRegion_Type;
 
 /* use for function args */

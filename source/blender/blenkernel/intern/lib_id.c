@@ -1875,7 +1875,7 @@ void BKE_library_make_local(Main *bmain,
   for (int a = set_listbasepointers(bmain, lbarray); a--;) {
     ID *id = lbarray[a]->first;
 
-    /* Do not explicitly make local non-linkable IDs (shapekeys, in fact),
+    /* Do not explicitly make local non-linkable IDs (shape-keys, in fact),
      * they are assumed to be handled by real data-blocks responsible of them. */
     const bool do_skip = (id && !BKE_idtype_idcode_is_linkable(GS(id->name)));
 
@@ -1902,8 +1902,8 @@ void BKE_library_make_local(Main *bmain,
        * to discover all your links are lost after appending).
        * Also, never ever make proxified objects local, would not make any sense. */
       /* Some more notes:
-       *   - Shapekeys are never tagged here (since they are not linkable).
-       *   - Nodetrees used in materials etc. have to be tagged manually,
+       *   - Shape-keys are never tagged here (since they are not linkable).
+       *   - Node-trees used in materials etc. have to be tagged manually,
        *     since they do not exist in Main (!).
        * This is ok-ish on 'make local' side of things
        * (since those are handled by their 'owner' IDs),
@@ -2163,6 +2163,11 @@ bool BKE_id_can_be_asset(const ID *id)
 {
   return !ID_IS_LINKED(id) && !ID_IS_OVERRIDE_LIBRARY(id) &&
          BKE_idtype_idcode_is_linkable(GS(id->name));
+}
+
+bool BKE_id_is_editable(Main *bmain, ID *id)
+{
+  return !(ID_IS_LINKED(id) || BKE_lib_override_library_is_system_defined(bmain, id));
 }
 
 /************************* Datablock order in UI **************************/

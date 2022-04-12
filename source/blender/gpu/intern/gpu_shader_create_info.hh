@@ -22,7 +22,7 @@
 namespace blender::gpu::shader {
 
 #ifndef GPU_SHADER_CREATE_INFO
-/* Helps intelisense / auto-completion. */
+/* Helps intellisense / auto-completion. */
 #  define GPU_SHADER_INTERFACE_INFO(_interface, _inst_name) \
     StageInterfaceInfo _interface(#_interface, _inst_name); \
     _interface
@@ -129,6 +129,17 @@ enum class BuiltinBits {
   WORK_GROUP_SIZE = (1 << 16),
 };
 ENUM_OPERATORS(BuiltinBits, BuiltinBits::WORK_GROUP_SIZE);
+
+/**
+ * Follow convention described in:
+ * https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_conservative_depth.txt
+ */
+enum class DepthWrite {
+  ANY = 0,
+  GREATER,
+  LESS,
+  UNCHANGED,
+};
 
 /* Samplers & images. */
 enum class ImageType {
@@ -255,7 +266,7 @@ struct StageInterfaceInfo {
 };
 
 /**
- * @brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
+ * \brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
  *        If all data is correctly provided, this is all that is needed to create and compile
  *        a GPUShader.
  *
@@ -271,6 +282,10 @@ struct ShaderCreateInfo {
   bool finalized_ = false;
   /** If true, all resources will have an automatic location assigned. */
   bool auto_resource_location_ = false;
+  /** If true, force depth and stencil tests to always happen before fragment shader invocation. */
+  bool early_fragment_test_ = false;
+  /** Allow optimization when fragment shader writes to `gl_FragDepth`. */
+  DepthWrite depth_write_ = DepthWrite::ANY;
   /**
    * Maximum length of all the resource names including each null terminator.
    * Only for names used by gpu::ShaderInterface.
@@ -522,6 +537,16 @@ struct ShaderCreateInfo {
   }
 
   /**
+   * Force fragment tests before fragment shader invocation.
+   * IMPORTANT: This is incompatible with using the gl_FragDepth output.
+   */
+  Self &early_fragment_test(bool enable)
+  {
+    early_fragment_test_ = enable;
+    return *(Self *)this;
+  }
+
+  /**
    * Only needed if geometry shader is enabled.
    * IMPORTANT: Input and output instance name will have respectively "_in" and "_out" suffix
    * appended in the geometry shader IF AND ONLY IF the vertex_out interface instance name matches
@@ -680,6 +705,13 @@ struct ShaderCreateInfo {
   Self &builtins(BuiltinBits builtin)
   {
     builtins_ |= builtin;
+    return *(Self *)this;
+  }
+
+  /* Defines how the fragment shader will write to gl_FragDepth. */
+  Self &depth_write(DepthWrite value)
+  {
+    depth_write_ = value;
     return *(Self *)this;
   }
 

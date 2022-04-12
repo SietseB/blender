@@ -190,7 +190,6 @@ typedef void(ExtractLVertMeshFn)(const MeshRenderData *mr,
                                  void *data);
 typedef void(ExtractLooseGeomSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
                                        const MeshRenderData *mr,
-                                       const MeshExtractLooseGeom *loose_geom,
                                        void *buffer,
                                        void *data);
 typedef void(ExtractInitFn)(const MeshRenderData *mr,
@@ -291,6 +290,7 @@ void mesh_render_data_update_looptris(MeshRenderData *mr,
                                       eMRDataType data_flag);
 
 /* draw_cache_extract_mesh_extractors.c */
+
 typedef struct EditLoopData {
   uchar v_flag;
   uchar e_flag;

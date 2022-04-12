@@ -122,7 +122,17 @@ static PyObject *pygpu_texture__tp_new(PyTypeObject *UNUSED(self), PyObject *arg
   char err_out[256] = "unknown error. See console";
 
   static const char *_keywords[] = {"size", "layers", "is_cubemap", "format", "data", NULL};
-  static _PyArg_Parser _parser = {"O|$ipO&O!:GPUTexture.__new__", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O"  /* `size` */
+      "|$" /* Optional keyword only arguments. */
+      "i"  /* `layers` */
+      "p"  /* `is_cubemap` */
+      "O&" /* `format` */
+      "O!" /* `data` */
+      ":GPUTexture.__new__",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args,
                                         kwds,
                                         &_parser,
@@ -223,7 +233,7 @@ static PyObject *pygpu_texture__tp_new(PyTypeObject *UNUSED(self), PyObject *arg
                                   1,
                                   pygpu_textureformat.value_found,
                                   GPU_DATA_FLOAT,
-                                  NULL);
+                                  data);
     }
     else if (len == 2) {
       tex = GPU_texture_create_2d(
@@ -288,7 +298,14 @@ static PyObject *pygpu_texture_clear(BPyGPUTexture *self, PyObject *args, PyObje
   PyObject *py_values;
 
   static const char *_keywords[] = {"format", "value", NULL};
-  static _PyArg_Parser _parser = {"$O&O:clear", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "$"  /* Keyword only arguments. */
+      "O&" /* `format` */
+      "O"  /* `value` */
+      ":clear",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(
           args, kwds, &_parser, PyC_ParseStringEnum, &pygpu_dataformat, &py_values)) {
     return NULL;
@@ -545,11 +562,11 @@ static struct PyMethodDef pygpu_texture__m_methods[] = {
     {NULL, NULL, 0, NULL},
 };
 
-PyDoc_STRVAR(pygpu_texure__m_doc, "This module provides utils for textures.");
+PyDoc_STRVAR(pygpu_texture__m_doc, "This module provides utils for textures.");
 static PyModuleDef pygpu_texture_module_def = {
     PyModuleDef_HEAD_INIT,
     .m_name = "gpu.texture",
-    .m_doc = pygpu_texure__m_doc,
+    .m_doc = pygpu_texture__m_doc,
     .m_methods = pygpu_texture__m_methods,
 };
 

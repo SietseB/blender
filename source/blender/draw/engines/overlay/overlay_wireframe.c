@@ -148,7 +148,7 @@ static void wireframe_hair_cache_populate(OVERLAY_Data *vedata, Object *ob, Part
 
   const bool use_coloring = true;
   DRWShadingGroup *shgrp = DRW_shgroup_create_sub(pd->wires_hair_grp[is_xray][use_coloring]);
-  DRW_shgroup_uniform_vec4_array_copy(shgrp, "hairDupliMatrix", dupli_mat, 4);
+  DRW_shgroup_uniform_mat4_copy(shgrp, "hairDupliMatrix", dupli_mat);
   DRW_shgroup_call_no_cull(shgrp, hairs, ob);
 }
 
@@ -276,8 +276,12 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     const bool is_sculpt_mode = ((ob->mode & OB_MODE_SCULPT) != 0) && (ob->sculpt != NULL);
     const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
                                  !DRW_state_is_image_render();
+    const bool is_instance = (ob->base_flag & BASE_FROM_DUPLI);
+    const bool instance_parent_in_edit_mode = is_instance ? DRW_object_is_in_edit_mode(
+                                                                DRW_object_get_dupli_parent(ob)) :
+                                                            false;
     const bool use_coloring = (use_wire && !is_edit_mode && !is_sculpt_mode &&
-                               !has_edit_mesh_cage);
+                               !has_edit_mesh_cage && !instance_parent_in_edit_mode);
     geom = DRW_cache_object_face_wireframe_get(ob);
 
     if (geom || use_sculpt_pbvh) {

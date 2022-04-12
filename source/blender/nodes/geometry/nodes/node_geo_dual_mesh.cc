@@ -627,7 +627,7 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
   calc_boundaries(mesh_in, vertex_types, edge_types);
   /* Stores the indices of the polygons connected to the vertex. Because the polygons are looped
    * over in order of their indices, the polygon's indices will be sorted in ascending order.
-   (This can change once they are sorted using `sort_vertex_polys`). */
+   * (This can change once they are sorted using `sort_vertex_polys`). */
   Array<Vector<int>> vertex_poly_indices(mesh_in.totvert);
   Array<Array<int>> vertex_shared_edges(mesh_in.totvert);
   Array<Array<int>> vertex_corners(mesh_in.totvert);
@@ -646,13 +646,13 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
         Array<int> shared_edges(loop_indices.size());
         vertex_ok = sort_vertex_polys(
             mesh_in, i, false, edge_types, loop_indices, shared_edges, sorted_corners);
-        vertex_shared_edges[i] = shared_edges;
+        vertex_shared_edges[i] = std::move(shared_edges);
       }
       else {
         Array<int> shared_edges(loop_indices.size() - 1);
         vertex_ok = sort_vertex_polys(
             mesh_in, i, true, edge_types, loop_indices, shared_edges, sorted_corners);
-        vertex_shared_edges[i] = shared_edges;
+        vertex_shared_edges[i] = std::move(shared_edges);
       }
       if (!vertex_ok) {
         /* The sorting failed which means that the vertex is non-manifold and should be ignored
@@ -660,7 +660,7 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
         vertex_types[i] = VertexType::NonManifold;
         continue;
       }
-      vertex_corners[i] = sorted_corners;
+      vertex_corners[i] = std::move(sorted_corners);
     }
   });
 
