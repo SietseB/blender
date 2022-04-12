@@ -285,6 +285,7 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
 
   /* Get the thickness in pixels using a simple 1 point stroke. */
   const float max_pressure = BKE_gpencil_stroke_max_pressure_get(gps_dupl);
+
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps_dupl, false, false);
   gps_temp->totpoints = 1;
   gps_temp->points = MEM_cnew<bGPDspoint>("gp_stroke_points");
@@ -355,6 +356,20 @@ void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
   }
 
   node_gps.append_attribute("points").set_value(txt.c_str());
+
+  // Ondine
+  /* Add stroke points, pressure and strength */
+  txt = "";
+  for (const int i : IndexRange(gps->totpoints)) {
+    if (i > 0) {
+      txt.append(",");
+    }
+    bGPDspoint &pt = gps->points[i];
+    const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
+    txt.append(std::to_string(screen_co.x) + " " + std::to_string(screen_co.y) + " " +
+               std::to_string(pt.pressure) + " " + std::to_string(pt.strength));
+  }
+  node_gps.append_attribute("s").set_value(txt.c_str());
 }
 
 void GpencilExporterSVG::color_string_set(bGPDlayer *gpl,
