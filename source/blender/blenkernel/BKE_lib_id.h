@@ -150,11 +150,11 @@ enum {
   LIB_ID_COPY_NO_PREVIEW = 1 << 17,
   /** Copy runtime data caches. */
   LIB_ID_COPY_CACHES = 1 << 18,
-  /** Don't copy id->adt, used by ID datablock localization routines. */
+  /** Don't copy id->adt, used by ID data-block localization routines. */
   LIB_ID_COPY_NO_ANIMDATA = 1 << 19,
   /** Mesh: Reference CD data layers instead of doing real copy - USE WITH CAUTION! */
   LIB_ID_COPY_CD_REFERENCE = 1 << 20,
-  /** Do not copy id->override_library, used by ID datablock override routines. */
+  /** Do not copy id->override_library, used by ID data-block override routines. */
   LIB_ID_COPY_NO_LIB_OVERRIDE = 1 << 21,
   /** When copying local sub-data (like constraints or modifiers), do not set their "library
    * override local data" flag. */
@@ -162,11 +162,11 @@ enum {
 
   /* *** XXX Hackish/not-so-nice specific behaviors needed for some corner cases. *** */
   /* *** Ideally we should not have those, but we need them for now... *** */
-  /** EXCEPTION! Deep-copy actions used by animdata of copied ID. */
+  /** EXCEPTION! Deep-copy actions used by animation-data of copied ID. */
   LIB_ID_COPY_ACTIONS = 1 << 24,
-  /** Keep the library pointer when copying datablock outside of bmain. */
+  /** Keep the library pointer when copying data-block outside of bmain. */
   LIB_ID_COPY_KEEP_LIB = 1 << 25,
-  /** EXCEPTION! Deep-copy shapekeys used by copied obdata ID. */
+  /** EXCEPTION! Deep-copy shape-keys used by copied obdata ID. */
   LIB_ID_COPY_SHAPEKEY = 1 << 26,
   /** EXCEPTION! Specific deep-copy of node trees used e.g. for rendering purposes. */
   LIB_ID_COPY_NODETREE_LOCALIZE = 1 << 27,
@@ -177,7 +177,7 @@ enum {
   LIB_ID_COPY_RIGID_BODY_NO_COLLECTION_HANDLING = 1 << 28,
 
   /* *** Helper 'defines' gathering most common flag sets. *** */
-  /** Shapekeys are not real ID's, more like local data to geometry IDs... */
+  /** Shape-keys are not real ID's, more like local data to geometry IDs. */
   LIB_ID_COPY_DEFAULT = LIB_ID_COPY_SHAPEKEY,
 
   /** Create a local, outside of bmain, data-block to work on. */
@@ -412,7 +412,7 @@ struct ID *BKE_id_copy(struct Main *bmain, const struct ID *id);
  *
  * There are exceptions though:
  * - Embedded IDs (root node trees and master collections) are always copied with their owner.
- * - If #LIB_ID_COPY_ACTIONS is defined, actions used by animdata will be duplicated.
+ * - If #LIB_ID_COPY_ACTIONS is defined, actions used by anim-data will be duplicated.
  * - If #LIB_ID_COPY_SHAPEKEY is defined, shape-keys will be duplicated.
  * - If #LIB_ID_CREATE_LOCAL is defined, root node trees will be deep-duplicated recursively.
  *
@@ -515,7 +515,7 @@ void BKE_main_id_flag_listbase(struct ListBase *lb, int flag, bool value);
 void BKE_main_id_flag_all(struct Main *bmain, int flag, bool value);
 
 /**
- * Next to indirect usage in `readfile.c/writefile.c` also in `editobject.c`, `scene.c`.
+ * Next to indirect usage in `readfile.c/writefile.c` also in `editobject.c`, `scene.cc`.
  */
 void BKE_main_id_newptr_and_tag_clear(struct Main *bmain);
 
@@ -593,6 +593,17 @@ void BKE_id_tag_clear_atomic(struct ID *id, int tag);
 bool BKE_id_is_in_global_main(struct ID *id);
 
 bool BKE_id_can_be_asset(const struct ID *id);
+
+/** Check if that ID can be considered as editable from a high-level (editor) perspective.
+ *
+ * NOTE: This used to be done with a check on whether ID was linked or not, but now with system
+ * overrides this is not enough anymore.
+ *
+ * NOTE: Execution of this function can be somewhat expensive currently. If this becomes an issue,
+ * we should either cache that status info also in virtual override IDs, or address the
+ * long-standing TODO of getting an efficient 'owner_id' access for all embedded ID types.
+ */
+bool BKE_id_is_editable(struct Main *bmain, struct ID *id);
 
 /**
  * Returns ordered list of data-blocks for display in the UI.

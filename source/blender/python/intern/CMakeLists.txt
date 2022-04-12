@@ -18,6 +18,8 @@ set(INC
   ../../../../intern/guardedalloc
   ../../../../intern/mantaflow/extern
   ../../../../intern/opencolorio
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(INC_SYS
@@ -63,6 +65,7 @@ set(SRC
   bpy_rna_gizmo.c
   bpy_rna_id_collection.c
   bpy_rna_operator.c
+  bpy_rna_text.c
   bpy_rna_types_capi.c
   bpy_rna_ui.c
   bpy_traceback.c
@@ -103,6 +106,7 @@ set(SRC
   bpy_rna_gizmo.h
   bpy_rna_id_collection.h
   bpy_rna_operator.h
+  bpy_rna_text.h
   bpy_rna_types_capi.h
   bpy_rna_ui.h
   bpy_traceback.h
@@ -220,6 +224,10 @@ endif()
 
 if(WITH_IMAGE_TIFF)
   add_definitions(-DWITH_TIFF)
+endif()
+
+if(WITH_WEBP)
+	add_definitions(-DWITH_WEBP)
 endif()
 
 if(WITH_INPUT_NDOF)
@@ -357,3 +365,6 @@ if(WITH_HARU)
 endif()
 
 blender_add_lib(bf_python "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_python bf_rna)

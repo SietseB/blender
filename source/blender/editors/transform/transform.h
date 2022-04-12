@@ -137,6 +137,9 @@ typedef enum {
   /** Runs auto-merge & splits. */
   T_AUTOSPLIT = 1 << 21,
 
+  /** Use drag-start position of the event, otherwise use the cursor coordinates (unmodified). */
+  T_EVENT_DRAG_START = (1 << 22),
+
   /** No cursor wrapping on region bounds */
   T_NO_CURSOR_WRAP = 1 << 23,
 } eTFlag;
@@ -185,8 +188,8 @@ typedef enum {
 /** #TransInfo.redraw */
 typedef enum {
   TREDRAW_NOTHING = 0,
-  TREDRAW_HARD = 1,
-  TREDRAW_SOFT = 2,
+  TREDRAW_SOFT = (1 << 0),
+  TREDRAW_HARD = (1 << 1) | TREDRAW_SOFT,
 } eRedrawFlag;
 
 /** #TransInfo.helpline */
@@ -292,7 +295,8 @@ typedef struct TransSnapPoint {
 } TransSnapPoint;
 
 typedef struct TransSnap {
-  short mode;
+  char flag;
+  char mode;
   short target;
   short modePoint;
   short modeSelect;
@@ -592,9 +596,11 @@ typedef struct TransInfo {
   /*************** NEW STUFF *********************/
   /** event type used to launch transform. */
   short launch_event;
-  /** Is the actual launch event a tweak event? (launch_event above is set to the corresponding
-   * mouse button then.) */
-  bool is_launch_event_tweak;
+  /**
+   * Is the actual launch event a drag event?
+   * (`launch_event` is set to the corresponding mouse button then.)
+   */
+  bool is_launch_event_drag;
 
   bool is_orient_default_overwrite;
 
@@ -657,7 +663,6 @@ typedef struct TransInfo {
   int mval[2];
   /** use for 3d view. */
   float zfac;
-  void *draw_handle_apply;
   void *draw_handle_view;
   void *draw_handle_pixel;
   void *draw_handle_cursor;
@@ -716,6 +721,7 @@ struct wmKeyMap *transform_modal_keymap(struct wmKeyConfig *keyconf);
  * \{ */
 
 /* transform_gizmo.c */
+
 #define GIZMO_AXIS_LINE_WIDTH 2.0f
 
 bool gimbal_axis_pose(struct Object *ob, const struct bPoseChannel *pchan, float gmat[3][3]);

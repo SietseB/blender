@@ -111,6 +111,9 @@ static void OVERLAY_engine_init(void *vedata)
     case CTX_MODE_EDIT_MESH:
       OVERLAY_edit_mesh_init(vedata);
       break;
+    case CTX_MODE_EDIT_CURVES:
+      OVERLAY_edit_curves_init(vedata);
+      break;
     default:
       /* Nothing to do. */
       break;
@@ -182,9 +185,11 @@ static void OVERLAY_cache_init(void *vedata)
     case CTX_MODE_WEIGHT_GPENCIL:
       OVERLAY_edit_gpencil_cache_init(vedata);
       break;
+    case CTX_MODE_EDIT_CURVES:
+      OVERLAY_edit_curves_cache_init(vedata);
+      break;
     case CTX_MODE_SCULPT_CURVES:
     case CTX_MODE_OBJECT:
-    case CTX_MODE_EDIT_CURVES:
       break;
     default:
       BLI_assert_msg(0, "Draw mode invalid");
@@ -250,6 +255,7 @@ static bool overlay_object_is_edit_mode(const OVERLAY_PrivateData *pd, const Obj
       case OB_FONT:
         return pd->ctx_mode == CTX_MODE_EDIT_TEXT;
       case OB_CURVES:
+        return pd->ctx_mode == CTX_MODE_EDIT_CURVES;
       case OB_POINTCLOUD:
       case OB_VOLUME:
         /* No edit mode yet. */
@@ -290,6 +296,11 @@ static void OVERLAY_cache_populate(void *vedata, Object *ob)
   const bool renderable = DRW_object_is_renderable(ob);
   const bool in_pose_mode = ob->type == OB_ARMATURE && OVERLAY_armature_is_pose_mode(ob, draw_ctx);
   const bool in_edit_mode = overlay_object_is_edit_mode(pd, ob);
+  const bool is_instance = (ob->base_flag & BASE_FROM_DUPLI);
+  const bool instance_parent_in_edit_mode = is_instance ?
+                                                overlay_object_is_edit_mode(
+                                                    pd, DRW_object_get_dupli_parent(ob)) :
+                                                false;
   const bool in_particle_edit_mode = (ob->mode == OB_MODE_PARTICLE_EDIT) &&
                                      (pd->ctx_mode == CTX_MODE_PARTICLE);
   const bool in_paint_mode = (ob == draw_ctx->obact) &&
@@ -316,6 +327,7 @@ static void OVERLAY_cache_populate(void *vedata, Object *ob)
   const bool draw_wires = draw_surface && has_surface &&
                           (pd->wireframe_mode || !pd->hide_overlays);
   const bool draw_outlines = !in_edit_mode && !in_paint_mode && renderable && has_surface &&
+                             !instance_parent_in_edit_mode &&
                              (pd->v3d_flag & V3D_SELECT_OUTLINE) &&
                              (ob->base_flag & BASE_SELECTED);
   const bool draw_bone_selection = (ob->type == OB_MESH) && pd->armature.do_pose_fade_geom &&
@@ -382,6 +394,9 @@ static void OVERLAY_cache_populate(void *vedata, Object *ob)
         break;
       case OB_FONT:
         OVERLAY_edit_text_cache_populate(vedata, ob);
+        break;
+      case OB_CURVES:
+        OVERLAY_edit_curves_cache_populate(vedata, ob);
         break;
     }
   }
@@ -664,6 +679,9 @@ static void OVERLAY_draw_scene(void *vedata)
       OVERLAY_edit_gpencil_draw(vedata);
       break;
     case CTX_MODE_SCULPT_CURVES:
+      break;
+    case CTX_MODE_EDIT_CURVES:
+      OVERLAY_edit_curves_draw(vedata);
       break;
     default:
       break;

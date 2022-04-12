@@ -159,17 +159,6 @@ static void init_vbo_for_attribute(const MeshRenderData *mr,
   GPU_vertformat_deinterleave(&format);
   GPU_vertformat_attr_add(&format, attr_name, comp_type, comp_size, fetch_mode);
 
-  /* Ensure Sculpt Vertex Colors are properly aliased. */
-  if (request.cd_type == CD_PROP_COLOR && request.domain == ATTR_DOMAIN_POINT) {
-    CustomData *cd_vdata = get_custom_data_for_domain(mr, ATTR_DOMAIN_POINT);
-    if (request.layer_index == CustomData_get_render_layer(cd_vdata, CD_PROP_COLOR)) {
-      GPU_vertformat_alias_add(&format, "c");
-    }
-    if (request.layer_index == CustomData_get_active_layer(cd_vdata, CD_PROP_COLOR)) {
-      GPU_vertformat_alias_add(&format, "ac");
-    }
-  }
-
   if (build_on_device) {
     GPU_vertbuf_init_build_on_device(vbo, &format, len);
   }
@@ -402,7 +391,7 @@ static void extract_attr_init_subdiv(const DRWSubdivCache *subdiv_cache,
   /* Ensure data is uploaded properly. */
   GPU_vertbuf_tag_dirty(src_data);
   draw_subdiv_interp_custom_data(
-      subdiv_cache, src_data, dst_buffer, static_cast<int>(dimensions), 0);
+      subdiv_cache, src_data, dst_buffer, static_cast<int>(dimensions), 0, false);
 
   GPU_vertbuf_discard(src_data);
 }

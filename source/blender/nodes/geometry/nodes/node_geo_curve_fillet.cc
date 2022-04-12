@@ -283,7 +283,7 @@ static void limit_radii(FilletData &fd, const bool cyclic)
 
   /* Assign the max_radii to the fillet data's radii. */
   for (const int i : IndexRange(size)) {
-    radii[i] = max_radii[i];
+    radii[i] = std::min(radii[i], max_radii[i]);
   }
 }
 
@@ -551,8 +551,8 @@ static std::unique_ptr<CurveEval> fillet_curve(const CurveEval &input_curve,
   Span<SplinePtr> input_splines = input_curve.splines();
 
   std::unique_ptr<CurveEval> output_curve = std::make_unique<CurveEval>();
-  const int num_splines = input_splines.size();
-  output_curve->resize(num_splines);
+  const int splines_num = input_splines.size();
+  output_curve->resize(splines_num);
   MutableSpan<SplinePtr> output_splines = output_curve->splines();
   Array<int> spline_offsets = input_curve.control_point_offsets();
 
@@ -572,7 +572,7 @@ static void calculate_curve_fillet(GeometrySet &geometry_set,
                                    const std::optional<Field<int>> &count_field,
                                    const bool limit_radius)
 {
-  if (!geometry_set.has_curve()) {
+  if (!geometry_set.has_curves()) {
     return;
   }
 
@@ -603,10 +603,10 @@ static void calculate_curve_fillet(GeometrySet &geometry_set,
 
   fillet_param.limit_radius = limit_radius;
 
-  const CurveEval &input_curve = *geometry_set.get_curve_for_read();
-  std::unique_ptr<CurveEval> output_curve = fillet_curve(input_curve, fillet_param);
+  const std::unique_ptr<CurveEval> input_curve = curves_to_curve_eval(*component.get_for_read());
+  std::unique_ptr<CurveEval> output_curve = fillet_curve(*input_curve, fillet_param);
 
-  geometry_set.replace_curve(output_curve.release());
+  geometry_set.replace_curves(curve_eval_to_curves(*output_curve));
 }
 
 static void node_geo_exec(GeoNodeExecParams params)

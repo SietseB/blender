@@ -104,6 +104,8 @@ ENUM_OPERATORS(NodeResizeDirection, NODE_RESIZE_LEFT);
 #define NODE_HEIGHT(node) (node.height * UI_DPI_FAC)
 #define NODE_MARGIN_X (1.2f * U.widget_unit)
 #define NODE_SOCKSIZE (0.25f * U.widget_unit)
+#define NODE_SOCKSIZE_DRAW_MULIPLIER 2.25f
+#define NODE_SOCK_OUTLINE_SCALE 1.0f
 #define NODE_MULTI_INPUT_LINK_GAP (0.25f * U.widget_unit)
 #define NODE_RESIZE_MARGIN (0.20f * U.widget_unit)
 #define NODE_LINK_RESOL 12
@@ -131,6 +133,8 @@ void node_socket_color_get(const bContext &C,
 /* node_draw.cc */
 
 void node_draw_space(const bContext &C, ARegion &region);
+
+void node_socket_add_tooltip(bNodeTree *ntree, bNode *node, bNodeSocket *sock, uiLayout *layout);
 
 /**
  * Sort nodes by selection: unselected nodes first, then selected,
@@ -176,7 +180,6 @@ bool space_node_view_flag(
 
 void NODE_OT_view_all(wmOperatorType *ot);
 void NODE_OT_view_selected(wmOperatorType *ot);
-void NODE_OT_geometry_node_view_legacy(wmOperatorType *ot);
 
 void NODE_OT_backimage_move(wmOperatorType *ot);
 void NODE_OT_backimage_zoom(wmOperatorType *ot);
@@ -196,7 +199,8 @@ void nodelink_batch_end(SpaceNode &snode);
 void node_draw_link(const bContext &C,
                     const View2D &v2d,
                     const SpaceNode &snode,
-                    const bNodeLink &link);
+                    const bNodeLink &link,
+                    bool selected);
 /**
  * Don't do shadows if th_col3 is -1.
  */
@@ -206,7 +210,8 @@ void node_draw_link_bezier(const bContext &C,
                            const bNodeLink &link,
                            int th_col1,
                            int th_col2,
-                           int th_col3);
+                           int th_col3,
+                           bool selected);
 /** If v2d not nullptr, it clips and returns 0 if not visible. */
 bool node_link_bezier_points(const View2D *v2d,
                              const SpaceNode *snode,
@@ -237,7 +242,6 @@ void NODE_OT_add_reroute(wmOperatorType *ot);
 void NODE_OT_add_group(wmOperatorType *ot);
 void NODE_OT_add_object(wmOperatorType *ot);
 void NODE_OT_add_collection(wmOperatorType *ot);
-void NODE_OT_add_texture(wmOperatorType *ot);
 void NODE_OT_add_file(wmOperatorType *ot);
 void NODE_OT_add_mask(wmOperatorType *ot);
 void NODE_OT_new_node_tree(wmOperatorType *ot);
@@ -351,7 +355,6 @@ void NODE_GGT_backdrop_corner_pin(wmGizmoGroupType *gzgt);
 /* node_geometry_attribute_search.cc */
 
 void node_geometry_add_attribute_search_button(const bContext &C,
-                                               const bNodeTree &node_tree,
                                                const bNode &node,
                                                PointerRNA &socket_ptr,
                                                uiLayout &layout);

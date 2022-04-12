@@ -867,7 +867,7 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
   if (dup_points) {
     gps_dst->points = MEM_dupallocN(gps_src->points);
 
-    if (gps_src->dvert != NULL) {
+    if ((gps_src->dvert != NULL) && (gps_src->dvert->totweight > 0)) {
       gps_dst->dvert = MEM_dupallocN(gps_src->dvert);
       BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
     }
@@ -2568,11 +2568,13 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
         layer_cb(gpl, gpf, NULL, thunk);
       }
 
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        if (gps->totpoints == 0) {
-          continue;
+      if (stroke_cb) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+          if (gps->totpoints == 0) {
+            continue;
+          }
+          stroke_cb(gpl, gpf, gps, thunk);
         }
-        stroke_cb(gpl, gpf, gps, thunk);
       }
     }
     /* Draw Active frame on top. */
@@ -2590,12 +2592,13 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
         gpl->opacity = prev_opacity;
         continue;
       }
-
-      LISTBASE_FOREACH (bGPDstroke *, gps, &act_gpf->strokes) {
-        if (gps->totpoints == 0) {
-          continue;
+      if (stroke_cb) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &act_gpf->strokes) {
+          if (gps->totpoints == 0) {
+            continue;
+          }
+          stroke_cb(gpl, act_gpf, gps, thunk);
         }
-        stroke_cb(gpl, act_gpf, gps, thunk);
       }
     }
 

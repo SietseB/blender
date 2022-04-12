@@ -83,16 +83,16 @@ ccl_device float4 point_attribute_float4(KernelGlobals kg,
 {
 #  ifdef __RAY_DIFFERENTIALS__
   if (dx)
-    *dx = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    *dx = zero_float4();
   if (dy)
-    *dy = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    *dy = zero_float4();
 #  endif
 
   if (desc.element == ATTR_ELEMENT_VERTEX) {
     return kernel_tex_fetch(__attributes_float4, desc.offset + sd->prim);
   }
   else {
-    return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    return zero_float4();
   }
 }
 
@@ -128,9 +128,10 @@ ccl_device float point_radius(KernelGlobals kg, ccl_private const ShaderData *sd
       return r;
     }
     else {
-      float3 dir = make_float3(r, r, r);
+      const float normalized_r = r * (1.0f / M_SQRT3_F);
+      float3 dir = make_float3(normalized_r, normalized_r, normalized_r);
       object_dir_transform(kg, sd, &dir);
-      return average(dir);
+      return len(dir);
     }
   }
 

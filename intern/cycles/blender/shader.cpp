@@ -271,6 +271,7 @@ static ShaderNode *add_node(Scene *scene,
     curves->set_min_x(min_x);
     curves->set_max_x(max_x);
     curves->set_curves(curve_mapping_curves);
+    curves->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curves;
   }
   if (b_node.is_a(&RNA_ShaderNodeVectorCurve)) {
@@ -284,6 +285,7 @@ static ShaderNode *add_node(Scene *scene,
     curves->set_min_x(min_x);
     curves->set_max_x(max_x);
     curves->set_curves(curve_mapping_curves);
+    curves->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curves;
   }
   else if (b_node.is_a(&RNA_ShaderNodeFloatCurve)) {
@@ -297,6 +299,7 @@ static ShaderNode *add_node(Scene *scene,
     curve->set_min_x(min_x);
     curve->set_max_x(max_x);
     curve->set_curve(curve_mapping_curve);
+    curve->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curve;
   }
   else if (b_node.is_a(&RNA_ShaderNodeValToRGB)) {
@@ -1529,6 +1532,8 @@ void BlenderSync::sync_world(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d,
   background->set_use_shader(view_layer.use_background_shader ||
                              viewport_parameters.use_custom_shader());
 
+  background->set_lightgroup(ustring(b_world ? b_world.lightgroup() : ""));
+
   background->tag_update(scene);
 }
 
@@ -1574,18 +1579,13 @@ void BlenderSync::sync_lights(BL::Depsgraph &b_depsgraph, bool update_all)
   }
 }
 
-void BlenderSync::sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d)
+void BlenderSync::sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d, bool update_all)
 {
-  /* for auto refresh images */
-  ImageManager *image_manager = scene->image_manager;
-  const int frame = b_scene.frame_current();
-  const bool auto_refresh_update = image_manager->set_animation_frame_update(frame);
-
   shader_map.pre_sync();
 
-  sync_world(b_depsgraph, b_v3d, auto_refresh_update);
-  sync_lights(b_depsgraph, auto_refresh_update);
-  sync_materials(b_depsgraph, auto_refresh_update);
+  sync_world(b_depsgraph, b_v3d, update_all);
+  sync_lights(b_depsgraph, update_all);
+  sync_materials(b_depsgraph, update_all);
 }
 
 CCL_NAMESPACE_END

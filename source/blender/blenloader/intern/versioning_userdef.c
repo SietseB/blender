@@ -33,6 +33,7 @@
 
 #include "readfile.h" /* Own include. */
 
+#include "WM_types.h"
 #include "wm_event_types.h"
 
 /* Don't use translation strings in versioning!
@@ -323,6 +324,18 @@ static void do_versions_theme(const UserDef *userdef, bTheme *btheme)
   if (!USER_VERSION_ATLEAST(301, 2)) {
     FROM_DEFAULT_V4_UCHAR(space_sequencer.mask);
   }
+
+  if (!USER_VERSION_ATLEAST(302, 8)) {
+    btheme->space_node.grid_levels = U_theme_default.space_node.grid_levels;
+  }
+
+  if (!USER_VERSION_ATLEAST(302, 9)) {
+    FROM_DEFAULT_V4_UCHAR(space_sequencer.list);
+    FROM_DEFAULT_V4_UCHAR(space_sequencer.list_title);
+    FROM_DEFAULT_V4_UCHAR(space_sequencer.list_text);
+    FROM_DEFAULT_V4_UCHAR(space_sequencer.list_text_hi);
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *
@@ -341,7 +354,7 @@ static void do_versions_theme(const UserDef *userdef, bTheme *btheme)
 #undef USER_VERSION_ATLEAST
 }
 
-/* UserDef.flag */
+/** #UserDef.flag */
 #define USER_LMOUSESELECT (1 << 14) /* deprecated */
 
 static void do_version_select_mouse(UserDef *userdef, wmKeyMapItem *kmi)
@@ -363,10 +376,12 @@ static void do_version_select_mouse(UserDef *userdef, wmKeyMapItem *kmi)
       kmi->type = (left) ? RIGHTMOUSE : LEFTMOUSE;
       break;
     case EVT_TWEAK_S:
-      kmi->type = (left) ? EVT_TWEAK_L : EVT_TWEAK_R;
+      kmi->type = (left) ? LEFTMOUSE : RIGHTMOUSE;
+      kmi->val = KM_CLICK_DRAG;
       break;
     case EVT_TWEAK_A:
-      kmi->type = (left) ? EVT_TWEAK_R : EVT_TWEAK_L;
+      kmi->type = (left) ? RIGHTMOUSE : LEFTMOUSE;
+      kmi->val = KM_CLICK_DRAG;
       break;
     default:
       break;
@@ -382,6 +397,40 @@ static bool keymap_item_has_invalid_wm_context_data_path(wmKeyMapItem *kmi,
       return true;
     }
   }
+  return false;
+}
+
+/** Tweak event types have been removed, replace with click-drag. */
+static bool keymap_item_update_tweak_event(wmKeyMapItem *kmi, void *UNUSED(user_data))
+{
+  /* Tweak events for L M R mouse-buttons. */
+  enum {
+    EVT_TWEAK_L = 0x5002,
+    EVT_TWEAK_M = 0x5003,
+    EVT_TWEAK_R = 0x5004,
+  };
+  switch (kmi->type) {
+    case EVT_TWEAK_L:
+      kmi->type = LEFTMOUSE;
+      break;
+    case EVT_TWEAK_M:
+      kmi->type = MIDDLEMOUSE;
+      break;
+    case EVT_TWEAK_R:
+      kmi->type = RIGHTMOUSE;
+      break;
+    default:
+      kmi->direction = KM_ANY;
+      return false;
+  }
+
+  if (kmi->val >= KM_DIRECTION_N && kmi->val <= KM_DIRECTION_NW) {
+    kmi->direction = kmi->val;
+  }
+  else {
+    kmi->direction = KM_ANY;
+  }
+  kmi->val = KM_CLICK_DRAG;
   return false;
 }
 
@@ -950,6 +999,20 @@ void blo_do_versions_userdef(UserDef *userdef)
 
   if (!USER_VERSION_ATLEAST(300, 43)) {
     userdef->ndof_flag |= NDOF_CAMERA_PAN_ZOOM;
+  }
+
+  if (!USER_VERSION_ATLEAST(302, 5)) {
+    BKE_keyconfig_pref_filter_items(userdef,
+                                    &((struct wmKeyConfigFilterItemParams){
+                                        .check_item = true,
+                                        .check_diff_item_add = true,
+                                    }),
+                                    keymap_item_update_tweak_event,
+                                    NULL);
+  }
+
+  if (!USER_VERSION_ATLEAST(302, 11)) {
+    userdef->dupflag |= USER_DUP_CURVES | USER_DUP_POINTCLOUD;
   }
 
   /**

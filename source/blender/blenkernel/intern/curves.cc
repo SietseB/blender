@@ -50,7 +50,6 @@ using blender::Span;
 
 static const char *ATTR_POSITION = "position";
 
-static void curves_random(Curves *curves);
 static void update_custom_data_pointers(Curves &curves);
 
 static void curves_init_data(ID *id)
@@ -61,8 +60,6 @@ static void curves_init_data(ID *id)
   MEMCPY_STRUCT_AFTER(curves, DNA_struct_default_get(Curves), id);
 
   new (&curves->geometry) blender::bke::CurvesGeometry();
-
-  curves_random(curves);
 }
 
 static void curves_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, const int flag)
@@ -234,49 +231,6 @@ static void update_custom_data_pointers(Curves &curves)
   blender::bke::CurvesGeometry::wrap(curves.geometry).update_customdata_pointers();
 }
 
-static void curves_random(Curves *curves)
-{
-  const int numpoints = 8;
-
-  blender::bke::CurvesGeometry &geometry = blender::bke::CurvesGeometry::wrap(curves->geometry);
-  geometry = blender::bke::CurvesGeometry(500 * numpoints, 500);
-
-  MutableSpan<int> offsets = geometry.offsets();
-  MutableSpan<float3> positions = geometry.positions();
-
-  float *radius_data = (float *)CustomData_add_layer_named(
-      &geometry.point_data, CD_PROP_FLOAT, CD_DEFAULT, nullptr, geometry.point_size, "radius");
-  MutableSpan<float> radii{radius_data, geometry.points_size()};
-
-  for (const int i : offsets.index_range()) {
-    offsets[i] = numpoints * i;
-  }
-
-  RandomNumberGenerator rng;
-
-  for (int i = 0; i < geometry.curve_size; i++) {
-    const IndexRange curve_range = geometry.range_for_curve(i);
-    MutableSpan<float3> curve_positions = positions.slice(curve_range);
-    MutableSpan<float> curve_radii = radii.slice(curve_range);
-
-    const float theta = 2.0f * M_PI * rng.get_float();
-    const float phi = saacosf(2.0f * rng.get_float() - 1.0f);
-
-    float3 no = {std::sin(theta) * std::sin(phi), std::cos(theta) * std::sin(phi), std::cos(phi)};
-    no = blender::math::normalize(no);
-
-    float3 co = no;
-    for (int key = 0; key < numpoints; key++) {
-      float t = key / (float)(numpoints - 1);
-      curve_positions[key] = co;
-      curve_radii[key] = 0.02f * (1.0f - t);
-
-      float3 offset = float3(rng.get_float(), rng.get_float(), rng.get_float()) * 2.0f - 1.0f;
-      co += (offset + no) / numpoints;
-    }
-  }
-}
-
 void *BKE_curves_add(Main *bmain, const char *name)
 {
   Curves *curves = static_cast<Curves *>(BKE_id_new(bmain, ID_CV, name));
@@ -364,7 +318,7 @@ static Curves *curves_evaluate_modifiers(struct Depsgraph *depsgraph,
       /* Created deformed coordinates array on demand. */
       blender::bke::CurvesGeometry &geometry = blender::bke::CurvesGeometry::wrap(
           curves->geometry);
-      MutableSpan<float3> positions = geometry.positions();
+      MutableSpan<float3> positions = geometry.positions_for_write();
 
       mti->deformVerts(md,
                        &mectx,
@@ -412,11 +366,20 @@ void BKE_curves_batch_cache_free(Curves *curves)
 
 namespace blender::bke {
 
-Curves *curves_new_nomain(const int point_size, const int curves_size)
+Curves *curves_new_nomain(const int points_num, const int curves_num)
 {
   Curves *curves = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
   CurvesGeometry &geometry = CurvesGeometry::wrap(curves->geometry);
-  geometry.resize(point_size, curves_size);
+  geometry.resize(points_num, curves_num);
+  return curves;
+}
+
+Curves *curves_new_nomain_single(const int points_num, const CurveType type)
+{
+  Curves *curves = curves_new_nomain(points_num, 1);
+  CurvesGeometry &geometry = CurvesGeometry::wrap(curves->geometry);
+  geometry.offsets_for_write().last() = points_num;
+  geometry.curve_types_for_write().first() = type;
   return curves;
 }
 

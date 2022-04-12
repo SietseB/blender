@@ -910,18 +910,18 @@ static void curve_to_mesh_eval_ensure(Object &object)
    *
    * So we create temporary copy of the object which will use same data as the original bevel, but
    * will have no modifiers. */
-  Object bevel_object = {{nullptr}};
+  Object bevel_object = blender::dna::shallow_zero_initialize();
   if (curve.bevobj != nullptr) {
-    memcpy(&bevel_object, curve.bevobj, sizeof(bevel_object));
+    bevel_object = blender::dna::shallow_copy(*curve.bevobj);
     BLI_listbase_clear(&bevel_object.modifiers);
     BKE_object_runtime_reset(&bevel_object);
     curve.bevobj = &bevel_object;
   }
 
   /* Same thing for taper. */
-  Object taper_object = {{nullptr}};
+  Object taper_object = blender::dna::shallow_zero_initialize();
   if (curve.taperobj != nullptr) {
-    memcpy(&taper_object, curve.taperobj, sizeof(taper_object));
+    taper_object = blender::dna::shallow_copy(*curve.taperobj);
     BLI_listbase_clear(&taper_object.modifiers);
     BKE_object_runtime_reset(&taper_object);
     curve.taperobj = &taper_object;
@@ -953,11 +953,11 @@ static const Mesh *get_evaluated_mesh_from_object(const Object *object)
   return nullptr;
 }
 
-static const CurveEval *get_evaluated_curve_from_object(const Object *object)
+static const Curves *get_evaluated_curves_from_object(const Object *object)
 {
   GeometrySet *geometry_set_eval = object->runtime.geometry_set_eval;
   if (geometry_set_eval) {
-    return geometry_set_eval->get_curve_for_read();
+    return geometry_set_eval->get_curves_for_read();
   }
   return nullptr;
 }
@@ -968,8 +968,9 @@ static Mesh *mesh_new_from_evaluated_curve_type_object(const Object *evaluated_o
   if (mesh) {
     return BKE_mesh_copy_for_eval(mesh, false);
   }
-  const CurveEval *curve = get_evaluated_curve_from_object(evaluated_object);
-  if (curve) {
+  const Curves *curves = get_evaluated_curves_from_object(evaluated_object);
+  if (curves) {
+    std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*curves);
     return blender::bke::curve_to_wire_mesh(*curve);
   }
   return nullptr;
@@ -1064,8 +1065,7 @@ static Mesh *mesh_new_from_mesh_object_with_layers(Depsgraph *depsgraph,
     return nullptr;
   }
 
-  Object object_for_eval;
-  memcpy(&object_for_eval, object, sizeof(object_for_eval));
+  Object object_for_eval = blender::dna::shallow_copy(*object);
   if (object_for_eval.runtime.data_orig != nullptr) {
     object_for_eval.data = object_for_eval.runtime.data_orig;
   }
@@ -1307,7 +1307,7 @@ Mesh *BKE_mesh_create_derived_for_modifier(struct Depsgraph *depsgraph,
 
   if (build_shapekey_layers && me->key &&
       (kb = (KeyBlock *)BLI_findlink(&me->key->block, ob_eval->shapenr - 1))) {
-    BKE_keyblock_convert_to_mesh(kb, me);
+    BKE_keyblock_convert_to_mesh(kb, me->mvert, me->totvert);
   }
 
   Mesh *mesh_temp = (Mesh *)BKE_id_copy_ex(nullptr, &me->id, nullptr, LIB_ID_COPY_LOCALIZE);

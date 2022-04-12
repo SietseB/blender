@@ -865,7 +865,7 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
   else {
     std::unique_ptr<CurveEval> curve_eval = curve_eval_from_dna_curve(
         *cu, ob->runtime.curve_cache->deformed_nurbs);
-    geometry_set.replace_curve(curve_eval.release());
+    geometry_set.replace_curves(curve_eval_to_curves(*curve_eval));
   }
 
   for (; md; md = md->next) {
@@ -948,12 +948,11 @@ static void displist_surf_indices(DispList *dl)
   }
 }
 
-static void evaluate_surface_object(Depsgraph *depsgraph,
-                                    const Scene *scene,
-                                    Object *ob,
-                                    const bool for_render,
-                                    ListBase *r_dispbase,
-                                    Mesh **r_final)
+static GeometrySet evaluate_surface_object(Depsgraph *depsgraph,
+                                           const Scene *scene,
+                                           Object *ob,
+                                           const bool for_render,
+                                           ListBase *r_dispbase)
 {
   BLI_assert(ob->type == OB_SURF);
   const Curve *cu = (const Curve *)ob->data;
@@ -1036,8 +1035,7 @@ static void evaluate_surface_object(Depsgraph *depsgraph,
   if (!geometry_set.has_mesh()) {
     geometry_set.replace_mesh(BKE_mesh_new_nomain(0, 0, 0, 0, 0));
   }
-  MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
-  *r_final = mesh_component.release();
+  return geometry_set;
 }
 
 static void rotateBevelPiece(const Curve *cu,
@@ -1483,21 +1481,20 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
   ListBase *dispbase = &ob->runtime.curve_cache->disp;
 
   if (ob->type == OB_SURF) {
-    Mesh *mesh_eval;
-    evaluate_surface_object(depsgraph, scene, ob, for_render, dispbase, &mesh_eval);
-    BKE_object_eval_assign_data(ob, &mesh_eval->id, true);
+    GeometrySet geometry = evaluate_surface_object(depsgraph, scene, ob, for_render, dispbase);
+    ob->runtime.geometry_set_eval = new GeometrySet(std::move(geometry));
   }
   else {
     GeometrySet geometry = evaluate_curve_type_object(depsgraph, scene, ob, for_render, dispbase);
 
-    if (geometry.has_curve()) {
+    if (geometry.has_curves()) {
       /* Assign the evaluated curve to the object's "data_eval". In addition to the curve_eval
        * added to the curve here, it will also contain a copy of the original curve's data. This is
        * essential, because it maintains the expected behavior for evaluated curve data from before
        * the CurveEval data type was introduced, when an evaluated object's curve data was just a
        * copy of the original curve and everything else ended up in #CurveCache. */
       CurveComponent &curve_component = geometry.get_component_for_write<CurveComponent>();
-      cow_curve.curve_eval = curve_component.get_for_write();
+      cow_curve.curve_eval = curve_component.get_for_read();
       BKE_object_eval_assign_data(ob, &cow_curve.id, false);
     }
 

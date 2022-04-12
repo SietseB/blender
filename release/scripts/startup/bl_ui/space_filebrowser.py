@@ -694,9 +694,6 @@ class ASSETBROWSER_PT_metadata(asset_utils.AssetBrowserPanel, Panel):
             layout.label(text="No active asset", icon='INFO')
             return
 
-        asset_library_ref = context.asset_library_ref
-        asset_lib_path = bpy.types.AssetHandle.get_full_library_path(asset_file_handle, asset_library_ref)
-
         prefs = context.preferences
         show_asset_debug_info = prefs.view.show_developer_ui and prefs.experimental.show_asset_debug_info
 
@@ -751,7 +748,7 @@ class ASSETBROWSER_PT_metadata_preview(asset_utils.AssetMetaDataPanel, Panel):
 class ASSETBROWSER_MT_metadata_preview_menu(bpy.types.Menu):
     bl_label = "Preview"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.operator("ed.lib_id_generate_preview_from_object", text="Render Active Object")
 

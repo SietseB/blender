@@ -68,21 +68,14 @@ void wm_window_keymap(wmKeyConfig *keyconf);
 void wm_operatortypes_register(void);
 
 /* wm_gesture.c */
+
 /* called in wm_draw.c */
 
 void wm_gesture_draw(struct wmWindow *win);
 /**
- * Tweak and line gestures.
+ * Use for line gesture.
  */
-int wm_gesture_evaluate(wmGesture *gesture, const struct wmEvent *event);
 void wm_gesture_tag_redraw(struct wmWindow *win);
-
-/* wm_gesture_ops.c */
-
-/**
- * Standard tweak, called after window handlers passed on event.
- */
-void wm_tweakevent_test(bContext *C, const wmEvent *event, int action);
 
 /* wm_jobs.c */
 

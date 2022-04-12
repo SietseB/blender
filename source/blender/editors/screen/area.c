@@ -1972,6 +1972,7 @@ void ED_area_init(wmWindowManager *wm, wmWindow *win, ScrArea *area)
 
 static void area_offscreen_init(ScrArea *area)
 {
+  area->flag |= AREA_FLAG_OFFSCREEN;
   area->type = BKE_spacetype_from_id(area->spacetype);
 
   if (area->type == NULL) {
@@ -2175,12 +2176,12 @@ struct RegionTypeAlignInfo {
      * Needed for detecting which header displays the space-type switcher.
      */
     bool hidden;
-  } by_type[RGN_TYPE_LEN];
+  } by_type[RGN_TYPE_NUM];
 };
 
 static void region_align_info_from_area(ScrArea *area, struct RegionTypeAlignInfo *r_align_info)
 {
-  for (int index = 0; index < RGN_TYPE_LEN; index++) {
+  for (int index = 0; index < RGN_TYPE_NUM; index++) {
     r_align_info->by_type[index].alignment = -1;
     /* Default to true, when it doesn't exist - it's effectively hidden. */
     r_align_info->by_type[index].hidden = true;
@@ -2188,7 +2189,7 @@ static void region_align_info_from_area(ScrArea *area, struct RegionTypeAlignInf
 
   LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     const int index = region->regiontype;
-    if ((uint)index < RGN_TYPE_LEN) {
+    if ((uint)index < RGN_TYPE_NUM) {
       r_align_info->by_type[index].alignment = RGN_ALIGN_ENUM_FROM_MASK(region->alignment);
       r_align_info->by_type[index].hidden = (region->flag & RGN_FLAG_HIDDEN) != 0;
     }
@@ -2251,7 +2252,7 @@ static short region_alignment_from_header_and_tool_header_state(
 static void region_align_info_to_area_for_headers(
     const struct RegionTypeAlignInfo *region_align_info_src,
     const struct RegionTypeAlignInfo *region_align_info_dst,
-    ARegion *region_by_type[RGN_TYPE_LEN])
+    ARegion *region_by_type[RGN_TYPE_NUM])
 {
   /* Abbreviate access. */
   const short header_alignment_src = region_align_info_src->by_type[RGN_TYPE_HEADER].alignment;
@@ -2364,12 +2365,12 @@ static void region_align_info_to_area_for_headers(
 }
 
 static void region_align_info_to_area(
-    ScrArea *area, const struct RegionTypeAlignInfo region_align_info_src[RGN_TYPE_LEN])
+    ScrArea *area, const struct RegionTypeAlignInfo region_align_info_src[RGN_TYPE_NUM])
 {
-  ARegion *region_by_type[RGN_TYPE_LEN] = {NULL};
+  ARegion *region_by_type[RGN_TYPE_NUM] = {NULL};
   LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     const int index = region->regiontype;
-    if ((uint)index < RGN_TYPE_LEN) {
+    if ((uint)index < RGN_TYPE_NUM) {
       region_by_type[index] = region;
     }
   }
@@ -2436,7 +2437,7 @@ void ED_area_newspace(bContext *C, ScrArea *area, int type, const bool skip_regi
      */
 
     bool sync_header_alignment = false;
-    struct RegionTypeAlignInfo region_align_info[RGN_TYPE_LEN];
+    struct RegionTypeAlignInfo region_align_info[RGN_TYPE_NUM];
     if ((slold != NULL) && (slold->link_flag & SPACE_FLAG_TYPE_TEMPORARY) == 0) {
       region_align_info_from_area(area, region_align_info);
       sync_header_alignment = true;
@@ -3442,7 +3443,6 @@ ScrArea *ED_area_find_under_cursor(const bContext *C, int spacetype, const int x
 {
   bScreen *screen = CTX_wm_screen(C);
   wmWindow *win = CTX_wm_window(C);
-  wmWindowManager *wm = CTX_wm_manager(C);
 
   ScrArea *area = NULL;
 
@@ -3454,8 +3454,8 @@ ScrArea *ED_area_find_under_cursor(const bContext *C, int spacetype, const int x
   if (!area) {
     /* Check all windows except the active one. */
     int scr_pos[2];
-    wmWindow *r_win = WM_window_find_under_cursor(wm, win, win, xy, scr_pos);
-    if (r_win) {
+    wmWindow *r_win = WM_window_find_under_cursor(win, xy, scr_pos);
+    if (r_win && r_win != win) {
       win = r_win;
       screen = WM_window_get_active_screen(win);
       area = BKE_screen_find_area_xy(screen, spacetype, scr_pos);

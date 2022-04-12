@@ -149,10 +149,10 @@ eFileAttributes BLI_file_attributes(const char *path);
  * \{ */
 
 /**
- * Scans the contents of the directory named *dirname, and allocates and fills in an
- * array of entries describing them in *filelist.
+ * Scans the contents of the directory named `dir`, and allocates and fills in an
+ * array of entries describing them in `r_filelist`.
  *
- * \return The length of filelist array.
+ * \return The length of `r_filelist` array.
  */
 unsigned int BLI_filelist_dir_contents(const char *dir, struct direntry **r_filelist);
 /**
@@ -270,7 +270,7 @@ struct LinkNode *BLI_file_read_as_lines(const char *file) ATTR_WARN_UNUSED_RESUL
 void *BLI_file_read_text_as_mem(const char *filepath, size_t pad_bytes, size_t *r_size);
 /**
  * Return the text file data with:
-
+ *
  * - Newlines replaced with '\0'.
  * - Optionally trim white-space, replacing trailing <space> & <tab> with '\0'.
  *

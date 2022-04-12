@@ -44,6 +44,7 @@ namespace blender::ed::sculpt_paint::image::ops::paint {
  */
 class AbstractPaintMode {
  public:
+  virtual ~AbstractPaintMode() = default;
   virtual void *paint_new_stroke(
       bContext *C, wmOperator *op, Object *ob, const float mouse[2], int mode) = 0;
   virtual void paint_stroke(bContext *C,
@@ -496,7 +497,7 @@ static int paint_exec(bContext *C, wmOperator *op)
 
 static int paint_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  return paint_stroke_modal(C, op, event, static_cast<PaintStroke *>(op->customdata));
+  return paint_stroke_modal(C, op, event, reinterpret_cast<PaintStroke **>(&op->customdata));
 }
 
 static void paint_cancel(bContext *C, wmOperator *op)

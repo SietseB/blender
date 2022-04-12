@@ -51,6 +51,7 @@
 #include "BKE_image.h"
 #include "BKE_lattice.h"
 #include "BKE_layer.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -336,16 +337,11 @@ void OBJECT_OT_hide_view_set(wmOperatorType *ot)
 
 static int object_hide_collection_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win = CTX_wm_window(C);
   View3D *v3d = CTX_wm_view3d(C);
 
   int index = RNA_int_get(op->ptr, "collection_index");
-  const bool extend = (win->eventstate->modifier & KM_SHIFT) != 0;
+  const bool extend = RNA_boolean_get(op->ptr, "extend");
   const bool toggle = RNA_boolean_get(op->ptr, "toggle");
-
-  if (win->eventstate->modifier & KM_ALT) {
-    index += 10;
-  }
 
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -464,6 +460,8 @@ void OBJECT_OT_hide_collection(wmOperatorType *ot)
                      INT_MAX);
   RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
   prop = RNA_def_boolean(ot->srna, "toggle", 0, "Toggle", "Toggle visibility");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
+  prop = RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend visibility");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
@@ -976,7 +974,7 @@ static int posemode_exec(bContext *C, wmOperator *op)
       const View3D *v3d = CTX_wm_view3d(C);
       FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, ob) {
         if ((ob != obact) && (ob->type == OB_ARMATURE) && (ob->mode == OB_MODE_OBJECT) &&
-            (!ID_IS_LINKED(ob))) {
+            BKE_id_is_editable(bmain, &ob->id)) {
           ED_object_posemode_enter_ex(bmain, ob);
         }
       }
@@ -1531,6 +1529,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
     }
   }
 
+  Main *bmain = CTX_data_main(C);
   LISTBASE_FOREACH (CollectionPointerLink *, ctx_ob, &ctx_objects) {
     /* Always un-tag all object data-blocks irrespective of our ability to operate on them. */
     Object *ob = ctx_ob->ptr.data;
@@ -1541,7 +1540,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
     data->tag &= ~LIB_TAG_DOIT;
     /* Finished un-tagging, continue with regular logic. */
 
-    if (data && ID_IS_LINKED(data)) {
+    if (data && !BKE_id_is_editable(bmain, data)) {
       has_linked_data = true;
       continue;
     }

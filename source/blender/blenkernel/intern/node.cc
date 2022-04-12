@@ -55,6 +55,7 @@
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_idtype.h"
+#include "BKE_image_format.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
@@ -63,6 +64,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "NOD_common.h"
 #include "NOD_composite.h"
@@ -357,7 +359,6 @@ static void node_foreach_cache(ID *id,
   IDCacheKey key = {0};
   key.id_session_uuid = id->session_uuid;
   key.offset_in_ID = offsetof(bNodeTree, previews);
-  key.cache_v = nodetree->previews;
 
   /* TODO: see also `direct_link_nodetree()` in readfile.c. */
 #if 0
@@ -368,7 +369,6 @@ static void node_foreach_cache(ID *id,
     LISTBASE_FOREACH (bNode *, node, &nodetree->nodes) {
       if (node->type == CMP_NODE_MOVIEDISTORTION) {
         key.offset_in_ID = (size_t)BLI_ghashutil_strhash_p(node->name);
-        key.cache_v = node->storage;
         function_callback(id, &key, (void **)&node->storage, 0, user_data);
       }
     }
@@ -531,13 +531,6 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
           ELEM(node->type, SH_NODE_CURVE_VEC, SH_NODE_CURVE_RGB, SH_NODE_CURVE_FLOAT)) {
         BKE_curvemapping_blend_write(writer, (const CurveMapping *)node->storage);
       }
-      else if ((ntree->type == NTREE_GEOMETRY) &&
-               (node->type == GEO_NODE_LEGACY_ATTRIBUTE_CURVE_MAP)) {
-        BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
-        NodeAttributeCurveMap *data = (NodeAttributeCurveMap *)node->storage;
-        BKE_curvemapping_blend_write(writer, (const CurveMapping *)data->curve_vec);
-        BKE_curvemapping_blend_write(writer, (const CurveMapping *)data->curve_rgb);
-      }
       else if (ntree->type == NTREE_SHADER && (node->type == SH_NODE_SCRIPT)) {
         NodeShaderScript *nss = (NodeShaderScript *)node->storage;
         if (nss->bytecode) {
@@ -553,7 +546,7 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
         BKE_curvemapping_blend_write(writer, (const CurveMapping *)node->storage);
       }
       else if ((ntree->type == NTREE_TEXTURE) &&
-               (node->type == TEX_NODE_CURVE_RGB || node->type == TEX_NODE_CURVE_TIME)) {
+               ELEM(node->type, TEX_NODE_CURVE_RGB, TEX_NODE_CURVE_TIME)) {
         BKE_curvemapping_blend_write(writer, (const CurveMapping *)node->storage);
       }
       else if ((ntree->type == NTREE_COMPOSIT) && (node->type == CMP_NODE_MOVIEDISTORTION)) {
@@ -579,7 +572,7 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
       }
       else if ((ntree->type == NTREE_COMPOSIT) &&
-               (ELEM(node->type, CMP_NODE_CRYPTOMATTE, CMP_NODE_CRYPTOMATTE_LEGACY))) {
+               ELEM(node->type, CMP_NODE_CRYPTOMATTE, CMP_NODE_CRYPTOMATTE_LEGACY)) {
         NodeCryptomatte *nc = (NodeCryptomatte *)node->storage;
         BLO_write_string(writer, nc->matte_id);
         LISTBASE_FOREACH (CryptomatteEntry *, entry, &nc->entries) {
@@ -601,8 +594,13 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
 
     if (node->type == CMP_NODE_OUTPUT_FILE) {
       /* Inputs have their own storage data. */
+      NodeImageMultiFile *nimf = (NodeImageMultiFile *)node->storage;
+      BKE_image_format_blend_write(writer, &nimf->format);
+
       LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
-        BLO_write_struct(writer, NodeImageMultiFileSocket, sock->storage);
+        NodeImageMultiFileSocket *sockdata = (NodeImageMultiFileSocket *)sock->storage;
+        BLO_write_struct(writer, NodeImageMultiFileSocket, sockdata);
+        BKE_image_format_blend_write(writer, &sockdata->format);
       }
     }
     if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_R_LAYERS)) {
@@ -714,18 +712,6 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
           BKE_curvemapping_blend_read(reader, (CurveMapping *)node->storage);
           break;
         }
-        case GEO_NODE_LEGACY_ATTRIBUTE_CURVE_MAP: {
-          NodeAttributeCurveMap *data = (NodeAttributeCurveMap *)node->storage;
-          BLO_read_data_address(reader, &data->curve_vec);
-          if (data->curve_vec) {
-            BKE_curvemapping_blend_read(reader, data->curve_vec);
-          }
-          BLO_read_data_address(reader, &data->curve_rgb);
-          if (data->curve_rgb) {
-            BKE_curvemapping_blend_read(reader, data->curve_rgb);
-          }
-          break;
-        }
         case SH_NODE_SCRIPT: {
           NodeShaderScript *nss = (NodeShaderScript *)node->storage;
           BLO_read_data_address(reader, &nss->bytecode);
@@ -767,6 +753,11 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
           iuser->scene = nullptr;
           break;
         }
+        case CMP_NODE_OUTPUT_FILE: {
+          NodeImageMultiFile *nimf = (NodeImageMultiFile *)node->storage;
+          BKE_image_format_blend_read_data(reader, &nimf->format);
+          break;
+        }
         case FN_NODE_INPUT_STRING: {
           NodeInputString *storage = (NodeInputString *)node->storage;
           BLO_read_data_address(reader, &storage->string);
@@ -788,6 +779,14 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
     }
     LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
       direct_link_node_socket(reader, sock);
+    }
+
+    /* Socket storage. */
+    if (node->type == CMP_NODE_OUTPUT_FILE) {
+      LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
+        NodeImageMultiFileSocket *sockdata = (NodeImageMultiFileSocket *)sock->storage;
+        BKE_image_format_blend_read_data(reader, &sockdata->format);
+      }
     }
   }
 
@@ -1952,6 +1951,8 @@ void nodeRemoveAllSockets(bNodeTree *ntree, bNode *node)
     }
   }
 
+  BLI_freelistN(&node->internal_links);
+
   LISTBASE_FOREACH_MUTABLE (bNodeSocket *, sock, &node->inputs) {
     node_socket_free(sock, true);
     MEM_freeN(sock);
@@ -2436,6 +2437,11 @@ void nodeRemSocketLinks(bNodeTree *ntree, bNodeSocket *sock)
 bool nodeLinkIsHidden(const bNodeLink *link)
 {
   return nodeSocketIsHidden(link->fromsock) || nodeSocketIsHidden(link->tosock);
+}
+
+bool nodeLinkIsSelected(const bNodeLink *link)
+{
+  return (link->fromnode->flag & NODE_SELECT) || (link->tonode->flag & NODE_SELECT);
 }
 
 /* Adjust the indices of links connected to the given multi input socket after deleting the link at
@@ -3604,21 +3610,17 @@ void nodeClearActive(bNodeTree *ntree)
 
 void nodeSetActive(bNodeTree *ntree, bNode *node)
 {
-  /* make sure only one node is active, and only one per ID type */
+  const bool is_paint_canvas = nodeSupportsActiveFlag(node, NODE_ACTIVE_PAINT_CANVAS);
+  const bool is_texture_class = nodeSupportsActiveFlag(node, NODE_ACTIVE_TEXTURE);
+  int flags_to_set = NODE_ACTIVE;
+  SET_FLAG_FROM_TEST(flags_to_set, is_paint_canvas, NODE_ACTIVE_PAINT_CANVAS);
+  SET_FLAG_FROM_TEST(flags_to_set, is_texture_class, NODE_ACTIVE_TEXTURE);
+
+  /* Make sure only one node is active per node tree. */
   LISTBASE_FOREACH (bNode *, tnode, &ntree->nodes) {
-    tnode->flag &= ~NODE_ACTIVE;
-
-    if ((node->typeinfo->nclass == NODE_CLASS_TEXTURE) ||
-        (node->typeinfo->type == GEO_NODE_LEGACY_ATTRIBUTE_SAMPLE_TEXTURE)) {
-      tnode->flag &= ~NODE_ACTIVE_TEXTURE;
-    }
+    tnode->flag &= ~flags_to_set;
   }
-
-  node->flag |= NODE_ACTIVE;
-  if ((node->typeinfo->nclass == NODE_CLASS_TEXTURE) ||
-      (node->typeinfo->type == GEO_NODE_LEGACY_ATTRIBUTE_SAMPLE_TEXTURE)) {
-    node->flag |= NODE_ACTIVE_TEXTURE;
-  }
+  node->flag |= flags_to_set;
 }
 
 int nodeSocketIsHidden(const bNodeSocket *sock)
@@ -4684,45 +4686,10 @@ static void registerGeometryNodes()
 {
   register_node_type_geo_group();
 
-  register_node_type_geo_legacy_attribute_proximity();
-  register_node_type_geo_legacy_attribute_randomize();
-  register_node_type_geo_legacy_attribute_transfer();
-  register_node_type_geo_legacy_curve_endpoints();
-  register_node_type_geo_legacy_curve_reverse();
-  register_node_type_geo_legacy_curve_set_handles();
-  register_node_type_geo_legacy_curve_spline_type();
-  register_node_type_geo_legacy_curve_subdivide();
-  register_node_type_geo_legacy_curve_to_points();
-  register_node_type_geo_legacy_delete_geometry();
-  register_node_type_geo_legacy_edge_split();
-  register_node_type_geo_legacy_material_assign();
-  register_node_type_geo_legacy_mesh_to_curve();
-  register_node_type_geo_legacy_points_to_volume();
-  register_node_type_geo_legacy_raycast();
-  register_node_type_geo_legacy_select_by_handle_type();
-  register_node_type_geo_legacy_select_by_material();
-  register_node_type_geo_legacy_subdivision_surface();
-  register_node_type_geo_legacy_volume_to_mesh();
-
   register_node_type_geo_accumulate_field();
-  register_node_type_geo_align_rotation_to_vector();
   register_node_type_geo_attribute_capture();
-  register_node_type_geo_attribute_clamp();
-  register_node_type_geo_attribute_color_ramp();
-  register_node_type_geo_attribute_combine_xyz();
-  register_node_type_geo_attribute_compare();
-  register_node_type_geo_attribute_convert();
-  register_node_type_geo_attribute_curve_map();
   register_node_type_geo_attribute_domain_size();
-  register_node_type_geo_attribute_fill();
-  register_node_type_geo_attribute_map_range();
-  register_node_type_geo_attribute_math();
-  register_node_type_geo_attribute_mix();
-  register_node_type_geo_attribute_remove();
-  register_node_type_geo_attribute_separate_xyz();
   register_node_type_geo_attribute_statistic();
-  register_node_type_geo_attribute_vector_math();
-  register_node_type_geo_attribute_vector_rotate();
   register_node_type_geo_boolean();
   register_node_type_geo_bounding_box();
   register_node_type_geo_collection_info();
@@ -4743,7 +4710,7 @@ static void registerGeometryNodes()
   register_node_type_geo_curve_resample();
   register_node_type_geo_curve_reverse();
   register_node_type_geo_curve_sample();
-  register_node_type_geo_curve_set_handles();
+  register_node_type_geo_curve_set_handle_type();
   register_node_type_geo_curve_spline_parameter();
   register_node_type_geo_curve_spline_type();
   register_node_type_geo_curve_subdivide();
@@ -4760,6 +4727,7 @@ static void registerGeometryNodes()
   register_node_type_geo_flip_faces();
   register_node_type_geo_geometry_to_instance();
   register_node_type_geo_image_texture();
+  register_node_type_geo_input_named_attribute();
   register_node_type_geo_input_curve_handles();
   register_node_type_geo_input_curve_tilt();
   register_node_type_geo_input_id();
@@ -4802,19 +4770,13 @@ static void registerGeometryNodes()
   register_node_type_geo_mesh_to_curve();
   register_node_type_geo_mesh_to_points();
   register_node_type_geo_object_info();
-  register_node_type_geo_point_distribute();
-  register_node_type_geo_point_instance();
-  register_node_type_geo_point_rotate();
-  register_node_type_geo_point_scale();
-  register_node_type_geo_point_separate();
-  register_node_type_geo_point_translate();
   register_node_type_geo_points_to_vertices();
   register_node_type_geo_points_to_volume();
   register_node_type_geo_proximity();
   register_node_type_geo_raycast();
   register_node_type_geo_realize_instances();
+  register_node_type_geo_remove_attribute();
   register_node_type_geo_rotate_instances();
-  register_node_type_geo_sample_texture();
   register_node_type_geo_scale_elements();
   register_node_type_geo_scale_instances();
   register_node_type_geo_separate_components();
@@ -4830,6 +4792,7 @@ static void registerGeometryNodes()
   register_node_type_geo_set_shade_smooth();
   register_node_type_geo_set_spline_cyclic();
   register_node_type_geo_set_spline_resolution();
+  register_node_type_geo_store_named_attribute();
   register_node_type_geo_string_join();
   register_node_type_geo_string_to_curves();
   register_node_type_geo_subdivision_surface();
@@ -4844,8 +4807,6 @@ static void registerGeometryNodes()
 
 static void registerFunctionNodes()
 {
-  register_node_type_fn_legacy_random_float();
-
   register_node_type_fn_align_euler_to_vector();
   register_node_type_fn_boolean_math();
   register_node_type_fn_compare();

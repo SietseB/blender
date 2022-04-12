@@ -41,6 +41,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h" /* RNA_def_property_free_identifier */
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "CLG_log.h"
 
@@ -3461,7 +3462,14 @@ static PyObject *pyrna_struct_is_property_set(BPy_StructRNA *self, PyObject *arg
   PYRNA_STRUCT_CHECK_OBJ(self);
 
   static const char *_keywords[] = {"", "ghost", NULL};
-  static _PyArg_Parser _parser = {"s|$O&:is_property_set", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "s"  /* `name` (positional). */
+      "|$" /* Optional keyword only arguments. */
+      "O&" /* `ghost` */
+      ":is_property_set",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args, kw, &_parser, &name, PyC_ParseBool, &use_ghost)) {
     return NULL;
   }
@@ -4209,7 +4217,17 @@ static PyObject *pyrna_struct_getattro(BPy_StructRNA *self, PyObject *pyname)
       ListBase newlb;
       short newtype;
 
-      const eContextResult done = CTX_data_get(C, name, &newptr, &newlb, &newtype);
+      /* An empty string is used to implement #CTX_data_dir_get,
+       * without this check `getattr(context, "")` succeeds. */
+      eContextResult done;
+      if (name[0]) {
+        done = CTX_data_get(C, name, &newptr, &newlb, &newtype);
+      }
+      else {
+        /* Fall through to built-in `getattr`. */
+        done = CTX_RESULT_MEMBER_NOT_FOUND;
+        BLI_listbase_clear(&newlb);
+      }
 
       if (done == CTX_RESULT_OK) {
         switch (newtype) {
@@ -5897,37 +5915,42 @@ static PyObject *pyrna_param_to_py(PointerRNA *ptr, PropertyRNA *prop, void *dat
         break;
       case PROP_STRING: {
         const char *data_ch;
-        PyObject *value_coerce = NULL;
         const int subtype = RNA_property_subtype(prop);
+        size_t data_ch_len;
 
-        if (flag & PROP_THICK_WRAP) {
-          data_ch = (char *)data;
+        if (flag & PROP_DYNAMIC) {
+          ParameterDynAlloc *data_alloc = data;
+          data_ch = data_alloc->array;
+          data_ch_len = data_alloc->array_tot;
+          BLI_assert((data_ch == NULL) || strlen(data_ch) == data_ch_len);
         }
         else {
-          data_ch = *(char **)data;
+          data_ch = (flag & PROP_THICK_WRAP) ? (char *)data : *(char **)data;
+          data_ch_len = data_ch ? strlen(data_ch) : 0;
         }
 
+        if (UNLIKELY(data_ch == NULL)) {
+          BLI_assert((flag & PROP_NEVER_NULL) == 0);
+          ret = Py_None;
+          Py_INCREF(ret);
+        }
 #ifdef USE_STRING_COERCE
-        if (subtype == PROP_BYTESTRING) {
-          ret = PyBytes_FromString(data_ch);
+        else if (subtype == PROP_BYTESTRING) {
+          ret = PyBytes_FromStringAndSize(data_ch, data_ch_len);
         }
         else if (ELEM(subtype, PROP_FILEPATH, PROP_DIRPATH, PROP_FILENAME)) {
-          ret = PyC_UnicodeFromByte(data_ch);
+          ret = PyC_UnicodeFromByteAndSize(data_ch, data_ch_len);
         }
         else {
-          ret = PyUnicode_FromString(data_ch);
+          ret = PyUnicode_FromStringAndSize(data_ch, data_ch_len);
         }
 #else
-        if (subtype == PROP_BYTESTRING) {
+        else if (subtype == PROP_BYTESTRING) {
           ret = PyBytes_FromString(buf);
         }
         else {
           ret = PyUnicode_FromString(data_ch);
         }
-#endif
-
-#ifdef USE_STRING_COERCE
-        Py_XDECREF(value_coerce);
 #endif
 
         break;
@@ -6229,7 +6252,7 @@ static PyObject *pyrna_func_call(BPy_FunctionRNA *self, PyObject *args, PyObject
       arg_name = PyUnicode_AsUTF8(key);
       found = false;
 
-      if (arg_name == NULL) { /* Unlikely the argname is not a string, but ignore if it is. */
+      if (arg_name == NULL) { /* Unlikely the `arg_name` is not a string, but ignore if it is. */
         PyErr_Clear();
       }
       else {
