@@ -288,7 +288,7 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
 
   bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps_dupl, false, false);
   gps_temp->totpoints = 1;
-  gps_temp->points = MEM_cnew<bGPDspoint>("gp_stroke_points");
+  gps_temp->points = MEM_new<bGPDspoint>("gp_stroke_points");
   bGPDspoint *pt_src = &gps->points[0];
   bGPDspoint *pt_dst = &gps_temp->points[0];
   copy_v3_v3(&pt_dst->x, &pt_src->x);
