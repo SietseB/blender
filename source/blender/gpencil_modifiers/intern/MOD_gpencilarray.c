@@ -243,6 +243,9 @@ static void generate_geometry(GpencilModifierData *md,
         /* Duplicate stroke */
         bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(iter->gps, true, true);
 
+        /* Ondine: set unique stroke seed */
+        gps_dst->seed += 21;
+
         /* Move points */
         for (int i = 0; i < iter->gps->totpoints; i++) {
           bGPDspoint *pt = &gps_dst->points[i];

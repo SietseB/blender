@@ -672,6 +672,11 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->vertex_paint_opacity = 1.0f;
     /* Enable onion skin. */
     gpl->onion_flag |= GP_LAYER_ONIONSKIN;
+
+    /* Ondine additions */
+    gpl->ondine_flag = 0;
+    gpl->stroke_wetness = 0.0f;
+    gpl->darken_edge_factor = 0.0f;
   }
 
   /* auto-name */
@@ -746,6 +751,24 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->gstep = 1;
   gpd->gstep_next = 1;
 
+  /* Ondine watercolor additions */
+  gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
+  gpd->randomize_seed_step = 5;
+  gpd->wcn_freq = 0.045f;
+  gpd->wcn_octaves = 3;
+  gpd->wcn_lacunarity = 2.0f;
+  gpd->wcn_gain = 0.5f;
+  gpd->pfn_freq = 0.045f;
+  gpd->pfn_octaves = 3;
+  gpd->pfn_lacunarity = 2.0f;
+  gpd->pfn_gain = 0.5f;
+  gpd->pfn_warp_amp = 150.0f;
+  gpd->pfn_warp_freq = 0.045f;
+  gpd->pparticle_speed_min = 0.8f;
+  gpd->pparticle_speed_max = 1.5f;
+  gpd->pparticle_len_min = 30;
+  gpd->pparticle_len_max = 50;
+
   return gpd;
 }
 
@@ -785,6 +808,9 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
 
   gps->dvert = NULL;
   gps->editcurve = NULL;
+
+  /* Ondine: random seed */
+  gps->seed = rand();
 
   return gps;
 }
@@ -1007,6 +1033,24 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   copy_v2_v2(gpd_dst->grid.scale, gpd_src->grid.scale);
   copy_v2_v2(gpd_dst->grid.offset, gpd_src->grid.offset);
   gpd_dst->grid.lines = gpd_src->grid.lines;
+
+  /* Ondine additions */
+  gpd_dst->ondine_flag = gpd_src->ondine_flag;
+  gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
+  gpd_dst->wcn_freq = gpd_src->wcn_freq;
+  gpd_dst->wcn_octaves = gpd_src->wcn_octaves;
+  gpd_dst->wcn_lacunarity = gpd_src->wcn_lacunarity;
+  gpd_dst->wcn_gain = gpd_src->wcn_gain;
+  gpd_dst->pfn_freq = gpd_src->pfn_freq;
+  gpd_dst->pfn_octaves = gpd_src->pfn_octaves;
+  gpd_dst->pfn_lacunarity = gpd_src->pfn_lacunarity;
+  gpd_dst->pfn_gain = gpd_src->pfn_gain;
+  gpd_dst->pfn_warp_amp = gpd_src->pfn_warp_amp;
+  gpd_dst->pfn_warp_freq = gpd_src->pfn_warp_freq;
+  gpd_dst->pparticle_speed_min = gpd_src->pparticle_speed_min;
+  gpd_dst->pparticle_speed_max = gpd_src->pparticle_speed_max;
+  gpd_dst->pparticle_len_min = gpd_src->pparticle_len_min;
+  gpd_dst->pparticle_len_max = gpd_src->pparticle_len_max;
 }
 
 void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)
@@ -1029,6 +1073,11 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->blend_mode = gpl_src->blend_mode;
   gpl_dst->flag = gpl_src->flag;
   gpl_dst->onion_flag = gpl_src->onion_flag;
+
+  /* Ondine additions */
+  gpl_dst->ondine_flag = gpl_src->ondine_flag;
+  gpl_dst->stroke_wetness = gpl_src->stroke_wetness;
+  gpl_dst->darken_edge_factor = gpl_src->darken_edge_factor;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

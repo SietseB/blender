@@ -1285,6 +1285,15 @@ static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Vertex Color", "Color used to mix with point color to get final color");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Ondine addtions */
+  /* x,y in 2d space - only used during rendering, not in the UI */
+  prop = RNA_def_property(srna, "flat_x", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "flat_x");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+  prop = RNA_def_property(srna, "flat_y", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "flat_y");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 }
 
 static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -1749,6 +1758,48 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   prop = RNA_def_property(srna, "select_index", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "select_index");
   RNA_def_property_ui_text(prop, "Select Index", "Index of selection used for interpolation");
+
+  /* Ondine additions */
+  /* Seed */
+  prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "seed");
+  RNA_def_property_ui_text(prop, "Seed", "Random seed for stroke density variation, noise etc");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Render calculations - only used during rendering, not in the UI */
+  prop = RNA_def_property(srna, "render_fill_color", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "render_fill_color");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_stroke_color", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "render_stroke_color");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_fill_opacity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "render_fill_opacity");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_stroke_opacity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "render_stroke_opacity");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_stroke_width", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "render_stroke_width");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_thickness", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "render_thickness");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_has_fill", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_HAS_FILL);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_has_stroke", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_HAS_STROKE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 }
 
 static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -2289,6 +2340,48 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Is Parented", "True when the layer parent object is set");
 
+  /* Ondine watercolor additions */
+  /* mix with previous */
+  prop = RNA_def_property(srna, "mix_with_previous", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_MIX_WITH_PREV);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(
+    prop, "Mix with Previous", "Mix this layer with the previous layer (pigment diffusion in wet areas)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* limit to background */
+  prop = RNA_def_property(srna, "limit_to_background", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_LIMIT_TO_BG);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(
+      prop, "Limit to Background", "When true, strokes on this layer are masked by strokes in the background");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* is wetted */
+  prop = RNA_def_property(srna, "is_wetted", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_IS_WETTED);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(
+      prop, "Layer is Wetted", "Entire layer is wetted (like with a wet brush without paint)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* stroke wetness */
+  prop = RNA_def_property(srna, "stroke_wetness", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "stroke_wetness");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Stroke Wetness", "Wetness of the strokes on this layer (higher means more pigment diffusion)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* darken edge factor */
+  prop = RNA_def_property(srna, "darken_edge_factor", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "darken_edge_factor");
+  RNA_def_property_range(prop, 0.0f, 20.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Dark Edge Width",
+      "Strokes on this layer will have a darkened edge of this width (in pixels)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* Layers API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");
   RNA_def_function_ui_description(func, "Remove all the grease pencil layer data");
@@ -2709,6 +2802,153 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop, "Grid Settings", "Settings for grid and canvas in the 3D viewport");
 
   rna_def_gpencil_grid(brna);
+
+  /* Ondine watercolor additions */
+  /* watercolor GP object */
+  prop = RNA_def_property(srna, "watercolor", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_WATERCOLOR);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(
+      prop, "Watercolor", "Watercolor grease pencil objecct");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* clear background */
+  prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_CLEAR_BG);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(prop, "Clear Background", "Clear the background when drawing this object");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* gouache style */
+  prop = RNA_def_property(srna, "gouache_style", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(prop, "Gouache Style", "Allow lighter colors paint over darker colors");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* randomize seed step */
+  prop = RNA_def_property(srna, "randomize_seed_step", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "randomize_seed_step");
+  RNA_def_property_range(prop, 0, 1000);
+  RNA_def_property_int_default(prop, 0);
+  RNA_def_property_ui_text(prop, "Seed Step", "Randomize watercolor effect every ... frame (0 = no change)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* watercolor noise settings */
+  prop = RNA_def_property(srna, "wcn_freq", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "wcn_freq");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
+  RNA_def_property_float_default(prop, 0.045f);
+  RNA_def_property_ui_text(prop, "Frequency", "Watercolor noise frequency");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "wcn_octaves", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "wcn_octaves");
+  RNA_def_property_range(prop, 1, 10);
+  RNA_def_property_int_default(prop, 3);
+  RNA_def_property_ui_text(prop, "Octaves", "Watercolor noise octaves");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "wcn_lacunarity", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "wcn_lacunarity");
+  RNA_def_property_range(prop, 0.0f, 10.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 10.0f, 0.1f, 1);
+  RNA_def_property_float_default(prop, 2.0f);
+  RNA_def_property_ui_text(prop, "Lacunarity", "Watercolor noise lacunarity");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "wcn_gain", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "wcn_gain");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_float_default(prop, 0.5f);
+  RNA_def_property_ui_text(prop, "Gain", "Watercolor noise gain");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* pigment flow noise settings */
+  prop = RNA_def_property(srna, "pfn_freq", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pfn_freq");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
+  RNA_def_property_float_default(prop, 0.045f);
+  RNA_def_property_ui_text(prop, "Frequency", "Pigment flow noise frequency");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pfn_octaves", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "pfn_octaves");
+  RNA_def_property_range(prop, 1, 10);
+  RNA_def_property_int_default(prop, 3);
+  RNA_def_property_ui_text(prop, "Octaves", "Pigment flow noise octaves");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pfn_lacunarity", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pfn_lacunarity");
+  RNA_def_property_range(prop, 0.0f, 10.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 10.0f, 0.1f, 1);
+  RNA_def_property_float_default(prop, 2.0f);
+  RNA_def_property_ui_text(prop, "Lacunarity", "Pigment flow noise lacunarity");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pfn_gain", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pfn_gain");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_float_default(prop, 0.5f);
+  RNA_def_property_ui_text(prop, "Gain", "Pigment flow noise gain");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pfn_warp_amp", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pfn_warp_amp");
+  RNA_def_property_range(prop, 0.0f, 500.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 500.0f, 1.0f, 1);
+  RNA_def_property_float_default(prop, 150.0f);
+  RNA_def_property_ui_text(prop, "Warp Amplitude", "Pigment flow noise warp amplitude");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pfn_warp_freq", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pfn_warp_freq");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
+  RNA_def_property_float_default(prop, 0.045f);
+  RNA_def_property_ui_text(prop, "Warp Frequency", "Pigment flow noise warp frequency");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* pigment particle settings */
+  prop = RNA_def_property(srna, "pparticle_speed_min", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pparticle_speed_min");
+  RNA_def_property_range(prop, 0.1f, 5.0f);
+  RNA_def_property_ui_range(prop, 0.1f, 5.0f, 0.1f, 1);
+  RNA_def_property_float_default(prop, 0.8f);
+  RNA_def_property_ui_text(prop, "Min Speed", "Minimum speed of pigment particles flowing in wet areas");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pparticle_speed_max", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pparticle_speed_max");
+  RNA_def_property_range(prop, 0.1f, 5.0f);
+  RNA_def_property_ui_range(prop, 0.1f, 5.0f, 0.1f, 1);
+  RNA_def_property_float_default(prop, 1.5f);
+  RNA_def_property_ui_text(prop, "Max Speed", "Maximum speed of pigment particles flowing in wet areas");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pparticle_len_min", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "pparticle_len_min");
+  RNA_def_property_range(prop, 10, 500);
+  RNA_def_property_int_default(prop, 30);
+  RNA_def_property_ui_text(prop, "Min Length", "Minimum distance along a stroke the pigment particle speed will vary");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "pparticle_len_max", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "pparticle_len_max");
+  RNA_def_property_range(prop, 10, 500);
+  RNA_def_property_int_default(prop, 50);
+  RNA_def_property_ui_text(prop, "Max Length", "Maximum distance along a stroke the pigment particle speed will vary");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* render calculations */
+  prop = RNA_def_property(srna, "render_zdepth", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "render_zdepth");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   /* API Functions */
   func = RNA_def_function(srna, "clear", "rna_GPencil_clear");

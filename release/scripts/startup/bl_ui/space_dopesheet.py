@@ -779,6 +779,18 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
             row = layout.row(align=True)
             row.prop(gpl, "use_lights")
 
+            layout.separator()
+            row = layout.row(align=True)
+            row.prop(gpl, "mix_with_previous")
+            row = layout.row(align=True)
+            row.prop(gpl, "limit_to_background")
+            row = layout.row(align=True)
+            row.prop(gpl, "is_wetted")
+            row = layout.row(align=True)
+            row.prop(gpl, "stroke_wetness", slider=True)
+            row = layout.row(align=True)
+            row.prop(gpl, "darken_edge_factor", slider=True)
+
 
 class DOPESHEET_PT_gpencil_layer_masks(LayersDopeSheetPanel, GreasePencilLayerMasksPanel, Panel):
     bl_label = "Masks"

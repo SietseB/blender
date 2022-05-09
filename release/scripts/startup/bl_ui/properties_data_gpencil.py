@@ -169,6 +169,18 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
             col = layout.row(align=True)
             col.prop(gpl, "use_lights")
 
+            layout.separator()
+            col = layout.row(align=True)
+            col.prop(gpl, "mix_with_previous")
+            col = layout.row(align=True)
+            col.prop(gpl, "limit_to_background")
+            col = layout.row(align=True)
+            col.prop(gpl, "is_wetted")
+            col = layout.row(align=True)
+            col.prop(gpl, "stroke_wetness", slider=True)
+            col = layout.row(align=True)
+            col.prop(gpl, "darken_edge_factor", slider=True)
+
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):
     bl_label = "Masks"

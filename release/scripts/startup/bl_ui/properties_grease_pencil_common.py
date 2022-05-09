@@ -434,6 +434,11 @@ class AnnotationDataPanel:
         if gpd and gpl:
             layout.prop(gpl, "annotation_opacity", text="Opacity", slider=True)
             layout.prop(gpl, "thickness")
+            layout.prop(gpl, "mix_with_previous")
+            layout.prop(gpl, "limit_to_background")
+            layout.prop(gpl, "is_wetted")
+            layout.prop(gpl, "stroke_wetness")
+            layout.prop(gpl, "darken_edge_factor")
         else:
             layout.prop(tool_settings, "annotation_thickness", text="Thickness")
 

@@ -1718,6 +1718,20 @@ typedef struct SceneGpencil {
   char _pad[4];
 } SceneGpencil;
 
+/* Ondine watercolor addition */
+/*
+typedef struct RenderOndineWatercolor {
+  float stroke_base_alpha;
+  float stroke_alpha_var;
+  int stroke_min_length;
+  int smooth_radius;
+  int wetness_grow;
+  float pigment_diffusion_fade_factor;
+  char paper_texture[1024];
+  char paper_texture_inverted[1024];
+} RenderOndineWatercolor;
+*/
+
 /* *************************************************************** */
 /* Scene ID-Block */
 
