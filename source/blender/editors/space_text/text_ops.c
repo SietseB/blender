@@ -97,8 +97,9 @@ static char text_closing_character_pair_get(const char character)
  * This function converts the indentation tabs from a buffer to spaces.
  * \param in_buf: A pointer to a cstring.
  * \param tab_size: The size, in spaces, of the tab character.
+ * \param r_out_buf_len: The #strlen of the returned buffer.
  */
-static char *buf_tabs_to_spaces(const char *in_buf, const int tab_size)
+static char *buf_tabs_to_spaces(const char *in_buf, const int tab_size, int *r_out_buf_len)
 {
   /* Get the number of tab characters in buffer. */
   bool line_start = true;
@@ -148,6 +149,7 @@ static char *buf_tabs_to_spaces(const char *in_buf, const int tab_size)
   }
 
   out_buf[out_offset] = '\0';
+  *r_out_buf_len = out_offset;
   return out_buf;
 }
 
@@ -916,7 +918,7 @@ static int text_paste_exec(bContext *C, wmOperator *op)
 
   /* Convert clipboard content indentation to spaces if specified */
   if (text->flags & TXT_TABSTOSPACES) {
-    char *new_buf = buf_tabs_to_spaces(buf, TXT_TABSIZE);
+    char *new_buf = buf_tabs_to_spaces(buf, TXT_TABSIZE, &buf_len);
     MEM_freeN(buf);
     buf = new_buf;
   }
@@ -3459,12 +3461,6 @@ static int text_insert_exec(bContext *C, wmOperator *op)
     while (str[i]) {
       code = BLI_str_utf8_as_unicode_step(str, str_len, &i);
       done |= txt_add_char(text, code);
-      if (U.text_flag & USER_TEXT_EDIT_AUTO_CLOSE) {
-        if (text_closing_character_pair_get(code)) {
-          done |= txt_add_char(text, text_closing_character_pair_get(code));
-          txt_move_left(text, false);
-        }
-      }
     }
   }
 
@@ -3484,6 +3480,7 @@ static int text_insert_exec(bContext *C, wmOperator *op)
 
 static int text_insert_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  uint auto_close_char = 0;
   int ret;
 
   /* NOTE: the "text" property is always set from key-map,
@@ -3510,9 +3507,22 @@ static int text_insert_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     }
     str[len] = '\0';
     RNA_string_set(op->ptr, "text", str);
+
+    if (U.text_flag & USER_TEXT_EDIT_AUTO_CLOSE) {
+      auto_close_char = BLI_str_utf8_as_unicode(str);
+    }
   }
 
   ret = text_insert_exec(C, op);
+
+  if ((ret == OPERATOR_FINISHED) && (auto_close_char != 0)) {
+    const uint auto_close_match = text_closing_character_pair_get(auto_close_char);
+    if (auto_close_match != 0) {
+      Text *text = CTX_data_edit_text(C);
+      txt_add_char(text, auto_close_match);
+      txt_move_left(text, false);
+    }
+  }
 
   /* run the script while editing, evil but useful */
   if (ret == OPERATOR_FINISHED && CTX_wm_space_text(C)->live_edit) {

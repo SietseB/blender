@@ -1123,15 +1123,16 @@ void BKE_object_material_remap_calc(Object *ob_dst, Object *ob_src, short *remap
   BLI_ghash_free(gh_mat_map, NULL, NULL);
 }
 
-void BKE_object_material_from_eval_data(Main *bmain, Object *ob_orig, ID *data_eval)
+void BKE_object_material_from_eval_data(Main *bmain, Object *ob_orig, const ID *data_eval)
 {
   ID *data_orig = ob_orig->data;
 
   short *orig_totcol = BKE_id_material_len_p(data_orig);
   Material ***orig_mat = BKE_id_material_array_p(data_orig);
 
-  short *eval_totcol = BKE_id_material_len_p(data_eval);
-  Material ***eval_mat = BKE_id_material_array_p(data_eval);
+  /* Can cast away const, because the data is not changed. */
+  const short *eval_totcol = BKE_id_material_len_p((ID *)data_eval);
+  Material ***eval_mat = BKE_id_material_array_p((ID *)data_eval);
 
   if (ELEM(NULL, orig_totcol, orig_mat, eval_totcol, eval_mat)) {
     return;
@@ -1423,13 +1424,15 @@ static bool fill_texpaint_slots_cb(bNode *node, void *userdata)
     case SH_NODE_TEX_IMAGE: {
       TexPaintSlot *slot = &ma->texpaintslot[index];
       slot->ima = (Image *)node->id;
-      slot->interp = ((NodeTexImage *)node->storage)->interpolation;
+      NodeTexImage *storage = (NodeTexImage *)node->storage;
+      slot->interp = storage->interpolation;
+      slot->image_user = &storage->iuser;
       /* for new renderer, we need to traverse the treeback in search of a UV node */
       bNode *uvnode = nodetree_uv_node_recursive(node);
 
       if (uvnode) {
-        NodeShaderUVMap *storage = (NodeShaderUVMap *)uvnode->storage;
-        slot->uvname = storage->uv_map;
+        NodeShaderUVMap *uv_storage = (NodeShaderUVMap *)uvnode->storage;
+        slot->uvname = uv_storage->uv_map;
         /* set a value to index so UI knows that we have a valid pointer for the mesh */
         slot->valid = true;
       }
@@ -1941,6 +1944,8 @@ static void material_default_gpencil_init(Material *ma)
 
 static void material_default_surface_init(Material *ma)
 {
+  strcpy(ma->id.name, "MADefault Surface");
+
   bNodeTree *ntree = ntreeAddTree(NULL, "Shader Nodetree", ntreeType_Shader->idname);
   ma->nodetree = ntree;
   ma->use_nodes = true;
@@ -1967,6 +1972,8 @@ static void material_default_surface_init(Material *ma)
 
 static void material_default_volume_init(Material *ma)
 {
+  strcpy(ma->id.name, "MADefault Volume");
+
   bNodeTree *ntree = ntreeAddTree(NULL, "Shader Nodetree", ntreeType_Shader->idname);
   ma->nodetree = ntree;
   ma->use_nodes = true;
@@ -1990,6 +1997,8 @@ static void material_default_volume_init(Material *ma)
 
 static void material_default_holdout_init(Material *ma)
 {
+  strcpy(ma->id.name, "MADefault Holdout");
+
   bNodeTree *ntree = ntreeAddTree(NULL, "Shader Nodetree", ntreeType_Shader->idname);
   ma->nodetree = ntree;
   ma->use_nodes = true;

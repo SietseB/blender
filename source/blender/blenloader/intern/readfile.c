@@ -2068,7 +2068,7 @@ static void direct_link_id_embedded_id(BlendDataReader *reader,
 static int direct_link_id_restore_recalc_exceptions(const ID *id_current)
 {
   /* Exception for armature objects, where the pose has direct points to the
-   * armature databolock. */
+   * armature data-block. */
   if (GS(id_current->name) == ID_OB && ((Object *)id_current)->pose) {
     return ID_RECALC_GEOMETRY;
   }
@@ -2619,7 +2619,7 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
 
           scpt->script = restore_pointer_by_name(id_map, (ID *)scpt->script, USER_REAL);
 
-          /*screen->script = NULL; - 2.45 set to null, better re-run the script */
+          // screen->script = NULL; /* 2.45 set to null, better re-run the script. */
           if (scpt->script) {
             SCRIPT_SET_NULL(scpt->script);
           }
