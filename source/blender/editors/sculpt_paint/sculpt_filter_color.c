@@ -24,6 +24,7 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
+#include "BKE_report.h"
 #include "BKE_scene.h"
 
 #include "IMB_colormanagement.h"
@@ -130,8 +131,8 @@ static void color_filter_task_cb(void *__restrict userdata,
       case COLOR_FILTER_SATURATION:
         rgb_to_hsv_v(orig_color, hsv_color);
 
-        if (hsv_color[1] != 0.0f) {
-          hsv_color[1] = clamp_f(hsv_color[1] + fade, 0.0f, 1.0f);
+        if (hsv_color[1] > 0.001f) {
+          hsv_color[1] = clamp_f(hsv_color[1] + fade * hsv_color[1], 0.0f, 1.0f);
           hsv_to_rgb_v(hsv_color, final_color);
         }
         else {
@@ -200,14 +201,14 @@ static void color_filter_task_cb(void *__restrict userdata,
         bool copy_alpha = col[3] == smooth_color[3];
 
         if (fade < 0.0f) {
-          float delta[4];
+          float delta_color[4];
 
           /* Unsharp mask. */
-          copy_v4_v4(delta, ss->filter_cache->pre_smoothed_color[vd.index]);
-          sub_v4_v4(delta, smooth_color);
+          copy_v4_v4(delta_color, ss->filter_cache->pre_smoothed_color[vd.index]);
+          sub_v4_v4(delta_color, smooth_color);
 
           copy_v4_v4(final_color, col);
-          madd_v4_v4fl(final_color, delta, fade);
+          madd_v4_v4fl(final_color, delta_color, fade);
         }
         else {
           blend_color_interpolate_float(final_color, col, smooth_color, fade);
@@ -327,8 +328,12 @@ static int sculpt_color_filter_invoke(bContext *C, wmOperator *op, const wmEvent
 {
   Object *ob = CTX_data_active_object(C);
   Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+  View3D *v3d = CTX_wm_view3d(C);
   SculptSession *ss = ob->sculpt;
   PBVH *pbvh = ob->sculpt->pbvh;
+  if (v3d->shading.type == OB_SOLID) {
+    v3d->shading.color_type = V3D_SHADING_VERTEX_COLOR;
+  }
 
   const bool use_automasking = SCULPT_is_automasking_enabled(sd, ss, NULL);
   if (use_automasking) {
@@ -342,10 +347,7 @@ static int sculpt_color_filter_invoke(bContext *C, wmOperator *op, const wmEvent
   }
 
   /* Disable for multires and dyntopo for now */
-  if (!ss->pbvh) {
-    return OPERATOR_CANCELLED;
-  }
-  if (BKE_pbvh_type(pbvh) != PBVH_FACES) {
+  if (!ss->pbvh || !SCULPT_handles_colors_report(ss, op->reports)) {
     return OPERATOR_CANCELLED;
   }
 

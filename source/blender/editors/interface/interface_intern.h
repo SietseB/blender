@@ -147,7 +147,8 @@ struct uiBut {
 
   /** Pointer back to the layout item holding this button. */
   uiLayout *layout;
-  int flag, drawflag;
+  uint64_t flag;
+  int drawflag;
   eButType type;
   eButPointerType pointype;
   short bit, bitnr, retval, strwidth, alignnr;
@@ -182,6 +183,9 @@ struct uiBut {
   float a2;
 
   uchar col[4];
+
+  /** See \ref UI_but_func_identity_compare_set(). */
+  uiButIdentityCompareFunc identity_cmp_func;
 
   uiButHandleFunc func;
   void *func_arg1;
