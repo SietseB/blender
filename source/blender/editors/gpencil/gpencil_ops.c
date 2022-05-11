@@ -685,6 +685,10 @@ void ED_operatortypes_gpencil(void)
 
   /* armatures */
   WM_operatortype_append(GPENCIL_OT_generate_weights);
+
+  /* Ondine watercolor additions */
+  /* set z-depth of all GP watercolor objects */
+  WM_operatortype_append(GPENCIL_OT_ondine_set_zdepths);
 }
 
 void ED_operatormacros_gpencil(void)

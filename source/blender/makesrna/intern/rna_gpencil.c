@@ -2373,9 +2373,9 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Stroke Wetness", "Wetness of the strokes on this layer (higher means more pigment diffusion)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* darken edge factor */
-  prop = RNA_def_property(srna, "darken_edge_factor", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, NULL, "darken_edge_factor");
+  /* darkened edge width */
+  prop = RNA_def_property(srna, "darkened_edge_width", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width");
   RNA_def_property_range(prop, 0.0f, 20.0f);
   RNA_def_property_float_default(prop, 0.0f);
   RNA_def_property_ui_text(prop, "Dark Edge Width",

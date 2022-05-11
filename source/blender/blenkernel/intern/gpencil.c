@@ -676,7 +676,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     /* Ondine additions */
     gpl->ondine_flag = 0;
     gpl->stroke_wetness = 0.0f;
-    gpl->darken_edge_factor = 0.0f;
+    gpl->darkened_edge_width = 0.0f;
   }
 
   /* auto-name */
@@ -1051,6 +1051,7 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->pparticle_speed_max = gpd_src->pparticle_speed_max;
   gpd_dst->pparticle_len_min = gpd_src->pparticle_len_min;
   gpd_dst->pparticle_len_max = gpd_src->pparticle_len_max;
+  gpd_dst->render_zdepth = gpd_src->render_zdepth;
 }
 
 void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)
@@ -1077,7 +1078,7 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   /* Ondine additions */
   gpl_dst->ondine_flag = gpl_src->ondine_flag;
   gpl_dst->stroke_wetness = gpl_src->stroke_wetness;
-  gpl_dst->darken_edge_factor = gpl_src->darken_edge_factor;
+  gpl_dst->darkened_edge_width = gpl_src->darkened_edge_width;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)
