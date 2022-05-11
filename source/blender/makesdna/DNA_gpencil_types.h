@@ -573,7 +573,7 @@ typedef struct bGPDlayer {
   short ondine_flag;
   char _pad4[2];
   float stroke_wetness;
-  float darken_edge_factor;
+  float darkened_edge_width;
   char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
