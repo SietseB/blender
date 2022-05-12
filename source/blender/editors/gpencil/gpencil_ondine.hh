@@ -16,10 +16,10 @@ class GpencilOndine
     void set_zdepth(Object *object);
     void set_render_data(Object *object);
     void set_stroke_colors(Object *ob,
-                               bGPDlayer *gpl,
-                               bGPDstroke *gps,
-                               MaterialGPencilStyle *gp_style);
-    float stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps);
+                           bGPDlayer *gpl,
+                           bGPDstroke *gps,
+                           MaterialGPencilStyle *gp_style);
+    float stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, float thickness);
     float2 gpencil_3D_point_to_2D(const float3 co);
 
   protected:

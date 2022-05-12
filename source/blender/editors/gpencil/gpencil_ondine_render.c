@@ -13,6 +13,12 @@
 
 #include "gpencil_ondine_render.h"
 
+/* Set render data on GP object */
+void gpencil_ondine_render_set_data(Object *ob)
+{
+  gpencil_ondine_set_render_data(ob);
+}
+
 /* Set z-depth on GP object */
 void gpencil_ondine_render_set_zdepth(Object *ob)
 {
