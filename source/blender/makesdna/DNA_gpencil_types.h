@@ -331,8 +331,8 @@ typedef struct bGPDstroke {
   int seed;
 
   /** Render calculations */
-  float render_fill_color[4];
-  float render_stroke_color[4];
+  float render_fill_color[3];
+  float render_stroke_color[3];
   float render_fill_opacity;
   float render_stroke_opacity;
   float render_stroke_width;

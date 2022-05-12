@@ -50,6 +50,8 @@
 
 #include "DEG_depsgraph_query.h"
 
+#include "gpencil_ondine_render.h"
+
 const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
@@ -2330,6 +2332,11 @@ void rna_Object_lightgroup_set(PointerRNA *ptr, const char *value)
   BKE_lightgroup_membership_set(&((Object *)ptr->owner_id)->lightgroup, value);
 }
 
+void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
+{
+  gpencil_ondine_render_set_zdepth(ob);
+}
+
 #else
 
 static void rna_def_vertex_group(BlenderRNA *brna)
@@ -3063,6 +3070,8 @@ static void rna_def_object(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
+  FunctionRNA *func;
+  PropertyRNA *parm;
 
   static const EnumPropertyItem up_items[] = {
       {OB_POSX, "X", 0, "X", ""},
@@ -3850,6 +3859,12 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Lightgroup", "Lightgroup that the object belongs to");
 
   RNA_define_lib_overridable(false);
+
+  /* Ondine watercolor additions */
+  func = RNA_def_function(
+      srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
+  RNA_def_function_ui_description(func, "Set z-depth of watercolor grease pencil object for rendering");
+  RNA_def_function_flag(func, FUNC_REGISTER);
 
   /* anim */
   rna_def_animdata_common(srna);
