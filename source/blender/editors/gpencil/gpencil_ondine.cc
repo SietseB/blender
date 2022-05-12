@@ -11,6 +11,7 @@
 #include "DNA_material_types.h"
 #include "DNA_space_types.h"
 
+#include "BKE_context.h"
 #include "BKE_camera.h"
 #include "BKE_screen.h"
 #include "BKE_gpencil.h"
@@ -159,21 +160,24 @@ float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
   return r_co;
 }
 
-float GpencilOndine::stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps)
+float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, float thickness)
 {
-  bGPDspoint *pt = &gps->points[0];
-  const float2 screen_co = gpencil_3D_point_to_2D(&pt->x);
+  float defaultpixsize = 1000.0f / gpd->pixfactor;
+  float stroke_radius = (thickness / defaultpixsize) / 2.0f;
 
-  /* Radius. */
-  bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-      rv3d_, gpd_, gpl, gps, 3, diff_mat_.values);
-
-  pt = &gps_perimeter->points[0];
-  const float2 screen_ex = gpencil_3D_point_to_2D(&pt->x);
-
-  const float2 v1 = screen_co - screen_ex;
+  bGPDspoint *pt1 = &gps->points[0];
+  float3 p1, p2;
+  p1.x = pt1->x;
+  p1.y = pt1->y;
+  p1.z = pt1->z;
+  p2.x = pt1->x;
+  p2.y = pt1->y;
+  p2.z = pt1->z + stroke_radius;
+  
+  const float2 screen_co1 = gpencil_3D_point_to_2D(p1);
+  const float2 screen_co2 = gpencil_3D_point_to_2D(p2);
+  const float2 v1 = screen_co1 - screen_co2;
   float radius = math::length(v1);
-  BKE_gpencil_free_stroke(gps_perimeter);
 
   return MAX2(radius, 1.0f);
 }
@@ -267,13 +271,6 @@ void GpencilOndine::set_render_data(Object *object)
         continue;
       }
 
-      /* Apply layer thickness and object scale to stroke thickness */
-      /*  TODO!!!!
-      gps->render_thickness = gps->thickness + gpl->line_change;
-      gps->render_thickness *= mat4_to_scale(object->obmat);
-      CLAMP_MIN(gps->render_thickness, 1.0f);
-      */
-
       /* Set fill and stroke flags */
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(object, gps->mat_nr + 1);
 
@@ -296,23 +293,11 @@ void GpencilOndine::set_render_data(Object *object)
       /* Calculate stroke width */
       gps->render_stroke_width = 0.0f;
       if (is_stroke) {
-        /* TODO: find simpler way to calculate this!!!!!!!!!!! */
-
-        /* Get the thickness in pixels using a simple 1 point stroke. */
-        const float max_pressure = BKE_gpencil_stroke_max_pressure_get(gps);
-
-        bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
-        gps_temp->totpoints = 1;
-        gps_temp->points = MEM_new<bGPDspoint>("gp_stroke_points");
-        bGPDspoint *pt_src = &gps->points[0];
-        bGPDspoint *pt_dst = &gps_temp->points[0];
-        copy_v3_v3(&pt_dst->x, &pt_src->x);
-        pt_dst->pressure = max_pressure;
-
-        const float radius = this->stroke_point_radius_get(gpl, gps_temp);
-        gps->render_stroke_width = radius * 2.0f;
-
-        BKE_gpencil_free_stroke(gps_temp);
+        /* Get stroke thickness, taking object scale and layer line change into account */
+        float thickness = gps->thickness + gpl->line_change;
+        thickness *= mat4_to_scale(object->obmat);
+        CLAMP_MIN(thickness, 1.0f);
+        gps->render_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, thickness) * 2.0f;
       }
 
       /* Convert 3d stroke points to 2d */
@@ -327,6 +312,11 @@ void GpencilOndine::set_render_data(Object *object)
 }
 
 }  // namespace blender
+
+void gpencil_ondine_set_render_data(Object *ob)
+{
+  blender::ondine_render->set_render_data(ob);
+}
 
 void gpencil_ondine_set_zdepth(Object *ob)
 {

@@ -27,6 +27,7 @@
 
 #include "BLT_translation.h"
 
+#include "BKE_context.h"
 #include "BKE_camera.h"
 #include "BKE_collection.h"
 #include "BKE_editlattice.h"
@@ -2337,6 +2338,11 @@ void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
   gpencil_ondine_render_set_zdepth(ob);
 }
 
+void rna_Object_gpencil_ondine_set_render_data(Object *ob)
+{
+  gpencil_ondine_render_set_data(ob);
+}
+
 #else
 
 static void rna_def_vertex_group(BlenderRNA *brna)
@@ -3071,7 +3077,6 @@ static void rna_def_object(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
   FunctionRNA *func;
-  PropertyRNA *parm;
 
   static const EnumPropertyItem up_items[] = {
       {OB_POSX, "X", 0, "X", ""},
@@ -3864,6 +3869,11 @@ static void rna_def_object(BlenderRNA *brna)
   func = RNA_def_function(
       srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
   RNA_def_function_ui_description(func, "Set z-depth of watercolor grease pencil object for rendering");
+  RNA_def_function_flag(func, FUNC_REGISTER);
+
+  func = RNA_def_function(
+      srna, "ondine_render_set_data", "rna_Object_gpencil_ondine_set_render_data");
+  RNA_def_function_ui_description(func, "Set data of watercolor grease pencil object for rendering");
   RNA_def_function_flag(func, FUNC_REGISTER);
 
   /* anim */
