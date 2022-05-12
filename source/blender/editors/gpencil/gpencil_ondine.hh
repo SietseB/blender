@@ -3,12 +3,8 @@
 #pragma once
 
 #include "BLI_float4x4.hh"
-#include "BLI_math_vec_types.hh"
-#include "BLI_vector.hh"
 
-// using blender::Vector;
-
-namespace blender::editor::gpencil {
+namespace blender {
 
 class GpencilOndine
 {
@@ -17,11 +13,18 @@ class GpencilOndine
     GpencilOndine();
     void init(bContext *C);
     bool prepare_camera_params(bContext *C);
-    void set_zdepths(bContext *C);
+    void set_zdepth(Object *object);
+    void set_render_data(Object *object);
+    void set_stroke_colors(Object *ob,
+                               bGPDlayer *gpl,
+                               bGPDstroke *gps,
+                               MaterialGPencilStyle *gp_style);
+    float stroke_point_radius_get(bGPDlayer *gpl, bGPDstroke *gps);
+    float2 gpencil_3D_point_to_2D(const float3 co);
 
   protected:
     bool invert_axis_[2];
-    float4x4 diff_mat_;
+    blender::float4x4 diff_mat_;
 
     /* Data for easy access. */
     struct Main *bmain_;
@@ -36,17 +39,18 @@ class GpencilOndine
     int16_t render_x_, render_y_;
     float camera_ratio_;
     rctf camera_rect_;
+    blender::float3 camera_z_axis_;
 
-    float2 offset_;
+    blender::float2 offset_;
 
     int cfra_;
 
     float stroke_color_[4], fill_color_[4];
 
-   private:
+  private:
     float avg_opacity_;
     bool is_camera_;
     float persmat_[4][4];
 };
 
-}  // namespace blender::editor::gpencil
+}  // namespace blender

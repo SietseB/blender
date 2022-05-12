@@ -384,6 +384,7 @@ blender_include_dirs(
   ../../simulation
   ../../windowmanager
   ../../editors/include
+  ../../editors/gpencil
   ../../render
   ../../../../intern/cycles/blender
   ../../../../intern/atomic

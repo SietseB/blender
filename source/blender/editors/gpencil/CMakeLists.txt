@@ -2,7 +2,6 @@
 
 set(INC
   ../include
-  ../io
   ../../blenfont
   ../../blenkernel
   ../../blenlib
@@ -39,6 +38,7 @@ set(SRC
   gpencil_merge.c
   gpencil_mesh.cc
   gpencil_ondine.cc
+  gpencil_ondine_render.c
   gpencil_ops.c
   gpencil_ops_versioning.c
   gpencil_paint.c
@@ -54,6 +54,7 @@ set(SRC
 
   gpencil_intern.h
   gpencil_ondine.hh
+  gpencil_ondine_render.h
   gpencil_trace.h
 )
 

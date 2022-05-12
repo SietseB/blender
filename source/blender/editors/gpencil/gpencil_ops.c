@@ -688,7 +688,7 @@ void ED_operatortypes_gpencil(void)
 
   /* Ondine watercolor additions */
   /* set z-depth of all GP watercolor objects */
-  WM_operatortype_append(GPENCIL_OT_ondine_set_zdepths);
+  WM_operatortype_append(GPENCIL_OT_ondine_render_init);
 }
 
 void ED_operatormacros_gpencil(void)
