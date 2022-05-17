@@ -3869,12 +3869,10 @@ static void rna_def_object(BlenderRNA *brna)
   func = RNA_def_function(
       srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
   RNA_def_function_ui_description(func, "Set z-depth of watercolor grease pencil object for rendering");
-  RNA_def_function_flag(func, FUNC_REGISTER);
 
   func = RNA_def_function(
       srna, "ondine_render_set_data", "rna_Object_gpencil_ondine_set_render_data");
   RNA_def_function_ui_description(func, "Set data of watercolor grease pencil object for rendering");
-  RNA_def_function_flag(func, FUNC_REGISTER);
 
   /* anim */
   rna_def_animdata_common(srna);

@@ -438,7 +438,8 @@ class AnnotationDataPanel:
             layout.prop(gpl, "limit_to_background")
             layout.prop(gpl, "is_wetted")
             layout.prop(gpl, "stroke_wetness")
-            layout.prop(gpl, "darken_edge_factor")
+            layout.prop(gpl, "darkened_edge_width")
+            layout.prop(gpl, "darkened_edge_width_var")
         else:
             layout.prop(tool_settings, "annotation_thickness", text="Thickness")
 

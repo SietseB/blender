@@ -2382,6 +2382,14 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       "Strokes on this layer will have a darkened edge of this width (in pixels)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* darkened edge width variation */
+  prop = RNA_def_property(srna, "darkened_edge_width_var", PROP_FLOAT, PROP_PERCENTAGE);
+  RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width_var");
+  RNA_def_property_range(prop, 0.0f, 100.0f);
+  RNA_def_property_float_default(prop, 30.0f);
+  RNA_def_property_ui_text(prop, "Dark Edge Width Var", "Percentage of random variation in the width of a darkened edge");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* Layers API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");
   RNA_def_function_ui_description(func, "Remove all the grease pencil layer data");

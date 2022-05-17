@@ -677,6 +677,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->ondine_flag = 0;
     gpl->stroke_wetness = 0.0f;
     gpl->darkened_edge_width = 0.0f;
+    gpl->darkened_edge_width_var = 30.0f;
   }
 
   /* auto-name */
@@ -1079,6 +1080,7 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->ondine_flag = gpl_src->ondine_flag;
   gpl_dst->stroke_wetness = gpl_src->stroke_wetness;
   gpl_dst->darkened_edge_width = gpl_src->darkened_edge_width;
+  gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

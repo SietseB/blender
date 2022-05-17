@@ -179,7 +179,9 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
             col = layout.row(align=True)
             col.prop(gpl, "stroke_wetness", slider=True)
             col = layout.row(align=True)
-            col.prop(gpl, "darken_edge_factor", slider=True)
+            col.prop(gpl, "darkened_edge_width", slider=True)
+            col = layout.row(align=True)
+            col.prop(gpl, "darkened_edge_width_var", slider=True)
 
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):
