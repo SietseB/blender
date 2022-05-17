@@ -208,6 +208,10 @@ set(AUTOPEP8_VERSION 1.6.0)
 set(PYCODESTYLE_VERSION 2.8.0)
 set(TOML_VERSION 0.10.2)
 
+set(NUMBA_VERSION 0.55.1)
+set(CAIRO_VERSION 1.21.0)
+set(PILLOW_VERSION 9.1.0)
+
 set(NUMPY_VERSION 1.22.0)
 set(NUMPY_SHORT_VERSION 1.22)
 set(NUMPY_URI https://github.com/numpy/numpy/releases/download/v${NUMPY_VERSION}/numpy-${NUMPY_VERSION}.zip)
