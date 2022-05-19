@@ -2377,6 +2377,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   prop = RNA_def_property(srna, "darkened_edge_width", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width");
   RNA_def_property_range(prop, 0.0f, 20.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 20.0f, 1.0f, 1);
   RNA_def_property_float_default(prop, 0.0f);
   RNA_def_property_ui_text(prop, "Dark Edge Width",
       "Strokes on this layer will have a darkened edge of this width (in pixels)");
@@ -2386,6 +2387,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   prop = RNA_def_property(srna, "darkened_edge_width_var", PROP_FLOAT, PROP_PERCENTAGE);
   RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width_var");
   RNA_def_property_range(prop, 0.0f, 100.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 100.0f, 1.0f, 0);
   RNA_def_property_float_default(prop, 30.0f);
   RNA_def_property_ui_text(prop, "Dark Edge Width Var", "Percentage of random variation in the width of a darkened edge");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");

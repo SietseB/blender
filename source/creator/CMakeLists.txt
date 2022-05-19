@@ -878,6 +878,43 @@ elseif(WIN32)
           CONFIGURATIONS Debug
         )
       endif()
+
+      # Python packages for Ondine watercolor addon
+      message(STATUS "Install python packages for Ondine watercolor: cairo, pillow, llvmlite, numba")
+      set(PYTHON_EXE_RELEASE "${EXECUTABLE_OUTPUT_PATH}/Release/${BLENDER_VERSION}/python/bin/python.exe")
+      if(EXISTS "${PYTHON_EXE_RELEASE}")
+        # Pip install Pillow, pycairo
+        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install Pillow --no-deps)
+        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install pycairo --no-deps)
+        # execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install llvmlite --no-deps)
+        # execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install numba --no-deps)
+      endif()
+      
+      # We need a dev build of llvmlite and numba, because the
+      # binary pip packages don't match the numpy version (1.22.0)
+      # that comes with Blender 3.3.
+      # For now we just copy a dev build into the lib/site-packages folder.
+      install(
+        DIRECTORY ${CMAKE_SOURCE_DIR}/external_python_packages/llvmlite/llvmlite
+        DESTINATION ${BLENDER_VERSION}/python/lib/site-packages
+        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+        PATTERN ".svn" EXCLUDE
+        PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
+        PATTERN "__pycache__" EXCLUDE           # * any cache *
+        PATTERN "*.pyc" EXCLUDE                 # * any cache *
+        PATTERN "*.pyo" EXCLUDE                 # * any cache *
+      )
+      install(
+        DIRECTORY ${CMAKE_SOURCE_DIR}/external_python_packages/numba/numba
+        DESTINATION ${BLENDER_VERSION}/python/lib/site-packages
+        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+        PATTERN ".svn" EXCLUDE
+        PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
+        PATTERN "__pycache__" EXCLUDE           # * any cache *
+        PATTERN "*.pyc" EXCLUDE                 # * any cache *
+        PATTERN "*.pyo" EXCLUDE                 # * any cache *
+      )
+      
     endif()
 
     unset(_PYTHON_VERSION_NO_DOTS)
@@ -1255,6 +1292,7 @@ if(WIN32)
       endif()
   endif()
 endif()
+
 
 # -----------------------------------------------------------------------------
 # Setup launcher
