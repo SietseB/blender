@@ -184,32 +184,18 @@ float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDs
 
 void GpencilOndine::set_stroke_colors(Object *ob, bGPDlayer *gpl, bGPDstroke *gps, MaterialGPencilStyle *gp_style)
 {
-  /* Stroke color. */
-  copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
-  avg_opacity_ = 0.0f;
-
-  /* Get average vertex color and apply. */
-  float avg_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  for (const bGPDspoint &pt : Span(gps->points, gps->totpoints)) {
-    add_v4_v4(avg_color, pt.vert_color);
-    avg_opacity_ += pt.strength;
-  }
-  mul_v4_v4fl(avg_color, avg_color, 1.0f / (float)gps->totpoints);
-  interp_v3_v3v3(stroke_color_, stroke_color_, avg_color, avg_color[3]);
-  avg_opacity_ /= (float)gps->totpoints;
-
   float col[3];
-  interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  linearrgb_to_srgb_v3_v3(col, col);
-  copy_v3_v3(gps->render_stroke_color, col);
-  gps->render_stroke_opacity = stroke_color_[3] * avg_opacity_ * gpl->opacity;
 
-  /* Get fill color and apply */
+  /* Get stroke color. */
+  copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
+  interp_v3_v3v3(stroke_color_, stroke_color_, gps->points[0].vert_color, gps->points[0].vert_color[3]);
+  interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
+  copy_v3_v3(gps->render_stroke_color, col);
+  
+  /* Get fill color */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
-
   interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  linearrgb_to_srgb_v3_v3(col, col);
   copy_v3_v3(gps->render_fill_color, col);
   gps->render_fill_opacity = fill_color_[3] * gpl->opacity;
 }
@@ -287,7 +273,7 @@ void GpencilOndine::set_render_data(Object *object)
         gps->render_flag |= GP_ONDINE_STROKE_HAS_FILL;
       }
 
-      /* Set stroke and fill color */
+      /* Set stroke and fill color, in linear sRGB */
       this->set_stroke_colors(object, gpl, gps, gp_style);
 
       /* Calculate stroke width */
@@ -301,11 +287,23 @@ void GpencilOndine::set_render_data(Object *object)
       }
 
       /* Convert 3d stroke points to 2d */
+      float strength = gps->points[0].strength;
+      bool strength_is_constant = true;
       for (const int i : IndexRange(gps->totpoints)) {
         bGPDspoint &pt = gps->points[i];
         const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
         pt.flat_x = screen_co.x;
         pt.flat_y = screen_co.y;
+
+        /* Constant pressure? */
+        if ((strength_is_constant) && (pt.strength != strength)) {
+          strength_is_constant = false;
+        }
+      }
+
+      /* Set constant strength flag */
+      if (strength_is_constant) {
+        gps->render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
       }
     }
   }

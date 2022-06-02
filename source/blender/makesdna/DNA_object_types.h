@@ -429,7 +429,10 @@ typedef struct Object {
   char empty_image_visibility_flag;
   char empty_image_depth;
   char empty_image_flag;
-  char _pad8[5];
+  char _pad8[3];
+
+  /** Ondine watercolor additions */
+  short ondine_flag;
 
   struct PreviewImage *preview;
 
@@ -782,6 +785,13 @@ enum {
 enum {
   OB_EMPTY_IMAGE_USE_ALPHA_BLEND = 1 << 0,
 };
+
+/* Ondine watercolor flags */
+typedef enum eGP_OndineFlag {
+  GP_ONDINE_WATERCOLOR = (1 << 0),
+  GP_ONDINE_CLEAR_BG = (1 << 1),
+  GP_ONDINE_GOUACHE_STYLE = (1 << 2),
+} eGP_OndineFlag;
 
 #define MAX_DUPLI_RECUR 8
 

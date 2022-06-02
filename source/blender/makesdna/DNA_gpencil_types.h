@@ -389,6 +389,7 @@ typedef enum eGPDstroke_Caps {
 typedef enum eGPDstroke_RenderFlag {
   GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
   GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
+  GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT = (1 << 2),
 } eGPDstroke_RenderFlag;
 
 /* Arrows ----------------------- */
@@ -573,8 +574,10 @@ typedef struct bGPDlayer {
   short ondine_flag;
   char _pad4[2];
   float stroke_wetness;
+  float stroke_dryness;
   float darkened_edge_width;
   float darkened_edge_width_var;
+  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */
@@ -618,7 +621,9 @@ typedef enum eGPDlayer_Flag {
 typedef enum eGPDlayer_OndineFlag {
   /* mix with previous layer */
   GP_LAYER_ONDINE_MIX_WITH_PREV = (1 << 0),
+  /* limit to background layers */
   GP_LAYER_ONDINE_LIMIT_TO_BG = (1 << 1),
+  /* layer is entirely wetted */
   GP_LAYER_ONDINE_IS_WETTED = (1 << 2),
 } eGPDlayer_OndineFlag;
 
@@ -790,6 +795,8 @@ typedef struct bGPdata {
   short ondine_flag;
   char _pad3[2];
   int randomize_seed_step;
+  float stroke_alpha_var;
+  char _pad4[4];
 
   /* Watercolor stroke fill noise */
   float wcn_freq;
@@ -813,7 +820,7 @@ typedef struct bGPdata {
 
   /* Render calculations */
   float render_zdepth;
-  char _pad4[4];
+  int render_collected;
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */
@@ -924,11 +931,13 @@ typedef enum eGP_DrawMode {
 } eGP_DrawMode;
 
 /* Ondine watercolor flags */
+/*
 typedef enum eGP_OndineFlag {
   GP_ONDINE_WATERCOLOR = (1 << 0),
   GP_ONDINE_CLEAR_BG = (1 << 1),
   GP_ONDINE_GOUACHE_STYLE = (1 << 2),
 } eGP_OndineFlag;
+*/
 
 /* ***************************************** */
 /* Mode Checking Macros */
