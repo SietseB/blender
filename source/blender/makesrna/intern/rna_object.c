@@ -3866,10 +3866,20 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_define_lib_overridable(false);
 
   /* Ondine watercolor additions */
+  /* clear background */
+  prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_CLEAR_BG);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(
+      prop, "Clear Background", "Clear the background when drawing this object (Ondine watercolor)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* set z-depth */
   func = RNA_def_function(
       srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
   RNA_def_function_ui_description(func, "Set z-depth of watercolor grease pencil object for rendering");
 
+  /* set render data */
   func = RNA_def_function(
       srna, "ondine_render_set_data", "rna_Object_gpencil_ondine_set_render_data");
   RNA_def_function_ui_description(func, "Set data of watercolor grease pencil object for rendering");

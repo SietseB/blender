@@ -789,6 +789,8 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
             row = layout.row(align=True)
             row.prop(gpl, "stroke_wetness", slider=True)
             row = layout.row(align=True)
+            row.prop(gpl, "stroke_dryness", slider=True)
+            row = layout.row(align=True)
             row.prop(gpl, "darkened_edge_width", slider=True)
             row = layout.row(align=True)
             row.prop(gpl, "darkened_edge_width_var", slider=True)
