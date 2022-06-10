@@ -675,10 +675,12 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
 
     /* Ondine additions */
     gpl->ondine_flag = 0;
-    gpl->stroke_wetness = 0.0f;
+    gpl->stroke_wetness = 0.2f;
     gpl->stroke_dryness = 0.0f;
-    gpl->darkened_edge_width = 0.0f;
+    gpl->stroke_darkened_edge_width = 0.0f;
+    gpl->layer_darkened_edge_width = 0.0f;
     gpl->darkened_edge_width_var = 30.0f;
+    gpl->darkened_edge_intensity = 1.0f;
   }
 
   /* auto-name */
@@ -757,6 +759,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
   gpd->randomize_seed_step = 5;
   gpd->stroke_alpha_var = 0.12f;
+  gpd->watercolor_noise_strength = 1.0f;
   gpd->wcn_freq = 0.045f;
   gpd->wcn_octaves = 3;
   gpd->wcn_lacunarity = 2.0f;
@@ -1041,6 +1044,7 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->ondine_flag = gpd_src->ondine_flag;
   gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
   gpd_dst->stroke_alpha_var = gpd_src->stroke_alpha_var;
+  gpd_dst->watercolor_noise_strength = gpd_src->watercolor_noise_strength;
   gpd_dst->wcn_freq = gpd_src->wcn_freq;
   gpd_dst->wcn_octaves = gpd_src->wcn_octaves;
   gpd_dst->wcn_lacunarity = gpd_src->wcn_lacunarity;
@@ -1083,8 +1087,10 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->ondine_flag = gpl_src->ondine_flag;
   gpl_dst->stroke_wetness = gpl_src->stroke_wetness;
   gpl_dst->stroke_dryness = gpl_src->stroke_dryness;
-  gpl_dst->darkened_edge_width = gpl_src->darkened_edge_width;
+  gpl_dst->stroke_darkened_edge_width = gpl_src->stroke_darkened_edge_width;
+  gpl_dst->layer_darkened_edge_width = gpl_src->layer_darkened_edge_width;
   gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
+  gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

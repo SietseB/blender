@@ -287,8 +287,12 @@ void GpencilOndine::set_render_data(Object *object)
       }
 
       /* Convert 3d stroke points to 2d */
-      float strength = gps->points[0].strength;
+      float strength = (int)(gps->points[0].strength * 1000 + 0.5);
+      strength = (float)strength / 1000;
       bool strength_is_constant = true;
+      float min_y = 100000.0f;
+      float max_x = -100000.0f;
+      int min_i1 = 0;
       for (const int i : IndexRange(gps->totpoints)) {
         bGPDspoint &pt = gps->points[i];
         const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
@@ -296,14 +300,44 @@ void GpencilOndine::set_render_data(Object *object)
         pt.flat_y = screen_co.y;
 
         /* Constant pressure? */
-        if ((strength_is_constant) && (pt.strength != strength)) {
-          strength_is_constant = false;
+        if (strength_is_constant) {
+          float p_strength = (int)(pt.strength * 1000 + 0.5);
+          p_strength = (float)p_strength / 1000;
+          if ((strength_is_constant) && (p_strength != strength)) {
+            strength_is_constant = false;
+          }
+        }
+
+        /* Keep track of minimum y point */
+        if (pt.flat_y <= min_y) {
+          if ((pt.flat_y < min_y) || (pt.flat_x > max_x)) {
+            min_i1 = i;
+            min_y = pt.flat_y;
+            max_x = pt.flat_x;
+          }
         }
       }
 
       /* Set constant strength flag */
       if (strength_is_constant) {
         gps->render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
+      }
+
+      /* Determine wether a fill is clockwise or counterclockwise */
+      /* See: https://en.wikipedia.org/wiki/Curve_orientation */
+      gps->render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+      if (is_fill) {
+        int lenp = gps->totpoints - 1;
+        int min_i0 = (min_i1 == 0) ? lenp: min_i1 - 1;
+        int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
+        float det =
+          (gps->points[min_i1].flat_x - gps->points[min_i0].flat_x) *
+          (gps->points[min_i2].flat_y - gps->points[min_i0].flat_y) -
+          (gps->points[min_i2].flat_x - gps->points[min_i0].flat_x) *
+          (gps->points[min_i1].flat_y - gps->points[min_i0].flat_y);
+        if (det > 0) {
+          gps->render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+        }
       }
     }
   }
