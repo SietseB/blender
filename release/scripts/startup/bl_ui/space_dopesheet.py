@@ -773,12 +773,16 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
             row.prop(gpl, "is_wetted")
             row = layout.row(align=True)
             row.prop(gpl, "stroke_wetness", slider=True)
+            # row = layout.row(align=True)
+            # row.prop(gpl, "stroke_dryness", slider=True)
             row = layout.row(align=True)
-            row.prop(gpl, "stroke_dryness", slider=True)
+            row.prop(gpl, "stroke_darkened_edge_width", slider=True)
             row = layout.row(align=True)
-            row.prop(gpl, "darkened_edge_width", slider=True)
+            row.prop(gpl, "layer_darkened_edge_width", slider=True)
             row = layout.row(align=True)
             row.prop(gpl, "darkened_edge_width_var", slider=True)
+            row = layout.row(align=True)
+            row.prop(gpl, "darkened_edge_intensity", slider=True)
 
 
 class DOPESHEET_PT_gpencil_layer_masks(LayersDopeSheetPanel, GreasePencilLayerMasksPanel, Panel):

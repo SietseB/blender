@@ -1804,6 +1804,10 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   prop = RNA_def_property(srna, "render_strength_is_constant", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_fill_is_clockwise", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_FILL_IS_CLOCKWISE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 }
 
 static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -2373,7 +2377,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   prop = RNA_def_property(srna, "stroke_wetness", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_wetness");
   RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_float_default(prop, 0.2f);
   RNA_def_property_ui_text(prop, "Stroke Wetness", "Wetness of the strokes on this layer (higher means more pigment diffusion)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
@@ -2385,23 +2389,41 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Stroke Dryness", "Dryness of the strokes on this layer (higher means less pigment coverage)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* darkened edge width */
-  prop = RNA_def_property(srna, "darkened_edge_width", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width");
-  RNA_def_property_range(prop, 0.0f, 20.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 20.0f, 1.0f, 1);
+  /* stroke darkened edge width */
+  prop = RNA_def_property(srna, "stroke_darkened_edge_width", PROP_FLOAT, PROP_PIXEL);
+  RNA_def_property_float_sdna(prop, NULL, "stroke_darkened_edge_width");
+  RNA_def_property_range(prop, 0.0f, 50.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 50.0f, 1.0f, 0);
   RNA_def_property_float_default(prop, 0.0f);
-  RNA_def_property_ui_text(prop, "Dark Edge Width",
-      "Strokes on this layer will have a darkened edge of this width (in pixels)");
+  RNA_def_property_ui_text(prop, "Stroke Dark Edge Width",
+      "Strokes on this layer will have a darkened edge of this width");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* layer darkened edge width */
+  prop = RNA_def_property(srna, "layer_darkened_edge_width", PROP_FLOAT, PROP_PIXEL);
+  RNA_def_property_float_sdna(prop, NULL, "layer_darkened_edge_width");
+  RNA_def_property_range(prop, 0.0f, 50.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 50.0f, 1.0f, 0);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Layer Dark Edge Width",
+      "All filled areas on this layer will have a darkened edge of this width");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* darkened edge width variation */
   prop = RNA_def_property(srna, "darkened_edge_width_var", PROP_FLOAT, PROP_PERCENTAGE);
   RNA_def_property_float_sdna(prop, NULL, "darkened_edge_width_var");
-  RNA_def_property_range(prop, 0.0f, 100.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 100.0f, 1.0f, 0);
-  RNA_def_property_float_default(prop, 30.0f);
+  RNA_def_property_range(prop, 0.0f, 200.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 200.0f, 1.0f, 0);
+  RNA_def_property_float_default(prop, 50.0f);
   RNA_def_property_ui_text(prop, "Dark Edge Width Var", "Percentage of random variation in the width of a darkened edge");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* darkened edge intensity */
+  prop = RNA_def_property(srna, "darkened_edge_intensity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "darkened_edge_intensity");
+  RNA_def_property_range(prop, 0.0f, 5.0f);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_text(prop, "Edge Intensity", "Intensity of the darkened edge (higher means darker)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* Layers API */
@@ -2860,9 +2882,18 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "stroke_alpha_var", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_alpha_var");
   RNA_def_property_range(prop, 0, 0.6f);
-  RNA_def_property_float_default(prop, 0.09f);
+  RNA_def_property_float_default(prop, 0.12f);
   RNA_def_property_ui_range(prop, 0.0f, 0.6f, 0.05f, 2);
-  RNA_def_property_ui_text(prop, "Stroke Alpha Variation", "Maximum variation of stroke alpha applied by watercolor noise");
+  RNA_def_property_ui_text(prop, "Stroke Alpha Variation", "Maximum random variation of alpha on strokes");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* watercolor noise strength */
+  prop = RNA_def_property(srna, "watercolor_noise_strength", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "watercolor_noise_strength");
+  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Noise Strength", "Strength of watercolor noise applied to strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* watercolor noise settings */

@@ -54,7 +54,4 @@ void GPENCIL_OT_ondine_render_init(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = gpencil_ondine_render_init_exec;
   ot->poll = gpencil_ondine_render_init_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER;
 }

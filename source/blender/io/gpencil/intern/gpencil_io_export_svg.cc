@@ -224,8 +224,7 @@ void GpencilExporterSVG::export_gpencil_layers()
               BKE_gpencil_stroke_sample(gpd_eval, gps_perimeter, params_.stroke_sample, false, 0);
             }
 
-            /* SB addition TEMP */
-            export_stroke_to_path(gpl, gps_perimeter, node_gpl, false, gps_duplicate);
+            export_stroke_to_path(gpl, gps_perimeter, node_gpl, false);
 
             BKE_gpencil_free_stroke(gps_perimeter);
           }
@@ -240,8 +239,7 @@ void GpencilExporterSVG::export_gpencil_layers()
 void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
                                                bGPDstroke *gps,
                                                pugi::xml_node node_gpl,
-                                               const bool do_fill,
-                                               bGPDstroke *gps_dupl)
+                                               const bool do_fill)
 {
   pugi::xml_node node_gps = node_gpl.append_child("path");
 
@@ -280,39 +278,6 @@ void GpencilExporterSVG::export_stroke_to_path(bGPDlayer *gpl,
   }
 
   node_gps.append_attribute("d").set_value(txt.c_str());
-
-  /* Ondine watercolor addition TEMP */
-
-  /* Get the thickness in pixels using a simple 1 point stroke. */
-  const float max_pressure = BKE_gpencil_stroke_max_pressure_get(gps_dupl);
-
-  bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps_dupl, false, false);
-  gps_temp->totpoints = 1;
-  gps_temp->points = MEM_new<bGPDspoint>("gp_stroke_points");
-  bGPDspoint *pt_src = &gps_dupl->points[0];
-  bGPDspoint *pt_dst = &gps_temp->points[0];
-  copy_v3_v3(&pt_dst->x, &pt_src->x);
-  pt_dst->pressure = max_pressure;
-
-  const float radius = stroke_point_radius_get(gpl, gps_temp);
-
-  BKE_gpencil_free_stroke(gps_temp);
-
-  /* Add stroke width */
-  node_gps.append_attribute("s-width").set_value((radius * 2.0f) - gpl->line_change);
-
-  /* Add stroke points, pressure and strength */
-  txt = "";
-  for (const int i : IndexRange(gps_dupl->totpoints)) {
-    if (i > 0) {
-      txt.append(",");
-    }
-    bGPDspoint &pt = gps_dupl->points[i];
-    const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
-    txt.append(std::to_string(screen_co.x) + " " + std::to_string(screen_co.y) + " " +
-               std::to_string(pt.pressure) + " " + std::to_string(pt.strength));
-  }
-  node_gps.append_attribute("s").set_value(txt.c_str());
 }
 
 void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
@@ -356,20 +321,6 @@ void GpencilExporterSVG::export_stroke_to_polyline(bGPDlayer *gpl,
   }
 
   node_gps.append_attribute("points").set_value(txt.c_str());
-
-  // Ondine
-  /* Add stroke points, pressure and strength */
-  txt = "";
-  for (const int i : IndexRange(gps->totpoints)) {
-    if (i > 0) {
-      txt.append(",");
-    }
-    bGPDspoint &pt = gps->points[i];
-    const float2 screen_co = gpencil_3D_point_to_2D(&pt.x);
-    txt.append(std::to_string(screen_co.x) + " " + std::to_string(screen_co.y) + " " +
-               std::to_string(pt.pressure) + " " + std::to_string(pt.strength));
-  }
-  node_gps.append_attribute("s").set_value(txt.c_str());
 }
 
 void GpencilExporterSVG::color_string_set(bGPDlayer *gpl,

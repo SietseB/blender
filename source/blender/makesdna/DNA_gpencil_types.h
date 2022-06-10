@@ -390,6 +390,7 @@ typedef enum eGPDstroke_RenderFlag {
   GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
   GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
   GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT = (1 << 2),
+  GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 3),
 } eGPDstroke_RenderFlag;
 
 /* Arrows ----------------------- */
@@ -575,8 +576,10 @@ typedef struct bGPDlayer {
   char _pad4[2];
   float stroke_wetness;
   float stroke_dryness;
-  float darkened_edge_width;
+  float stroke_darkened_edge_width;
   float darkened_edge_width_var;
+  float layer_darkened_edge_width;
+  float darkened_edge_intensity;
   char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
@@ -796,7 +799,7 @@ typedef struct bGPdata {
   char _pad3[2];
   int randomize_seed_step;
   float stroke_alpha_var;
-  char _pad4[4];
+  float watercolor_noise_strength;
 
   /* Watercolor stroke fill noise */
   float wcn_freq;
