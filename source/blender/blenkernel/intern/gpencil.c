@@ -761,7 +761,8 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
   gpd->randomize_seed_step = 5;
   gpd->stroke_alpha_var = 0.12f;
-  gpd->watercolor_noise_strength = 1.0f;
+  gpd->watercolor_noise_strength_high = 1.0f;
+  gpd->watercolor_noise_strength_low = 1.0f;
   gpd->wcn_freq = 0.045f;
   gpd->wcn_octaves = 3;
   gpd->wcn_lacunarity = 2.0f;
@@ -1046,7 +1047,8 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->ondine_flag = gpd_src->ondine_flag;
   gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
   gpd_dst->stroke_alpha_var = gpd_src->stroke_alpha_var;
-  gpd_dst->watercolor_noise_strength = gpd_src->watercolor_noise_strength;
+  gpd_dst->watercolor_noise_strength_high = gpd_src->watercolor_noise_strength_high;
+  gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
   gpd_dst->wcn_freq = gpd_src->wcn_freq;
   gpd_dst->wcn_octaves = gpd_src->wcn_octaves;
   gpd_dst->wcn_lacunarity = gpd_src->wcn_lacunarity;

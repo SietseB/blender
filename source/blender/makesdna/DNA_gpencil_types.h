@@ -799,7 +799,8 @@ typedef struct bGPdata {
   char _pad3[2];
   int randomize_seed_step;
   float stroke_alpha_var;
-  float watercolor_noise_strength;
+  float watercolor_noise_strength_low;
+  float watercolor_noise_strength_high;
 
   /* Watercolor stroke fill noise */
   float wcn_freq;
@@ -824,6 +825,7 @@ typedef struct bGPdata {
   /* Render calculations */
   float render_zdepth;
   int render_collected;
+  char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */
