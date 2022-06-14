@@ -2887,13 +2887,22 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Stroke Alpha Variation", "Maximum random variation of alpha on strokes");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* watercolor noise strength */
-  prop = RNA_def_property(srna, "watercolor_noise_strength", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, NULL, "watercolor_noise_strength");
+  /* watercolor noise strength high */
+  prop = RNA_def_property(srna, "watercolor_noise_strength_high", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "watercolor_noise_strength_high");
   RNA_def_property_range(prop, 0, 2.0f);
   RNA_def_property_float_default(prop, 1.0f);
   RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
-  RNA_def_property_ui_text(prop, "Noise Strength", "Strength of watercolor noise applied to strokes and fills");
+  RNA_def_property_ui_text(prop, "High Noise Strength", "Strength of high frequency watercolor noise applied to strokes and fills");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* watercolor noise strength low */
+  prop = RNA_def_property(srna, "watercolor_noise_strength_low", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "watercolor_noise_strength_low");
+  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Low Noise Strength", "Strength of low frequency watercolor noise applied to strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* watercolor noise settings */
