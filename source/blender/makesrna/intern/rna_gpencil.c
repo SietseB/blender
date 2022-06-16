@@ -2874,16 +2874,16 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "randomize_seed_step", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "randomize_seed_step");
   RNA_def_property_range(prop, 0, 1000);
-  RNA_def_property_int_default(prop, 5);
+  RNA_def_property_int_default(prop, 0);
   RNA_def_property_ui_text(prop, "Seed Step", "Randomize watercolor effect every ... frame (0 = no change)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* stroke alpha variation */
   prop = RNA_def_property(srna, "stroke_alpha_var", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_alpha_var");
-  RNA_def_property_range(prop, 0, 0.6f);
-  RNA_def_property_float_default(prop, 0.12f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.6f, 0.05f, 2);
+  RNA_def_property_range(prop, 0, 0.3f);
+  RNA_def_property_float_default(prop, 0.05f);
+  RNA_def_property_ui_range(prop, 0.0f, 0.3f, 0.01f, 2);
   RNA_def_property_ui_text(prop, "Stroke Alpha Variation", "Maximum random variation of alpha on strokes");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
