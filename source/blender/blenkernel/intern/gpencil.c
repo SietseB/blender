@@ -761,6 +761,8 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->stroke_alpha_var = 0.12f;
   gpd->watercolor_noise_strength_high = 1.0f;
   gpd->watercolor_noise_strength_low = 1.0f;
+  gpd->stroke_overlap_darkening = 0.02f;
+  gpd->layer_overlap_darkening = 0.1f;
   gpd->wcn_freq = 0.045f;
   gpd->wcn_octaves = 3;
   gpd->wcn_lacunarity = 2.0f;
@@ -773,8 +775,8 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pfn_warp_freq = 0.045f;
   gpd->pparticle_speed_min = 0.8f;
   gpd->pparticle_speed_max = 1.5f;
-  gpd->pparticle_len_min = 30;
-  gpd->pparticle_len_max = 50;
+  gpd->pparticle_len_min = 20;
+  gpd->pparticle_len_max = 40;
 
   return gpd;
 }
@@ -1047,6 +1049,8 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->stroke_alpha_var = gpd_src->stroke_alpha_var;
   gpd_dst->watercolor_noise_strength_high = gpd_src->watercolor_noise_strength_high;
   gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
+  gpd_dst->stroke_overlap_darkening = gpd_src->stroke_overlap_darkening;
+  gpd_dst->layer_overlap_darkening = gpd_src->layer_overlap_darkening;
   gpd_dst->wcn_freq = gpd_src->wcn_freq;
   gpd_dst->wcn_octaves = gpd_src->wcn_octaves;
   gpd_dst->wcn_lacunarity = gpd_src->wcn_lacunarity;

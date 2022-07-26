@@ -81,6 +81,9 @@ typedef struct BrushGpencilSettings {
   int brush_type DNA_DEPRECATED;
   /** Soft, hard or stroke. */
   int eraser_mode;
+  /** Point or stroke */
+  int change_color_mode;
+  char _pad0[4];
   /** Smooth while drawing factor. */
   float active_smooth;
   /** Factor to apply to strength for soft eraser. */

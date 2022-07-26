@@ -272,6 +272,12 @@ static EnumPropertyItem rna_enum_gpencil_brush_eraser_modes_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+static EnumPropertyItem rna_enum_gpencil_brush_change_color_modes_items[] = {
+    {GP_BRUSH_ERASER_HARD, "POINT", 0, "Point", "Affect stroke points"},
+    {GP_BRUSH_ERASER_STROKE, "STROKE", 0, "Stroke", "Affect entire strokes"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
     {GP_FILL_DMODE_BOTH,
      "BOTH",
@@ -1774,6 +1780,12 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(
       prop, NC_GPENCIL | ND_DATA, "rna_BrushGpencilSettings_eraser_mode_update");
+
+  prop = RNA_def_property(srna, "change_color_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "change_color_mode");
+  RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_change_color_modes_items);
+  RNA_def_property_ui_text(prop, "Mode", "Color Mode");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   prop = RNA_def_property(srna, "caps_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "caps_type");

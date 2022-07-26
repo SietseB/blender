@@ -1278,6 +1278,8 @@ def brush_basic_gpencil_paint_settings(layout, context, brush, *, compact=False)
 
         if brush.gpencil_tool == 'TINT':
             row = layout.row(align=True)
+            row.prop(gp_settings, "change_color_mode", expand=True)
+            row = layout.row(align=True)
             row.prop(gp_settings, "vertex_mode", text="Mode")
         else:
             row = layout.row(align=True)
@@ -1376,6 +1378,8 @@ def brush_basic_gpencil_vertex_settings(layout, _context, brush, *, compact=Fals
         row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
 
     if brush.gpencil_vertex_tool in {'DRAW', 'REPLACE'}:
+        row = layout.row(align=True)
+        row.prop(gp_settings, "change_color_mode", expand=True)
         row = layout.row(align=True)
         row.prop(gp_settings, "vertex_mode", text="Mode")
 

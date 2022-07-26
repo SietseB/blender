@@ -437,10 +437,10 @@ typedef struct Object {
 
   /** ObjectModifierFlag */
   uint8_t modifier_flag;
-  char _pad8[4];
 
   /** Ondine watercolor additions */
   short ondine_flag;
+  char _pad8[2];
 
   struct PreviewImage *preview;
 

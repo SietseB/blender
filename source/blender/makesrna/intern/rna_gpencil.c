@@ -2905,6 +2905,26 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Low Noise Strength", "Strength of low frequency watercolor noise applied to strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* stroke overlap darkening */
+  prop = RNA_def_property(srna, "stroke_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "stroke_overlap_darkening");
+  RNA_def_property_range(prop, 0, 0.5f);
+  RNA_def_property_float_default(prop, 0.02f);
+  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
+  RNA_def_property_ui_text(prop, "Stroke Overlap Darkening",
+    "When strokes overlap on the same layer, this factor controls how much the overlapping areas will darken");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* layer overlap darkening */
+  prop = RNA_def_property(srna, "layer_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "layer_overlap_darkening");
+  RNA_def_property_range(prop, 0, 0.5f);
+  RNA_def_property_float_default(prop, 0.1f);
+  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
+  RNA_def_property_ui_text(prop, "Layer Overlap Darkening",
+    "When layers overlap, this factor controls how much the overlapping areas will darken");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* watercolor noise settings */
   prop = RNA_def_property(srna, "wcn_freq", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "wcn_freq");
@@ -3005,14 +3025,14 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "pparticle_len_min", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_min");
   RNA_def_property_range(prop, 10, 500);
-  RNA_def_property_int_default(prop, 30);
+  RNA_def_property_int_default(prop, 20);
   RNA_def_property_ui_text(prop, "Min Length", "Minimum distance along a stroke the pigment particle speed will vary");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "pparticle_len_max", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_max");
   RNA_def_property_range(prop, 10, 500);
-  RNA_def_property_int_default(prop, 50);
+  RNA_def_property_int_default(prop, 40);
   RNA_def_property_ui_text(prop, "Max Length", "Maximum distance along a stroke the pigment particle speed will vary");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
