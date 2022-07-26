@@ -22,6 +22,7 @@ struct GPUTexture;
 struct ID;
 struct Library;
 struct PackedFile;
+struct UniqueName_Map;
 
 /* Runtime display data */
 struct DrawData;
@@ -444,6 +445,11 @@ typedef struct ID {
   struct ID_Runtime runtime;
 } ID;
 
+typedef struct Library_Runtime {
+  /* Used for efficient calculations of unique names. */
+  struct UniqueName_Map *name_map;
+} Library_Runtime;
+
 /**
  * For each library file used, a Library struct is added to Main
  * WARNING: readfile.c, expand_doit() reads this struct without DNA check!
@@ -476,6 +482,8 @@ typedef struct Library {
   int temp_index;
   /** See BLENDER_FILE_VERSION, BLENDER_FILE_SUBVERSION, needed for do_versions. */
   short versionfile, subversionfile;
+
+  struct Library_Runtime runtime;
 } Library;
 
 /** #Library.tag */
@@ -926,6 +934,7 @@ typedef enum IDRecalcFlag {
 #define FILTER_ID_KE (1ULL << 36)
 #define FILTER_ID_SCR (1ULL << 37)
 #define FILTER_ID_WM (1ULL << 38)
+#define FILTER_ID_LI (1ULL << 39)
 
 #define FILTER_ID_ALL \
   (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU_LEGACY | \
@@ -934,7 +943,7 @@ typedef enum IDRecalcFlag {
    FILTER_ID_OB | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | \
    FILTER_ID_SO | FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | \
    FILTER_ID_WS | FILTER_ID_LP | FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO | FILTER_ID_SIM | \
-   FILTER_ID_KE | FILTER_ID_SCR | FILTER_ID_WM)
+   FILTER_ID_KE | FILTER_ID_SCR | FILTER_ID_WM | FILTER_ID_LI)
 
 /**
  * This enum defines the index assigned to each type of IDs in the array returned by

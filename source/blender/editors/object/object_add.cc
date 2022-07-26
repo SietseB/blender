@@ -1335,21 +1335,21 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
     const char *ob_name = nullptr;
     switch (type) {
       case GP_EMPTY: {
-        ob_name = "GPencil";
+        ob_name = CTX_DATA_(BLT_I18NCONTEXT_ID_GPENCIL, "GPencil");
         break;
       }
       case GP_MONKEY: {
-        ob_name = "Suzanne";
+        ob_name = CTX_DATA_(BLT_I18NCONTEXT_ID_GPENCIL, "Suzanne");
         break;
       }
       case GP_STROKE: {
-        ob_name = "Stroke";
+        ob_name = CTX_DATA_(BLT_I18NCONTEXT_ID_GPENCIL, "Stroke");
         break;
       }
       case GP_LRT_OBJECT:
       case GP_LRT_SCENE:
       case GP_LRT_COLLECTION: {
-        ob_name = "Line Art";
+        ob_name = CTX_DATA_(BLT_I18NCONTEXT_ID_GPENCIL, "LineArt");
         break;
       }
       default: {
@@ -2071,16 +2071,17 @@ static int object_curves_empty_hair_add_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
 
   ushort local_view_bits;
-  blender::float3 loc, rot;
   if (!ED_object_add_generic_get_opts(
-          C, op, 'Z', loc, rot, nullptr, nullptr, &local_view_bits, nullptr)) {
+          C, op, 'Z', nullptr, nullptr, nullptr, nullptr, &local_view_bits, nullptr)) {
     return OPERATOR_CANCELLED;
   }
 
   Object *surface_ob = CTX_data_active_object(C);
   BLI_assert(surface_ob != nullptr);
 
-  Object *curves_ob = ED_object_add_type(C, OB_CURVES, nullptr, loc, rot, false, local_view_bits);
+  Object *curves_ob = ED_object_add_type(
+      C, OB_CURVES, nullptr, nullptr, nullptr, false, local_view_bits);
+  BKE_object_apply_mat4(curves_ob, surface_ob->obmat, false, false);
 
   /* Set surface object. */
   Curves *curves_id = static_cast<Curves *>(curves_ob->data);
@@ -3992,7 +3993,7 @@ void OBJECT_OT_transform_to_mouse(wmOperatorType *ot)
   /* api callbacks */
   ot->invoke = object_add_drop_xy_generic_invoke;
   ot->exec = object_transform_to_mouse_exec;
-  ot->poll = ED_operator_objectmode;
+  ot->poll = ED_operator_objectmode_poll_msg;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

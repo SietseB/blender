@@ -589,12 +589,6 @@ class USERPREF_PT_system_cycles_devices(SystemPanel, CenterAlignMixIn, Panel):
                 addon.preferences.draw_impl(col, context)
             del addon
 
-        # NOTE: Disabled for until GPU side of OpenSubdiv is brought back.
-        # system = prefs.system
-        # if hasattr(system, "opensubdiv_compute_type"):
-        #     col.label(text="OpenSubdiv compute:")
-        #     col.row().prop(system, "opensubdiv_compute_type", text="")
-
 
 class USERPREF_PT_system_os_settings(SystemPanel, CenterAlignMixIn, Panel):
     bl_label = "Operating System Settings"
@@ -1485,11 +1479,13 @@ class USERPREF_PT_saveload_file_browser(SaveLoadPanel, CenterAlignMixIn, Panel):
         prefs = context.preferences
         paths = prefs.filepaths
 
+        col = layout.column(heading="Show Locations")
+        col.prop(paths, "show_recent_locations", text="Recent")
+        col.prop(paths, "show_system_bookmarks", text="System")
+
         col = layout.column(heading="Defaults")
         col.prop(paths, "use_filter_files")
         col.prop(paths, "show_hidden_files_datablocks")
-        col.prop(paths, "show_recent_locations")
-        col.prop(paths, "show_system_bookmarks")
 
 
 # -----------------------------------------------------------------------------
