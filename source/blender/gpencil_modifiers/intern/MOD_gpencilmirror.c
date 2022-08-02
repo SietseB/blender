@@ -247,7 +247,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Mirror = {
-    /* name */ "Mirror",
+    /* name */ N_("Mirror"),
     /* structName */ "MirrorGpencilModifierData",
     /* structSize */ sizeof(MirrorGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

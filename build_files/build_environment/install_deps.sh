@@ -506,7 +506,7 @@ OCIO_FORCE_BUILD=false
 OCIO_FORCE_REBUILD=false
 OCIO_SKIP=false
 
-IMATH_VERSION="3.1.4"
+IMATH_VERSION="3.1.5"
 IMATH_VERSION_SHORT="3.1"
 IMATH_VERSION_MIN="3.0"
 IMATH_VERSION_MEX="4.0"
@@ -515,7 +515,7 @@ IMATH_FORCE_REBUILD=false
 IMATH_SKIP=false
 _with_built_imath=false
 
-OPENEXR_VERSION="3.1.4"
+OPENEXR_VERSION="3.1.5"
 OPENEXR_VERSION_SHORT="3.1"
 OPENEXR_VERSION_MIN="3.0"
 OPENEXR_VERSION_MEX="4.0"
@@ -655,6 +655,9 @@ WEBP_DEV=""
 VPX_USE=false
 VPX_VERSION_MIN=0.9.7
 VPX_DEV=""
+AOM_USE=false
+AOM_VERSION_MIN=3.3.0
+AOM_DEV=""
 OPUS_USE=false
 OPUS_VERSION_MIN=1.1.1
 OPUS_DEV=""
@@ -1241,7 +1244,7 @@ You may also want to build them yourself (optional ones are [between brackets]):
     ** (Numba $PYTHON_NUMBA_VERSION (use pip).
     * Boost $BOOST_VERSION (from $BOOST_SOURCE, modules: $BOOST_BUILD_MODULES).
     * TBB $TBB_VERSION (from $TBB_SOURCE).
-    * [FFMpeg $FFMPEG_VERSION (needs libvorbis, libogg, libtheora, libx264, libmp3lame, libxvidcore, libvpx, libwebp, ...)] (from $FFMPEG_SOURCE).
+    * [FFMpeg $FFMPEG_VERSION (needs libvorbis, libogg, libtheora, libx264, libmp3lame, libxvidcore, libvpx, libaom, libwebp, ...)] (from $FFMPEG_SOURCE).
     * [OpenColorIO $OCIO_VERSION] (from $OCIO_SOURCE).
     * Imath $IMATH_VERSION (from $IMATH_SOURCE).
     * OpenEXR $OPENEXR_VERSION (from $OPENEXR_SOURCE).
@@ -3032,7 +3035,7 @@ compile_ALEMBIC() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  alembic_magic=2
+  alembic_magic=3
   _init_alembic
 
   # Force having own builds for the dependencies.
@@ -3080,7 +3083,7 @@ compile_ALEMBIC() {
     fi
     if [ "$_with_built_openexr" = true ]; then
       cmake_d="$cmake_d -D USE_ARNOLD=OFF"
-      cmake_d="$cmake_d -D USE_BINARIES=OFF"
+      cmake_d="$cmake_d -D USE_BINARIES=ON"  # Tests use some Alembic binaries...
       cmake_d="$cmake_d -D USE_EXAMPLES=OFF"
       cmake_d="$cmake_d -D USE_HDF5=OFF"
       cmake_d="$cmake_d -D USE_MAYA=OFF"
@@ -3666,7 +3669,7 @@ compile_FFmpeg() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  ffmpeg_magic=5
+  ffmpeg_magic=6
   _init_ffmpeg
 
   # Force having own builds for the dependencies.
@@ -3717,6 +3720,10 @@ compile_FFmpeg() {
 
     if [ "$VPX_USE" = true ]; then
       extra="$extra --enable-libvpx"
+    fi
+
+    if [ "$AOM_USE" = true ]; then
+      extra="$extra --enable-libaom"
     fi
 
     if [ "$WEBP_USE" = true ]; then
@@ -4172,30 +4179,34 @@ install_DEB() {
     WEBP_USE=true
   fi
 
-  if [ "$WITH_ALL" = true ]; then
-    XVID_DEV="libxvidcore-dev"
-    check_package_DEB $XVID_DEV
-    if [ $? -eq 0 ]; then
-      XVID_USE=true
-    fi
+  XVID_DEV="libxvidcore-dev"
+  check_package_DEB $XVID_DEV
+  if [ $? -eq 0 ]; then
+    XVID_USE=true
+  fi
 
-    MP3LAME_DEV="libmp3lame-dev"
-    check_package_DEB $MP3LAME_DEV
-    if [ $? -eq 0 ]; then
-      MP3LAME_USE=true
-    fi
+  MP3LAME_DEV="libmp3lame-dev"
+  check_package_DEB $MP3LAME_DEV
+  if [ $? -eq 0 ]; then
+    MP3LAME_USE=true
+  fi
 
-    VPX_DEV="libvpx-dev"
-    check_package_version_ge_DEB $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      VPX_USE=true
-    fi
+  VPX_DEV="libvpx-dev"
+  check_package_version_ge_DEB $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
 
-    OPUS_DEV="libopus-dev"
-    check_package_version_ge_DEB $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      OPUS_USE=true
-    fi
+  AOM_DEV="libaom-dev"
+  check_package_version_ge_DEB $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="libopus-dev"
+  check_package_version_ge_DEB $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
   fi
 
   # Check cmake version and disable features for older distros.
@@ -4578,6 +4589,9 @@ install_DEB() {
     if [ "$VPX_USE" = true ]; then
       _packages="$_packages $VPX_DEV"
     fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
+    fi
     if [ "$OPUS_USE" = true ]; then
       _packages="$_packages $OPUS_DEV"
     fi
@@ -4878,21 +4892,27 @@ install_RPM() {
     WEBP_USE=true
   fi
 
-  if [ "$WITH_ALL" = true ]; then
-    VPX_DEV="libvpx-devel"
-    check_package_version_ge_RPM $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      VPX_USE=true
-    fi
+  VPX_DEV="libvpx-devel"
+  check_package_version_ge_RPM $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
 
+  AOM_DEV="libaom-devel"
+  check_package_version_ge_RPM $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="libopus-devel"
+  check_package_version_ge_RPM $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
+  fi
+
+  if [ "$WITH_ALL" = true ]; then
     PRINT ""
     install_packages_RPM libspnav-devel
-
-    OPUS_DEV="libopus-devel"
-    check_package_version_ge_RPM $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      OPUS_USE=true
-    fi
   fi
 
   PRINT ""
@@ -5277,6 +5297,9 @@ install_RPM() {
     if [ "$VPX_USE" = true ]; then
       _packages="$_packages $VPX_DEV"
     fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
+    fi
     if [ "$OPUS_USE" = true ]; then
       _packages="$_packages $OPUS_DEV"
     fi
@@ -5466,30 +5489,34 @@ install_ARCH() {
     WEBP_USE=true
   fi
 
-  if [ "$WITH_ALL" = true ]; then
-    XVID_DEV="xvidcore"
-    check_package_ARCH $XVID_DEV
-    if [ $? -eq 0 ]; then
-      XVID_USE=true
-    fi
+  XVID_DEV="xvidcore"
+  check_package_ARCH $XVID_DEV
+  if [ $? -eq 0 ]; then
+    XVID_USE=true
+  fi
 
-    MP3LAME_DEV="lame"
-    check_package_ARCH $MP3LAME_DEV
-    if [ $? -eq 0 ]; then
-      MP3LAME_USE=true
-    fi
+  MP3LAME_DEV="lame"
+  check_package_ARCH $MP3LAME_DEV
+  if [ $? -eq 0 ]; then
+    MP3LAME_USE=true
+  fi
 
-    VPX_DEV="libvpx"
-    check_package_version_ge_ARCH $VPX_DEV $VPX_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      VPX_USE=true
-    fi
+  VPX_DEV="libvpx"
+  check_package_version_ge_ARCH $VPX_DEV $VPX_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    VPX_USE=true
+  fi
 
-    OPUS_DEV="opus"
-    check_package_version_ge_ARCH $OPUS_DEV $OPUS_VERSION_MIN
-    if [ $? -eq 0 ]; then
-      OPUS_USE=true
-    fi
+  AOM_DEV="libaom"
+  check_package_version_ge_ARCH $AOM_DEV $AOM_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    AOM_USE=true
+  fi
+
+  OPUS_DEV="opus"
+  check_package_version_ge_ARCH $OPUS_DEV $OPUS_VERSION_MIN
+  if [ $? -eq 0 ]; then
+    OPUS_USE=true
   fi
 
 
@@ -5866,6 +5893,9 @@ install_ARCH() {
     fi
     if [ "$VPX_USE" = true ]; then
       _packages="$_packages $VPX_DEV"
+    fi
+    if [ "$AOM_USE" = true ]; then
+      _packages="$_packages $AOM_DEV"
     fi
     if [ "$OPUS_USE" = true ]; then
       _packages="$_packages $OPUS_DEV"
