@@ -177,9 +177,10 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
             col = layout.row(align=True)
             col.prop(gpl, "is_wetted")
             col = layout.row(align=True)
+            col.prop(gpl, "stroke_dryness", slider=True)
+            col = layout.row(align=True)
+            col.enabled = gpl.stroke_dryness == 0
             col.prop(gpl, "stroke_wetness", slider=True)
-            # col = layout.row(align=True)
-            # col.prop(gpl, "stroke_dryness", slider=True)
             col = layout.row(align=True)
             col.prop(gpl, "stroke_darkened_edge_width", slider=True)
             col = layout.row(align=True)

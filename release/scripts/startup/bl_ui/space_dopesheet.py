@@ -785,9 +785,10 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
             row = layout.row(align=True)
             row.prop(gpl, "is_wetted")
             row = layout.row(align=True)
+            row.prop(gpl, "stroke_dryness", slider=True)
+            row = layout.row(align=True)
+            row.enabled = gpl.stroke_dryness == 0
             row.prop(gpl, "stroke_wetness", slider=True)
-            # row = layout.row(align=True)
-            # row.prop(gpl, "stroke_dryness", slider=True)
             row = layout.row(align=True)
             row.prop(gpl, "stroke_darkened_edge_width", slider=True)
             row = layout.row(align=True)

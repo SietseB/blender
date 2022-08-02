@@ -804,12 +804,6 @@ typedef struct bGPdata {
   float stroke_overlap_darkening;
   float layer_overlap_darkening;
 
-  /* Watercolor stroke fill noise */
-  float wcn_freq;
-  int wcn_octaves;
-  float wcn_lacunarity;
-  float wcn_gain;
-
   /* Pigment flow noise settings */
   float pfn_freq;
   int pfn_octaves;

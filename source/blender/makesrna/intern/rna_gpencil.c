@@ -2925,38 +2925,6 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
     "When layers overlap, this factor controls how much the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* watercolor noise settings */
-  prop = RNA_def_property(srna, "wcn_freq", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "wcn_freq");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
-  RNA_def_property_float_default(prop, 0.045f);
-  RNA_def_property_ui_text(prop, "Frequency", "Watercolor noise frequency");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "wcn_octaves", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, NULL, "wcn_octaves");
-  RNA_def_property_range(prop, 1, 10);
-  RNA_def_property_int_default(prop, 3);
-  RNA_def_property_ui_text(prop, "Octaves", "Watercolor noise octaves");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "wcn_lacunarity", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "wcn_lacunarity");
-  RNA_def_property_range(prop, 0.0f, 10.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 10.0f, 0.1f, 1);
-  RNA_def_property_float_default(prop, 2.0f);
-  RNA_def_property_ui_text(prop, "Lacunarity", "Watercolor noise lacunarity");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "wcn_gain", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "wcn_gain");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
-  RNA_def_property_float_default(prop, 0.5f);
-  RNA_def_property_ui_text(prop, "Gain", "Watercolor noise gain");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   /* pigment flow noise settings */
   prop = RNA_def_property(srna, "pfn_freq", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "pfn_freq");
