@@ -408,7 +408,7 @@ void ED_imbuf_sample_draw(const bContext *C, ARegion *region, void *arg_info)
                      info->use_default_view,
                      info->channels,
                      info->x,
-                     info->y,
+                     info->height - info->y - 1,
                      info->colp,
                      info->colfp,
                      info->linearcol,
