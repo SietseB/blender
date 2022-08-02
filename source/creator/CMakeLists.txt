@@ -889,32 +889,6 @@ elseif(WIN32)
         execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install llvmlite==0.38.1 --no-deps)
         execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install numba==0.55.2 --no-deps)
       endif()
-      
-      # We need a dev build of llvmlite and numba, because the
-      # binary pip packages don't match the numpy version (1.22.0)
-      # that comes with Blender 3.3.
-      # For now we just copy a dev build into the lib/site-packages folder.
-      # install(
-        # DIRECTORY ${CMAKE_SOURCE_DIR}/external_python_packages/llvmlite/llvmlite
-        # DESTINATION ${BLENDER_VERSION}/python/lib/site-packages
-        # CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-        # PATTERN ".svn" EXCLUDE
-        # PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
-        # PATTERN "__pycache__" EXCLUDE           # * any cache *
-        # PATTERN "*.pyc" EXCLUDE                 # * any cache *
-        # PATTERN "*.pyo" EXCLUDE                 # * any cache *
-      # )
-      # install(
-        # DIRECTORY ${CMAKE_SOURCE_DIR}/external_python_packages/numba/numba
-        # DESTINATION ${BLENDER_VERSION}/python/lib/site-packages
-        # CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-        # PATTERN ".svn" EXCLUDE
-        # PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
-        # PATTERN "__pycache__" EXCLUDE           # * any cache *
-        # PATTERN "*.pyc" EXCLUDE                 # * any cache *
-        # PATTERN "*.pyo" EXCLUDE                 # * any cache *
-      # )
-      
     endif()
 
     unset(_PYTHON_VERSION_NO_DOTS)
