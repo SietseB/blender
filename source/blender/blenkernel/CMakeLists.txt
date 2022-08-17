@@ -25,7 +25,6 @@ set(INC
   ../simulation
   ../../../intern/eigen
   ../../../intern/ghost
-  ../../../intern/glew-mx
   ../../../intern/guardedalloc
   ../../../intern/iksolver/extern
   ../../../intern/atomic
@@ -191,7 +190,7 @@ set(SRC
   intern/mask_evaluate.c
   intern/mask_rasterize.c
   intern/material.c
-  intern/mball.c
+  intern/mball.cc
   intern/mball_tessellate.c
   intern/mesh.cc
   intern/mesh_boolean_convert.cc

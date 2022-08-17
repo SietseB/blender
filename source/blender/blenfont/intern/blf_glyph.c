@@ -103,6 +103,7 @@ static GlyphCacheBLF *blf_glyph_cache_new(FontBLF *font)
   }
   else {
     /* Font does not have a face or does not contain "0" so use CSS fallback of 1/2 of em. */
+    blf_ensure_size(font);
     gc->fixed_width = (int)((font->ft_size->metrics.height / 2) >> 6);
   }
   if (gc->fixed_width < 1) {
@@ -115,7 +116,7 @@ static GlyphCacheBLF *blf_glyph_cache_new(FontBLF *font)
 
 GlyphCacheBLF *blf_glyph_cache_acquire(FontBLF *font)
 {
-  BLI_spin_lock(font->glyph_cache_mutex);
+  BLI_mutex_lock(&font->glyph_cache_mutex);
 
   GlyphCacheBLF *gc = blf_glyph_cache_find(font, font->size, font->dpi);
 
@@ -128,7 +129,7 @@ GlyphCacheBLF *blf_glyph_cache_acquire(FontBLF *font)
 
 void blf_glyph_cache_release(FontBLF *font)
 {
-  BLI_spin_unlock(font->glyph_cache_mutex);
+  BLI_mutex_unlock(&font->glyph_cache_mutex);
 }
 
 static void blf_glyph_cache_free(GlyphCacheBLF *gc)
@@ -152,13 +153,13 @@ void blf_glyph_cache_clear(FontBLF *font)
 {
   GlyphCacheBLF *gc;
 
-  BLI_spin_lock(font->glyph_cache_mutex);
+  BLI_mutex_lock(&font->glyph_cache_mutex);
 
   while ((gc = BLI_pophead(&font->cache))) {
     blf_glyph_cache_free(gc);
   }
 
-  BLI_spin_unlock(font->glyph_cache_mutex);
+  BLI_mutex_unlock(&font->glyph_cache_mutex);
 }
 
 /**
@@ -570,6 +571,11 @@ static FT_UInt blf_glyph_index_from_charcode(FontBLF **font, const uint charcode
     return glyph_index;
   }
 
+  /* Only fonts managed by the cache can fallback. */
+  if (!((*font)->flags & BLF_CACHED)) {
+    return 0;
+  }
+
   /* Not found in main font, so look in the others. */
   FontBLF *last_resort = NULL;
   int coverage_bit = blf_charcode_to_coverage_bit(charcode);
@@ -899,6 +905,8 @@ static FT_GlyphSlot blf_glyph_render(FontBLF *settings_font,
   if (glyph_font != settings_font) {
     blf_font_size(glyph_font, settings_font->size, settings_font->dpi);
   }
+
+  blf_ensure_size(glyph_font);
 
   /* We need to keep track if changes are still needed. */
   bool weight_done = false;

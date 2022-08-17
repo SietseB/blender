@@ -1113,25 +1113,28 @@ static bool ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_pt
     }
     wmWindow *win = GHOST_GetWindowUserData(ghostwin);
 
+    /* Win23/GHOST modifier bug, see T40317 */
+#ifndef WIN32
+//#  define USE_WIN_ACTIVATE
+#endif
+
     switch (type) {
       case GHOST_kEventWindowDeactivate:
         wm_event_add_ghostevent(wm, win, type, data);
         win->active = 0; /* XXX */
 
-        /* clear modifiers for inactive windows */
+        /* When window activation is enabled, these modifiers are set with window activation.
+         * Otherwise leave them set so re-activation doesn't loose keys which are held. */
+#ifdef USE_WIN_ACTIVATE
         win->eventstate->modifier = 0;
         win->eventstate->keymodifier = 0;
+#endif
 
         break;
       case GHOST_kEventWindowActivate: {
         const int keymodifier = ((query_qual(SHIFT) ? KM_SHIFT : 0) |
                                  (query_qual(CONTROL) ? KM_CTRL : 0) |
                                  (query_qual(ALT) ? KM_ALT : 0) | (query_qual(OS) ? KM_OSKEY : 0));
-
-        /* Win23/GHOST modifier bug, see T40317 */
-#ifndef WIN32
-//#  define USE_WIN_ACTIVATE
-#endif
 
         /* No context change! C->wm->windrawable is drawable, or for area queues. */
         wm->winactive = win;
@@ -1555,36 +1558,55 @@ void wm_window_process_events(const bContext *C)
 
 void wm_ghost_init(bContext *C)
 {
-  if (!g_system) {
-    GHOST_EventConsumerHandle consumer;
-
-    if (C != NULL) {
-      consumer = GHOST_CreateEventConsumer(ghost_event_proc, C);
-    }
-
-    GHOST_SetBacktraceHandler((GHOST_TBacktraceFn)BLI_system_backtrace);
-
-    g_system = GHOST_CreateSystem();
-
-    GHOST_Debug debug = {0};
-    if (G.debug & G_DEBUG_GHOST) {
-      debug.flags |= GHOST_kDebugDefault;
-    }
-    if (G.debug & G_DEBUG_WINTAB) {
-      debug.flags |= GHOST_kDebugWintab;
-    }
-    GHOST_SystemInitDebug(g_system, debug);
-
-    if (C != NULL) {
-      GHOST_AddEventConsumer(g_system, consumer);
-    }
-
-    if (wm_init_state.native_pixels) {
-      GHOST_UseNativePixels();
-    }
-
-    GHOST_UseWindowFocus(wm_init_state.window_focus);
+  if (g_system) {
+    return;
   }
+
+  BLI_assert(C != NULL);
+  BLI_assert_msg(!G.background, "Use wm_ghost_init_background instead");
+
+  GHOST_EventConsumerHandle consumer;
+
+  consumer = GHOST_CreateEventConsumer(ghost_event_proc, C);
+
+  GHOST_SetBacktraceHandler((GHOST_TBacktraceFn)BLI_system_backtrace);
+
+  g_system = GHOST_CreateSystem();
+
+  GHOST_Debug debug = {0};
+  if (G.debug & G_DEBUG_GHOST) {
+    debug.flags |= GHOST_kDebugDefault;
+  }
+  if (G.debug & G_DEBUG_WINTAB) {
+    debug.flags |= GHOST_kDebugWintab;
+  }
+  GHOST_SystemInitDebug(g_system, debug);
+
+  GHOST_AddEventConsumer(g_system, consumer);
+
+  if (wm_init_state.native_pixels) {
+    GHOST_UseNativePixels();
+  }
+
+  GHOST_UseWindowFocus(wm_init_state.window_focus);
+}
+
+/* TODO move this to wm_init_exit.c. */
+void wm_ghost_init_background(void)
+{
+  if (g_system) {
+    return;
+  }
+
+  GHOST_SetBacktraceHandler((GHOST_TBacktraceFn)BLI_system_backtrace);
+
+  g_system = GHOST_CreateSystemBackground();
+
+  GHOST_Debug debug = {0};
+  if (G.debug & G_DEBUG_GHOST) {
+    debug.flags |= GHOST_kDebugDefault;
+  }
+  GHOST_SystemInitDebug(g_system, debug);
 }
 
 void wm_ghost_exit(void)
@@ -1929,6 +1951,9 @@ void WM_window_pixel_sample_read(const wmWindowManager *wm,
 
 uint *WM_window_pixels_read(wmWindowManager *wm, wmWindow *win, int r_size[2])
 {
+  /* WARNING: Reading from the front-buffer immediately after drawing may fail,
+   * for a slower but more reliable version of this function #WM_window_pixels_read_offscreen
+   * should be preferred. See it's comments for details on why it's needed, see also T98462. */
   bool setup_context = wm->windrawable != win;
 
   if (setup_context) {

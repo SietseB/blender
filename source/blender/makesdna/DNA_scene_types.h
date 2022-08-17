@@ -9,7 +9,7 @@
 
 #include "DNA_defs.h"
 
-/* XXX(campbell): temp feature. */
+/* XXX(@campbellbarton): temp feature. */
 #define DURIAN_CAMERA_SWITCH
 
 /* check for cyclic set-scene,
@@ -820,6 +820,7 @@ typedef struct RenderProfile {
 /** #ToolSettings.uv_relax_method */
 #define UV_SCULPT_TOOL_RELAX_LAPLACIAN 1
 #define UV_SCULPT_TOOL_RELAX_HC 2
+#define UV_SCULPT_TOOL_RELAX_COTAN 3
 
 /* Stereo Flags */
 #define STEREO_RIGHT_NAME "right"
@@ -2223,7 +2224,7 @@ enum {
   OB_DRAW_GROUPUSER_ALL = 2,
 };
 
-/* object_vgroup.c */
+/* object_vgroup.cc */
 
 /** #ToolSettings.vgroupsubset */
 typedef enum eVGroupSelect {
