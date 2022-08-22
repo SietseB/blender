@@ -201,7 +201,10 @@ static bool brush_invert_check(tGP_BrushVertexpaintData *gso)
 }
 
 /* Compute strength of effect. */
-static float brush_influence_calc(tGP_BrushVertexpaintData *gso, const int radius, const int co[2])
+static float brush_influence_calc(tGP_BrushVertexpaintData *gso,
+                                  const int radius,
+                                  const int co[2],
+                                  const bool mode_stroke)
 {
   Brush *brush = gso->brush;
   float influence = brush->size;
@@ -212,13 +215,15 @@ static float brush_influence_calc(tGP_BrushVertexpaintData *gso, const int radiu
   }
 
   /* distance fading */
-  int mval_i[2];
-  round_v2i_v2fl(mval_i, gso->mval);
-  float distance = (float)len_v2v2_int(mval_i, co);
+  if (!mode_stroke) {
+    int mval_i[2];
+    round_v2i_v2fl(mval_i, gso->mval);
+    float distance = (float)len_v2v2_int(mval_i, co);
 
-  /* Apply Brush curve. */
-  float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
-  influence *= brush_falloff;
+    /* Apply Brush curve. */
+    float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
+    influence *= brush_falloff;
+  }
 
   /* apply multiframe falloff */
   influence *= gso->mf_falloff;
@@ -407,17 +412,17 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
                              int pt_index,
                              const int radius,
                              const int co[2],
-                             const bool entire_stroke)
+                             const bool mode_stroke)
 {
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
-              100.0f;
+  float inf = (brush_influence_calc(gso, radius, co, mode_stroke) *
+               brush->gpencil_settings->draw_strength) / 100.0f;
   /* When tinting an entire stroke, always apply full strength */
-  if (entire_stroke) {
-    inf = 1.0f;
-  }
+  //if (entire_stroke) {
+  //  inf = 1.0f;
+  //}
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
   CLAMP(inf, 0.0f, 1.0f);
@@ -536,7 +541,7 @@ static bool brush_blur_apply(tGP_BrushVertexpaintData *gso,
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co, false) * brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -571,7 +576,7 @@ static bool brush_average_apply(tGP_BrushVertexpaintData *gso,
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co, false) * brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -822,7 +827,6 @@ static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
   int pc1[2] = {0};
   int pc2[2] = {0};
   int i;
-  int index;
 
   if (gps->totpoints == 1) {
     return;
@@ -851,7 +855,8 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
                                               bGPDstroke *gps,
                                               const char tool,
                                               const float diff_mat[4][4],
-                                              const float bound_mat[4][4])
+                                              const float bound_mat[4][4],
+                                              const bool mode_stroke)
 {
   GP_SpaceConversion *gsc = &gso->gsc;
   rcti *rect = &gso->brush_rect;
@@ -898,7 +903,9 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
       if (len_v2v2_int(mval_i, pc1) <= radius) {
         /* apply operation to this point */
         if (pt_active != NULL) {
-          gpencil_save_selected_point(gso, gps_active, 0, pc1);
+          if (!mode_stroke) {
+            gpencil_save_selected_point(gso, gps_active, 0, pc1);
+          }
           saved = true;
         }
       }
@@ -950,7 +957,9 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
             }
             index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
             hit = true;
-            gpencil_save_selected_point(gso, gps_active, index, pc1);
+            if (!mode_stroke) {
+              gpencil_save_selected_point(gso, gps_active, index, pc1);
+            }
             saved = true;
           }
 
@@ -968,7 +977,9 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
             if (pt_active != NULL) {
               index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i + 1;
               hit = true;
-              gpencil_save_selected_point(gso, gps_active, index, pc2);
+              if (!mode_stroke) {
+                gpencil_save_selected_point(gso, gps_active, index, pc2);
+              }
               include_last = false;
               saved = true;
             }
@@ -988,7 +999,9 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
           if (pt_active != NULL) {
             index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
             hit = true;
-            gpencil_save_selected_point(gso, gps_active, index, pc1);
+            if (!mode_stroke) {
+              gpencil_save_selected_point(gso, gps_active, index, pc1);
+            }
             include_last = false;
             saved = true;
           }
@@ -1035,7 +1048,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
                          gso->brush->size;
   tGP_Selected *selected = NULL;
   int i;
-  bool entire_stroke = gso->brush->gpencil_settings->change_color_mode == GP_BRUSH_ERASER_STROKE;
+  bool mode_stroke = gso->brush->gpencil_settings->change_color_mode == GP_BRUSH_ERASER_STROKE;
 
   /*---------------------------------------------------------------------
    * First step: select the points affected. This step is required to have
@@ -1053,10 +1066,10 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     }
 
     /* Check points below the brush. */
-    bool hit = gpencil_vertexpaint_select_stroke(gso, gps, tool, diff_mat, bound_mat);
+    bool hit = gpencil_vertexpaint_select_stroke(gso, gps, tool, diff_mat, bound_mat, mode_stroke);
 
     /* If stroke was hit and brush mode is 'stroke', add all points of the stroke */
-    if (hit && entire_stroke) {
+    if (hit && mode_stroke) {
       gpencil_save_entire_stroke(gso, gps, diff_mat);
     }
 
@@ -1107,7 +1120,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     switch (tool) {
       case GPAINT_TOOL_TINT:
       case GPVERTEX_TOOL_DRAW: {
-        brush_tint_apply(gso, selected->gps, selected->pt_index, radius, selected->pc, entire_stroke);
+        brush_tint_apply(gso, selected->gps, selected->pt_index, radius, selected->pc, mode_stroke);
         changed |= true;
         break;
       }
