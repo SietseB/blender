@@ -871,7 +871,8 @@ struct RestrictProperties {
 
   PropertyRNA *object_hide_viewport, *object_hide_select, *object_hide_render;
   PropertyRNA *base_hide_viewport;
-  PropertyRNA *collection_hide_viewport, *collection_hide_select, *collection_hide_render;
+  PropertyRNA *collection_hide_viewport, *collection_hide_select, *collection_hide_render,
+      *collection_hide_ondine_render;
   PropertyRNA *layer_collection_exclude, *layer_collection_holdout,
       *layer_collection_indirect_only, *layer_collection_hide_viewport;
   PropertyRNA *modifier_show_viewport, *modifier_show_render;
@@ -889,6 +890,7 @@ struct RestrictPropertiesActive {
   bool collection_hide_viewport;
   bool collection_hide_select;
   bool collection_hide_render;
+  bool collection_hide_ondine_render;
   bool layer_collection_exclude;
   bool layer_collection_holdout;
   bool layer_collection_indirect_only;
@@ -1034,6 +1036,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                                                    "hide_viewport");
     props.collection_hide_select = RNA_struct_type_find_property(&RNA_Collection, "hide_select");
     props.collection_hide_render = RNA_struct_type_find_property(&RNA_Collection, "hide_render");
+    props.collection_hide_ondine_render = RNA_struct_type_find_property(&RNA_Collection, "hide_ondine_render");
     props.layer_collection_exclude = RNA_struct_type_find_property(&RNA_LayerCollection,
                                                                    "exclude");
     props.layer_collection_holdout = RNA_struct_type_find_property(&RNA_LayerCollection,
@@ -1058,6 +1061,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
     int hide;
     int viewport;
     int render;
+    int ondine_render;
     int indirect_only;
     int holdout;
   } restrict_offsets = {0};
@@ -1083,6 +1087,10 @@ static void outliner_draw_restrictbuts(uiBlock *block,
   }
   if (space_outliner->show_restrict_flags & SO_RESTRICT_SELECT) {
     restrict_offsets.select = (++restrict_column_offset) * UI_UNIT_X + V2D_SCROLL_WIDTH;
+  }
+  if (space_outliner->outlinevis == SO_VIEW_LAYER &&
+      space_outliner->show_restrict_flags & SO_RESTRICT_ONDINE_RENDER) {
+    restrict_offsets.ondine_render = (++restrict_column_offset) * UI_UNIT_X + V2D_SCROLL_WIDTH;
   }
   if (space_outliner->outlinevis == SO_VIEW_LAYER &&
       space_outliner->show_restrict_flags & SO_RESTRICT_ENABLE) {
@@ -1662,6 +1670,41 @@ static void outliner_draw_restrictbuts(uiBlock *block,
             }
             UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
             if (!props_active.collection_hide_render) {
+              UI_but_flag_enable(bt, UI_BUT_INACTIVE);
+            }
+          }
+
+          if (space_outliner->show_restrict_flags & SO_RESTRICT_ONDINE_RENDER) {
+            bt = uiDefIconButR_prop(block,
+                                    UI_BTYPE_ICON_TOGGLE,
+                                    0,
+                                    0,
+                                    (int)(region->v2d.cur.xmax - restrict_offsets.ondine_render),
+                                    te->ys,
+                                    UI_UNIT_X,
+                                    UI_UNIT_Y,
+                                    &collection_ptr,
+                                    props.collection_hide_ondine_render,
+                                    -1,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    TIP_("Globally disable in Ondine renders\n"
+                                         "* Ctrl to isolate collection\n"
+                                         "* Shift to set inside collections and objects"));
+            if (layer_collection != nullptr) {
+              UI_but_func_set(bt,
+                              view_layer__collection_set_flag_recursive_fn,
+                              layer_collection,
+                              (char *)"hide_ondine_render");
+            }
+            else {
+              UI_but_func_set(
+                  bt, scenes__collection_set_flag_recursive_fn, collection, (char *)"hide_ondine_render");
+            }
+            UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
+            if (!props_active.collection_hide_ondine_render) {
               UI_but_flag_enable(bt, UI_BUT_INACTIVE);
             }
           }

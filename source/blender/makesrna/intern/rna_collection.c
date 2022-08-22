@@ -385,6 +385,11 @@ static void rna_Collection_hide_render_set(PointerRNA *ptr, bool value)
   rna_Collection_flag_set(ptr, value, COLLECTION_HIDE_RENDER);
 }
 
+static void rna_Collection_hide_ondine_render_set(PointerRNA *ptr, bool value)
+{
+  rna_Collection_flag_set(ptr, value, COLLECTION_HIDE_ONDINE_RENDER);
+}
+
 static void rna_Collection_flag_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
   Collection *collection = (Collection *)ptr->data;
@@ -575,6 +580,14 @@ void RNA_def_collections(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, -1);
   RNA_def_property_ui_text(prop, "Disable in Renders", "Globally disable in renders");
+  RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_Collection_flag_update");
+
+  prop = RNA_def_property(srna, "hide_ondine_render", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", COLLECTION_HIDE_ONDINE_RENDER);
+  RNA_def_property_boolean_funcs(prop, NULL, "rna_Collection_hide_ondine_render_set");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_icon(prop, ICON_RADIOBUT_ON, -1);
+  RNA_def_property_ui_text(prop, "Disable in Ondine", "Globally disable in Ondine watercolor renders");
   RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_Collection_flag_update");
 
   static const EnumPropertyItem rna_collection_lineart_usage[] = {

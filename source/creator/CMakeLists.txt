@@ -822,7 +822,7 @@ elseif(WIN32)
         DESTINATION ${BLENDER_VERSION}/python/
         CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
         PATTERN ".svn" EXCLUDE
-        PATTERN "*_d.*" EXCLUDE                  # * debug libraries *
+        PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
         PATTERN "__pycache__" EXCLUDE           # * any cache *
         PATTERN "*.pyc" EXCLUDE                 # * any cache *
         PATTERN "*.pyo" EXCLUDE                 # * any cache *
@@ -880,15 +880,26 @@ elseif(WIN32)
       endif()
 
       # Python packages for Ondine watercolor addon
-      message(STATUS "Install python packages for Ondine watercolor: cairo, pillow, numba")
-      set(PYTHON_EXE_RELEASE "${EXECUTABLE_OUTPUT_PATH}/Release/${BLENDER_VERSION}/python/bin/python.exe")
-      if(EXISTS "${PYTHON_EXE_RELEASE}")
-        # Pip install Pillow, pycairo
-        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install Pillow --no-deps)
-        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install pycairo --no-deps)
-        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install llvmlite==0.38.1 --no-deps)
-        execute_process(COMMAND ${PYTHON_EXE_RELEASE} -m pip install numba==0.55.2 --no-deps)
-      endif()
+      install(
+        DIRECTORY ${PYTHON_PACKAGES_DIR_FOR_ONDINE}/site-packages
+        DESTINATION ${BLENDER_VERSION}/python/lib
+        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+        PATTERN ".svn" EXCLUDE
+        PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
+        PATTERN "__pycache__" EXCLUDE           # * any cache *
+        PATTERN "*.pyc" EXCLUDE                 # * any cache *
+        PATTERN "*.pyo" EXCLUDE                 # * any cache *
+      )
+      
+      install(
+        DIRECTORY ${PYTHON_PACKAGES_DIR_FOR_ONDINE}/site-packages
+        DESTINATION ${BLENDER_VERSION}/python/lib
+        CONFIGURATIONS Debug
+        PATTERN ".svn" EXCLUDE
+        PATTERN "__pycache__" EXCLUDE           # * any cache *
+        PATTERN "*.pyc" EXCLUDE                 # * any cache *
+        PATTERN "*.pyo" EXCLUDE                 # * any cache *)
+      )
     endif()
 
     unset(_PYTHON_VERSION_NO_DOTS)

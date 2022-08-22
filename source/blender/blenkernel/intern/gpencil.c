@@ -673,7 +673,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     /* Enable onion skin. */
     gpl->onion_flag |= GP_LAYER_ONIONSKIN;
 
-    /* Ondine additions */
+    /* Ondine default layer settings */
     gpl->ondine_flag = 0;
     gpl->stroke_wetness = 0.2f;
     gpl->stroke_dryness = 0.0f;
@@ -773,6 +773,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pparticle_speed_max = 1.5f;
   gpd->pparticle_len_min = 20;
   gpd->pparticle_len_max = 40;
+  gpd->dry_stroke_edge_jitter = 0.25f;
 
   return gpd;
 }
@@ -1057,6 +1058,7 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->pparticle_speed_max = gpd_src->pparticle_speed_max;
   gpd_dst->pparticle_len_min = gpd_src->pparticle_len_min;
   gpd_dst->pparticle_len_max = gpd_src->pparticle_len_max;
+  gpd_dst->dry_stroke_edge_jitter = gpd_src->dry_stroke_edge_jitter;
   gpd_dst->render_zdepth = gpd_src->render_zdepth;
 }
 
@@ -1089,6 +1091,7 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->layer_darkened_edge_width = gpl_src->layer_darkened_edge_width;
   gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
   gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
+  gpl_dst->brush_jitter = gpl_src->brush_jitter;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

@@ -1293,6 +1293,16 @@ static bool collection_disable_render_poll(bContext *C)
   return collection_flag_poll(C, false, COLLECTION_HIDE_RENDER);
 }
 
+static bool collection_enable_ondine_render_poll(bContext *C)
+{
+  return collection_flag_poll(C, true, COLLECTION_HIDE_ONDINE_RENDER);
+}
+
+static bool collection_disable_ondine_render_poll(bContext *C)
+{
+  return collection_flag_poll(C, false, COLLECTION_HIDE_ONDINE_RENDER);
+}
+
 static int collection_flag_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
@@ -1300,8 +1310,9 @@ static int collection_flag_exec(bContext *C, wmOperator *op)
   ViewLayer *view_layer = CTX_data_view_layer(C);
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
   const bool is_render = strstr(op->idname, "render");
+  const bool is_ondine = strstr(op->idname, "ondine");
   const bool clear = strstr(op->idname, "show") || strstr(op->idname, "enable");
-  int flag = is_render ? COLLECTION_HIDE_RENDER : COLLECTION_HIDE_VIEWPORT;
+  int flag = is_render ? (is_ondine ? COLLECTION_HIDE_ONDINE_RENDER : COLLECTION_HIDE_RENDER) : COLLECTION_HIDE_VIEWPORT;
   CollectionEditData data{};
   data.scene = scene;
   data.space_outliner = space_outliner;
@@ -1430,6 +1441,36 @@ void OUTLINER_OT_collection_disable_render(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = collection_flag_exec;
   ot->poll = collection_disable_render_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+void OUTLINER_OT_collection_enable_ondine_render(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Enable Collection in Ondine Render";
+  ot->idname = "OUTLINER_OT_collection_enable_ondine_render";
+  ot->description = "Render the collection in Ondine";
+
+  /* api callbacks */
+  ot->exec = collection_flag_exec;
+  ot->poll = collection_enable_ondine_render_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+void OUTLINER_OT_collection_disable_ondine_render(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Disable Collection in Ondine Render";
+  ot->idname = "OUTLINER_OT_collection_disable_ondine_render";
+  ot->description = "Do not render this collection in Ondine";
+
+  /* api callbacks */
+  ot->exec = collection_flag_exec;
+  ot->poll = collection_disable_ondine_render_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

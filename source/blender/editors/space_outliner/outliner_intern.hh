@@ -582,6 +582,8 @@ void OUTLINER_OT_collection_enable(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_disable(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_enable_render(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_disable_render(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_enable_ondine_render(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_disable_ondine_render(struct wmOperatorType *ot);
 void OUTLINER_OT_hide(struct wmOperatorType *ot);
 void OUTLINER_OT_unhide_all(struct wmOperatorType *ot);
 

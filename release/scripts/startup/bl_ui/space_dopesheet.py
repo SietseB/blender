@@ -774,29 +774,35 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
             row = layout.row(align=True)
             row.prop(gpl, "opacity", text="Opacity", slider=True)
 
-            row = layout.row(align=True)
-            row.prop(gpl, "use_lights")
+            if not gpd.watercolor:
+                row = layout.row(align=True)
+                row.prop(gpl, "use_lights")
+            
+            if gpd.watercolor:
+                layout.use_property_split = True
 
-            layout.separator()
-            row = layout.row(align=True)
-            row.prop(gpl, "mix_with_previous")
-            row = layout.row(align=True)
-            row.prop(gpl, "limit_to_background")
-            row = layout.row(align=True)
-            row.prop(gpl, "is_wetted")
-            row = layout.row(align=True)
-            row.prop(gpl, "stroke_dryness", slider=True)
-            row = layout.row(align=True)
-            row.enabled = gpl.stroke_dryness == 0
-            row.prop(gpl, "stroke_wetness", slider=True)
-            row = layout.row(align=True)
-            row.prop(gpl, "stroke_darkened_edge_width", slider=True)
-            row = layout.row(align=True)
-            row.prop(gpl, "layer_darkened_edge_width", slider=True)
-            row = layout.row(align=True)
-            row.prop(gpl, "darkened_edge_width_var", slider=True)
-            row = layout.row(align=True)
-            row.prop(gpl, "darkened_edge_intensity", slider=True)
+                layout.separator()
+                col = layout.column(align=True)
+                col.prop(gpl, "mix_with_previous")
+                col = layout.column(align=True)
+                col.prop(gpl, "limit_to_background")
+                col = layout.column(align=True)
+                col.prop(gpl, "is_wetted")
+                
+                layout.separator()
+                col = layout.column(align=True)
+                col.enabled = gpl.stroke_dryness == 0
+                col.prop(gpl, "stroke_wetness", slider=True)
+                col = layout.column()
+                col.prop(gpl, "stroke_dryness", slider=True)
+
+                layout.separator()
+                col = layout.column()
+                col.enabled = gpl.stroke_dryness == 0
+                col.prop(gpl, "stroke_darkened_edge_width", slider=True)
+                col.prop(gpl, "layer_darkened_edge_width", slider=True)
+                col.prop(gpl, "darkened_edge_width_var", slider=True)
+                col.prop(gpl, "darkened_edge_intensity", slider=True)
 
 
 class DOPESHEET_PT_gpencil_layer_masks(LayersDopeSheetPanel, GreasePencilLayerMasksPanel, Panel):

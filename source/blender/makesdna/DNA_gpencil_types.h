@@ -580,7 +580,7 @@ typedef struct bGPDlayer {
   float darkened_edge_width_var;
   float layer_darkened_edge_width;
   float darkened_edge_intensity;
-  char _pad5[4];
+  float brush_jitter;
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */
@@ -803,6 +803,7 @@ typedef struct bGPdata {
   float watercolor_noise_strength_high;
   float stroke_overlap_darkening;
   float layer_overlap_darkening;
+  float dry_stroke_edge_jitter;
 
   /* Pigment flow noise settings */
   float pfn_freq;
@@ -821,7 +822,6 @@ typedef struct bGPdata {
   /* Render calculations */
   float render_zdepth;
   int render_collected;
-  char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */

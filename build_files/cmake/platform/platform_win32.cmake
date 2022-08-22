@@ -262,6 +262,10 @@ if(NOT EXISTS "${LIBDIR}/")
   message(FATAL_ERROR "\n\nWindows requires pre-compiled libs at: '${LIBDIR}'. Please run `make update` in the blender source folder to obtain them.")
 endif()
 
+if(NOT DEFINED PYTHON_PACKAGES_DIR_FOR_ONDINE)
+  set(PYTHON_PACKAGES_DIR_FOR_ONDINE ${CMAKE_SOURCE_DIR}/python_packages)
+endif()
+
 include(platform_old_libs_update)
 
 if(CMAKE_GENERATOR MATCHES "^Visual Studio.+" AND # Only supported in the VS IDE

@@ -406,13 +406,18 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
                              bGPDstroke *gps,
                              int pt_index,
                              const int radius,
-                             const int co[2])
+                             const int co[2],
+                             const bool entire_stroke)
 {
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
   float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
               100.0f;
+  /* When tinting an entire stroke, always apply full strength */
+  if (entire_stroke) {
+    inf = 1.0f;
+  }
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
   CLAMP(inf, 0.0f, 1.0f);
@@ -805,6 +810,41 @@ static void gpencil_save_selected_point(tGP_BrushVertexpaintData *gso,
   gso->pbuffer_used++;
 }
 
+/* Select points of an entire stroke */
+static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
+                                       bGPDstroke *gps,
+                                       const float diff_mat[4][4])
+{
+  GP_SpaceConversion *gsc = &gso->gsc;
+  bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
+  bGPDspoint *pt1, *pt2;
+  bGPDspoint *pt = NULL;
+  int pc1[2] = {0};
+  int pc2[2] = {0};
+  int i;
+  int index;
+
+  if (gps->totpoints == 1) {
+    return;
+  }
+
+  for (i = 0; i < gps->totpoints; i++) {
+    /* Get points to work with */
+    pt1 = gps->points + i;
+    pt2 = gps->points + i + 1;
+
+    bGPDspoint npt;
+    gpencil_point_to_parent_space(pt1, diff_mat, &npt);
+    gpencil_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
+
+    gpencil_point_to_parent_space(pt2, diff_mat, &npt);
+    gpencil_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
+
+    pt = &gps->points[i];
+    gpencil_save_selected_point(gso, gps_active, i, pc1);
+  }
+}
+
 /* Select points in this stroke and add to an array to be used later.
  * Returns true if any point was hit and got saved */
 static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
@@ -995,6 +1035,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
                          gso->brush->size;
   tGP_Selected *selected = NULL;
   int i;
+  bool entire_stroke = gso->brush->gpencil_settings->change_color_mode == GP_BRUSH_ERASER_STROKE;
 
   /*---------------------------------------------------------------------
    * First step: select the points affected. This step is required to have
@@ -1013,6 +1054,11 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
 
     /* Check points below the brush. */
     bool hit = gpencil_vertexpaint_select_stroke(gso, gps, tool, diff_mat, bound_mat);
+
+    /* If stroke was hit and brush mode is 'stroke', add all points of the stroke */
+    if (hit && entire_stroke) {
+      gpencil_save_entire_stroke(gso, gps, diff_mat);
+    }
 
     /* If stroke was hit and has an editcurve the curve needs an update. */
     bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
@@ -1061,7 +1107,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     switch (tool) {
       case GPAINT_TOOL_TINT:
       case GPVERTEX_TOOL_DRAW: {
-        brush_tint_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
+        brush_tint_apply(gso, selected->gps, selected->pt_index, radius, selected->pc, entire_stroke);
         changed |= true;
         break;
       }

@@ -335,6 +335,7 @@ class OUTLINER_PT_filter(Panel):
             layout.label(text="Restriction Toggles")
             row = layout.row(align=True)
             row.prop(space, "show_restrict_column_enable", text="")
+            row.prop(space, "show_restrict_column_ondine_render", text="")
             row.prop(space, "show_restrict_column_select", text="")
             row.prop(space, "show_restrict_column_hide", text="")
             row.prop(space, "show_restrict_column_viewport", text="")

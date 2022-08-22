@@ -166,29 +166,35 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
             col = layout.row(align=True)
             col.prop(gpl, "opacity", text="Opacity", slider=True)
 
-            col = layout.row(align=True)
-            col.prop(gpl, "use_lights")
+            if not gpd.watercolor:
+                col = layout.row(align=True)
+                col.prop(gpl, "use_lights")
 
-            layout.separator()
-            col = layout.row(align=True)
-            col.prop(gpl, "mix_with_previous")
-            col = layout.row(align=True)
-            col.prop(gpl, "limit_to_background")
-            col = layout.row(align=True)
-            col.prop(gpl, "is_wetted")
-            col = layout.row(align=True)
-            col.prop(gpl, "stroke_dryness", slider=True)
-            col = layout.row(align=True)
-            col.enabled = gpl.stroke_dryness == 0
-            col.prop(gpl, "stroke_wetness", slider=True)
-            col = layout.row(align=True)
-            col.prop(gpl, "stroke_darkened_edge_width", slider=True)
-            col = layout.row(align=True)
-            col.prop(gpl, "layer_darkened_edge_width", slider=True)
-            col = layout.row(align=True)
-            col.prop(gpl, "darkened_edge_width_var", slider=True)
-            col = layout.row(align=True)
-            col.prop(gpl, "darkened_edge_intensity", slider=True)
+            if gpd.watercolor:
+                layout.use_property_split = True
+
+                layout.separator()
+                col = layout.column(align=True)
+                col.prop(gpl, "mix_with_previous")
+                col = layout.column(align=True)
+                col.prop(gpl, "limit_to_background")
+                col = layout.column(align=True)
+                col.prop(gpl, "is_wetted")
+                
+                layout.separator()
+                col = layout.column(align=True)
+                col.enabled = gpl.stroke_dryness == 0
+                col.prop(gpl, "stroke_wetness", slider=True)
+                col = layout.column()
+                col.prop(gpl, "stroke_dryness", slider=True)
+
+                layout.separator()
+                col = layout.column()
+                col.enabled = gpl.stroke_dryness == 0
+                col.prop(gpl, "stroke_darkened_edge_width", slider=True)
+                col.prop(gpl, "layer_darkened_edge_width", slider=True)
+                col.prop(gpl, "darkened_edge_width_var", slider=True)
+                col.prop(gpl, "darkened_edge_intensity", slider=True)
 
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):

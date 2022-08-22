@@ -2426,6 +2426,15 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Edge Intensity", "Intensity of the darkened edge (higher means darker)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* brush jitter */
+  prop = RNA_def_property(srna, "brush_jitter", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "brush_jitter");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0);
+  RNA_def_property_ui_text(
+      prop, "Brush Jitter", "Sets the irregularity of strokes at start, end and sharp angles");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* Layers API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");
   RNA_def_function_ui_description(func, "Remove all the grease pencil layer data");
@@ -2923,6 +2932,16 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
   RNA_def_property_ui_text(prop, "Layer Overlap Darkening",
     "When layers overlap, this factor controls how much the overlapping areas will darken");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* dry stroke edge jitter */
+  prop = RNA_def_property(srna, "dry_stroke_edge_jitter", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "dry_stroke_edge_jitter");
+  RNA_def_property_range(prop, 0, 0.5f);
+  RNA_def_property_float_default(prop, 0.25f);
+  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
+  RNA_def_property_ui_text(prop, "Dry Stroke Edge Jitter",
+    "This factor controls how much the edge of a dry stroke will wobble");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* pigment flow noise settings */
