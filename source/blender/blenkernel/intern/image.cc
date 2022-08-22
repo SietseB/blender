@@ -794,7 +794,7 @@ bool BKE_image_has_opengl_texture(Image *ima)
   return false;
 }
 
-static int image_get_tile_number_from_iuser(Image *ima, const ImageUser *iuser)
+static int image_get_tile_number_from_iuser(const Image *ima, const ImageUser *iuser)
 {
   BLI_assert(ima != nullptr && ima->tiles.first);
   ImageTile *tile = static_cast<ImageTile *>(ima->tiles.first);
@@ -926,7 +926,7 @@ int BKE_image_find_nearest_tile_with_offset(const Image *image,
   zero_v2(r_uv_offset);
   int tile_number_best = -1;
 
-  if (image->source != IMA_SRC_TILED) {
+  if (!image || image->source != IMA_SRC_TILED) {
     return tile_number_best;
   }
 
@@ -3651,7 +3651,7 @@ RenderPass *BKE_image_multilayer_index(RenderResult *rr, ImageUser *iuser)
   return rpass;
 }
 
-void BKE_image_multiview_index(Image *ima, ImageUser *iuser)
+void BKE_image_multiview_index(const Image *ima, ImageUser *iuser)
 {
   if (iuser) {
     bool is_stereo = BKE_image_is_stereo(ima) && (iuser->flag & IMA_SHOW_STEREO);
@@ -3672,7 +3672,7 @@ void BKE_image_multiview_index(Image *ima, ImageUser *iuser)
 
 /* if layer or pass changes, we need an index for the imbufs list */
 /* note it is called for rendered results, but it doesn't use the index! */
-bool BKE_image_is_multilayer(Image *ima)
+bool BKE_image_is_multilayer(const Image *ima)
 {
   if (ELEM(ima->source, IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_TILED)) {
     if (ima->type == IMA_TYPE_MULTILAYER) {
@@ -3687,13 +3687,13 @@ bool BKE_image_is_multilayer(Image *ima)
   return false;
 }
 
-bool BKE_image_is_multiview(Image *ima)
+bool BKE_image_is_multiview(const Image *ima)
 {
   ImageView *view = static_cast<ImageView *>(ima->views.first);
   return (view && (view->next || view->name[0]));
 }
 
-bool BKE_image_is_stereo(Image *ima)
+bool BKE_image_is_stereo(const Image *ima)
 {
   return BKE_image_is_multiview(ima) &&
          (BLI_findstring(&ima->views, STEREO_LEFT_NAME, offsetof(ImageView, name)) &&
@@ -5093,14 +5093,19 @@ void BKE_image_user_id_eval_animation(Depsgraph *depsgraph, ID *id)
   image_walk_id_all_users(id, skip_nested_nodes, depsgraph, image_user_id_eval_animation);
 }
 
-void BKE_image_user_file_path(ImageUser *iuser, Image *ima, char *filepath)
+void BKE_image_user_file_path(const ImageUser *iuser, const Image *ima, char *filepath)
 {
-  BKE_image_user_file_path_ex(iuser, ima, filepath, true);
+  BKE_image_user_file_path_ex(G_MAIN, iuser, ima, filepath, true, true);
 }
 
-void BKE_image_user_file_path_ex(ImageUser *iuser, Image *ima, char *filepath, bool resolve_udim)
+void BKE_image_user_file_path_ex(const Main *bmain,
+                                 const ImageUser *iuser,
+                                 const Image *ima,
+                                 char *filepath,
+                                 const bool resolve_udim,
+                                 const bool resolve_multiview)
 {
-  if (BKE_image_is_multiview(ima)) {
+  if (resolve_multiview && BKE_image_is_multiview(ima)) {
     ImageView *iv = static_cast<ImageView *>(BLI_findlink(&ima->views, iuser->view));
     if (iv->filepath[0]) {
       BLI_strncpy(filepath, iv->filepath, FILE_MAX);
@@ -5133,7 +5138,7 @@ void BKE_image_user_file_path_ex(ImageUser *iuser, Image *ima, char *filepath, b
     }
   }
 
-  BLI_path_abs(filepath, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
+  BLI_path_abs(filepath, ID_BLEND_PATH(bmain, &ima->id));
 }
 
 bool BKE_image_has_alpha(Image *image)
@@ -5514,7 +5519,7 @@ RenderSlot *BKE_image_add_renderslot(Image *ima, const char *name)
   }
   else {
     int n = BLI_listbase_count(&ima->renderslots) + 1;
-    BLI_snprintf(slot->name, sizeof(slot->name), "Slot %d", n);
+    BLI_snprintf(slot->name, sizeof(slot->name), DATA_("Slot %d"), n);
   }
   BLI_addtail(&ima->renderslots, slot);
   return slot;

@@ -157,17 +157,21 @@ void MeshFromGeometry::fixup_invalid_faces()
 
 void MeshFromGeometry::create_vertices(Mesh *mesh)
 {
-  const int tot_verts_object{mesh_geometry_.get_vertex_count()};
-  for (int i = 0; i < tot_verts_object; ++i) {
-    int vi = mesh_geometry_.vertex_index_min_ + i;
-    if (vi < global_vertices_.vertices.size()) {
-      copy_v3_v3(mesh->mvert[i].co, global_vertices_.vertices[vi]);
+  /* Go through all the global vertex indices from min to max,
+   * checking which ones are actually and building a global->local
+   * index mapping. Write out the used vertex positions into the Mesh
+   * data. */
+  mesh_geometry_.global_to_local_vertices_.clear();
+  mesh_geometry_.global_to_local_vertices_.reserve(mesh_geometry_.vertices_.size());
+  for (int vi = mesh_geometry_.vertex_index_min_; vi <= mesh_geometry_.vertex_index_max_; ++vi) {
+    BLI_assert(vi >= 0 && vi < global_vertices_.vertices.size());
+    if (!mesh_geometry_.vertices_.contains(vi)) {
+      continue;
     }
-    else {
-      std::cerr << "Vertex index:" << vi
-                << " larger than total vertices:" << global_vertices_.vertices.size() << " ."
-                << std::endl;
-    }
+    int local_vi = (int)mesh_geometry_.global_to_local_vertices_.size();
+    BLI_assert(local_vi >= 0 && local_vi < mesh->totvert);
+    copy_v3_v3(mesh->mvert[local_vi].co, global_vertices_.vertices[vi]);
+    mesh_geometry_.global_to_local_vertices_.add_new(vi, local_vi);
   }
 }
 
@@ -208,7 +212,7 @@ void MeshFromGeometry::create_polys_loops(Mesh *mesh, bool use_vertex_groups)
       const PolyCorner &curr_corner = mesh_geometry_.face_corners_[curr_face.start_index_ + idx];
       MLoop &mloop = mesh->mloop[tot_loop_idx];
       tot_loop_idx++;
-      mloop.v = curr_corner.vert_index - mesh_geometry_.vertex_index_min_;
+      mloop.v = mesh_geometry_.global_to_local_vertices_.lookup_default(curr_corner.vert_index, 0);
 
       /* Setup vertex group data, if needed. */
       if (!mesh->dvert) {
@@ -240,8 +244,8 @@ void MeshFromGeometry::create_edges(Mesh *mesh)
   for (int i = 0; i < tot_edges; ++i) {
     const MEdge &src_edge = mesh_geometry_.edges_[i];
     MEdge &dst_edge = mesh->medge[i];
-    dst_edge.v1 = src_edge.v1 - mesh_geometry_.vertex_index_min_;
-    dst_edge.v2 = src_edge.v2 - mesh_geometry_.vertex_index_min_;
+    dst_edge.v1 = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge.v1, 0);
+    dst_edge.v2 = mesh_geometry_.global_to_local_vertices_.lookup_default(src_edge.v2, 0);
     BLI_assert(dst_edge.v1 < total_verts && dst_edge.v2 < total_verts);
     dst_edge.flag = ME_LOOSEEDGE;
   }

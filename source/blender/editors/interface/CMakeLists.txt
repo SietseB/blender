@@ -19,7 +19,6 @@ set(INC
   ../../python
   ../../render
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
   ../../bmesh
   # RNA_prototypes.h
@@ -27,13 +26,13 @@ set(INC
 )
 
 set(SRC
-  eyedroppers/interface_eyedropper.c
   eyedroppers/eyedropper_color.c
   eyedroppers/eyedropper_colorband.c
   eyedroppers/eyedropper_datablock.c
   eyedroppers/eyedropper_depth.c
   eyedroppers/eyedropper_driver.c
   eyedroppers/eyedropper_gpencil_color.c
+  eyedroppers/interface_eyedropper.c
   interface.cc
   interface_align.c
   interface_anim.cc

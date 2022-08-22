@@ -274,6 +274,8 @@ set(SRC_KERNEL_SAMPLE_HEADERS
   sample/mapping.h
   sample/mis.h
   sample/pattern.h
+  sample/sobol_burley.h
+  sample/util.h
 )
 
 set(SRC_KERNEL_UTIL_HEADERS
@@ -326,6 +328,7 @@ set(SRC_UTIL_HEADERS
   ../util/rect.h
   ../util/static_assert.h
   ../util/transform.h
+  ../util/transform_inverse.h
   ../util/texture.h
   ../util/types.h
   ../util/types_float2.h
@@ -342,6 +345,7 @@ set(SRC_UTIL_HEADERS
   ../util/types_int3_impl.h
   ../util/types_int4.h
   ../util/types_int4_impl.h
+  ../util/types_spectrum.h
   ../util/types_uchar2.h
   ../util/types_uchar2_impl.h
   ../util/types_uchar3.h
@@ -749,10 +753,8 @@ if(WITH_CYCLES_DEVICE_ONEAPI)
   if (NOT DEFINED CYCLES_ONEAPI_SYCL_OPTIONS_spir64_gen)
     SET (CYCLES_ONEAPI_SYCL_OPTIONS_spir64_gen "${CYCLES_ONEAPI_SYCL_OPTIONS_spir64}" CACHE STRING "Extra build options for spir64_gen target")
   endif()
-  # enabling zebin (graphics binary format with improved compatibility) on Windows only while support on Linux isn't available yet
-  if(WIN32)
-    string(PREPEND CYCLES_ONEAPI_SYCL_OPTIONS_spir64_gen "--format zebin ")
-  endif()
+  # Enable zebin, a graphics binary format with improved compatibility.
+  string(PREPEND CYCLES_ONEAPI_SYCL_OPTIONS_spir64_gen "--format zebin ")
   string(PREPEND CYCLES_ONEAPI_SYCL_OPTIONS_spir64_gen "-device ${CYCLES_ONEAPI_SPIR64_GEN_DEVICES} ")
 
   if (WITH_CYCLES_ONEAPI_BINARIES)

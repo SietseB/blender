@@ -94,6 +94,7 @@ BLI_INLINE void lib_override_object_posemode_transfer(ID *id_dst, ID *id_src)
 /** Get override data for a given ID. Needed because of our beloved shape keys snowflake. */
 BLI_INLINE const IDOverrideLibrary *BKE_lib_override_library_get(const Main *bmain,
                                                                  const ID *id,
+                                                                 const ID *owner_id_hint,
                                                                  const ID **r_owner_id)
 {
   if (r_owner_id != nullptr) {
@@ -104,7 +105,8 @@ BLI_INLINE const IDOverrideLibrary *BKE_lib_override_library_get(const Main *bma
     if (id_type->owner_get != nullptr) {
       /* The #IDTypeInfo::owner_get callback should not modify the arguments, so casting away const
        * is okay. */
-      const ID *owner_id = id_type->owner_get(const_cast<Main *>(bmain), const_cast<ID *>(id));
+      const ID *owner_id = id_type->owner_get(
+          const_cast<Main *>(bmain), const_cast<ID *>(id), const_cast<ID *>(owner_id_hint));
       if (r_owner_id != nullptr) {
         *r_owner_id = owner_id;
       }
@@ -115,13 +117,17 @@ BLI_INLINE const IDOverrideLibrary *BKE_lib_override_library_get(const Main *bma
   return id->override_library;
 }
 
-IDOverrideLibrary *BKE_lib_override_library_get(Main *bmain, ID *id, ID **r_owner_id)
+IDOverrideLibrary *BKE_lib_override_library_get(Main *bmain,
+                                                ID *id,
+                                                ID *owner_id_hint,
+                                                ID **r_owner_id)
 {
   /* Reuse the implementation of the const access function, which does not change the arguments.
    * Add const explicitly to make it clear to the compiler to avoid just calling this function. */
   return const_cast<IDOverrideLibrary *>(
       BKE_lib_override_library_get(const_cast<const Main *>(bmain),
                                    const_cast<const ID *>(id),
+                                   const_cast<const ID *>(owner_id_hint),
                                    const_cast<const ID **>(r_owner_id)));
 }
 
@@ -319,7 +325,7 @@ bool BKE_lib_override_library_is_system_defined(const Main *bmain, const ID *id)
 {
   if (ID_IS_OVERRIDE_LIBRARY(id)) {
     const ID *override_owner_id;
-    BKE_lib_override_library_get(bmain, id, &override_owner_id);
+    BKE_lib_override_library_get(bmain, id, nullptr, &override_owner_id);
     return (override_owner_id->override_library->flag & IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED) !=
            0;
   }
@@ -359,6 +365,10 @@ static int foreachid_is_hierarchy_leaf_fn(LibraryIDLinkCallbackData *cb_data)
   ID *id_owner = cb_data->id_owner;
   ID *id = *cb_data->id_pointer;
   bool *is_leaf = static_cast<bool *>(cb_data->user_data);
+
+  if (cb_data->cb_flag & IDWALK_CB_LOOPBACK) {
+    return IDWALK_RET_NOP;
+  }
 
   if (id != nullptr && ID_IS_OVERRIDE_LIBRARY_REAL(id) &&
       id->override_library->hierarchy_root == id_owner->override_library->hierarchy_root) {
@@ -1087,8 +1097,9 @@ static void lib_override_overrides_group_tag_recursive(LibOverrideGroupTagData *
     }
 
     const Library *reference_lib =
-        BKE_lib_override_library_get(bmain, id_owner, nullptr)->reference->lib;
-    const ID *to_id_reference = BKE_lib_override_library_get(bmain, to_id, nullptr)->reference;
+        BKE_lib_override_library_get(bmain, id_owner, nullptr, nullptr)->reference->lib;
+    const ID *to_id_reference =
+        BKE_lib_override_library_get(bmain, to_id, nullptr, nullptr)->reference;
     if (to_id_reference->lib != reference_lib) {
       /* We do not override data-blocks from other libraries, nor do we process them. */
       continue;
@@ -1201,6 +1212,7 @@ static void lib_override_library_create_post_process(Main *bmain,
                                                      ID *id_root,
                                                      ID *id_instance_hint,
                                                      Collection *residual_storage,
+                                                     const Object *old_active_object,
                                                      const bool is_resync)
 {
   /* NOTE: We only care about local IDs here, if a linked object is not instantiated in any way we
@@ -1272,6 +1284,14 @@ static void lib_override_library_create_post_process(Main *bmain,
 
     BLI_assert(ob_new->id.override_library != nullptr &&
                ob_new->id.override_library->reference == &ob->id);
+
+    if (old_active_object == ob) {
+      Base *basact = BKE_view_layer_base_find(view_layer, ob_new);
+      if (basact != nullptr) {
+        view_layer->basact = basact;
+      }
+      DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+    }
 
     if (BLI_gset_lookup(all_objects_in_scene, ob_new) == nullptr) {
       if (id_root != nullptr && default_instantiating_collection == nullptr) {
@@ -1363,6 +1383,8 @@ bool BKE_lib_override_library_create(Main *bmain,
     id_hierarchy_root_reference = id_root_reference;
   }
 
+  const Object *old_active_object = OBACT(view_layer);
+
   const bool success = lib_override_library_create_do(bmain,
                                                       scene,
                                                       owner_library,
@@ -1385,6 +1407,7 @@ bool BKE_lib_override_library_create(Main *bmain,
                                            id_root_reference,
                                            id_instance_hint,
                                            nullptr,
+                                           old_active_object,
                                            false);
 
   /* Cleanup. */
@@ -1439,7 +1462,7 @@ static ID *lib_override_root_find(Main *bmain, ID *id, const int curr_level, int
     BLI_assert(id->flag & LIB_EMBEDDED_DATA_LIB_OVERRIDE);
     ID *id_owner;
     int best_level_placeholder = 0;
-    BKE_lib_override_library_get(bmain, id, &id_owner);
+    BKE_lib_override_library_get(bmain, id, nullptr, &id_owner);
     return lib_override_root_find(bmain, id_owner, curr_level + 1, &best_level_placeholder);
   }
   /* This way we won't process again that ID, should we encounter it again through another
@@ -1478,7 +1501,7 @@ static ID *lib_override_root_find(Main *bmain, ID *id, const int curr_level, int
     BLI_assert(id->flag & LIB_EMBEDDED_DATA_LIB_OVERRIDE);
     ID *id_owner;
     int best_level_placeholder = 0;
-    BKE_lib_override_library_get(bmain, best_root_id_candidate, &id_owner);
+    BKE_lib_override_library_get(bmain, best_root_id_candidate, nullptr, &id_owner);
     best_root_id_candidate = lib_override_root_find(
         bmain, id_owner, curr_level + 1, &best_level_placeholder);
   }
@@ -1698,6 +1721,7 @@ static bool lib_override_library_resync(Main *bmain,
 
   ID *id_root_reference = id_root->override_library->reference;
   ID *id;
+  const Object *old_active_object = OBACT(view_layer);
 
   if (id_root_reference->tag & LIB_TAG_MISSING) {
     BKE_reportf(reports != nullptr ? reports->reports : nullptr,
@@ -1795,7 +1819,8 @@ static bool lib_override_library_resync(Main *bmain,
         /* While this should not happen in typical cases (and won't be properly supported here),
          * user is free to do all kind of very bad things, including having different local
          * overrides of a same linked ID in a same hierarchy. */
-        IDOverrideLibrary *id_override_library = BKE_lib_override_library_get(bmain, id, nullptr);
+        IDOverrideLibrary *id_override_library = BKE_lib_override_library_get(
+            bmain, id, nullptr, nullptr);
 
         if (id_override_library->hierarchy_root != id_root->override_library->hierarchy_root) {
           continue;
@@ -2121,6 +2146,7 @@ static bool lib_override_library_resync(Main *bmain,
                                              id_root_reference,
                                              id_root,
                                              override_resync_residual_storage,
+                                             old_active_object,
                                              true);
   }
 
@@ -2177,7 +2203,7 @@ static ID *lib_override_library_main_resync_root_get(Main *bmain, ID *id)
   if (!ID_IS_OVERRIDE_LIBRARY_REAL(id)) {
     const IDTypeInfo *id_type = BKE_idtype_get_info_from_id(id);
     if (id_type->owner_get != nullptr) {
-      id = id_type->owner_get(bmain, id);
+      id = id_type->owner_get(bmain, id, nullptr);
     }
     BLI_assert(ID_IS_OVERRIDE_LIBRARY_REAL(id));
   }
@@ -2641,6 +2667,8 @@ void BKE_lib_override_library_main_resync(Main *bmain,
     override_resync_residual_storage->flag |= COLLECTION_HIDE_VIEWPORT | COLLECTION_HIDE_RENDER;
   }
 
+  const Object *old_active_object = OBACT(view_layer);
+
   /* Necessary to improve performances, and prevent layers matching override sub-collections to be
    * lost when re-syncing the parent override collection.
    * Ref. T73411. */
@@ -2661,8 +2689,15 @@ void BKE_lib_override_library_main_resync(Main *bmain,
   BKE_layer_collection_resync_allow();
 
   /* Essentially ensures that potentially new overrides of new objects will be instantiated. */
-  lib_override_library_create_post_process(
-      bmain, scene, view_layer, nullptr, nullptr, nullptr, override_resync_residual_storage, true);
+  lib_override_library_create_post_process(bmain,
+                                           scene,
+                                           view_layer,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           override_resync_residual_storage,
+                                           old_active_object,
+                                           true);
 
   if (BKE_collection_is_empty(override_resync_residual_storage)) {
     BKE_collection_delete(bmain, override_resync_residual_storage, true);

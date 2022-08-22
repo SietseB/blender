@@ -541,14 +541,11 @@ static bool uvedit_uv_straighten(Scene *scene, BMesh *bm, eUVWeldAlign tool)
   }
 
   bool changed = false;
-
-  /* Loop backwards to simplify logic. */
-  int j1 = element_map->totalUVs;
-  for (int i = element_map->totalIslands - 1; i >= 0; --i) {
-    int j0 = element_map->islandIndices[i];
-    changed |= uvedit_uv_straighten_elements(
-        element_map->buf + j0, j1 - j0, cd_loop_uv_offset, tool);
-    j1 = j0;
+  for (int i = 0; i < element_map->total_islands; i++) {
+    changed |= uvedit_uv_straighten_elements(element_map->storage + element_map->island_indices[i],
+                                             element_map->island_total_uvs[i],
+                                             cd_loop_uv_offset,
+                                             tool);
   }
 
   BM_uv_element_map_free(element_map);
@@ -1500,7 +1497,7 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
             if (bm_face_is_all_uv_sel(efa, !swap, cd_loop_uv_offset)) {
               BM_face_select_set(em->bm, efa, false);
             }
-            uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
+            uvedit_face_select_disable(scene, em->bm, efa, cd_loop_uv_offset);
           }
           else {
             if (bm_face_is_all_uv_sel(efa, true, cd_loop_uv_offset) == !swap) {
@@ -1517,7 +1514,7 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
               }
             }
             if (!swap) {
-              uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
+              uvedit_face_select_disable(scene, em->bm, efa, cd_loop_uv_offset);
             }
           }
         }
@@ -1539,7 +1536,7 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
               break;
             }
           }
-          uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
+          uvedit_face_select_disable(scene, em->bm, efa, cd_loop_uv_offset);
         }
         else {
           BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
@@ -1563,7 +1560,7 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
             }
           }
           if (!swap) {
-            uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
+            uvedit_face_select_disable(scene, em->bm, efa, cd_loop_uv_offset);
           }
         }
       }

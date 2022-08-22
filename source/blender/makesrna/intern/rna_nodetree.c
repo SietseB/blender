@@ -4840,6 +4840,7 @@ static void def_math(StructRNA *srna)
   RNA_def_property_enum_sdna(prop, NULL, "custom1");
   RNA_def_property_enum_items(prop, rna_enum_node_math_items);
   RNA_def_property_ui_text(prop, "Operation", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_NODETREE);
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNode_socket_update");
 
   prop = RNA_def_property(srna, "use_clamp", PROP_BOOLEAN, PROP_NONE);
@@ -6477,7 +6478,7 @@ static void def_sh_script(StructRNA *srna)
   RNA_def_function_return(func, parm);
 
   func = RNA_def_function(srna, "add_socket", "rna_ShaderNodeScript_add_socket");
-  RNA_def_function_ui_description(func, "Add a socket socket");
+  RNA_def_function_ui_description(func, "Add a socket");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
   parm = RNA_def_string(func, "name", NULL, 0, "Name", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -6488,7 +6489,7 @@ static void def_sh_script(StructRNA *srna)
   RNA_def_function_return(func, parm);
 
   func = RNA_def_function(srna, "remove_socket", "rna_ShaderNodeScript_remove_socket");
-  RNA_def_function_ui_description(func, "Remove a socket socket");
+  RNA_def_function_ui_description(func, "Remove a socket");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
   parm = RNA_def_pointer(func, "sock", "NodeSocket", "Socket", "");
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
@@ -6737,7 +6738,7 @@ static void def_cmp_set_alpha(StructRNA *srna)
        "REPLACE_ALPHA",
        0,
        "Replace Alpha",
-       "Replace the input image's alpha channels by the alpha input value"},
+       "Replace the input image's alpha channel by the alpha input value"},
       {0, NULL, 0, NULL, NULL},
   };
 

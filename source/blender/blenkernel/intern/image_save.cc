@@ -144,13 +144,9 @@ bool BKE_image_save_options_init(ImageSaveOptions *opts,
 
     opts->im_format.color_management = R_IMF_COLOR_MANAGEMENT_FOLLOW_SCENE;
 
-    if (ibuf->name[0] == '\0' || ima->source == IMA_SRC_TILED) {
-      BLI_strncpy(opts->filepath, ima->filepath, sizeof(opts->filepath));
-      BLI_path_abs(opts->filepath, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
-    }
-    else {
-      BLI_strncpy(opts->filepath, ibuf->name, sizeof(opts->filepath));
-    }
+    /* Compute filepath, but don't resolve multiview and UDIM which are handled
+     * by the image saving code itself. */
+    BKE_image_user_file_path_ex(bmain, iuser, ima, opts->filepath, false, false);
 
     /* sanitize all settings */
 
@@ -825,7 +821,7 @@ bool BKE_image_render_write_exr(ReportList *reports,
       const bool pass_RGBA = (STR_ELEM(rp->chan_id, "RGB", "RGBA", "R", "G", "B", "A"));
       const bool pass_half_float = half_float && pass_RGBA;
 
-      /* Colorspace conversion only happens on RGBA passes. */
+      /* Color-space conversion only happens on RGBA passes. */
       float *output_rect =
           (save_as_render && pass_RGBA) ?
               image_exr_from_scene_linear_to_output(
