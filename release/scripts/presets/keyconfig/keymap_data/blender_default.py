@@ -708,7 +708,7 @@ def km_screen(params):
         ("render.render", {"type": 'F12', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("animation", True), ("use_viewport", True)]}),
         ("render.view_cancel", {"type": 'ESC', "value": 'PRESS'}, None),
-        ("render.view_show", {"type": 'F11', "value": 'PRESS'}, None),
+        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True}, None),
         ("render.play_rendered_anim", {"type": 'F11', "value": 'PRESS', "ctrl": True}, None),
     ])
 
