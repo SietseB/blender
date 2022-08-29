@@ -29,6 +29,8 @@
 #include "BKE_scene.h"
 #include "BKE_workspace.h"
 
+#include "BLT_translation.h"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
@@ -729,19 +731,26 @@ void ED_node_set_active(
           }
         }
 
-        /* Sync to Image Editor. */
+        /* Sync to Image Editor under the following conditions:
+         * - current image is not pinned
+         * - current image is not a Render Result or ViewerNode (want to keep looking at these) */
         Image *image = (Image *)node->id;
         wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
         LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
           const bScreen *screen = WM_window_get_active_screen(win);
           LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
             LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
-              if (sl->spacetype == SPACE_IMAGE) {
-                SpaceImage *sima = (SpaceImage *)sl;
-                if (!sima->pin) {
-                  ED_space_image_set(bmain, sima, image, true);
-                }
+              if (sl->spacetype != SPACE_IMAGE) {
+                continue;
               }
+              SpaceImage *sima = (SpaceImage *)sl;
+              if (sima->pin) {
+                continue;
+              }
+              if (sima->image && ELEM(sima->image->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE)) {
+                continue;
+              }
+              ED_space_image_set(bmain, sima, image, true);
             }
           }
         }
@@ -2435,7 +2444,7 @@ static int ntree_socket_add_exec(bContext *C, wmOperator *op)
   const eNodeSocketInOut in_out = (eNodeSocketInOut)RNA_enum_get(op->ptr, "in_out");
   ListBase *sockets = (in_out == SOCK_IN) ? &ntree->inputs : &ntree->outputs;
 
-  const char *default_name = (in_out == SOCK_IN) ? "Input" : "Output";
+  const char *default_name = (in_out == SOCK_IN) ? DATA_("Input") : DATA_("Output");
   bNodeSocket *active_sock = ntree_get_active_interface_socket(sockets);
 
   bNodeSocket *sock;
