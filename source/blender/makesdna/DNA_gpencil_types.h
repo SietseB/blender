@@ -931,15 +931,6 @@ typedef enum eGP_DrawMode {
   GP_DRAWMODE_3D = 1,
 } eGP_DrawMode;
 
-/* Ondine watercolor flags */
-/*
-typedef enum eGP_OndineFlag {
-  GP_ONDINE_WATERCOLOR = (1 << 0),
-  GP_ONDINE_CLEAR_BG = (1 << 1),
-  GP_ONDINE_GOUACHE_STYLE = (1 << 2),
-} eGP_OndineFlag;
-*/
-
 /* ***************************************** */
 /* Mode Checking Macros */
 

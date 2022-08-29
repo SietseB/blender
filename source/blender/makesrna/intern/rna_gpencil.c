@@ -2872,11 +2872,18 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Clear Background", "Clear the background when drawing this object");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* gouache style */
-  prop = RNA_def_property(srna, "gouache_style", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE);
+  /* gouache style for object */
+  prop = RNA_def_property(srna, "gouache_style_for_object", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE_FOR_OBJECT);
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
-  RNA_def_property_ui_text(prop, "Gouache Style", "Allow lighter colors paint over darker colors");
+  RNA_def_property_ui_text(prop, "Gouache Style for Object", "Allow lighter colors of this object paint over darker colors");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* gouache style within object */
+  prop = RNA_def_property(srna, "gouache_style_within_object", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE_WITHIN_OBJECT);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(prop, "Gouache Style within Object", "Allow lighter colors within this object paint over darker colors");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* randomize seed step */
