@@ -679,7 +679,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->stroke_dryness = 0.0f;
     gpl->stroke_darkened_edge_width = 0.0f;
     gpl->layer_darkened_edge_width = 0.0f;
-    gpl->darkened_edge_width_var = 30.0f;
+    gpl->darkened_edge_width_var = 50.0f;
     gpl->darkened_edge_intensity = 1.0f;
   }
 

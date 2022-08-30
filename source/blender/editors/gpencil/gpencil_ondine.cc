@@ -250,9 +250,6 @@ void GpencilOndine::set_render_data(Object *object)
 
     /* Iterate all strokes of layer */
     LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-      if (gps->totpoints < 2) {
-        continue;
-      }
       if (!ED_gpencil_stroke_material_visible(object, gps)) {
         continue;
       }
