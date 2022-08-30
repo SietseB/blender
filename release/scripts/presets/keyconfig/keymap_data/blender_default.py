@@ -5651,10 +5651,12 @@ def km_object_non_modal(params):
             ("object.origin_set", {"type": 'C', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True}, None),
         ])
     else:
+        '''
         items.extend([
             # NOTE: this shortcut (while not temporary) is not ideal, see: T89757.
             ("object.transfer_mode", {"type": 'Q', "value": 'PRESS', "alt": True}, None),
         ])
+        '''
 
         if params.use_pie_click_drag:
             items.extend([
