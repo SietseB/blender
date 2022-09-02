@@ -21,6 +21,25 @@
 
 #  include "BKE_paint.h"
 #  include "BKE_report.h"
+static void rna_Palette_last_used_color_move_to_first(Palette *palette, const int index)
+{
+  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+    return;
+  }
+
+  BKE_palette_last_used_color_move_to_first(palette, index);
+}
+
+static PaletteColor *rna_Palette_last_used_color_new(Palette *palette)
+{
+  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+    return NULL;
+  }
+
+  PaletteColor *color = BKE_palette_last_used_color_add(palette);
+  return color;
+}
+
 static PaletteColor *rna_Palette_color_new(Palette *palette)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
@@ -128,6 +147,30 @@ static void rna_def_palettecolors(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_ui_text(prop, "Active Palette Color", "");
 }
 
+/* palette.last_used_colors */
+static void rna_def_palettecolors_last_used(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  RNA_def_property_srna(cprop, "PaletteColorsLastUsed");
+  srna = RNA_def_struct(brna, "PaletteColorsLastUsed", NULL);
+  RNA_def_struct_sdna(srna, "Palette");
+  RNA_def_struct_ui_text(srna, "Palette Splines", "Collection of last used colors");
+
+  func = RNA_def_function(srna, "new", "rna_Palette_last_used_color_new");
+  RNA_def_function_ui_description(func, "Add a new color to the palette");
+  parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created color");
+  RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "move_to_first", "rna_Palette_last_used_color_move_to_first");
+  RNA_def_function_ui_description(func,"Move a last used color to the first position in the list");
+  parm = RNA_def_int(func, "index", 0, 0, 9, "index", "index", 0, 9);
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+}
+
 static void rna_def_palettecolor(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -169,6 +212,10 @@ static void rna_def_palette(BlenderRNA *brna)
   prop = RNA_def_property(srna, "colors", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "PaletteColor");
   rna_def_palettecolors(brna, prop);
+
+  prop = RNA_def_property(srna, "last_used_colors", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "PaletteColor");
+  rna_def_palettecolors_last_used(brna, prop);
 }
 
 void RNA_def_palette(BlenderRNA *brna)

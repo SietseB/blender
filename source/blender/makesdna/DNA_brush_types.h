@@ -410,6 +410,9 @@ typedef struct Palette {
   /** Pointer to individual colors. */
   ListBase colors;
 
+  /** Pointer to last used colors. */
+  ListBase last_used_colors;
+
   int active_color;
   char _pad[4];
 } Palette;

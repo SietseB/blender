@@ -5781,10 +5781,49 @@ void uiTemplatePalette(uiLayout *layout,
         block, ui_template_palette_menu, NULL, ICON_SORTSIZE, 0, 0, UI_UNIT_X, UI_UNIT_Y, "");
   }
 
+  /* Last used colors */
+  int row_cols = 0, col_id = 0;
+  if (palette->last_used_colors.first != NULL) {
+    col = uiLayoutColumn(layout, true);
+    uiLayoutRow(col, true);
+
+    row_cols = 0, col_id = 0;
+    LISTBASE_FOREACH (PaletteColor *, color, &palette->last_used_colors) {
+      if (row_cols >= cols_per_row) {
+        uiLayoutRow(col, true);
+        row_cols = 0;
+      }
+
+      PointerRNA color_ptr;
+      RNA_pointer_create(&palette->id, &RNA_PaletteColor, color, &color_ptr);
+      uiButColor *color_but = (uiButColor *)uiDefButR(block,
+                                                      UI_BTYPE_COLOR,
+                                                      0,
+                                                      "",
+                                                      0,
+                                                      0,
+                                                      UI_UNIT_X,
+                                                      UI_UNIT_Y,
+                                                      &color_ptr,
+                                                      "color",
+                                                      -1,
+                                                      0.0,
+                                                      1.0,
+                                                      0.0,
+                                                      0.0,
+                                                      "");
+      color_but->is_pallete_color = true;
+      color_but->palette_color_index = col_id;
+      row_cols++;
+      col_id++;
+    }
+  }
+
+  /* Palette colors */
   col = uiLayoutColumn(layout, true);
   uiLayoutRow(col, true);
 
-  int row_cols = 0, col_id = 0;
+  row_cols = 0, col_id = 0;
   LISTBASE_FOREACH (PaletteColor *, color, &palette->colors) {
     if (row_cols >= cols_per_row) {
       uiLayoutRow(col, true);

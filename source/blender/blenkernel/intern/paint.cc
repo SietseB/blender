@@ -83,6 +83,7 @@ static void palette_copy_data(Main *UNUSED(bmain),
   const Palette *palette_src = (const Palette *)id_src;
 
   BLI_duplicatelist(&palette_dst->colors, &palette_src->colors);
+  BLI_duplicatelist(&palette_dst->last_used_colors, &palette_src->last_used_colors);
 }
 
 static void palette_free_data(ID *id)
@@ -90,6 +91,7 @@ static void palette_free_data(ID *id)
   Palette *palette = (Palette *)id;
 
   BLI_freelistN(&palette->colors);
+  BLI_freelistN(&palette->last_used_colors);
 }
 
 static void palette_blend_write(BlendWriter *writer, ID *id, const void *id_address)
@@ -100,12 +102,14 @@ static void palette_blend_write(BlendWriter *writer, ID *id, const void *id_addr
   BKE_id_blend_write(writer, &palette->id);
 
   BLO_write_struct_list(writer, PaletteColor, &palette->colors);
+  BLO_write_struct_list(writer, PaletteColor, &palette->last_used_colors);
 }
 
 static void palette_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Palette *palette = (Palette *)id;
   BLO_read_list(reader, &palette->colors);
+  BLO_read_list(reader, &palette->last_used_colors);
 }
 
 static void palette_undo_preserve(BlendLibReader *UNUSED(reader), ID *id_new, ID *id_old)
@@ -768,6 +772,25 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
   PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
   BLI_addtail(&palette->colors, color);
   return color;
+}
+
+PaletteColor *BKE_palette_last_used_color_add(Palette *palette)
+{
+  PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
+  BLI_addhead(&palette->last_used_colors, color);
+
+  /* Limit number of last used colors to 10 */
+  int count = BLI_listbase_count(&palette->last_used_colors);
+  if (count > 10) {
+    BLI_remlink(&palette->last_used_colors, palette->last_used_colors.last);
+  }
+
+  return color;
+}
+
+bool BKE_palette_last_used_color_move_to_first(Palette *palette, const int index)
+{
+  return BLI_listbase_move_index(&palette->last_used_colors, index, 0);
 }
 
 bool BKE_palette_is_empty(const Palette *palette)
