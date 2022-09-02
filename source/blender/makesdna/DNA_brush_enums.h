@@ -142,6 +142,12 @@ typedef enum eGP_BrushEraserMode {
   GP_BRUSH_ERASER_STROKE = 2,
 } eGP_BrushEraserMode;
 
+/* BrushGpencilSettings->scope_mode */
+typedef enum eGP_BrushScopeMode {
+  GP_BRUSH_SCOPE_POINT = 0,
+  GP_BRUSH_SCOPE_STROKE = 2,
+} eGP_BrushScopeMode;
+
 /* BrushGpencilSettings->brush_draw_mode */
 typedef enum eGP_BrushMode {
   GP_BRUSH_MODE_ACTIVE = 0,

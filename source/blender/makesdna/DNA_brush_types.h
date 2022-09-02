@@ -82,7 +82,7 @@ typedef struct BrushGpencilSettings {
   /** Soft, hard or stroke. */
   int eraser_mode;
   /** Point or stroke */
-  int change_color_mode;
+  int scope_mode;
   char _pad0[4];
   /** Smooth while drawing factor. */
   float active_smooth;

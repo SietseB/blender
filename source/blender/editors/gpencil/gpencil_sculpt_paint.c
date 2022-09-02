@@ -159,6 +159,12 @@ typedef bool (*GP_BrushApplyCb)(tGP_BrushEditData *gso,
                                 int pt_index,
                                 const int radius,
                                 const int co[2]);
+/* Callback for performing some brush operation on an entire stroke */
+typedef bool (*GP_BrushApplyStrokeCb)(tGP_BrushEditData *gso,
+                                      bGPDstroke *gps,
+                                      float rotation,
+                                      const int radius,
+                                      const int co[2]);
 
 /* ************************************************ */
 /* Utility Functions */
@@ -245,7 +251,8 @@ static bool gpencil_brush_invert_check(tGP_BrushEditData *gso)
 /* Compute strength of effect */
 static float gpencil_brush_influence_calc(tGP_BrushEditData *gso,
                                           const int radius,
-                                          const int co[2])
+                                          const int co[2],
+                                          const bool stroke_mode)
 {
   Brush *brush = gso->brush;
 
@@ -258,16 +265,23 @@ static float gpencil_brush_influence_calc(tGP_BrushEditData *gso,
   }
 
   /* distance fading */
-  int mval_i[2];
-  round_v2i_v2fl(mval_i, gso->mval);
-  float distance = (float)len_v2v2_int(mval_i, co);
+  if (!stroke_mode) {
+    int mval_i[2];
+    round_v2i_v2fl(mval_i, gso->mval);
+    float distance = (float)len_v2v2_int(mval_i, co);
 
-  /* Apply Brush curve. */
-  float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
-  influence *= brush_falloff;
+    /* Apply Brush curve. */
+    float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
+    influence *= brush_falloff;
+  }
 
   /* apply multiframe falloff */
   influence *= gso->mf_falloff;
+
+  /* lower influence for stroke mode */
+  if (stroke_mode) {
+    influence *= 0.2f;
+  }
 
   /* return influence */
   return influence;
@@ -329,7 +343,7 @@ static bool gpencil_brush_smooth_apply(tGP_BrushEditData *gso,
                                        const int radius,
                                        const int co[2])
 {
-  float inf = gpencil_brush_influence_calc(gso, radius, co);
+  float inf = gpencil_brush_influence_calc(gso, radius, co, false);
 
   /* perform smoothing */
   if (gso->brush->gpencil_settings->sculpt_mode_flag & GP_SCULPT_FLAGMODE_APPLY_POSITION) {
@@ -366,7 +380,7 @@ static bool gpencil_brush_thickness_apply(tGP_BrushEditData *gso,
    * - We divide the strength by 10, so that users can set "sane" values.
    *   Otherwise, good default values are in the range of 0.093
    */
-  inf = gpencil_brush_influence_calc(gso, radius, co) / 10.0f;
+  inf = gpencil_brush_influence_calc(gso, radius, co, false) / 10.0f;
 
   /* apply */
   /* XXX: this is much too strong,
@@ -392,6 +406,50 @@ static bool gpencil_brush_thickness_apply(tGP_BrushEditData *gso,
   return true;
 }
 
+/* Make strokes thicker or thinner by the specified amounts */
+static bool gpencil_brush_thickness_stroke_apply(tGP_BrushEditData *gso,
+                                                 bGPDstroke *gps,
+                                                 float UNUSED(rot_eval),
+                                                 const int radius,
+                                                 const int co[2])
+{
+  bGPDspoint *pt;
+  float inf;
+  int i;
+
+  /* Compute strength of effect
+   * - We divide the strength by 10, so that users can set "sane" values.
+   *   Otherwise, good default values are in the range of 0.093
+   */
+  inf = gpencil_brush_influence_calc(gso, radius, co, true) / 10.0f;
+
+  /* Invert effect. */
+  if (gpencil_brush_invert_check(gso)) {
+    inf *= -1.0f;
+  }
+
+  /* Iterate all points of stroke */
+  for (i = 0; i < gps->totpoints; i++) {
+    pt = gps->points + i;
+
+    /* apply */
+    /* XXX: this is much too strong,
+     * and it should probably do some smoothing with the surrounding stuff. */
+    pt->pressure += inf;
+
+    /* Pressure should stay within [0.0, 1.0]
+     * However, it is nice for volumetric strokes to be able to exceed
+     * the upper end of this range. Therefore, we don't actually clamp
+     * down on the upper end.
+     */
+    if (pt->pressure < 0.0f) {
+      pt->pressure = 0.0f;
+    }
+  }
+
+  return true;
+}
+
 /* ----------------------------------------------- */
 /* Color Strength Brush */
 
@@ -407,7 +465,7 @@ static bool gpencil_brush_strength_apply(tGP_BrushEditData *gso,
   float inf;
 
   /* Compute strength of effect */
-  inf = gpencil_brush_influence_calc(gso, radius, co) * 0.125f;
+  inf = gpencil_brush_influence_calc(gso, radius, co, false) * 0.125f;
 
   /* Invert effect. */
   if (gpencil_brush_invert_check(gso)) {
@@ -415,6 +473,35 @@ static bool gpencil_brush_strength_apply(tGP_BrushEditData *gso,
   }
 
   pt->strength = clamp_f(pt->strength + inf, 0.0f, 1.0f);
+
+  return true;
+}
+
+/* Make color of entire stroke more or less transparent by the specified amounts */
+static bool gpencil_brush_strength_stroke_apply(tGP_BrushEditData *gso,
+                                                bGPDstroke *gps,
+                                                float UNUSED(rot_eval),
+                                                const int radius,
+                                                const int co[2])
+{
+  bGPDspoint *pt;
+  float inf;
+  int i;
+
+  /* Compute strength of effect */
+  inf = gpencil_brush_influence_calc(gso, radius, co, true) * 0.125f;
+
+  /* Invert effect. */
+  if (gpencil_brush_invert_check(gso)) {
+    inf *= -1.0f;
+  }
+
+  /* Iterate all points of stroke */
+  for (i = 0; i < gps->totpoints; i++) {
+    pt = gps->points + i;
+
+    pt->strength = clamp_f(pt->strength + inf, 0.0f, 1.0f);
+  }
 
   return true;
 }
@@ -491,7 +578,7 @@ static bool gpencil_brush_grab_store_points(tGP_BrushEditData *gso,
                                             const int co[2])
 {
   tGPSB_Grab_StrokeData *data = BLI_ghash_lookup(gso->stroke_customdata, gps);
-  float inf = gpencil_brush_influence_calc(gso, radius, co);
+  float inf = gpencil_brush_influence_calc(gso, radius, co, false);
 
   BLI_assert(data != NULL);
   BLI_assert(data->size < data->capacity);
@@ -602,7 +689,7 @@ static bool gpencil_brush_push_apply(tGP_BrushEditData *gso,
   float save_pt[3];
   copy_v3_v3(save_pt, &pt->x);
 
-  float inf = gpencil_brush_influence_calc(gso, radius, co);
+  float inf = gpencil_brush_influence_calc(gso, radius, co, false);
   float delta[3] = {0.0f};
 
   /* adjust the amount of displacement to apply */
@@ -665,7 +752,7 @@ static bool gpencil_brush_pinch_apply(tGP_BrushEditData *gso,
    * - Div 10     = Not enough effect
    * - Div 5      = Happy medium... (by trial and error)
    */
-  inf = gpencil_brush_influence_calc(gso, radius, co) / 5.0f;
+  inf = gpencil_brush_influence_calc(gso, radius, co, false) / 5.0f;
 
   /* 1) Make this point relative to the cursor/midpoint (dvec) */
   float fpt[3];
@@ -717,7 +804,7 @@ static bool gpencil_brush_twist_apply(tGP_BrushEditData *gso,
   copy_v3_v3(save_pt, &pt->x);
 
   /* Angle to rotate by */
-  inf = gpencil_brush_influence_calc(gso, radius, co);
+  inf = gpencil_brush_influence_calc(gso, radius, co, false);
   angle = DEG2RADF(1.0f) * inf;
 
   if (gpencil_brush_invert_check(gso)) {
@@ -801,7 +888,7 @@ static bool gpencil_brush_randomize_apply(tGP_BrushEditData *gso,
   /* Amount of jitter to apply depends on the distance of the point to the cursor,
    * as well as the strength of the brush
    */
-  const float inf = gpencil_brush_influence_calc(gso, radius, co) / 2.0f;
+  const float inf = gpencil_brush_influence_calc(gso, radius, co, false) / 2.0f;
   const float fac = BLI_rng_get_float(gso->rng) * inf;
 
   /* apply random to position */
@@ -1077,7 +1164,7 @@ static void gpencil_brush_clone_adjust(tGP_BrushEditData *gso)
 
       /* compute influence on point */
       gpencil_point_to_xy(&gso->gsc, gps, pt, &sco[0], &sco[1]);
-      influence = gpencil_brush_influence_calc(gso, gso->brush->size, sco);
+      influence = gpencil_brush_influence_calc(gso, gso->brush->size, sco, false);
 
       /* adjust the amount of displacement to apply */
       mul_v3_v3fl(delta, gso->dvec, influence);
@@ -1435,7 +1522,9 @@ static float gpencil_sculpt_rotation_eval_get(tGP_BrushEditData *gso,
 static bool gpencil_sculpt_brush_do_stroke(tGP_BrushEditData *gso,
                                            bGPDstroke *gps,
                                            const float diff_mat[4][4],
-                                           GP_BrushApplyCb apply)
+                                           GP_BrushApplyCb apply,
+                                           const bool stroke_mode,
+                                           GP_BrushApplyStrokeCb apply_stroke)
 {
   GP_SpaceConversion *gsc = &gso->gsc;
   rcti *rect = &gso->brush_rect;
@@ -1530,6 +1619,11 @@ static bool gpencil_sculpt_brush_do_stroke(tGP_BrushEditData *gso,
           index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
           if ((pt_active != NULL) && (index < gps_active->totpoints)) {
             rot_eval = gpencil_sculpt_rotation_eval_get(gso, gps, pt, i);
+            /* Apply to the entire stroke when the scope is 'stroke', not 'point' */
+            if (stroke_mode) {
+              ok = apply_stroke(gso, gps_active, rot_eval, radius, pc1);
+              return true;
+            }
             ok = apply(gso, gps_active, rot_eval, index, radius, pc1);
           }
 
@@ -1599,6 +1693,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
                                (GP_SCULPT_FLAGMODE_AUTOMASK_STROKE |
                                 GP_SCULPT_FLAGMODE_AUTOMASK_LAYER |
                                 GP_SCULPT_FLAGMODE_AUTOMASK_MATERIAL)) != 0;
+  const bool stroke_mode = brush->gpencil_settings->scope_mode == GP_BRUSH_SCOPE_STROKE;
   /* Calc bound box matrix. */
   float bound_mat[4][4];
   BKE_gpencil_layer_transform_matrix_get(gso->depsgraph, gso->object, gpl, bound_mat);
@@ -1629,22 +1724,22 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
     switch (tool) {
       case GPSCULPT_TOOL_SMOOTH: /* Smooth strokes */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_smooth_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_smooth_apply, false, NULL);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_THICKNESS: /* Adjust stroke thickness */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(
-            gso, gps, diff_mat, gpencil_brush_thickness_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_thickness_apply,
+          stroke_mode, gpencil_brush_thickness_stroke_apply);
         break;
       }
 
       case GPSCULPT_TOOL_STRENGTH: /* Adjust stroke color strength */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(
-            gso, gps, diff_mat, gpencil_brush_strength_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_strength_apply,
+          stroke_mode, gpencil_brush_strength_stroke_apply);
         break;
       }
 
@@ -1659,7 +1754,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
              */
             gpencil_brush_grab_stroke_init(gso, gps_active);
             changed |= gpencil_sculpt_brush_do_stroke(
-                gso, gps_active, bound_mat, gpencil_brush_grab_store_points);
+                gso, gps_active, bound_mat, gpencil_brush_grab_store_points, false, NULL);
           }
           else {
             /* Apply effect to the stored points */
@@ -1673,21 +1768,23 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
 
       case GPSCULPT_TOOL_PUSH: /* Push points */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_push_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_push_apply, false, NULL);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_PINCH: /* Pinch points */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_pinch_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_pinch_apply, false, NULL);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_TWIST: /* Twist points around midpoint */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_twist_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_twist_apply, false, NULL);
         redo_geom |= changed;
         break;
       }
@@ -1695,7 +1792,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
       case GPSCULPT_TOOL_RANDOMIZE: /* Apply jitter */
       {
         changed |= gpencil_sculpt_brush_do_stroke(
-            gso, gps, diff_mat, gpencil_brush_randomize_apply);
+            gso, gps, diff_mat, gpencil_brush_randomize_apply, false, NULL);
         redo_geom |= changed;
         break;
       }

@@ -1048,7 +1048,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
                          gso->brush->size;
   tGP_Selected *selected = NULL;
   int i;
-  bool mode_stroke = gso->brush->gpencil_settings->change_color_mode == GP_BRUSH_ERASER_STROKE;
+  bool mode_stroke = gso->brush->gpencil_settings->scope_mode == GP_BRUSH_SCOPE_STROKE;
 
   /*---------------------------------------------------------------------
    * First step: select the points affected. This step is required to have

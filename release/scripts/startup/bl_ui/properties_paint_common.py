@@ -1278,7 +1278,7 @@ def brush_basic_gpencil_paint_settings(layout, context, brush, *, compact=False)
 
         if brush.gpencil_tool == 'TINT':
             row = layout.row(align=True)
-            row.prop(gp_settings, "change_color_mode", expand=True)
+            row.prop(gp_settings, "scope_mode", expand=True)
             row = layout.row(align=True)
             row.prop(gp_settings, "vertex_mode", text="Mode")
         else:
@@ -1338,11 +1338,17 @@ def brush_basic_gpencil_sculpt_settings(layout, _context, brush, *, compact=Fals
         if tool in {'THICKNESS', 'STRENGTH', 'PINCH', 'TWIST'}:
             row.separator()
             row.prop(gp_settings, "direction", expand=True, text="")
+        if tool in {'THICKNESS', 'STRENGTH'}:
+            row.separator()
+            row.prop(gp_settings, "scope_mode", expand=True)
     else:
         use_property_split_prev = layout.use_property_split
         layout.use_property_split = False
         if tool in {'THICKNESS', 'STRENGTH'}:
             layout.row().prop(gp_settings, "direction", expand=True)
+            row = layout.row(align=True)
+            row.separator()
+            row.prop(gp_settings, "scope_mode", expand=True)
         elif tool == 'PINCH':
             row = layout.row(align=True)
             row.prop_enum(gp_settings, "direction", value='ADD', text="Pinch")
@@ -1379,7 +1385,7 @@ def brush_basic_gpencil_vertex_settings(layout, _context, brush, *, compact=Fals
 
     if brush.gpencil_vertex_tool in {'DRAW', 'REPLACE'}:
         row = layout.row(align=True)
-        row.prop(gp_settings, "change_color_mode", expand=True)
+        row.prop(gp_settings, "scope_mode", expand=True)
         row = layout.row(align=True)
         row.prop(gp_settings, "vertex_mode", text="Mode")
 
