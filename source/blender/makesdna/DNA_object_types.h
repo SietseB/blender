@@ -804,6 +804,7 @@ typedef enum eGP_OndineFlag {
   GP_ONDINE_CLEAR_BG = (1 << 1),
   GP_ONDINE_GOUACHE_STYLE_FOR_OBJECT = (1 << 2),
   GP_ONDINE_GOUACHE_STYLE_WITHIN_OBJECT = (1 << 3),
+  GP_ONDINE_STABILIZE_NOISE = (1 << 4),
 } eGP_OndineFlag;
 
 #define MAX_DUPLI_RECUR 8

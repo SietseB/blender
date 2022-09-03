@@ -2892,7 +2892,14 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "randomize_seed_step");
   RNA_def_property_range(prop, 0, 1000);
   RNA_def_property_int_default(prop, 0);
-  RNA_def_property_ui_text(prop, "Seed Step", "Randomize watercolor effect every ... frame (0 = no change)");
+  RNA_def_property_ui_text(prop, "Seed Step", "Randomize watercolor noise effects every ... frame (0 = no change)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* stabilize noise */
+  prop = RNA_def_property(srna, "stabilize_noise", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_STABILIZE_NOISE);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_ui_text(prop, "Stabilize Seed Step", "Interpolate watercolor noise in every frame between two seed steps");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* stroke alpha variation */
@@ -2925,9 +2932,9 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   /* stroke overlap darkening */
   prop = RNA_def_property(srna, "stroke_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_overlap_darkening");
-  RNA_def_property_range(prop, 0, 0.5f);
+  RNA_def_property_range(prop, 0, 0.2f);
   RNA_def_property_float_default(prop, 0.02f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
+  RNA_def_property_ui_range(prop, 0.0f, 0.2f, 0.005f, 3);
   RNA_def_property_ui_text(prop, "Stroke Overlap Darkening",
     "When strokes overlap on the same layer, this factor controls how much the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2937,7 +2944,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "layer_overlap_darkening");
   RNA_def_property_range(prop, 0, 0.5f);
   RNA_def_property_float_default(prop, 0.1f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
+  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 3);
   RNA_def_property_ui_text(prop, "Layer Overlap Darkening",
     "When layers overlap, this factor controls how much the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
