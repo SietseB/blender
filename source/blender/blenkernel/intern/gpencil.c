@@ -917,6 +917,9 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
     gps_dst->editcurve = NULL;
   }
 
+  /* Ondine: copy seed (used as an ID for strokes) */
+  gps_dst->seed = gps_src->seed;
+
   /* return new stroke */
   return gps_dst;
 }
