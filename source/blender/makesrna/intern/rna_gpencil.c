@@ -2892,14 +2892,14 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "randomize_seed_step");
   RNA_def_property_range(prop, 0, 1000);
   RNA_def_property_int_default(prop, 0);
-  RNA_def_property_ui_text(prop, "Seed Step", "Randomize watercolor noise effects every ... frame (0 = no change)");
+  RNA_def_property_ui_text(prop, "Randomize Step", "Number of frames between randomizations steps of watercolor noise");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* stabilize noise */
-  prop = RNA_def_property(srna, "stabilize_noise", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_STABILIZE_NOISE);
+  prop = RNA_def_property(srna, "smooth_randomize_steps", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_SMOOTH_RANDOMIZE_STEPS);
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
-  RNA_def_property_ui_text(prop, "Stabilize Seed Step", "Interpolate watercolor noise in every frame between two seed steps");
+  RNA_def_property_ui_text(prop, "Smooth Randomize", "Smooth transition of watercolor noise between two randomization steps");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* stroke alpha variation */

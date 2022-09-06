@@ -775,9 +775,6 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pparticle_len_max = 40;
   gpd->dry_stroke_edge_jitter = 0.25f;
 
-  /* By default stroke depth order at '3D Location' */
-  gpd->draw_mode = GP_DRAWMODE_3D;
-
   return gpd;
 }
 
