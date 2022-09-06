@@ -2353,7 +2353,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* mix with previous */
   prop = RNA_def_property(srna, "mix_with_previous", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_MIX_WITH_PREV);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
     prop, "Mix with Previous", "Mix this layer with the previous layer (pigment diffusion in wet areas)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2361,7 +2361,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* limit to background */
   prop = RNA_def_property(srna, "limit_to_background", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_LIMIT_TO_BG);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Limit to Background", "When true, strokes on this layer are masked by strokes in the background");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2369,7 +2369,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* is wetted */
   prop = RNA_def_property(srna, "is_wetted", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_IS_WETTED);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Layer is Wetted", "Entire layer is wetted (like with a wet brush without paint)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2861,7 +2861,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   /* watercolor GP object */
   prop = RNA_def_property(srna, "watercolor", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_WATERCOLOR);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Watercolor", "Watercolor grease pencil objecct");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2869,36 +2869,37 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   /* clear background */
   prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_CLEAR_BG);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Clear Background", "Clear the background when drawing this object");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* gouache style for object */
   prop = RNA_def_property(srna, "gouache_style_for_object", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE_FOR_OBJECT);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Gouache Style for Object", "Allow lighter colors of this object paint over darker colors");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* gouache style within object */
   prop = RNA_def_property(srna, "gouache_style_within_object", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE_WITHIN_OBJECT);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Gouache Style within Object", "Allow lighter colors within this object paint over darker colors");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* randomize seed step */
   prop = RNA_def_property(srna, "randomize_seed_step", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "randomize_seed_step");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 0, 1000);
   RNA_def_property_int_default(prop, 0);
   RNA_def_property_ui_text(prop, "Randomize Step", "Number of frames between randomizations steps of watercolor noise");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* stabilize noise */
+  /* interpolate noise seed steps */
   prop = RNA_def_property(srna, "smooth_randomize_steps", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_SMOOTH_RANDOMIZE_STEPS);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Smooth Randomize", "Smooth transition of watercolor noise between two randomization steps");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
@@ -3026,6 +3027,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "pparticle_len_min", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_min");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 10, 500);
   RNA_def_property_int_default(prop, 20);
   RNA_def_property_ui_text(prop, "Min Length", "Minimum distance along a stroke the pigment particle speed will vary");
@@ -3033,6 +3035,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "pparticle_len_max", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_max");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 10, 500);
   RNA_def_property_int_default(prop, 40);
   RNA_def_property_ui_text(prop, "Max Length", "Maximum distance along a stroke the pigment particle speed will vary");
