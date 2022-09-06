@@ -247,7 +247,7 @@ CustomDataLayer *BKE_id_attribute_new(
     return nullptr;
   }
 
-  attributes->add(uniquename, domain, eCustomDataType(type), AttributeInitDefault());
+  attributes->add(uniquename, domain, eCustomDataType(type), AttributeInitDefaultValue());
 
   const int index = CustomData_get_named_layer_index(customdata, type, uniquename);
   return (index == -1) ? nullptr : &(customdata->layers[index]);
@@ -421,6 +421,7 @@ int BKE_id_attribute_data_length(ID *id, CustomDataLayer *layer)
       if (mesh->edit_mesh != nullptr) {
         return 0;
       }
+      break;
     }
     default:
       break;
@@ -474,7 +475,10 @@ CustomDataLayer *BKE_id_attributes_active_get(ID *id)
         CustomDataLayer *layer = &customdata->layers[i];
         if (CD_MASK_PROP_ALL & CD_TYPE_AS_MASK(layer->type)) {
           if (index == active_index) {
-            return layer;
+            if (BKE_attribute_allow_procedural_access(layer->name)) {
+              return layer;
+            }
+            return nullptr;
           }
           index++;
         }

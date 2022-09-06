@@ -47,6 +47,7 @@
 #include "BKE_gpencil_modifier.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -92,6 +93,8 @@
 #include "WM_types.h"
 
 #include "object_intern.h"
+
+using blender::Span;
 
 static void modifier_skin_customdata_delete(struct Object *ob);
 
@@ -586,12 +589,14 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
   me->totvert = verts_num;
   me->totedge = edges_num;
 
-  me->mvert = (MVert *)CustomData_add_layer(&me->vdata, CD_MVERT, CD_CALLOC, nullptr, verts_num);
-  me->medge = (MEdge *)CustomData_add_layer(&me->edata, CD_MEDGE, CD_CALLOC, nullptr, edges_num);
-  me->mface = (MFace *)CustomData_add_layer(&me->fdata, CD_MFACE, CD_CALLOC, nullptr, 0);
+  CustomData_add_layer(&me->vdata, CD_MVERT, CD_SET_DEFAULT, nullptr, verts_num);
+  CustomData_add_layer(&me->edata, CD_MEDGE, CD_SET_DEFAULT, nullptr, edges_num);
+  CustomData_add_layer(&me->fdata, CD_MFACE, CD_SET_DEFAULT, nullptr, 0);
 
-  MVert *mvert = me->mvert;
-  MEdge *medge = me->medge;
+  blender::MutableSpan<MVert> verts = me->vertices_for_write();
+  blender::MutableSpan<MEdge> edges = me->edges_for_write();
+  MVert *mvert = verts.data();
+  MEdge *medge = edges.data();
 
   /* copy coordinates */
   cache = psys_eval->pathcache;
@@ -1227,7 +1232,7 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
   /* if cloth/softbody was removed, particle mode could be cleared */
   if (mode_orig & OB_MODE_PARTICLE_EDIT) {
     if ((ob->mode & OB_MODE_PARTICLE_EDIT) == 0) {
-      if (ob == OBACT(view_layer)) {
+      if (ob == BKE_view_layer_active_object_get(view_layer)) {
         WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, nullptr);
       }
     }
@@ -2588,8 +2593,8 @@ void OBJECT_OT_skin_radii_equalize(wmOperatorType *ot)
 }
 
 static void skin_armature_bone_create(Object *skin_ob,
-                                      MVert *mvert,
-                                      MEdge *medge,
+                                      const MVert *mvert,
+                                      const MEdge *medge,
                                       bArmature *arm,
                                       BLI_bitmap *edges_visited,
                                       const MeshElemMap *emap,
@@ -2634,15 +2639,18 @@ static void skin_armature_bone_create(Object *skin_ob,
 static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, Object *skin_ob)
 {
   Mesh *me = static_cast<Mesh *>(skin_ob->data);
+  const Span<MVert> me_verts = me->vertices();
+  const Span<MEdge> me_edges = me->edges();
 
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Object *ob_eval = DEG_get_evaluated_object(depsgraph, skin_ob);
 
-  Mesh *me_eval_deform = mesh_get_eval_deform(depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
-  MVert *mvert = me_eval_deform->mvert;
+  const Mesh *me_eval_deform = mesh_get_eval_deform(
+      depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
+  const Span<MVert> verts_eval = me_eval_deform->vertices();
 
   /* add vertex weights to original mesh */
-  CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, me->totvert);
+  CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_SET_DEFAULT, nullptr, me->totvert);
 
   ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
   Object *arm_ob = BKE_object_add(bmain, view_layer, OB_ARMATURE, nullptr);
@@ -2657,7 +2665,7 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, 
       CustomData_get_layer(&me->vdata, CD_MVERT_SKIN));
   int *emap_mem;
   MeshElemMap *emap;
-  BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
+  BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me_edges.data(), me->totvert, me->totedge);
 
   BLI_bitmap *edges_visited = BLI_BITMAP_NEW(me->totedge, "edge_visited");
 
@@ -2673,15 +2681,16 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, 
       if (emap[v].count > 1) {
         bone = ED_armature_ebone_add(arm, "Bone");
 
-        copy_v3_v3(bone->head, me->mvert[v].co);
-        copy_v3_v3(bone->tail, me->mvert[v].co);
+        copy_v3_v3(bone->head, me_verts[v].co);
+        copy_v3_v3(bone->tail, me_verts[v].co);
 
         bone->head[1] = 1.0f;
         bone->rad_head = bone->rad_tail = 0.25;
       }
 
       if (emap[v].count >= 1) {
-        skin_armature_bone_create(skin_ob, mvert, me->medge, arm, edges_visited, emap, bone, v);
+        skin_armature_bone_create(
+            skin_ob, verts_eval.data(), me_edges.data(), arm, edges_visited, emap, bone, v);
       }
     }
   }
