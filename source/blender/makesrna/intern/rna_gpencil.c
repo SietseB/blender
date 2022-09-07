@@ -1808,6 +1808,11 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   prop = RNA_def_property(srna, "render_fill_is_clockwise", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_FILL_IS_CLOCKWISE);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "render_bbox", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "render_bbox");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 }
 
 static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -3028,7 +3033,8 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "pparticle_len_min", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_min");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_range(prop, 10, 500);
+  RNA_def_property_range(prop, 20, 400);
+  RNA_def_property_ui_range(prop, 0, 400, 20, 0);
   RNA_def_property_int_default(prop, 20);
   RNA_def_property_ui_text(prop, "Min Length", "Minimum distance along a stroke the pigment particle speed will vary");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -3036,7 +3042,8 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "pparticle_len_max", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "pparticle_len_max");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_range(prop, 10, 500);
+  RNA_def_property_range(prop, 20, 400);
+  RNA_def_property_ui_range(prop, 0, 400, 20, 0);
   RNA_def_property_int_default(prop, 40);
   RNA_def_property_ui_text(prop, "Max Length", "Maximum distance along a stroke the pigment particle speed will vary");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");

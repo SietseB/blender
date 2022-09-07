@@ -290,6 +290,8 @@ void GpencilOndine::set_render_data(Object *object)
       float min_y = 100000.0f;
       float max_x = -100000.0f;
       int min_i1 = 0;
+      float bbox_minx = 100000.0f, bbox_miny = 100000.0f;
+      float bbox_maxx = -100000.0f, bbox_maxy = -100000.0f;
       for (const int i : IndexRange(gps->totpoints)) {
         bGPDspoint &pt = gps->points[i];
         const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
@@ -313,6 +315,20 @@ void GpencilOndine::set_render_data(Object *object)
             max_x = pt.flat_x;
           }
         }
+
+        /* Get bounding box */
+        if (bbox_minx > pt.flat_x) {
+          bbox_minx = pt.flat_x;
+        }
+        if (bbox_miny > pt.flat_y) {
+          bbox_miny = pt.flat_y;
+        }
+        if (bbox_maxx < pt.flat_x) {
+          bbox_maxx = pt.flat_x;
+        }
+        if (bbox_maxy < pt.flat_y) {
+          bbox_maxy = pt.flat_y;
+        }
       }
 
       /* Set constant strength flag */
@@ -325,7 +341,7 @@ void GpencilOndine::set_render_data(Object *object)
       gps->render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
       if (is_fill) {
         int lenp = gps->totpoints - 1;
-        int min_i0 = (min_i1 == 0) ? lenp: min_i1 - 1;
+        int min_i0 = (min_i1 == 0) ? lenp : min_i1 - 1;
         int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
         float det =
           (gps->points[min_i1].flat_x - gps->points[min_i0].flat_x) *
@@ -336,6 +352,12 @@ void GpencilOndine::set_render_data(Object *object)
           gps->render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
         }
       }
+
+      /* Set bounding box */
+      gps->render_bbox[0] = bbox_minx;
+      gps->render_bbox[1] = bbox_miny;
+      gps->render_bbox[2] = bbox_maxx;
+      gps->render_bbox[3] = bbox_maxy;
     }
   }
 }
