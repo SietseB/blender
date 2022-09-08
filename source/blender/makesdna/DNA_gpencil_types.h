@@ -337,8 +337,9 @@ typedef struct bGPDstroke {
   float render_stroke_opacity;
   float render_stroke_width;
   float render_thickness;
+  float render_dist_to_camera;
   short render_flag;
-  char _pad6[2];
+  char _pad6[6];
   float render_bbox[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as

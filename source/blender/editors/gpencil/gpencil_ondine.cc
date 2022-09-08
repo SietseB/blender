@@ -93,6 +93,7 @@ void GpencilOndine::init(bContext *C)
 bool GpencilOndine::prepare_camera_params(bContext *C)
 {
   Object *cam_ob = scene_->camera;
+  float vec_z[3] = {0.0f, 0.0f, -1.0f};
 
   /* Calculate camera matrix. */
   if (cam_ob != nullptr) {
@@ -105,16 +106,21 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     RenderData *rd = &scene_->r;
     BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
     BKE_camera_params_compute_matrix(&params);
-
+    
     float viewmat[4][4];
     invert_m4_m4(viewmat, cam_ob->obmat);
 
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
+
+    /* Store camera position and normal vector */
+    camera_loc_ = cam_ob->loc;
+    mul_v3_m4v3(camera_normal_vec_, cam_ob->obmat, vec_z);
+    normalize_v3(camera_normal_vec_);
   }
   else {
     unit_m4(persmat_);
   }
-
+  
   winx_ = region_->winx;
   winy_ = region_->winy;
 
@@ -219,6 +225,8 @@ void GpencilOndine::set_zdepth(Object *object)
 
 void GpencilOndine::set_render_data(Object *object)
 {
+  float plane[4];
+
   /* Grease pencil object? */
   if (object->type != OB_GPENCIL) {
     return;
@@ -230,6 +238,9 @@ void GpencilOndine::set_render_data(Object *object)
     return;
   }
   gpd_ = gpd;
+
+  /* Calculate camera plane */
+  plane_from_point_normal_v3(plane, camera_loc_, camera_normal_vec_);
 
   /* Iterate all layers of GP watercolor object */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
@@ -282,6 +293,9 @@ void GpencilOndine::set_render_data(Object *object)
         CLAMP_MIN(thickness, 1.0f);
         gps->render_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, thickness) * 2.0f;
       }
+
+      /* Calculate distance to camera */
+      gps->render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, plane);
 
       /* Convert 3d stroke points to 2d */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);

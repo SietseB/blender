@@ -1793,6 +1793,10 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "render_thickness");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
+  prop = RNA_def_property(srna, "render_dist_to_camera", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "render_dist_to_camera");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
   prop = RNA_def_property(srna, "render_has_fill", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "render_flag", GP_ONDINE_STROKE_HAS_FILL);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
