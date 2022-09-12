@@ -824,7 +824,7 @@ void BKE_mesh_tessface_calc(Mesh *mesh)
   mesh->totface = mesh_tessface_calc(&mesh->fdata,
                                      &mesh->ldata,
                                      &mesh->pdata,
-                                     BKE_mesh_vertices_for_write(mesh),
+                                     BKE_mesh_verts_for_write(mesh),
                                      mesh->totface,
                                      mesh->totloop,
                                      mesh->totpoly);
@@ -918,6 +918,67 @@ void BKE_mesh_add_mface_layers(CustomData *fdata, CustomData *ldata, int total)
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Bevel Weight Conversion
+ * \{ */
+
+void BKE_mesh_legacy_bevel_weight_from_layers(Mesh *mesh)
+{
+  using namespace blender;
+  MutableSpan<MVert> verts = mesh->verts_for_write();
+  if (const float *weights = static_cast<const float *>(
+          CustomData_get_layer(&mesh->vdata, CD_BWEIGHT))) {
+    mesh->cd_flag |= ME_CDFLAG_VERT_BWEIGHT;
+    for (const int i : verts.index_range()) {
+      verts[i].bweight = std::clamp(weights[i], 0.0f, 1.0f) * 255.0f;
+    }
+  }
+  else {
+    mesh->cd_flag &= ~ME_CDFLAG_VERT_BWEIGHT;
+    for (const int i : verts.index_range()) {
+      verts[i].bweight = 0;
+    }
+  }
+  MutableSpan<MEdge> edges = mesh->edges_for_write();
+  if (const float *weights = static_cast<const float *>(
+          CustomData_get_layer(&mesh->edata, CD_BWEIGHT))) {
+    mesh->cd_flag |= ME_CDFLAG_EDGE_BWEIGHT;
+    for (const int i : edges.index_range()) {
+      edges[i].bweight = std::clamp(weights[i], 0.0f, 1.0f) * 255.0f;
+    }
+  }
+  else {
+    mesh->cd_flag &= ~ME_CDFLAG_EDGE_BWEIGHT;
+    for (const int i : edges.index_range()) {
+      edges[i].bweight = 0;
+    }
+  }
+}
+
+void BKE_mesh_legacy_bevel_weight_to_layers(Mesh *mesh)
+{
+  using namespace blender;
+  const Span<MVert> verts = mesh->verts();
+  if (mesh->cd_flag & ME_CDFLAG_VERT_BWEIGHT) {
+    float *weights = static_cast<float *>(
+        CustomData_add_layer(&mesh->vdata, CD_BWEIGHT, CD_CONSTRUCT, nullptr, verts.size()));
+    for (const int i : verts.index_range()) {
+      weights[i] = verts[i].bweight / 255.0f;
+    }
+  }
+
+  const Span<MEdge> edges = mesh->edges();
+  if (mesh->cd_flag & ME_CDFLAG_EDGE_BWEIGHT) {
+    float *weights = static_cast<float *>(
+        CustomData_add_layer(&mesh->edata, CD_BWEIGHT, CD_CONSTRUCT, nullptr, edges.size()));
+    for (const int i : edges.index_range()) {
+      weights[i] = edges[i].bweight / 255.0f;
+    }
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Hide Attribute and Legacy Flag Conversion
  * \{ */
 
@@ -925,9 +986,9 @@ void BKE_mesh_legacy_convert_hide_layers_to_flags(Mesh *mesh)
 {
   using namespace blender;
   using namespace blender::bke;
-  const AttributeAccessor attributes = mesh_attributes(*mesh);
+  const AttributeAccessor attributes = mesh->attributes();
 
-  MutableSpan<MVert> verts = mesh->vertices_for_write();
+  MutableSpan<MVert> verts = mesh->verts_for_write();
   const VArray<bool> hide_vert = attributes.lookup_or_default<bool>(
       ".hide_vert", ATTR_DOMAIN_POINT, false);
   threading::parallel_for(verts.index_range(), 4096, [&](IndexRange range) {
@@ -945,7 +1006,7 @@ void BKE_mesh_legacy_convert_hide_layers_to_flags(Mesh *mesh)
     }
   });
 
-  MutableSpan<MPoly> polys = mesh->polygons_for_write();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
   const VArray<bool> hide_poly = attributes.lookup_or_default<bool>(
       ".hide_poly", ATTR_DOMAIN_FACE, false);
   threading::parallel_for(polys.index_range(), 4096, [&](IndexRange range) {
@@ -959,9 +1020,9 @@ void BKE_mesh_legacy_convert_flags_to_hide_layers(Mesh *mesh)
 {
   using namespace blender;
   using namespace blender::bke;
-  MutableAttributeAccessor attributes = mesh_attributes_for_write(*mesh);
+  MutableAttributeAccessor attributes = mesh->attributes_for_write();
 
-  const Span<MVert> verts = mesh->vertices();
+  const Span<MVert> verts = mesh->verts();
   if (std::any_of(
           verts.begin(), verts.end(), [](const MVert &vert) { return vert.flag & ME_HIDE; })) {
     SpanAttributeWriter<bool> hide_vert = attributes.lookup_or_add_for_write_only_span<bool>(
@@ -987,7 +1048,7 @@ void BKE_mesh_legacy_convert_flags_to_hide_layers(Mesh *mesh)
     hide_edge.finish();
   }
 
-  const Span<MPoly> polys = mesh->polygons();
+  const Span<MPoly> polys = mesh->polys();
   if (std::any_of(
           polys.begin(), polys.end(), [](const MPoly &poly) { return poly.flag & ME_HIDE; })) {
     SpanAttributeWriter<bool> hide_poly = attributes.lookup_or_add_for_write_only_span<bool>(
@@ -1010,8 +1071,8 @@ void BKE_mesh_legacy_convert_material_indices_to_mpoly(Mesh *mesh)
 {
   using namespace blender;
   using namespace blender::bke;
-  const AttributeAccessor attributes = mesh_attributes(*mesh);
-  MutableSpan<MPoly> polys = mesh->polygons_for_write();
+  const AttributeAccessor attributes = mesh->attributes();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
   const VArray<int> material_indices = attributes.lookup_or_default<int>(
       "material_index", ATTR_DOMAIN_FACE, 0);
   threading::parallel_for(polys.index_range(), 4096, [&](IndexRange range) {
@@ -1025,8 +1086,8 @@ void BKE_mesh_legacy_convert_mpoly_to_material_indices(Mesh *mesh)
 {
   using namespace blender;
   using namespace blender::bke;
-  MutableAttributeAccessor attributes = mesh_attributes_for_write(*mesh);
-  const Span<MPoly> polys = mesh->polygons();
+  MutableAttributeAccessor attributes = mesh->attributes_for_write();
+  const Span<MPoly> polys = mesh->polys();
   if (std::any_of(
           polys.begin(), polys.end(), [](const MPoly &poly) { return poly.mat_nr != 0; })) {
     SpanAttributeWriter<int> material_indices = attributes.lookup_or_add_for_write_only_span<int>(

@@ -1166,7 +1166,7 @@ static void weld_mesh_context_create(const Mesh &mesh,
 {
   const int mvert_len = mesh.totvert;
   const Span<MEdge> edges = mesh.edges();
-  const Span<MPoly> polys = mesh.polygons();
+  const Span<MPoly> polys = mesh.polys();
   const Span<MLoop> loops = mesh.loops();
 
   Vector<WeldVert> wvert = weld_vert_ctx_alloc_and_setup(vert_dest_map, vert_kill_len);
@@ -1233,7 +1233,6 @@ static void customdata_weld(
   float no[3] = {0.0f, 0.0f, 0.0f};
 #endif
   int crease = 0;
-  int bweight = 0;
   short flag = 0;
 
   /* interpolates a layer at a time */
@@ -1267,7 +1266,6 @@ static void customdata_weld(
           no[1] += mv_src_no[1];
           no[2] += mv_src_no[2];
 #endif
-          bweight += mv_src->bweight;
           flag |= mv_src->flag;
         }
       }
@@ -1275,7 +1273,6 @@ static void customdata_weld(
         for (j = 0; j < count; j++) {
           MEdge *me_src = &((MEdge *)src_data)[src_indices[j]];
           crease += me_src->crease;
-          bweight += me_src->bweight;
           flag |= me_src->flag;
         }
       }
@@ -1312,8 +1309,6 @@ static void customdata_weld(
     if (type == CD_MVERT) {
       MVert *mv = &((MVert *)layer_dst->data)[dest_index];
       mul_v3_fl(co, fac);
-      bweight *= fac;
-      CLAMP_MAX(bweight, 255);
 
       copy_v3_v3(mv->co, co);
 #ifdef USE_WELD_NORMALS
@@ -1325,17 +1320,13 @@ static void customdata_weld(
 #endif
 
       mv->flag = (char)flag;
-      mv->bweight = (char)bweight;
     }
     else if (type == CD_MEDGE) {
       MEdge *me = &((MEdge *)layer_dst->data)[dest_index];
       crease *= fac;
-      bweight *= fac;
       CLAMP_MAX(crease, 255);
-      CLAMP_MAX(bweight, 255);
 
       me->crease = (char)crease;
-      me->bweight = (char)bweight;
       me->flag = flag;
     }
     else if (CustomData_layer_has_interp(dest, dest_i)) {
@@ -1360,7 +1351,7 @@ static Mesh *create_merged_mesh(const Mesh &mesh,
                                 MutableSpan<int> vert_dest_map,
                                 const int removed_vertex_count)
 {
-  const Span<MPoly> src_polys = mesh.polygons();
+  const Span<MPoly> src_polys = mesh.polys();
   const Span<MLoop> src_loops = mesh.loops();
   const int totvert = mesh.totvert;
   const int totedge = mesh.totedge;
@@ -1376,7 +1367,7 @@ static Mesh *create_merged_mesh(const Mesh &mesh,
   Mesh *result = BKE_mesh_new_nomain_from_template(
       &mesh, result_nverts, result_nedges, 0, result_nloops, result_npolys);
   MutableSpan<MEdge> dst_edges = result->edges_for_write();
-  MutableSpan<MPoly> dst_polys = result->polygons_for_write();
+  MutableSpan<MPoly> dst_polys = result->polys_for_write();
   MutableSpan<MLoop> dst_loops = result->loops_for_write();
 
   /* Vertices. */
@@ -1570,7 +1561,7 @@ std::optional<Mesh *> mesh_merge_by_distance_all(const Mesh &mesh,
 
   KDTree_3d *tree = BLI_kdtree_3d_new(selection.size());
 
-  const Span<MVert> verts = mesh.vertices();
+  const Span<MVert> verts = mesh.verts();
   for (const int i : selection) {
     BLI_kdtree_3d_insert(tree, i, verts[i].co);
   }
@@ -1597,7 +1588,7 @@ std::optional<Mesh *> mesh_merge_by_distance_connected(const Mesh &mesh,
                                                        const float merge_distance,
                                                        const bool only_loose_edges)
 {
-  const Span<MVert> verts = mesh.vertices();
+  const Span<MVert> verts = mesh.verts();
   const Span<MEdge> edges = mesh.edges();
 
   int vert_kill_len = 0;

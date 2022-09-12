@@ -225,7 +225,7 @@ void ED_mesh_uv_loop_reset_ex(Mesh *me, const int layernum)
     BLI_assert(CustomData_has_layer(&me->ldata, CD_MLOOPUV));
     MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer_n(&me->ldata, CD_MLOOPUV, layernum);
 
-    const MPoly *polys = BKE_mesh_polygons(me);
+    const MPoly *polys = BKE_mesh_polys(me);
     for (int i = 0; i < me->totpoly; i++) {
       mesh_uv_reset_mface(&polys[i], mloopuv);
     }
@@ -626,6 +626,28 @@ static int mesh_customdata_clear_exec__internal(bContext *C, char htype, int typ
   return OPERATOR_CANCELLED;
 }
 
+static int mesh_customdata_add_exec__internal(bContext *C, char htype, int type)
+{
+  Mesh *mesh = ED_mesh_context(C);
+
+  int tot;
+  CustomData *data = mesh_customdata_get_type(mesh, htype, &tot);
+
+  BLI_assert(CustomData_layertype_is_singleton(type) == true);
+
+  if (mesh->edit_mesh) {
+    BM_data_layer_add(mesh->edit_mesh->bm, data, type);
+  }
+  else {
+    CustomData_add_layer(data, type, CD_SET_DEFAULT, NULL, tot);
+  }
+
+  DEG_id_tag_update(&mesh->id, 0);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, mesh);
+
+  return CustomData_has_layer(data, type) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
 /* Clear Mask */
 static bool mesh_customdata_mask_clear_poll(bContext *C)
 {
@@ -776,9 +798,9 @@ static int mesh_customdata_custom_splitnormals_add_exec(bContext *C, wmOperator 
       /* Tag edges as sharp according to smooth threshold if needed,
        * to preserve autosmooth shading. */
       if (me->flag & ME_AUTOSMOOTH) {
-        const Span<MVert> verts = me->vertices();
+        const Span<MVert> verts = me->verts();
         MutableSpan<MEdge> edges = me->edges_for_write();
-        const Span<MPoly> polys = me->polygons();
+        const Span<MPoly> polys = me->polys();
         const Span<MLoop> loops = me->loops();
 
         BKE_edges_sharp_from_angle_set(verts.data(),
@@ -848,6 +870,126 @@ void MESH_OT_customdata_custom_splitnormals_clear(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* Vertex bevel weight. */
+
+static int mesh_customdata_bevel_weight_vertex_state(bContext *C)
+{
+  const Object *object = ED_object_context(C);
+
+  if (object && object->type == OB_MESH) {
+    const Mesh *mesh = static_cast<Mesh *>(object->data);
+    if (!ID_IS_LINKED(mesh)) {
+      const CustomData *data = GET_CD_DATA(mesh, vdata);
+      return CustomData_has_layer(data, CD_BWEIGHT);
+    }
+  }
+  return -1;
+}
+
+static bool mesh_customdata_bevel_weight_vertex_add_poll(bContext *C)
+{
+  return mesh_customdata_bevel_weight_vertex_state(C) == 0;
+}
+
+static int mesh_customdata_bevel_weight_vertex_add_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  return mesh_customdata_add_exec__internal(C, BM_VERT, CD_BWEIGHT);
+}
+
+void MESH_OT_customdata_bevel_weight_vertex_add(wmOperatorType *ot)
+{
+  ot->name = "Add Vertex Bevel Weight";
+  ot->idname = "MESH_OT_customdata_bevel_weight_vertex_add";
+  ot->description = "Add a vertex bevel weight layer";
+
+  ot->exec = mesh_customdata_bevel_weight_vertex_add_exec;
+  ot->poll = mesh_customdata_bevel_weight_vertex_add_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static bool mesh_customdata_bevel_weight_vertex_clear_poll(bContext *C)
+{
+  return (mesh_customdata_bevel_weight_vertex_state(C) == 1);
+}
+
+static int mesh_customdata_bevel_weight_vertex_clear_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  return mesh_customdata_clear_exec__internal(C, BM_VERT, CD_BWEIGHT);
+}
+
+void MESH_OT_customdata_bevel_weight_vertex_clear(wmOperatorType *ot)
+{
+  ot->name = "Clear Vertex Bevel Weight";
+  ot->idname = "MESH_OT_customdata_bevel_weight_vertex_clear";
+  ot->description = "Clear the vertex bevel weight layer";
+
+  ot->exec = mesh_customdata_bevel_weight_vertex_clear_exec;
+  ot->poll = mesh_customdata_bevel_weight_vertex_clear_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* Edge bevel weight. */
+
+static int mesh_customdata_bevel_weight_edge_state(bContext *C)
+{
+  const Object *ob = ED_object_context(C);
+
+  if (ob && ob->type == OB_MESH) {
+    const Mesh *mesh = static_cast<Mesh *>(ob->data);
+    if (!ID_IS_LINKED(mesh)) {
+      const CustomData *data = GET_CD_DATA(mesh, edata);
+      return CustomData_has_layer(data, CD_BWEIGHT);
+    }
+  }
+  return -1;
+}
+
+static bool mesh_customdata_bevel_weight_edge_add_poll(bContext *C)
+{
+  return mesh_customdata_bevel_weight_edge_state(C) == 0;
+}
+
+static int mesh_customdata_bevel_weight_edge_add_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  return mesh_customdata_add_exec__internal(C, BM_EDGE, CD_BWEIGHT);
+}
+
+void MESH_OT_customdata_bevel_weight_edge_add(wmOperatorType *ot)
+{
+  ot->name = "Add Edge Bevel Weight";
+  ot->idname = "MESH_OT_customdata_bevel_weight_edge_add";
+  ot->description = "Add an edge bevel weight layer";
+
+  ot->exec = mesh_customdata_bevel_weight_edge_add_exec;
+  ot->poll = mesh_customdata_bevel_weight_edge_add_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static bool mesh_customdata_bevel_weight_edge_clear_poll(bContext *C)
+{
+  return mesh_customdata_bevel_weight_edge_state(C) == 1;
+}
+
+static int mesh_customdata_bevel_weight_edge_clear_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  return mesh_customdata_clear_exec__internal(C, BM_EDGE, CD_BWEIGHT);
+}
+
+void MESH_OT_customdata_bevel_weight_edge_clear(wmOperatorType *ot)
+{
+  ot->name = "Clear Edge Bevel Weight";
+  ot->idname = "MESH_OT_customdata_bevel_weight_edge_clear";
+  ot->description = "Clear the edge bevel weight layer";
+
+  ot->exec = mesh_customdata_bevel_weight_edge_clear_exec;
+  ot->poll = mesh_customdata_bevel_weight_edge_clear_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
 /************************** Add Geometry Layers *************************/
 
 void ED_mesh_update(Mesh *mesh, bContext *C, bool calc_edges, bool calc_edges_loose)
@@ -893,7 +1035,7 @@ static void mesh_add_verts(Mesh *mesh, int len)
   const int old_vertex_num = mesh->totvert;
   mesh->totvert = totvert;
 
-  MutableSpan<MVert> verts = mesh->vertices_for_write();
+  MutableSpan<MVert> verts = mesh->verts_for_write();
   for (MVert &vert : verts.drop_front(old_vertex_num)) {
     vert.flag = SELECT;
   }
@@ -986,7 +1128,7 @@ static void mesh_add_polys(Mesh *mesh, int len)
   const int old_polys_num = mesh->totpoly;
   mesh->totpoly = totpoly;
 
-  MutableSpan<MPoly> polys = mesh->polygons_for_write();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
   for (MPoly &poly : polys.drop_front(old_polys_num)) {
     poly.flag = ME_FACE_SEL;
   }

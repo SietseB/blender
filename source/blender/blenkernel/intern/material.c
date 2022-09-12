@@ -102,6 +102,7 @@ static void material_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const 
                      (ID **)&material_dst->nodetree,
                      flag_private_id_data);
     }
+    material_dst->nodetree->owner_id = &material_dst->id;
   }
 
   if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
@@ -255,7 +256,7 @@ IDTypeInfo IDType_ID_MA = {
     .foreach_id = material_foreach_id,
     .foreach_cache = NULL,
     .foreach_path = NULL,
-    .owner_get = NULL,
+    .owner_pointer_get = NULL,
 
     .blend_write = material_blend_write,
     .blend_read_data = material_blend_read_data,

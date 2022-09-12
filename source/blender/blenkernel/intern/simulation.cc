@@ -67,6 +67,7 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
                    (ID *)simulation_src->nodetree,
                    (ID **)&simulation_dst->nodetree,
                    flag_private_id_data);
+    simulation_dst->nodetree->owner_id = &simulation_dst->id;
   }
 }
 
@@ -148,7 +149,7 @@ IDTypeInfo IDType_ID_SIM = {
     /* foreach_id */ simulation_foreach_id,
     /* foreach_cache */ nullptr,
     /* foreach_path */ nullptr,
-    /* owner_get */ nullptr,
+    /* owner_pointer_get */ nullptr,
 
     /* blend_write */ simulation_blend_write,
     /* blend_read_data */ simulation_blend_read_data,
