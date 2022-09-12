@@ -768,8 +768,9 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
         gpd = ob.data
         gpl = gpd.layers.active
         if gpl:
-            row = layout.row(align=True)
-            row.prop(gpl, "blend_mode", text="Blend")
+            if not gpd.watercolor:
+                row = layout.row(align=True)
+                row.prop(gpl, "blend_mode", text="Blend")
 
             row = layout.row(align=True)
             row.prop(gpl, "opacity", text="Opacity", slider=True)
