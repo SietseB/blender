@@ -757,8 +757,8 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 
   /* Ondine watercolor additions */
   gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
-  gpd->randomize_seed_step = 5;
-  gpd->stroke_alpha_var = 0.12f;
+  gpd->randomize_seed_step = 0;
+  gpd->stroke_alpha_var = 0.05f;
   gpd->watercolor_noise_strength_high = 1.0f;
   gpd->watercolor_noise_strength_low = 1.0f;
   gpd->stroke_overlap_darkening = 0.02f;
