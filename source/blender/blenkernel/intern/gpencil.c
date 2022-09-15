@@ -769,10 +769,10 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pfn_gain = 0.5f;
   gpd->pfn_warp_amp = 150.0f;
   gpd->pfn_warp_freq = 0.045f;
-  gpd->pparticle_speed_min = 0.8f;
-  gpd->pparticle_speed_max = 1.5f;
-  gpd->pparticle_len_min = 20;
-  gpd->pparticle_len_max = 40;
+  gpd->pparticle_speed_min = 0.7f;
+  gpd->pparticle_speed_max = 1.4f;
+  gpd->pparticle_len_min = 45;
+  gpd->pparticle_len_max = 60;
   gpd->dry_stroke_edge_jitter = 0.25f;
 
   return gpd;
