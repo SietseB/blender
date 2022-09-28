@@ -49,9 +49,9 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeGeometryStoreNamedAttribute &storage = node_storage(*node);
-  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
+  const eCustomDataType data_type = eCustomDataType(storage.data_type);
 
-  bNodeSocket *socket_geometry = (bNodeSocket *)node->inputs.first;
+  bNodeSocket *socket_geometry = static_cast<bNodeSocket *>(node->inputs.first);
   bNodeSocket *socket_name = socket_geometry->next;
   bNodeSocket *socket_vector = socket_name->next;
   bNodeSocket *socket_float = socket_vector->next;
@@ -71,10 +71,11 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
   search_link_ops_for_declarations(params, declaration.inputs().take_front(2));
+  search_link_ops_for_declarations(params, declaration.outputs().take_front(1));
 
   if (params.in_out() == SOCK_IN) {
     const std::optional<eCustomDataType> type = node_data_type_to_custom_data_type(
-        static_cast<eNodeSocketDatatype>(params.other_socket().type));
+        eNodeSocketDatatype(params.other_socket().type));
     if (type && *type != CD_PROP_STRING) {
       /* The input and output sockets have the same name. */
       params.add_item(IFACE_("Value"), [type](LinkSearchOpParams &params) {
@@ -103,6 +104,7 @@ static void try_capture_field_on_geometry(GeometryComponent &component,
 
   const CPPType &type = field.cpp_type();
   const eCustomDataType data_type = bke::cpp_type_to_custom_data_type(type);
+  const bke::AttributeValidator validator = attributes.lookup_validator(name);
 
   /* Could avoid allocating a new buffer if:
    * - We are writing to an attribute that exists already with the correct domain and type.
@@ -110,7 +112,8 @@ static void try_capture_field_on_geometry(GeometryComponent &component,
   void *buffer = MEM_mallocN(type.size() * domain_size, __func__);
 
   fn::FieldEvaluator evaluator{field_context, &mask};
-  evaluator.add_with_destination(field, GMutableSpan{type, buffer, domain_size});
+  evaluator.add_with_destination(validator.validate_field_if_necessary(field),
+                                 GMutableSpan{type, buffer, domain_size});
   evaluator.evaluate();
 
   if (GAttributeWriter attribute = attributes.lookup_for_write(name)) {
@@ -149,11 +152,11 @@ static void node_geo_exec(GeoNodeExecParams params)
     return;
   }
 
-  params.used_named_attribute(name, eNamedAttrUsage::Write);
+  params.used_named_attribute(name, NamedAttributeUsage::Write);
 
   const NodeGeometryStoreNamedAttribute &storage = node_storage(params.node());
-  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
-  const eAttrDomain domain = static_cast<eAttrDomain>(storage.domain);
+  const eCustomDataType data_type = eCustomDataType(storage.data_type);
+  const eAttrDomain domain = eAttrDomain(storage.domain);
 
   GField field;
   switch (data_type) {

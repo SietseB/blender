@@ -495,7 +495,7 @@ static void knifetool_draw_visible_distances(const KnifeTool_OpData *kcd)
   float numstr_size[2];
   float posit[2];
   const float bg_margin = 4.0f * U.dpi_fac;
-  const float font_size = 14.0f * U.pixelsize;
+  const float font_size = 14.0f;
   const int distance_precision = 4;
 
   /* Calculate distance and convert to string. */
@@ -516,7 +516,7 @@ static void knifetool_draw_visible_distances(const KnifeTool_OpData *kcd)
   }
 
   BLF_enable(blf_mono_font, BLF_ROTATION);
-  BLF_size(blf_mono_font, font_size, U.dpi);
+  BLF_size(blf_mono_font, font_size * U.dpi_fac);
   BLF_rotation(blf_mono_font, 0.0f);
   BLF_width_and_height(blf_mono_font, numstr, sizeof(numstr), &numstr_size[0], &numstr_size[1]);
 
@@ -565,7 +565,7 @@ static void knifetool_draw_angle(const KnifeTool_OpData *kcd,
   const float arc_size = 64.0f * U.dpi_fac;
   const float bg_margin = 4.0f * U.dpi_fac;
   const float cap_size = 4.0f * U.dpi_fac;
-  const float font_size = 14.0f * U.pixelsize;
+  const float font_size = 14.0f;
   const int angle_precision = 3;
 
   /* Angle arc in 3d space. */
@@ -646,7 +646,7 @@ static void knifetool_draw_angle(const KnifeTool_OpData *kcd,
   }
 
   BLF_enable(blf_mono_font, BLF_ROTATION);
-  BLF_size(blf_mono_font, font_size, U.dpi);
+  BLF_size(blf_mono_font, font_size * U.dpi_fac);
   BLF_rotation(blf_mono_font, 0.0f);
   BLF_width_and_height(blf_mono_font, numstr, sizeof(numstr), &numstr_size[0], &numstr_size[1]);
 
@@ -1220,7 +1220,7 @@ static void knife_bvh_init(KnifeTool_OpData *kcd)
 
   /* Test Function. */
   bool (*test_fn)(BMFace *);
-  if ((kcd->only_select && kcd->cut_through)) {
+  if (kcd->only_select && kcd->cut_through) {
     test_fn = knife_bm_face_is_select;
   }
   else {
@@ -2068,7 +2068,7 @@ static bool knife_add_single_cut__is_linehit_outside_face(BMFace *f,
       return true;
     }
   }
-  else if ((lh->kfe && lh->kfe->e)) {
+  else if (lh->kfe && lh->kfe->e) {
     BMLoop *l; /* side-of-edge */
     if ((l = BM_face_edge_share_loop(f, lh->kfe->e)) &&
         (BM_loop_point_side_of_edge_test(l, co) < 0.0f)) {
@@ -4102,7 +4102,7 @@ static void knifetool_init(ViewContext *vc,
   kcd->region = vc->region;
 
   kcd->objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      vc->view_layer, vc->v3d, &kcd->objects_len);
+      vc->scene, vc->view_layer, vc->v3d, &kcd->objects_len);
 
   Object *ob;
   BMEditMesh *em;
@@ -4378,7 +4378,7 @@ wmKeyMap *knifetool_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Knife Tool Modal Map");
 
-  /* This function is called for each spacetype, only needs to add map once. */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return NULL;
   }
@@ -4893,12 +4893,13 @@ void MESH_OT_knife_tool(wmOperatorType *ot)
                KNF_MEASUREMENT_NONE,
                "Measurements",
                "Visible distance and angle measurements");
-  RNA_def_enum(ot->srna,
-               "angle_snapping",
-               angle_snapping_items,
-               KNF_CONSTRAIN_ANGLE_MODE_NONE,
-               "Angle Snapping",
-               "Angle snapping mode");
+  prop = RNA_def_enum(ot->srna,
+                      "angle_snapping",
+                      angle_snapping_items,
+                      KNF_CONSTRAIN_ANGLE_MODE_NONE,
+                      "Angle Snapping",
+                      "Angle snapping mode");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
 
   prop = RNA_def_float(ot->srna,
                        "angle_snapping_increment",

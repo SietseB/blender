@@ -644,28 +644,29 @@ static bool node_mouse_select(bContext *C,
     }
   }
 
-  /* update node order */
-  if (changed || found) {
-    bool active_texture_changed = false;
-    bool viewer_node_changed = false;
-    if ((node != nullptr) && (node_was_selected == false || params->select_passthrough == false)) {
-      viewer_node_changed = (node->flag & NODE_DO_OUTPUT) == 0 && node->type == GEO_NODE_VIEWER;
-      ED_node_set_active(&bmain, &snode, snode.edittree, node, &active_texture_changed);
-    }
-    else if (node != nullptr && node->type == GEO_NODE_VIEWER) {
-      ED_spreadsheet_context_paths_set_geometry_node(&bmain, &snode, node);
-    }
-    ED_node_set_active_viewer_key(&snode);
-    node_sort(*snode.edittree);
-    if ((active_texture_changed && has_workbench_in_texture_color(wm, scene, ob)) ||
-        viewer_node_changed) {
-      DEG_id_tag_update(&snode.edittree->id, ID_RECALC_COPY_ON_WRITE);
-    }
-
-    WM_event_add_notifier(C, NC_NODE | NA_SELECTED, nullptr);
+  if (!(changed || found)) {
+    return false;
   }
 
-  return changed || found;
+  bool active_texture_changed = false;
+  bool viewer_node_changed = false;
+  if ((node != nullptr) && (node_was_selected == false || params->select_passthrough == false)) {
+    viewer_node_changed = (node->flag & NODE_DO_OUTPUT) == 0 && node->type == GEO_NODE_VIEWER;
+    ED_node_set_active(&bmain, &snode, snode.edittree, node, &active_texture_changed);
+  }
+  else if (node != nullptr && node->type == GEO_NODE_VIEWER) {
+    ED_spreadsheet_context_paths_set_geometry_node(&bmain, &snode, node);
+  }
+  ED_node_set_active_viewer_key(&snode);
+  node_sort(*snode.edittree);
+  if ((active_texture_changed && has_workbench_in_texture_color(wm, scene, ob)) ||
+      viewer_node_changed) {
+    DEG_id_tag_update(&snode.edittree->id, ID_RECALC_COPY_ON_WRITE);
+  }
+
+  WM_event_add_notifier(C, NC_NODE | NA_SELECTED, nullptr);
+
+  return true;
 }
 
 static int node_select_exec(bContext *C, wmOperator *op)
@@ -842,8 +843,7 @@ static int node_circleselect_exec(bContext *C, wmOperator *op)
   int x, y, radius;
   float2 offset;
 
-  float zoom = (float)(BLI_rcti_size_x(&region->winrct)) /
-               (float)(BLI_rctf_size_x(&region->v2d.cur));
+  float zoom = float(BLI_rcti_size_x(&region->winrct)) / float(BLI_rctf_size_x(&region->v2d.cur));
 
   const eSelectOp sel_op = ED_select_op_modal(
       (eSelectOp)RNA_enum_get(op->ptr, "mode"),
@@ -866,7 +866,7 @@ static int node_circleselect_exec(bContext *C, wmOperator *op)
         /* Frame nodes are selectable by their borders (including their whole rect - as for other
          * nodes - would prevent selection of _only_ other nodes inside that frame. */
         rctf frame_inside = node_frame_rect_inside(*node);
-        const float radius_adjusted = (float)radius / zoom;
+        const float radius_adjusted = float(radius) / zoom;
         BLI_rctf_pad(&frame_inside, -2.0f * radius_adjusted, -2.0f * radius_adjusted);
         if (BLI_rctf_isect_circle(&node->totr, offset, radius_adjusted) &&
             !BLI_rctf_isect_circle(&frame_inside, offset, radius_adjusted)) {

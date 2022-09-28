@@ -1174,6 +1174,7 @@ static void pyrna_struct_reference_set(BPy_StructRNA *self, PyObject *reference)
   if (reference) {
     self->reference = reference;
     Py_INCREF(reference);
+    BLI_assert(!PyObject_GC_IsTracked((PyObject *)self));
     PyObject_GC_Track(self);
   }
 }
@@ -1397,7 +1398,7 @@ PyObject *pyrna_prop_to_py(PointerRNA *ptr, PropertyRNA *prop)
 
       buf = RNA_property_string_get_alloc(ptr, prop, buf_fixed, sizeof(buf_fixed), &buf_len);
 #ifdef USE_STRING_COERCE
-      /* Only file paths get special treatment, they may contain non utf-8 chars. */
+      /* Only file paths get special treatment, they may contain non UTF-8 chars. */
       if (subtype == PROP_BYTESTRING) {
         ret = PyBytes_FromStringAndSize(buf, buf_len);
       }
@@ -4074,7 +4075,7 @@ static void pyrna_dir_members_rna(PyObject *list, PointerRNA *ptr)
 {
   const char *idname;
 
-  /* For looping over attrs and funcs. */
+  /* For looping over attributes and functions. */
   PointerRNA tptr;
   PropertyRNA *iterprop;
 
@@ -5937,7 +5938,7 @@ static PyObject *pyrna_param_to_py(PointerRNA *ptr, PropertyRNA *prop, void *dat
       len = RNA_property_array_length(ptr, prop);
     }
 
-    /* Resolve the array from a new pytype. */
+    /* Resolve the array from a new Python type. */
 
     /* TODO(Kazanbas): make multi-dimensional sequences here. */
 
@@ -6487,7 +6488,7 @@ static PyObject *pyrna_func_doc_get(BPy_FunctionRNA *self, void *UNUSED(closure)
 PyTypeObject pyrna_struct_meta_idprop_Type = {
     PyVarObject_HEAD_INIT(NULL, 0) "bpy_struct_meta_idprop", /* tp_name */
 
-    /* NOTE: would be PyTypeObject, but subtypes of Type must be PyHeapTypeObject's. */
+    /* NOTE: would be PyTypeObject, but sub-types of Type must be PyHeapTypeObject's. */
     sizeof(PyHeapTypeObject), /* tp_basicsize */
 
     0, /* tp_itemsize */
@@ -7252,7 +7253,7 @@ static void pyrna_subtype_set_rna(PyObject *newclass, StructRNA *srna)
     PyC_ObSpit("RNA WAS SET - ", RNA_struct_py_type_get(srna));
   }
 
-  Py_XDECREF(((PyObject *)RNA_struct_py_type_get(srna)));
+  Py_XDECREF((PyObject *)RNA_struct_py_type_get(srna));
 
   RNA_struct_py_type_set(srna, (void *)newclass); /* Store for later use */
 
@@ -7308,7 +7309,7 @@ static PyObject *pyrna_srna_PyBase(StructRNA *srna)  //, PyObject *bpy_types_dic
   if (base && base != srna) {
     // printf("debug subtype %s %p\n", RNA_struct_identifier(srna), srna);
     py_base = pyrna_srna_Subtype(base);  //, bpy_types_dict);
-    Py_DECREF(py_base);                  /* Srna owns, this is only to pass as an arg. */
+    Py_DECREF(py_base);                  /* `srna` owns, this is only to pass as an argument. */
   }
 
   if (py_base == NULL) {
@@ -8461,7 +8462,7 @@ static int bpy_class_validate_recursive(PointerRNA *dummyptr,
 
 #undef BPY_REPLACEMENT_STRING
 
-      if (item == NULL && (((flag & PROP_REGISTER_OPTIONAL) != PROP_REGISTER_OPTIONAL))) {
+      if (item == NULL && ((flag & PROP_REGISTER_OPTIONAL) != PROP_REGISTER_OPTIONAL)) {
         PyErr_Format(PyExc_AttributeError,
                      "expected %.200s, %.200s class to have an \"%.200s\" attribute",
                      class_type,
@@ -8735,10 +8736,10 @@ static int bpy_class_call(bContext *C, PointerRNA *ptr, FunctionRNA *func, Param
     else if (ret_len == 1) {
       err = pyrna_py_to_prop(&funcptr, pret_single, retdata_single, ret, "");
 
-      /* when calling operator funcs only gives Function.result with
-       * no line number since the func has finished calling on error,
-       * re-raise the exception with more info since it would be slow to
-       * create prefix on every call (when there are no errors) */
+      /* When calling operator functions only gives `Function.result` with  no line number
+       * since the function has finished calling on error, re-raise the exception with more
+       * information since it would be slow to create prefix on every call
+       * (when there are no errors). */
       if (err == -1) {
         PyC_Err_Format_Prefix(PyExc_RuntimeError,
                               "class %.200s, function %.200s: incompatible return value ",
@@ -8846,7 +8847,7 @@ static void bpy_class_free(void *pyob_ptr)
 }
 
 /**
- * \note This isn't essential to run on startup, since subtypes will lazy initialize.
+ * \note This isn't essential to run on startup, since sub-types will lazy initialize.
  * But keep running in debug mode so we get immediate notification of bad class hierarchy
  * or any errors in "bpy_types.py" at load time, so errors don't go unnoticed.
  */

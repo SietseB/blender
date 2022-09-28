@@ -525,10 +525,12 @@ void ED_object_modifier_copy_to_object(bContext *C,
 bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
                                              Main *bmain,
                                              Depsgraph *depsgraph,
+                                             Scene *scene,
                                              ViewLayer *view_layer,
                                              Object *ob,
                                              ModifierData *md)
 {
+  using namespace blender;
   int cvert = 0;
 
   if (md->type != eModifierType_ParticleSystem) {
@@ -583,7 +585,7 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
   }
 
   /* add new mesh */
-  Object *obn = BKE_object_add(bmain, view_layer, OB_MESH, nullptr);
+  Object *obn = BKE_object_add(bmain, scene, view_layer, OB_MESH, nullptr);
   Mesh *me = static_cast<Mesh *>(obn->data);
 
   me->totvert = verts_num;
@@ -598,13 +600,18 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
   MVert *mvert = verts.data();
   MEdge *medge = edges.data();
 
+  bke::MutableAttributeAccessor attributes = me->attributes_for_write();
+  bke::SpanAttributeWriter<bool> select_vert = attributes.lookup_or_add_for_write_span<bool>(
+      ".select_vert", ATTR_DOMAIN_POINT);
+
   /* copy coordinates */
+  int vert_index = 0;
   cache = psys_eval->pathcache;
   for (int a = 0; a < part_num; a++) {
     ParticleCacheKey *key = cache[a];
     int kmax = key->segments;
-    for (int k = 0; k <= kmax; k++, key++, cvert++, mvert++) {
-      copy_v3_v3(mvert->co, key->co);
+    for (int k = 0; k <= kmax; k++, key++, cvert++, vert_index++) {
+      copy_v3_v3(mvert[vert_index].co, key->co);
       if (k) {
         medge->v1 = cvert - 1;
         medge->v2 = cvert;
@@ -613,7 +620,7 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
       }
       else {
         /* cheap trick to select the roots */
-        mvert->flag |= SELECT;
+        select_vert.span[vert_index] = true;
       }
     }
   }
@@ -622,8 +629,8 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
   for (int a = 0; a < child_num; a++) {
     ParticleCacheKey *key = cache[a];
     int kmax = key->segments;
-    for (int k = 0; k <= kmax; k++, key++, cvert++, mvert++) {
-      copy_v3_v3(mvert->co, key->co);
+    for (int k = 0; k <= kmax; k++, key++, cvert++, vert_index++) {
+      copy_v3_v3(mvert[vert_index].co, key->co);
       if (k) {
         medge->v1 = cvert - 1;
         medge->v2 = cvert;
@@ -632,10 +639,12 @@ bool ED_object_modifier_convert_psys_to_mesh(ReportList *UNUSED(reports),
       }
       else {
         /* cheap trick to select the roots */
-        mvert->flag |= SELECT;
+        select_vert.span[vert_index] = true;
       }
     }
   }
+
+  select_vert.finish();
 
   DEG_relations_tag_update(bmain);
 
@@ -1232,6 +1241,7 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
   /* if cloth/softbody was removed, particle mode could be cleared */
   if (mode_orig & OB_MODE_PARTICLE_EDIT) {
     if ((ob->mode & OB_MODE_PARTICLE_EDIT) == 0) {
+      BKE_view_layer_synced_ensure(scene, view_layer);
       if (ob == BKE_view_layer_active_object_get(view_layer)) {
         WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, nullptr);
       }
@@ -1554,7 +1564,7 @@ void OBJECT_OT_modifier_apply(wmOperatorType *ot)
 /** \} */
 
 /* ------------------------------------------------------------------- */
-/** \name Apply Modifier As Shapekey Operator
+/** \name Apply Modifier As Shape-Key Operator
  * \{ */
 
 static bool modifier_apply_as_shapekey_poll(bContext *C)
@@ -1621,12 +1631,13 @@ static int modifier_convert_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *ob = ED_object_active_context(C);
   ModifierData *md = edit_modifier_property_get(op, ob, 0);
 
   if (!md || !ED_object_modifier_convert_psys_to_mesh(
-                 op->reports, bmain, depsgraph, view_layer, ob, md)) {
+                 op->reports, bmain, depsgraph, scene, view_layer, ob, md)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -2652,8 +2663,9 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, 
   /* add vertex weights to original mesh */
   CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_SET_DEFAULT, nullptr, me->totvert);
 
+  Scene *scene = DEG_get_input_scene(depsgraph);
   ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
-  Object *arm_ob = BKE_object_add(bmain, view_layer, OB_ARMATURE, nullptr);
+  Object *arm_ob = BKE_object_add(bmain, scene, view_layer, OB_ARMATURE, nullptr);
   BKE_object_transform_copy(arm_ob, skin_ob);
   bArmature *arm = static_cast<bArmature *>(arm_ob->data);
   arm->layer = 1;
@@ -2802,7 +2814,7 @@ static int correctivesmooth_bind_exec(bContext *C, wmOperator *op)
     /* Signal to modifier to recalculate. */
     CorrectiveSmoothModifierData *csmd_eval = (CorrectiveSmoothModifierData *)
         BKE_modifier_get_evaluated(depsgraph, ob, &csmd->modifier);
-    csmd_eval->bind_coords_num = (uint)-1;
+    csmd_eval->bind_coords_num = uint(-1);
 
     /* Force modifier to run, it will call binding routine
      * (this has to happen outside of depsgraph evaluation). */
@@ -3397,6 +3409,7 @@ static int geometry_node_tree_copy_assign_exec(bContext *C, wmOperator *UNUSED(o
   nmd->node_group = new_tree;
   id_us_min(&tree->id);
 
+  DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   DEG_relations_tag_update(bmain);
   WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
   return OPERATOR_FINISHED;

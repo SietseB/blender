@@ -1746,14 +1746,14 @@ static void gpencil_stroke_eraser_dostroke(tGPsdata *p,
 
             /* 2) Tag any point with overly low influence for removal in the next pass */
             if ((inf1 > 0.0f) &&
-                (((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) ||
-                  (eraser->gpencil_settings->eraser_mode == GP_BRUSH_ERASER_HARD)))) {
+                ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) ||
+                 (eraser->gpencil_settings->eraser_mode == GP_BRUSH_ERASER_HARD))) {
               pt1->flag |= GP_SPOINT_TAG;
               do_cull = true;
             }
             if ((inf1 > 2.0f) &&
-                (((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) ||
-                  (eraser->gpencil_settings->eraser_mode == GP_BRUSH_ERASER_HARD)))) {
+                ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) ||
+                 (eraser->gpencil_settings->eraser_mode == GP_BRUSH_ERASER_HARD))) {
               pt2->flag |= GP_SPOINT_TAG;
               do_cull = true;
             }
@@ -3334,7 +3334,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
   return OPERATOR_RUNNING_MODAL;
 }
 
-/* gpencil modal operator stores area, which can be removed while using it (like fullscreen) */
+/* gpencil modal operator stores area, which can be removed while using it (like full-screen). */
 static bool gpencil_area_exists(bContext *C, ScrArea *area_test)
 {
   bScreen *screen = CTX_wm_screen(C);
@@ -3719,7 +3719,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
        *   is essential for ensuring that they can quickly return to that view.
        */
     }
-    else if ((!ELEM(p->paintmode, GP_PAINTMODE_ERASER, GP_PAINTMODE_SET_CP))) {
+    else if (!ELEM(p->paintmode, GP_PAINTMODE_ERASER, GP_PAINTMODE_SET_CP)) {
       gpencil_guide_event_handling(C, op, event, p);
       estate = OPERATOR_RUNNING_MODAL;
     }
@@ -3891,7 +3891,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
     }
   }
 
-  /* gpencil modal operator stores area, which can be removed while using it (like fullscreen) */
+  /* gpencil modal operator stores area, which can be removed while using it (like full-screen). */
   if (0 == gpencil_area_exists(C, p->area)) {
     estate = OPERATOR_CANCELLED;
   }

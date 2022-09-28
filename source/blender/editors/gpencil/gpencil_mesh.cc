@@ -91,7 +91,7 @@ static void animdata_keyframe_list_get(ListBase *ob_list,
         /* Keyframe number is x value of point. */
         if ((bezt->f2 & SELECT) || (!only_selected)) {
           /* Insert only one key for each keyframe number. */
-          int key = (int)bezt->vec[1][0];
+          int key = int(bezt->vec[1][0]);
           if (!BLI_ghash_haskey(r_keyframes, POINTER_FROM_INT(key))) {
             BLI_ghash_insert(r_keyframes, POINTER_FROM_INT(key), POINTER_FROM_INT(key));
           }
@@ -213,7 +213,7 @@ static int gpencil_bake_mesh_animation_exec(bContext *C, wmOperator *op)
   bool newob = false;
 
   if (target == GP_TARGET_OB_SELECTED) {
-    ob_gpencil = BKE_view_layer_non_active_selected_object(CTX_data_view_layer(C), v3d);
+    ob_gpencil = BKE_view_layer_non_active_selected_object(scene, CTX_data_view_layer(C), v3d);
     if (ob_gpencil != nullptr) {
       if (ob_gpencil->type != OB_GPENCIL) {
         BKE_report(op->reports, RPT_WARNING, "Target object not a grease pencil, ignoring!");
@@ -261,7 +261,7 @@ static int gpencil_bake_mesh_animation_exec(bContext *C, wmOperator *op)
   }
 
   /* Loop all frame range. */
-  int oldframe = (int)DEG_get_ctime(depsgraph);
+  int oldframe = int(DEG_get_ctime(depsgraph));
   int key = -1;
 
   /* Get list of keyframes. */
@@ -315,7 +315,7 @@ static int gpencil_bake_mesh_animation_exec(bContext *C, wmOperator *op)
           LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
             if ((gps->flag & GP_STROKE_TAG) == 0) {
               ED_gpencil_stroke_reproject(
-                  depsgraph, &gsc, sctx, gpl, gpf, gps, project_type, false);
+                  depsgraph, &gsc, sctx, gpl, gpf, gps, project_type, false, 0.0f);
               gps->flag |= GP_STROKE_TAG;
             }
           }

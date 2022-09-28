@@ -397,7 +397,7 @@ ccl_device void osl_closure_microfacet_ggx_aniso_fresnel_setup(
   sd->flag |= bsdf_microfacet_ggx_fresnel_setup(bsdf, sd);
 }
 
-/* Multiscattering GGX closures */
+/* Multi-scattering GGX closures */
 
 ccl_device void osl_closure_microfacet_multi_ggx_setup(
     KernelGlobals kg,
@@ -428,7 +428,7 @@ ccl_device void osl_closure_microfacet_multi_ggx_setup(
   bsdf->N = ensure_valid_reflection(sd->Ng, sd->I, closure->N);
   bsdf->alpha_x = closure->alpha_x;
   bsdf->alpha_y = bsdf->alpha_x;
-  bsdf->ior = 0.0f;
+  bsdf->ior = 1.0f;
 
   bsdf->extra = extra;
   bsdf->extra->color = rgb_to_spectrum(closure->color);
@@ -510,7 +510,7 @@ ccl_device void osl_closure_microfacet_multi_ggx_aniso_setup(
   bsdf->N = ensure_valid_reflection(sd->Ng, sd->I, closure->N);
   bsdf->alpha_x = closure->alpha_x;
   bsdf->alpha_y = closure->alpha_y;
-  bsdf->ior = 0.0f;
+  bsdf->ior = 1.0f;
 
   bsdf->extra = extra;
   bsdf->extra->color = rgb_to_spectrum(closure->color);
@@ -522,7 +522,7 @@ ccl_device void osl_closure_microfacet_multi_ggx_aniso_setup(
   sd->flag |= bsdf_microfacet_multi_ggx_setup(bsdf);
 }
 
-/* Multiscattering GGX closures with Fresnel */
+/* Multi-scattering GGX closures with Fresnel */
 
 ccl_device void osl_closure_microfacet_multi_ggx_fresnel_setup(
     KernelGlobals kg,

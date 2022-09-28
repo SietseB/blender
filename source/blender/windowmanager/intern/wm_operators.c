@@ -2521,7 +2521,7 @@ static void radial_control_paint_cursor(bContext *UNUSED(C), int x, int y, void 
 
   immUnbindProgram();
 
-  BLF_size(fontid, 1.75f * fstyle_points * U.pixelsize, U.dpi);
+  BLF_size(fontid, 1.75f * fstyle_points * U.dpi_fac);
   UI_GetThemeColor4fv(TH_TEXT_HI, text_color);
   BLF_color4fv(fontid, text_color);
 
@@ -2740,7 +2740,7 @@ static int radial_control_invoke(bContext *C, wmOperator *op, const wmEvent *eve
   }
 
   /* get type, initial, min, and max values of the property */
-  switch ((rc->type = RNA_property_type(rc->prop))) {
+  switch (rc->type = RNA_property_type(rc->prop)) {
     case PROP_INT: {
       int value, min, max, step;
 
@@ -3673,7 +3673,7 @@ static void WM_OT_doc_view_manual_ui_context(wmOperatorType *ot)
 /* -------------------------------------------------------------------- */
 /** \name Toggle Stereo 3D Operator
  *
- * Turning it fullscreen if needed.
+ * Turning it full-screen if needed.
  * \{ */
 
 static void WM_OT_stereo3d_set(wmOperatorType *ot)
@@ -3805,7 +3805,7 @@ static void gesture_circle_modal_keymap(wmKeyConfig *keyconf)
   /* WARNING: Name is incorrect, use for non-3d views. */
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "View3D Gesture Circle");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -3838,7 +3838,7 @@ static void gesture_straightline_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Gesture Straight Line");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -3867,7 +3867,7 @@ static void gesture_box_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Gesture Box");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -3920,7 +3920,7 @@ static void gesture_lasso_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Gesture Lasso");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -3955,7 +3955,7 @@ static void gesture_zoom_border_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Gesture Zoom Border");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }

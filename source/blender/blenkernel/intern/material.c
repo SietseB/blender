@@ -900,9 +900,15 @@ void BKE_objects_materials_test_all(Main *bmain, ID *id)
   }
 
   BKE_main_lock(bmain);
+  int processed_objects = 0;
   for (ob = bmain->objects.first; ob; ob = ob->id.next) {
     if (ob->data == id) {
       BKE_object_material_resize(bmain, ob, *totcol, false);
+      processed_objects++;
+      BLI_assert(processed_objects <= id->us && processed_objects > 0);
+      if (processed_objects == id->us) {
+        break;
+      }
     }
   }
   BKE_main_unlock(bmain);
@@ -1063,7 +1069,7 @@ void BKE_object_material_assign_single_obdata(struct Main *bmain,
   object_material_assign(bmain, ob, ma, act, BKE_MAT_ASSIGN_OBDATA, false);
 }
 
-void BKE_object_material_remap(Object *ob, const unsigned int *remap)
+void BKE_object_material_remap(Object *ob, const uint *remap)
 {
   Material ***matar = BKE_object_material_array_p(ob);
   const short *totcol_p = BKE_object_material_len_p(ob);

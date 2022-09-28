@@ -37,7 +37,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
 {
   GeometryNodeBooleanOperation operation = (GeometryNodeBooleanOperation)node->custom1;
 
-  bNodeSocket *geometry_1_socket = (bNodeSocket *)node->inputs.first;
+  bNodeSocket *geometry_1_socket = static_cast<bNodeSocket *>(node->inputs.first);
   bNodeSocket *geometry_2_socket = geometry_1_socket->next;
 
   switch (operation) {
@@ -93,7 +93,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   /* The instance transform matrices are owned by the instance group, so we have to
    * keep all of them around for use during the boolean operation. */
   Vector<bke::GeometryInstanceGroup> set_groups;
-  Vector<GeometrySet> geometry_sets = params.extract_multi_input<GeometrySet>("Mesh 2");
+  Vector<GeometrySet> geometry_sets = params.extract_input<Vector<GeometrySet>>("Mesh 2");
   for (const GeometrySet &geometry_set : geometry_sets) {
     bke::geometry_set_gather_instances(geometry_set, set_groups);
   }
@@ -148,7 +148,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
 
   MEM_SAFE_FREE(result->mat);
-  result->mat = (Material **)MEM_malloc_arrayN(materials.size(), sizeof(Material *), __func__);
+  result->mat = static_cast<Material **>(
+      MEM_malloc_arrayN(materials.size(), sizeof(Material *), __func__));
   result->totcol = materials.size();
   MutableSpan(result->mat, result->totcol).copy_from(materials);
 

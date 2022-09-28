@@ -32,7 +32,9 @@ static void geometry_node_tree_get_from_context(const bContext *C,
                                                 ID **r_id,
                                                 ID **r_from)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
 
   if (ob == nullptr) {
@@ -46,7 +48,7 @@ static void geometry_node_tree_get_from_context(const bContext *C,
   }
 
   if (md->type == eModifierType_Nodes) {
-    NodesModifierData *nmd = (NodesModifierData *)md;
+    const NodesModifierData *nmd = reinterpret_cast<const NodesModifierData *>(md);
     if (nmd->node_group != nullptr) {
       *r_from = &ob->id;
       *r_id = &ob->id;

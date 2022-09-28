@@ -982,7 +982,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_FILL_AREA: {
       brush->size = 5.0f;
 
-      brush->gpencil_settings->fill_leak = 3;
       brush->gpencil_settings->fill_threshold = 0.1f;
       brush->gpencil_settings->fill_simplylvl = 1;
       brush->gpencil_settings->fill_factor = 1.0f;
@@ -2365,7 +2364,7 @@ void BKE_brush_scale_unprojected_radius(float *unprojected_radius,
   float scale = new_brush_size;
   /* avoid division by zero */
   if (old_brush_size != 0) {
-    scale /= (float)old_brush_size;
+    scale /= float(old_brush_size);
   }
   (*unprojected_radius) *= scale;
 }

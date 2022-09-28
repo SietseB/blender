@@ -137,7 +137,7 @@ static void scene_init_data(ID *id)
 
   scene->toolsettings = DNA_struct_default_alloc(ToolSettings);
 
-  scene->toolsettings->autokey_mode = (uchar)U.autokey_mode;
+  scene->toolsettings->autokey_mode = uchar(U.autokey_mode);
 
   /* Grease pencil multi-frame falloff curve. */
   scene->toolsettings->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -156,11 +156,11 @@ static void scene_init_data(ID *id)
 
   scene->unit.system = USER_UNIT_METRIC;
   scene->unit.scale_length = 1.0f;
-  scene->unit.length_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_LENGTH);
-  scene->unit.mass_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_MASS);
-  scene->unit.time_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TIME);
-  scene->unit.temperature_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC,
-                                                                  B_UNIT_TEMPERATURE);
+  scene->unit.length_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_LENGTH));
+  scene->unit.mass_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_MASS));
+  scene->unit.time_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TIME));
+  scene->unit.temperature_unit = uchar(
+      BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TEMPERATURE));
 
   /* Anti-Aliasing threshold. */
   scene->grease_pencil_settings.smaa_threshold = 1.0f;
@@ -235,7 +235,7 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
 {
   Scene *scene_dst = (Scene *)id_dst;
   const Scene *scene_src = (const Scene *)id_src;
-  /* We never handle usercount here for own data. */
+  /* We never handle user-count here for own data. */
   const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
   /* We always need allocation of our private ID data. */
   const int flag_private_id_data = flag & ~LIB_ID_CREATE_NO_ALLOCATE;
@@ -745,7 +745,7 @@ static bool seq_foreach_member_id_cb(Sequence *seq, void *user_data)
   { \
     CHECK_TYPE(&((_id_super)->id), ID *); \
     BKE_lib_query_foreachid_process((_data), (ID **)&(_id_super), (_cb_flag)); \
-    if (BKE_lib_query_foreachid_iter_stop((_data))) { \
+    if (BKE_lib_query_foreachid_iter_stop(_data)) { \
       return false; \
     } \
   } \
@@ -803,8 +803,8 @@ static void scene_foreach_id(ID *id, LibraryForeachIDData *data)
 
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, view_layer->mat_override, IDWALK_CB_USER);
-
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       BKE_LIB_FOREACHID_PROCESS_IDSUPER(
           data, base->object, IDWALK_CB_NOP | IDWALK_CB_OVERRIDE_LIBRARY_NOT_OVERRIDABLE);
     }
@@ -880,8 +880,8 @@ static bool seq_foreach_path_callback(Sequence *seq, void *user_data)
     }
     else if ((seq->type == SEQ_TYPE_IMAGE) && se) {
       /* NOTE: An option not to loop over all strips could be useful? */
-      unsigned int len = (unsigned int)MEM_allocN_len(se) / (unsigned int)sizeof(*se);
-      unsigned int i;
+      uint len = uint(MEM_allocN_len(se)) / uint(sizeof(*se));
+      uint i;
 
       if (bpath_data->flag & BKE_BPATH_FOREACH_PATH_SKIP_MULTIFILE) {
         /* only operate on one path */
@@ -1005,10 +1005,10 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   if (sce->r.avicodecdata) {
     BLO_write_struct(writer, AviCodecData, sce->r.avicodecdata);
     if (sce->r.avicodecdata->lpFormat) {
-      BLO_write_raw(writer, (size_t)sce->r.avicodecdata->cbFormat, sce->r.avicodecdata->lpFormat);
+      BLO_write_raw(writer, size_t(sce->r.avicodecdata->cbFormat), sce->r.avicodecdata->lpFormat);
     }
     if (sce->r.avicodecdata->lpParms) {
-      BLO_write_raw(writer, (size_t)sce->r.avicodecdata->cbParms, sce->r.avicodecdata->lpParms);
+      BLO_write_raw(writer, size_t(sce->r.avicodecdata->cbParms), sce->r.avicodecdata->lpParms);
     }
   }
 
@@ -1056,7 +1056,7 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   BKE_curvemapping_curves_blend_write(writer, &sce->r.mblur_shutter_curve);
 
   LISTBASE_FOREACH (ViewLayer *, view_layer, &sce->view_layers) {
-    BKE_view_layer_blend_write(writer, view_layer);
+    BKE_view_layer_blend_write(writer, sce, view_layer);
   }
 
   if (sce->master_collection) {
@@ -1207,8 +1207,8 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       intptr_t seqbase_offset;
       intptr_t channels_offset;
 
-      seqbase_offset = ((intptr_t) & (temp.seqbase)) - ((intptr_t)&temp);
-      channels_offset = ((intptr_t) & (temp.channels)) - ((intptr_t)&temp);
+      seqbase_offset = intptr_t(&(temp).seqbase) - intptr_t(&temp);
+      channels_offset = intptr_t(&(temp).channels) - intptr_t(&temp);
 
       /* seqbase root pointer */
       if (ed->seqbasep == old_seqbasep) {
@@ -1228,7 +1228,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       }
 
       /* Active channels root pointer. */
-      if (ed->displayed_channels == old_displayed_channels || ed->displayed_channels == nullptr) {
+      if (ELEM(ed->displayed_channels, old_displayed_channels, nullptr)) {
         ed->displayed_channels = &ed->channels;
       }
       else {
@@ -1263,7 +1263,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
           }
         }
 
-        if (ms->old_channels == old_displayed_channels || ms->old_channels == nullptr) {
+        if (ELEM(ms->old_channels, old_displayed_channels, nullptr)) {
           ms->old_channels = &ed->channels;
         }
         else {
@@ -1326,7 +1326,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->pointcache) {
-        rbw->ltime = (float)rbw->pointcache->startframe;
+        rbw->ltime = float(rbw->pointcache->startframe);
       }
     }
     else {
@@ -1340,7 +1340,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->shared->pointcache) {
-        rbw->ltime = (float)rbw->shared->pointcache->startframe;
+        rbw->ltime = float(rbw->shared->pointcache->startframe);
       }
     }
     rbw->objects = nullptr;
@@ -2050,7 +2050,8 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 bool BKE_scene_object_find(Scene *scene, Object *ob)
 {
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    if (BLI_findptr(&view_layer->object_bases, ob, offsetof(Base, object))) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    if (BLI_findptr(BKE_view_layer_object_bases_get(view_layer), ob, offsetof(Base, object))) {
       return true;
     }
   }
@@ -2060,7 +2061,8 @@ bool BKE_scene_object_find(Scene *scene, Object *ob)
 Object *BKE_scene_object_find_by_name(const Scene *scene, const char *name)
 {
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       if (STREQ(base->object->id.name + 2, name)) {
         return base->object;
       }
@@ -2081,7 +2083,8 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 
   /* copy layers and flags from bases to objects */
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       /* collection patch... */
       BKE_scene_object_base_flag_sync_from_base(base);
     }
@@ -2124,7 +2127,8 @@ int BKE_scene_base_iter_next(
       if (iter->phase == F_START) {
         ViewLayer *view_layer = (depsgraph) ? DEG_get_evaluated_view_layer(depsgraph) :
                                               BKE_view_layer_context_active_PLACEHOLDER(*scene);
-        *base = static_cast<Base *>(view_layer->object_bases.first);
+        BKE_view_layer_synced_ensure(*scene, view_layer);
+        *base = static_cast<Base *>(BKE_view_layer_object_bases_get(view_layer)->first);
         if (*base) {
           *ob = (*base)->object;
           iter->phase = F_SCENE;
@@ -2134,8 +2138,10 @@ int BKE_scene_base_iter_next(
           while ((*scene)->set) {
             (*scene) = (*scene)->set;
             ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
-            if (view_layer_set->object_bases.first) {
-              *base = static_cast<Base *>(view_layer_set->object_bases.first);
+            BKE_view_layer_synced_ensure(*scene, view_layer_set);
+            ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer_set);
+            if (object_bases->first) {
+              *base = static_cast<Base *>(object_bases->first);
               *ob = (*base)->object;
               iter->phase = F_SCENE;
               break;
@@ -2155,8 +2161,10 @@ int BKE_scene_base_iter_next(
               while ((*scene)->set) {
                 (*scene) = (*scene)->set;
                 ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
-                if (view_layer_set->object_bases.first) {
-                  *base = static_cast<Base *>(view_layer_set->object_bases.first);
+                BKE_view_layer_synced_ensure(*scene, view_layer_set);
+                ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer_set);
+                if (object_bases->first) {
+                  *base = static_cast<Base *>(object_bases->first);
                   *ob = (*base)->object;
                   break;
                 }
@@ -2417,8 +2425,8 @@ float BKE_scene_frame_get(const Scene *scene)
 void BKE_scene_frame_set(Scene *scene, float frame)
 {
   double intpart;
-  scene->r.subframe = modf((double)frame, &intpart);
-  scene->r.cfra = (int)intpart;
+  scene->r.subframe = modf(double(frame), &intpart);
+  scene->r.cfra = int(intpart);
 }
 
 /* -------------------------------------------------------------------- */
@@ -2505,7 +2513,9 @@ static bool check_rendered_viewport_visible(Main *bmain)
 
 /* TODO(@campbellbarton): shouldn't we be able to use 'DEG_get_view_layer' here?
  * Currently this is nullptr on load, so don't. */
-static void prepare_mesh_for_viewport_render(Main *bmain, const ViewLayer *view_layer)
+static void prepare_mesh_for_viewport_render(Main *bmain,
+                                             const Scene *scene,
+                                             ViewLayer *view_layer)
 {
   /* This is needed to prepare mesh to be used by the render
    * engine from the viewport rendering. We do loading here
@@ -2515,7 +2525,7 @@ static void prepare_mesh_for_viewport_render(Main *bmain, const ViewLayer *view_
    * This makes it so viewport render engine doesn't need to
    * call loading of the edit data for the mesh objects.
    */
-
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Object *obedit = BKE_view_layer_edit_object_get(view_layer);
   if (obedit) {
     Mesh *mesh = static_cast<Mesh *>(obedit->data);
@@ -2592,7 +2602,7 @@ static void scene_graph_update_tagged(Depsgraph *depsgraph, Main *bmain, bool on
     /* Uncomment this to check if graph was properly tagged for update. */
     // DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
     /* Flush editing data if needed. */
-    prepare_mesh_for_viewport_render(bmain, view_layer);
+    prepare_mesh_for_viewport_render(bmain, scene, view_layer);
     /* Update all objects: drivers, matrices, etc. flags set
      * by depsgraph or manual, no layer check here, gets correct flushed. */
     DEG_evaluate_on_refresh(depsgraph);
@@ -2810,8 +2820,10 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
   if ((base == nullptr) && (view_layer != nullptr)) {
     /* First time looping, return the scenes first base. */
     /* For the first loop we should get the layer from workspace when available. */
-    if (view_layer->object_bases.first) {
-      return (Base *)view_layer->object_bases.first;
+    BKE_view_layer_synced_ensure(*sce_iter, view_layer);
+    ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer);
+    if (object_bases->first) {
+      return static_cast<Base *>(object_bases->first);
     }
     /* No base on this scene layer. */
     goto next_set;
@@ -2821,7 +2833,7 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
     /* Reached the end, get the next base in the set. */
     while ((*sce_iter = (*sce_iter)->set)) {
       ViewLayer *view_layer_set = BKE_view_layer_default_render(*sce_iter);
-      base = (Base *)view_layer_set->object_bases.first;
+      base = (Base *)BKE_view_layer_object_bases_get(view_layer_set)->first;
 
       if (base) {
         return base;
@@ -2880,13 +2892,11 @@ bool BKE_scene_uses_cycles_experimental_features(Scene *scene)
   return RNA_enum_get(&cycles_ptr, "feature_set") == CYCLES_FEATURES_EXPERIMENTAL;
 }
 
-void BKE_scene_base_flag_to_objects(ViewLayer *view_layer)
+void BKE_scene_base_flag_to_objects(const Scene *scene, ViewLayer *view_layer)
 {
-  Base *base = static_cast<Base *>(view_layer->object_bases.first);
-
-  while (base) {
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     BKE_scene_object_base_flag_sync_from_base(base);
-    base = base->next;
   }
 }
 
@@ -2987,7 +2997,7 @@ double BKE_scene_unit_scale(const UnitSettings *unit, const int unit_type, doubl
     case B_UNIT_LENGTH:
     case B_UNIT_VELOCITY:
     case B_UNIT_ACCELERATION:
-      return value * (double)unit->scale_length;
+      return value * double(unit->scale_length);
     case B_UNIT_AREA:
     case B_UNIT_POWER:
       return value * pow(unit->scale_length, 2);
@@ -3305,10 +3315,10 @@ struct DepsgraphKey {
    */
 };
 
-static unsigned int depsgraph_key_hash(const void *key_v)
+static uint depsgraph_key_hash(const void *key_v)
 {
   const DepsgraphKey *key = static_cast<const DepsgraphKey *>(key_v);
-  unsigned int hash = BLI_ghashutil_ptrhash(key->view_layer);
+  uint hash = BLI_ghashutil_ptrhash(key->view_layer);
   /* TODO(sergey): Include hash from other fields in the key. */
   return hash;
 }

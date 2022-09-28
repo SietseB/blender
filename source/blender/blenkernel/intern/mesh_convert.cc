@@ -105,8 +105,9 @@ static void make_edges_mdata_extend(Mesh &mesh)
 #endif
 
   if (totedge_new) {
-    CustomData_realloc(&mesh.edata, totedge + totedge_new);
-
+    /* The only layer should be edges, so no other layers need to be initialized. */
+    BLI_assert(mesh.edata.totlayer == 1);
+    CustomData_realloc(&mesh.edata, totedge, totedge + totedge_new);
     mesh.totedge += totedge_new;
     MutableSpan<MEdge> edges = mesh.edges_for_write();
     MEdge *medge = &edges[totedge];
@@ -118,7 +119,6 @@ static void make_edges_mdata_extend(Mesh &mesh)
       BLI_edgehashIterator_getKey(ehi, &medge->v1, &medge->v2);
       BLI_edgehashIterator_setValue(ehi, POINTER_FROM_UINT(e_index));
 
-      medge->crease = 0;
       medge->flag = ME_EDGEDRAW | ME_EDGERENDER;
     }
     BLI_edgehashIterator_free(ehi);
@@ -274,13 +274,13 @@ static Mesh *mesh_nurbs_displist_to_mesh(const Curve *cu, const ListBase *dispba
         mloop[0].v = startvert + index[0];
         mloop[1].v = startvert + index[2];
         mloop[2].v = startvert + index[1];
-        mpoly->loopstart = (int)(mloop - loops.data());
+        mpoly->loopstart = int(mloop - loops.data());
         mpoly->totloop = 3;
         material_indices.span[mpoly - polys.data()] = dl->col;
 
         if (mloopuv) {
           for (int i = 0; i < 3; i++, mloopuv++) {
-            mloopuv->uv[0] = (mloop[i].v - startvert) / (float)(dl->nr - 1);
+            mloopuv->uv[0] = (mloop[i].v - startvert) / float(dl->nr - 1);
             mloopuv->uv[1] = 0.0f;
           }
         }
@@ -334,7 +334,7 @@ static Mesh *mesh_nurbs_displist_to_mesh(const Curve *cu, const ListBase *dispba
           mloop[1].v = p3;
           mloop[2].v = p4;
           mloop[3].v = p2;
-          mpoly->loopstart = (int)(mloop - loops.data());
+          mpoly->loopstart = int(mloop - loops.data());
           mpoly->totloop = 4;
           material_indices.span[mpoly - polys.data()] = dl->col;
 
@@ -357,14 +357,14 @@ static Mesh *mesh_nurbs_displist_to_mesh(const Curve *cu, const ListBase *dispba
               /* find uv based on vertex index into grid array */
               int v = mloop[i].v - startvert;
 
-              mloopuv->uv[0] = (v / dl->nr) / (float)orco_sizev;
-              mloopuv->uv[1] = (v % dl->nr) / (float)orco_sizeu;
+              mloopuv->uv[0] = (v / dl->nr) / float(orco_sizev);
+              mloopuv->uv[1] = (v % dl->nr) / float(orco_sizeu);
 
               /* cyclic correction */
-              if ((ELEM(i, 1, 2)) && mloopuv->uv[0] == 0.0f) {
+              if (ELEM(i, 1, 2) && mloopuv->uv[0] == 0.0f) {
                 mloopuv->uv[0] = 1.0f;
               }
-              if ((ELEM(i, 0, 1)) && mloopuv->uv[1] == 0.0f) {
+              if (ELEM(i, 0, 1) && mloopuv->uv[1] == 0.0f) {
                 mloopuv->uv[1] = 1.0f;
               }
             }
@@ -634,9 +634,11 @@ void BKE_pointcloud_from_mesh(Mesh *me, PointCloud *pointcloud)
   using namespace blender;
 
   BLI_assert(me != nullptr);
-
+  /* The pointcloud should only contain the position attribute, otherwise more attributes would
+   * need to be initialized below. */
+  BLI_assert(pointcloud->attributes().all_ids().size() == 1);
+  CustomData_realloc(&pointcloud->pdata, pointcloud->totpoint, me->totvert);
   pointcloud->totpoint = me->totvert;
-  CustomData_realloc(&pointcloud->pdata, pointcloud->totpoint);
 
   /* Copy over all attributes. */
   CustomData_merge(&me->vdata, &pointcloud->pdata, CD_MASK_PROP_ALL, CD_DUPLICATE, me->totvert);
@@ -1131,11 +1133,11 @@ static void add_shapekey_layers(Mesh *mesh_dest, Mesh *mesh_src)
                  mesh_src->totvert,
                  kb->name,
                  kb->totelem);
-      array = (float *)MEM_calloc_arrayN((size_t)mesh_src->totvert, sizeof(float[3]), __func__);
+      array = (float *)MEM_calloc_arrayN(size_t(mesh_src->totvert), sizeof(float[3]), __func__);
     }
     else {
-      array = (float *)MEM_malloc_arrayN((size_t)mesh_src->totvert, sizeof(float[3]), __func__);
-      memcpy(array, kb->data, sizeof(float[3]) * (size_t)mesh_src->totvert);
+      array = (float *)MEM_malloc_arrayN(size_t(mesh_src->totvert), sizeof(float[3]), __func__);
+      memcpy(array, kb->data, sizeof(float[3]) * size_t(mesh_src->totvert));
     }
 
     CustomData_add_layer_named(
@@ -1325,7 +1327,6 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob)
   BLI_listbase_clear(&mesh_src->vertex_group_names);
 
   BKE_mesh_copy_parameters(mesh_dst, mesh_src);
-  mesh_dst->cd_flag = mesh_src->cd_flag;
 
   /* For original meshes, shape key data is stored in the #Key data-block, so it
    * must be moved from the storage in #CustomData layers used for evaluation. */

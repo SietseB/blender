@@ -307,7 +307,8 @@ static void switch_preview_floor_visibility(Main *pr_main,
                                             const ePreviewRenderMethod pr_method)
 {
   /* Hide floor for icon renders. */
-  LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     if (STREQ(base->object->id.name + 2, "Floor")) {
       base->object->visibility_flag &= ~OB_HIDE_RENDER;
       if (pr_method == PR_ICON_RENDER) {
@@ -533,8 +534,8 @@ static Scene *preview_prepare_scene(
       else {
         sce->display.render_aa = SCE_DISPLAY_AA_OFF;
       }
-
-      LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+      BKE_view_layer_synced_ensure(sce, view_layer);
+      LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
         if (base->object->id.name[2] == 'p') {
           /* copy over object color, in case material uses it */
           copy_v4_v4(base->object->color, sp->color);
@@ -586,7 +587,8 @@ static Scene *preview_prepare_scene(
         sce->world->horb = 0.0f;
       }
 
-      LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+      BKE_view_layer_synced_ensure(sce, view_layer);
+      LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
         if (base->object->id.name[2] == 'p') {
           if (base->object->type == OB_LAMP) {
             base->object->data = la;
@@ -775,10 +777,11 @@ static bool object_preview_is_type_supported(const Object *ob)
 }
 
 static Object *object_preview_camera_create(Main *preview_main,
+                                            Scene *scene,
                                             ViewLayer *view_layer,
                                             Object *preview_object)
 {
-  Object *camera = BKE_object_add(preview_main, view_layer, OB_CAMERA, "Preview Camera");
+  Object *camera = BKE_object_add(preview_main, scene, view_layer, OB_CAMERA, "Preview Camera");
 
   float rotmat[3][3];
   float dummyscale[3];
@@ -817,13 +820,14 @@ static Scene *object_preview_scene_create(const struct ObjectPreviewData *previe
   BKE_collection_object_add(preview_data->pr_main, scene->master_collection, preview_data->object);
 
   Object *camera_object = object_preview_camera_create(
-      preview_data->pr_main, view_layer, preview_data->object);
+      preview_data->pr_main, scene, view_layer, preview_data->object);
 
   scene->camera = camera_object;
   scene->r.xsch = preview_data->sizex;
   scene->r.ysch = preview_data->sizey;
   scene->r.size = 100;
 
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Base *preview_base = BKE_view_layer_base_find(view_layer, preview_data->object);
   /* For 'view selected' below. */
   preview_base->flag |= BASE_SELECTED;
@@ -1084,10 +1088,10 @@ static void shader_preview_texture(ShaderPreview *sp, Tex *tex, Scene *sce, Rend
 
   for (int y = 0; y < height; y++) {
     /* Tex coords between -1.0f and 1.0f. */
-    tex_coord[1] = ((float)y / (float)height) * 2.0f - 1.0f;
+    tex_coord[1] = (float(y) / float(height)) * 2.0f - 1.0f;
 
     for (int x = 0; x < width; x++) {
-      tex_coord[0] = ((float)x / (float)height) * 2.0f - 1.0f;
+      tex_coord[0] = (float(x) / float(height)) * 2.0f - 1.0f;
 
       /* Evaluate texture at tex_coord. */
       TexResult texres = {0};
@@ -1182,7 +1186,7 @@ static void shader_preview_render(ShaderPreview *sp, ID *id, int split, int firs
   /* lens adjust */
   oldlens = ((Camera *)sce->camera->data)->lens;
   if (sizex > sp->sizey) {
-    ((Camera *)sce->camera->data)->lens *= (float)sp->sizey / (float)sizex;
+    ((Camera *)sce->camera->data)->lens *= float(sp->sizey) / float(sizex);
   }
 
   /* entire cycle for render engine */
@@ -1360,17 +1364,17 @@ static void icon_copy_rect(ImBuf *ibuf, uint w, uint h, uint *rect)
   }
 
   if (ima->x > ima->y) {
-    scaledx = (float)w;
-    scaledy = ((float)ima->y / (float)ima->x) * (float)w;
+    scaledx = float(w);
+    scaledy = (float(ima->y) / float(ima->x)) * float(w);
   }
   else {
-    scaledx = ((float)ima->x / (float)ima->y) * (float)h;
-    scaledy = (float)h;
+    scaledx = (float(ima->x) / float(ima->y)) * float(h);
+    scaledy = float(h);
   }
 
   /* Scaling down must never assign zero width/height, see: T89868. */
-  ex = MAX2(1, (short)scaledx);
-  ey = MAX2(1, (short)scaledy);
+  ex = MAX2(1, short(scaledx));
+  ey = MAX2(1, short(scaledy));
 
   dx = (w - ex) / 2;
   dy = (h - ey) / 2;

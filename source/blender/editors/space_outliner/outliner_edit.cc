@@ -596,7 +596,7 @@ static int outliner_id_remap_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
 
-  const short id_type = (short)RNA_enum_get(op->ptr, "id_type");
+  const short id_type = short(RNA_enum_get(op->ptr, "id_type"));
   ID *old_id = static_cast<ID *>(
       BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "old_id")));
   ID *new_id = static_cast<ID *>(
@@ -692,7 +692,7 @@ static const EnumPropertyItem *outliner_id_itemf(bContext *C,
   int totitem = 0;
   int i = 0;
 
-  short id_type = (short)RNA_enum_get(ptr, "id_type");
+  short id_type = short(RNA_enum_get(ptr, "id_type"));
   ID *id = static_cast<ID *>(which_libbase(CTX_data_main(C), id_type)->first);
 
   for (; id; id = static_cast<ID *>(id->next)) {
@@ -1233,12 +1233,12 @@ void OUTLINER_OT_select_all(wmOperatorType *ot)
 
 void outliner_set_coordinates(const ARegion *region, const SpaceOutliner *space_outliner)
 {
-  int starty = (int)(region->v2d.tot.ymax) - UI_UNIT_Y;
+  int starty = int(region->v2d.tot.ymax) - UI_UNIT_Y;
 
   tree_iterator::all_open(*space_outliner, [&](TreeElement *te) {
     /* store coord and continue, we need coordinates for elements outside view too */
     te->xs = 0;
-    te->ys = (float)starty;
+    te->ys = float(starty);
     starty -= UI_UNIT_Y;
   });
 }
@@ -1262,10 +1262,12 @@ static int outliner_open_back(TreeElement *te)
 /* Return element representing the active base or bone in the outliner, or NULL if none exists */
 static TreeElement *outliner_show_active_get_element(bContext *C,
                                                      SpaceOutliner *space_outliner,
+                                                     const Scene *scene,
                                                      ViewLayer *view_layer)
 {
   TreeElement *te;
 
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Object *obact = BKE_view_layer_active_object_get(view_layer);
 
   if (!obact) {
@@ -1317,11 +1319,13 @@ static void outliner_show_active(SpaceOutliner *space_outliner,
 static int outliner_show_active_exec(bContext *C, wmOperator *UNUSED(op))
 {
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   ARegion *region = CTX_wm_region(C);
   View2D *v2d = &region->v2d;
 
-  TreeElement *active_element = outliner_show_active_get_element(C, space_outliner, view_layer);
+  TreeElement *active_element = outliner_show_active_get_element(
+      C, space_outliner, scene, view_layer);
 
   if (active_element) {
     ID *id = TREESTORE(active_element)->id;

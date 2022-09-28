@@ -86,7 +86,7 @@ void UI_GetThemeColorBlendShade4fv(int UNUSED(colorid1),
 void UI_GetThemeColorBlend3ubv(int UNUSED(colorid1),
                                int UNUSED(colorid2),
                                float UNUSED(fac),
-                               unsigned char UNUSED(col[3]))
+                               uchar UNUSED(col[3]))
 {
   BLI_assert_unreachable();
 }
@@ -94,7 +94,7 @@ void UI_GetThemeColorBlend3ubv(int UNUSED(colorid1),
 void UI_GetThemeColorShadeAlpha4ubv(int UNUSED(colorid),
                                     int UNUSED(coloffset),
                                     int UNUSED(alphaoffset),
-                                    unsigned char UNUSED(col[4]))
+                                    uchar UNUSED(col[4]))
 {
   BLI_assert_unreachable();
 }
@@ -136,9 +136,7 @@ eAttrDomain BKE_id_attribute_domain(const struct ID *UNUSED(id),
 /* -------------------------------------------------------------------- */
 /** \name Stubs of BKE_paint.h
  * \{ */
-bool paint_is_face_hidden(const struct MLoopTri *UNUSED(lt),
-                          const bool *UNUSED(hide_vert),
-                          const struct MLoop *UNUSED(mloop))
+bool paint_is_face_hidden(const struct MLoopTri *UNUSED(lt), const bool *UNUSED(hide_poly))
 {
   BLI_assert_unreachable();
   return false;
@@ -151,7 +149,7 @@ void BKE_paint_face_set_overlay_color_get(const int UNUSED(face_set),
   BLI_assert_unreachable();
 }
 
-bool paint_is_grid_face_hidden(const unsigned int *UNUSED(grid_hidden),
+bool paint_is_grid_face_hidden(const uint *UNUSED(grid_hidden),
                                int UNUSED(gridsize),
                                int UNUSED(x),
                                int UNUSED(y))

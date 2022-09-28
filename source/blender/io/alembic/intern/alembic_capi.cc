@@ -502,7 +502,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
   /* Create objects and set scene frame range. */
 
-  const float size = static_cast<float>(data->readers.size());
+  const float size = float(data->readers.size());
   size_t i = 0;
 
   chrono_t min_time = std::numeric_limits<chrono_t>::max();
@@ -542,8 +542,8 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
       scene->r.cfra = scene->r.sfra;
     }
     else if (min_time < max_time) {
-      scene->r.sfra = static_cast<int>(round(min_time * FPS));
-      scene->r.efra = static_cast<int>(round(max_time * FPS));
+      scene->r.sfra = int(round(min_time * FPS));
+      scene->r.efra = int(round(max_time * FPS));
       scene->r.cfra = scene->r.sfra;
     }
   }
@@ -601,9 +601,10 @@ static void import_endjob(void *user_data)
   else {
     Base *base;
     LayerCollection *lc;
+    const Scene *scene = data->scene;
     ViewLayer *view_layer = data->view_layer;
 
-    BKE_view_layer_base_deselect_all(view_layer);
+    BKE_view_layer_base_deselect_all(scene, view_layer);
 
     lc = BKE_layer_collection_get_active(view_layer);
 
@@ -616,6 +617,7 @@ static void import_endjob(void *user_data)
     /* Sync the collection, and do view layer operations. */
     BKE_layer_collection_resync_allow();
     BKE_main_collection_sync(data->bmain);
+    BKE_view_layer_synced_ensure(scene, view_layer);
     for (AbcObjectReader *reader : data->readers) {
       Object *ob = reader->object();
       base = BKE_view_layer_base_find(view_layer, ob);

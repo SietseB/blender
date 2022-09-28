@@ -619,7 +619,7 @@ struct UvElement **BM_uv_element_map_ensure_head_table(struct UvElementMap *elem
   return element_map->head_table;
 }
 
-#define INVALID_ISLAND ((unsigned int)-1)
+#define INVALID_ISLAND ((uint)-1)
 
 static void bm_uv_assign_island(UvElementMap *element_map,
                                 UvElement *element,
@@ -1773,15 +1773,13 @@ BMElem *EDBM_elem_from_index_any(BMEditMesh *em, uint index)
   return NULL;
 }
 
-int EDBM_elem_to_index_any_multi(ViewLayer *view_layer,
-                                 BMEditMesh *em,
-                                 BMElem *ele,
-                                 int *r_object_index)
+int EDBM_elem_to_index_any_multi(
+    const Scene *scene, ViewLayer *view_layer, BMEditMesh *em, BMElem *ele, int *r_object_index)
 {
   uint bases_len;
   int elem_index = -1;
   *r_object_index = -1;
-  Base **bases = BKE_view_layer_array_from_bases_in_edit_mode(view_layer, NULL, &bases_len);
+  Base **bases = BKE_view_layer_array_from_bases_in_edit_mode(scene, view_layer, NULL, &bases_len);
   for (uint base_index = 0; base_index < bases_len; base_index++) {
     Base *base_iter = bases[base_index];
     if (BKE_editmesh_from_object(base_iter->object) == em) {
@@ -1794,13 +1792,14 @@ int EDBM_elem_to_index_any_multi(ViewLayer *view_layer,
   return elem_index;
 }
 
-BMElem *EDBM_elem_from_index_any_multi(ViewLayer *view_layer,
+BMElem *EDBM_elem_from_index_any_multi(const Scene *scene,
+                                       ViewLayer *view_layer,
                                        uint object_index,
                                        uint elem_index,
                                        Object **r_obedit)
 {
   uint bases_len;
-  Base **bases = BKE_view_layer_array_from_bases_in_edit_mode(view_layer, NULL, &bases_len);
+  Base **bases = BKE_view_layer_array_from_bases_in_edit_mode(scene, view_layer, NULL, &bases_len);
   *r_obedit = NULL;
   Object *obedit = (object_index < bases_len) ? bases[object_index]->object : NULL;
   MEM_freeN(bases);

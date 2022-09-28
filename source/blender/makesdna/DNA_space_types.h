@@ -1087,6 +1087,7 @@ typedef enum eFileSel_File_Types {
   FILE_TYPE_DIR = (1 << 30),
   FILE_TYPE_BLENDERLIB = (1u << 31),
 } eFileSel_File_Types;
+ENUM_OPERATORS(eFileSel_File_Types, FILE_TYPE_BLENDERLIB);
 
 /** Selection Flags in filesel: struct direntry, unsigned char selflag. */
 typedef enum eDirEntry_SelectFlag {
@@ -1219,7 +1220,7 @@ typedef struct SpaceImage {
 
   char pin;
 
-  char pixel_snap_mode;
+  char pixel_round_mode;
 
   char lock;
   /** UV draw type. */
@@ -1237,11 +1238,10 @@ typedef struct SpaceImage {
 
   int tile_grid_shape[2];
   /**
-   * UV editor custom-grid. Value of `N` will produce `NxN` grid.
+   * UV editor custom-grid. Value of `{M,N}` will produce `MxN` grid.
    * Use when #SI_CUSTOM_GRID is set.
    */
-  int custom_grid_subdiv;
-  char _pad3[4];
+  int custom_grid_subdiv[2];
 
   MaskSpaceInfo mask_info;
   SpaceImageOverlay overlay;
@@ -1261,12 +1261,12 @@ typedef enum eSpaceImage_UVDT_Stretch {
   SI_UVDT_STRETCH_AREA = 1,
 } eSpaceImage_UVDT_Stretch;
 
-/** #SpaceImage.pixel_snap_mode */
-typedef enum eSpaceImage_PixelSnapMode {
-  SI_PIXEL_SNAP_DISABLED = 0,
-  SI_PIXEL_SNAP_CENTER = 1,
-  SI_PIXEL_SNAP_CORNER = 2,
-} eSpaceImage_Snap_Mode;
+/** #SpaceImage.pixel_round_mode */
+typedef enum eSpaceImage_PixelRoundMode {
+  SI_PIXEL_ROUND_DISABLED = 0,
+  SI_PIXEL_ROUND_CENTER = 1,
+  SI_PIXEL_ROUND_CORNER = 2,
+} eSpaceImage_Round_Mode;
 
 /** #SpaceImage.mode */
 typedef enum eSpaceImage_Mode {
@@ -1320,6 +1320,8 @@ typedef enum eSpaceImage_Flag {
   SI_SHOW_R = (1 << 27),
   SI_SHOW_G = (1 << 28),
   SI_SHOW_B = (1 << 29),
+
+  SI_GRID_OVER_IMAGE = (1 << 30),
 } eSpaceImage_Flag;
 
 typedef enum eSpaceImageOverlay_Flag {
@@ -1637,7 +1639,7 @@ enum {
 typedef struct ConsoleLine {
   struct ConsoleLine *next, *prev;
 
-  /* keep these 3 vars so as to share free, realloc funcs */
+  /* Keep these 3 vars so as to share free, realloc functions. */
   /** Allocated length. */
   int len_alloc;
   /** Real len - strlen(). */

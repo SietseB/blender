@@ -85,7 +85,7 @@
 #define ANIM_CHAN_NAME_SIZE 256
 
 /* get the pointer used for some flag */
-#define GET_ACF_FLAG_PTR(ptr, type) ((*(type) = sizeof((ptr))), &(ptr))
+#define GET_ACF_FLAG_PTR(ptr, type) ((*(type) = sizeof(ptr)), &(ptr))
 
 /* *********************************************** */
 /* Generic Functions (Type independent) */
@@ -5353,8 +5353,8 @@ void ANIM_channel_draw_widgets(const bContext *C,
      *   and wouldn't be able to auto-keyframe.
      * - Slider should start before the toggles (if they're visible)
      *   to keep a clean line down the side.
-     * - Sliders are always drawn in Shapekey mode now. Prior to this
-     *   the SACTION_SLIDERS flag would be set when changing into Shapekey mode.
+     * - Sliders are always drawn in Shape-key mode now. Prior to this
+     *   the SACTION_SLIDERS flag would be set when changing into shape-key mode.
      */
     if (((draw_sliders) && ELEM(ale->type,
                                 ANIMTYPE_FCURVE,

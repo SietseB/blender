@@ -353,10 +353,12 @@ static void stats_object_sculpt(const Object *ob, SceneStats *stats)
 
 /* Statistics displayed in info header. Called regularly on scene changes. */
 static void stats_update(Depsgraph *depsgraph,
+                         const Scene *scene,
                          ViewLayer *view_layer,
                          View3D *v3d_local,
                          SceneStats *stats)
 {
+  BKE_view_layer_synced_ensure(scene, view_layer);
   const Object *ob = BKE_view_layer_active_object_get(view_layer);
   const Object *obedit = BKE_view_layer_edit_object_get(view_layer);
 
@@ -364,7 +366,7 @@ static void stats_update(Depsgraph *depsgraph,
 
   if (obedit) {
     /* Edit Mode. */
-    FOREACH_OBJECT_BEGIN (view_layer, ob_iter) {
+    FOREACH_OBJECT_BEGIN (scene, view_layer, ob_iter) {
       if (ob_iter->base_flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) {
         if (ob_iter->mode & OB_MODE_EDIT) {
           stats_object_edit(ob_iter, stats);
@@ -373,7 +375,7 @@ static void stats_update(Depsgraph *depsgraph,
         else {
           /* Skip hidden objects in local view that are not in edit-mode,
            * an exception for edit-mode, in most other modes these would be considered hidden. */
-          if ((v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter))) {
+          if (v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter)) {
             continue;
           }
         }
@@ -384,7 +386,7 @@ static void stats_update(Depsgraph *depsgraph,
   }
   else if (ob && (ob->mode & OB_MODE_POSE)) {
     /* Pose Mode. */
-    FOREACH_OBJECT_BEGIN (view_layer, ob_iter) {
+    FOREACH_OBJECT_BEGIN (scene, view_layer, ob_iter) {
       if (ob_iter->base_flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) {
         if (ob_iter->mode & OB_MODE_POSE) {
           stats_object_pose(ob_iter, stats);
@@ -392,7 +394,7 @@ static void stats_update(Depsgraph *depsgraph,
         }
         else {
           /* See comment for edit-mode. */
-          if ((v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter))) {
+          if (v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter)) {
             continue;
           }
         }
@@ -408,10 +410,13 @@ static void stats_update(Depsgraph *depsgraph,
   else {
     /* Objects. */
     GSet *objects_gset = BLI_gset_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, __func__);
-    DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob_iter) {
+    DEGObjectIterSettings deg_iter_settings = {0};
+    deg_iter_settings.depsgraph = depsgraph;
+    deg_iter_settings.flags = DEG_OBJECT_ITER_FOR_RENDER_ENGINE_FLAGS;
+    DEG_OBJECT_ITER_BEGIN (&deg_iter_settings, ob_iter) {
       stats_object(ob_iter, v3d_local, stats, objects_gset);
     }
-    DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END;
+    DEG_OBJECT_ITER_END;
     BLI_gset_free(objects_gset, nullptr);
   }
 }
@@ -450,7 +455,7 @@ static bool format_stats(
     }
     Depsgraph *depsgraph = BKE_scene_ensure_depsgraph(bmain, scene, view_layer);
     *stats_p = (SceneStats *)MEM_mallocN(sizeof(SceneStats), __func__);
-    stats_update(depsgraph, view_layer, v3d_local, *stats_p);
+    stats_update(depsgraph, scene, view_layer, v3d_local, *stats_p);
   }
 
   SceneStats *stats = *stats_p;
@@ -489,13 +494,18 @@ static bool format_stats(
   return true;
 }
 
-static void get_stats_string(
-    char *info, int len, size_t *ofs, ViewLayer *view_layer, SceneStatsFmt *stats_fmt)
+static void get_stats_string(char *info,
+                             int len,
+                             size_t *ofs,
+                             const Scene *scene,
+                             ViewLayer *view_layer,
+                             SceneStatsFmt *stats_fmt)
 {
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
   Object *obedit = OBEDIT_FROM_OBACT(ob);
   eObjectMode object_mode = ob ? (eObjectMode)ob->mode : OB_MODE_OBJECT;
-  LayerCollection *layer_collection = view_layer->active_collection;
+  LayerCollection *layer_collection = BKE_view_layer_active_collection_get(view_layer);
 
   if (object_mode == OB_MODE_OBJECT) {
     *ofs += BLI_snprintf_rlen(info + *ofs,
@@ -599,7 +609,7 @@ static const char *info_statusbar_string(Main *bmain,
   if (statusbar_flag & STATUSBAR_SHOW_STATS) {
     SceneStatsFmt stats_fmt;
     if (format_stats(bmain, scene, view_layer, nullptr, &stats_fmt)) {
-      get_stats_string(info + ofs, len, &ofs, view_layer, &stats_fmt);
+      get_stats_string(info + ofs, len, &ofs, scene, view_layer, &stats_fmt);
     }
   }
 
@@ -684,6 +694,7 @@ void ED_info_draw_stats(
     return;
   }
 
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
   Object *obedit = OBEDIT_FROM_OBACT(ob);
   eObjectMode object_mode = ob ? (eObjectMode)ob->mode : OB_MODE_OBJECT;
