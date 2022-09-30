@@ -55,6 +55,7 @@
 #include "ED_screen_types.h"
 #include "ED_transform.h"
 #include "ED_view3d_offscreen.h"
+#include "ED_viewer_path.hh"
 
 #include "DEG_depsgraph_query.h"
 
@@ -121,8 +122,8 @@ void ED_view3d_update_viewmat(Depsgraph *depsgraph,
   else {
     float rect_scale[2];
     if (rect) {
-      rect_scale[0] = (float)BLI_rcti_size_x(rect) / (float)region->winx;
-      rect_scale[1] = (float)BLI_rcti_size_y(rect) / (float)region->winy;
+      rect_scale[0] = float(BLI_rcti_size_x(rect)) / float(region->winx);
+      rect_scale[1] = float(BLI_rcti_size_y(rect)) / float(region->winy);
     }
     /* NOTE: calls BKE_object_where_is_calc for camera... */
     view3d_viewmatrix_set(depsgraph, scene, v3d, rv3d, rect ? rect_scale : nullptr);
@@ -138,11 +139,11 @@ void ED_view3d_update_viewmat(Depsgraph *depsgraph,
   if (!offscreen && rv3d->persp == RV3D_CAMOB && v3d->camera) {
     rctf cameraborder;
     ED_view3d_calc_camera_border(scene, depsgraph, region, v3d, rv3d, &cameraborder, false);
-    rv3d->viewcamtexcofac[0] = (float)region->winx / BLI_rctf_size_x(&cameraborder);
-    rv3d->viewcamtexcofac[1] = (float)region->winy / BLI_rctf_size_y(&cameraborder);
+    rv3d->viewcamtexcofac[0] = float(region->winx) / BLI_rctf_size_x(&cameraborder);
+    rv3d->viewcamtexcofac[1] = float(region->winy) / BLI_rctf_size_y(&cameraborder);
 
-    rv3d->viewcamtexcofac[2] = -rv3d->viewcamtexcofac[0] * cameraborder.xmin / (float)region->winx;
-    rv3d->viewcamtexcofac[3] = -rv3d->viewcamtexcofac[1] * cameraborder.ymin / (float)region->winy;
+    rv3d->viewcamtexcofac[2] = -rv3d->viewcamtexcofac[0] * cameraborder.xmin / float(region->winx);
+    rv3d->viewcamtexcofac[3] = -rv3d->viewcamtexcofac[1] * cameraborder.ymin / float(region->winy);
   }
   else {
     rv3d->viewcamtexcofac[0] = rv3d->viewcamtexcofac[1] = 1.0f;
@@ -167,10 +168,10 @@ void ED_view3d_update_viewmat(Depsgraph *depsgraph,
     len_px = 2.0f / sqrtf(min_ff(len_squared_v3(v1), len_squared_v3(v2)));
 
     if (rect) {
-      len_sc = (float)max_ii(BLI_rcti_size_x(rect), BLI_rcti_size_y(rect));
+      len_sc = float(max_ii(BLI_rcti_size_x(rect), BLI_rcti_size_y(rect)));
     }
     else {
-      len_sc = (float)MAX2(region->winx, region->winy);
+      len_sc = float(MAX2(region->winx, region->winy));
     }
 
     rv3d->pixsize = len_px / len_sc;
@@ -560,10 +561,10 @@ static void drawviewborder(Scene *scene, Depsgraph *depsgraph, ARegion *region, 
    * obscures the 3D camera border */
   /* NOTE: with VIEW3D_CAMERA_BORDER_HACK defined this error isn't noticeable
    * but keep it here in case we need to remove the workaround */
-  x1i = (int)(x1 - 1.0001f);
-  y1i = (int)(y1 - 1.0001f);
-  x2i = (int)(x2 + (1.0f - 0.0001f));
-  y2i = (int)(y2 + (1.0f - 0.0001f));
+  x1i = int(x1 - 1.0001f);
+  y1i = int(y1 - 1.0001f);
+  x2i = int(x2 + (1.0f - 0.0001f));
+  y2i = int(y2 + (1.0f - 0.0001f));
 
   uint shdr_pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -842,7 +843,7 @@ float ED_scene_grid_scale(const Scene *scene, const char **r_grid_unit)
       if (r_grid_unit) {
         *r_grid_unit = BKE_unit_display_name_get(usys, i);
       }
-      return (float)BKE_unit_scalar_get(usys, i) / scene->unit.scale_length;
+      return float(BKE_unit_scalar_get(usys, i)) / scene->unit.scale_length;
     }
   }
 
@@ -876,7 +877,7 @@ void ED_view3d_grid_steps(const Scene *scene,
 
     int i;
     for (i = 0; i < len; i++) {
-      r_grid_steps[i] = (float)BKE_unit_scalar_get(usys, len - 1 - i) * grid_scale;
+      r_grid_steps[i] = float(BKE_unit_scalar_get(usys, len - 1 - i)) * grid_scale;
     }
     for (; i < STEPS_LEN; i++) {
       /* Fill last slots */
@@ -1062,7 +1063,7 @@ static void draw_rotation_guide(const RegionView3D *rv3d)
 #  define ROT_AXIS_DETAIL 13
 
       const float s = 0.05f * scale;
-      const float step = 2.0f * (float)(M_PI / ROT_AXIS_DETAIL);
+      const float step = 2.0f * float(M_PI / ROT_AXIS_DETAIL);
 
       float q[4]; /* rotate ring so it's perpendicular to axis */
       const int upright = fabsf(rv3d->rot_axis[2]) >= 0.95f;
@@ -1294,7 +1295,7 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
  * frame-number, collection, object name, bone name (if available), marker name (if available).
  */
 static void draw_selected_name(
-    Scene *scene, ViewLayer *view_layer, Object *ob, int xoffset, int *yoffset)
+    const View3D *v3d, Scene *scene, ViewLayer *view_layer, Object *ob, int xoffset, int *yoffset)
 {
   const int cfra = scene->r.cfra;
   const char *msg_pin = " (Pinned)";
@@ -1385,7 +1386,7 @@ static void draw_selected_name(
 
     /* color depends on whether there is a keyframe */
     if (id_frame_has_keyframe(
-            (ID *)ob, /* BKE_scene_ctime_get(scene) */ (float)cfra, ANIMFILTER_KEYS_LOCAL)) {
+            (ID *)ob, /* BKE_scene_ctime_get(scene) */ float(cfra), ANIMFILTER_KEYS_LOCAL)) {
       UI_FontThemeColor(font_id, TH_TIME_KEYFRAME);
     }
     else if (ED_gpencil_has_keyframe_v3d(scene, ob, cfra)) {
@@ -1407,6 +1408,12 @@ static void draw_selected_name(
 
   if (markern) {
     s += sprintf(s, " <%s>", markern);
+  }
+
+  if (v3d->flag2 & V3D_SHOW_VIEWER) {
+    if (!BLI_listbase_is_empty(&v3d->viewer_path.path)) {
+      s += sprintf(s, "%s", IFACE_(" (Viewer)"));
+    }
   }
 
   BLF_enable(font_id, BLF_SHADOW);
@@ -1502,7 +1509,7 @@ void view3d_draw_region_info(const bContext *C, ARegion *region)
     if (U.uiflag & USER_DRAWVIEWINFO) {
       BKE_view_layer_synced_ensure(scene, view_layer);
       Object *ob = BKE_view_layer_active_object_get(view_layer);
-      draw_selected_name(scene, view_layer, ob, xoffset, &yoffset);
+      draw_selected_name(v3d, scene, view_layer, ob, xoffset, &yoffset);
     }
 
     if (v3d->gridflag & (V3D_SHOW_FLOOR | V3D_SHOW_X | V3D_SHOW_Y | V3D_SHOW_Z)) {
@@ -1558,11 +1565,23 @@ RenderEngineType *ED_view3d_engine_type(const Scene *scene, int drawtype)
   return type;
 }
 
+static void view3d_update_viewer_path(const bContext *C)
+{
+  View3D *v3d = CTX_wm_view3d(C);
+  WorkSpace *workspace = CTX_wm_workspace(C);
+  /* Always use viewer path from workspace, pinning is not supported currently. */
+  if (!BKE_viewer_path_equal(&v3d->viewer_path, &workspace->viewer_path)) {
+    BKE_viewer_path_clear(&v3d->viewer_path);
+    BKE_viewer_path_copy(&v3d->viewer_path, &workspace->viewer_path);
+  }
+}
+
 void view3d_main_region_draw(const bContext *C, ARegion *region)
 {
   Main *bmain = CTX_data_main(C);
   View3D *v3d = CTX_wm_view3d(C);
 
+  view3d_update_viewer_path(C);
   view3d_draw_view(C, region);
 
   DRW_cache_free_old_subdiv();
@@ -2197,7 +2216,7 @@ void ED_view3d_select_id_validate(ViewContext *vc)
 
 int ED_view3d_backbuf_sample_size_clamp(ARegion *region, const float dist)
 {
-  return (int)min_ff(ceilf(dist), (float)max_ii(region->winx, region->winx));
+  return int(min_ff(ceilf(dist), float(max_ii(region->winx, region->winx))));
 }
 
 /** \} */
@@ -2262,7 +2281,7 @@ static ViewDepths *view3d_depths_create(ARegion *region)
     /* Convert in-place. */
     int pixel_count = d->w * d->h;
     for (int i = 0; i < pixel_count; i++) {
-      d->depths[i] = (int_depths[i] >> 8u) / (float)0xFFFFFF;
+      d->depths[i] = (int_depths[i] >> 8u) / float(0xFFFFFF);
     }
     /* Assumed to be this as they are never changed. */
     d->depth_range[0] = 0.0;
@@ -2274,13 +2293,13 @@ static ViewDepths *view3d_depths_create(ARegion *region)
 float view3d_depth_near(ViewDepths *d)
 {
   /* Convert to float for comparisons. */
-  const float near = (float)d->depth_range[0];
-  const float far_real = (float)d->depth_range[1];
+  const float near = float(d->depth_range[0]);
+  const float far_real = float(d->depth_range[1]);
   float far = far_real;
 
   const float *depths = d->depths;
   float depth = FLT_MAX;
-  int i = (int)d->w * (int)d->h; /* Cast to avoid short overflow. */
+  int i = int(d->w) * int(d->h); /* Cast to avoid short overflow. */
 
   /* Far is both the starting 'far' value
    * and the closest value found. */
@@ -2496,8 +2515,8 @@ void ED_scene_draw_fps(const Scene *scene, int xoffset, int *yoffset)
   printable[0] = '\0';
 
   /* Doing an average for a more robust calculation. */
-  fpsi->redrawtimes_fps[fpsi->redrawtime_index] = (float)(1.0 /
-                                                          (fpsi->lredrawtime - fpsi->redrawtime));
+  fpsi->redrawtimes_fps[fpsi->redrawtime_index] = float(1.0 /
+                                                        (fpsi->lredrawtime - fpsi->redrawtime));
 
   float fps = 0.0f;
   int tot = 0;
@@ -2515,13 +2534,13 @@ void ED_scene_draw_fps(const Scene *scene, int xoffset, int *yoffset)
   const int font_id = BLF_default();
 
   /* Is this more than half a frame behind? */
-  if (fps + 0.5f < (float)(FPS)) {
+  if (fps + 0.5f < float(FPS)) {
     UI_FontThemeColor(font_id, TH_REDALERT);
     BLI_snprintf(printable, sizeof(printable), IFACE_("fps: %.2f"), fps);
   }
   else {
     UI_FontThemeColor(font_id, TH_TEXT_HI);
-    BLI_snprintf(printable, sizeof(printable), IFACE_("fps: %i"), (int)(fps + 0.5f));
+    BLI_snprintf(printable, sizeof(printable), IFACE_("fps: %i"), int(fps + 0.5f));
   }
 
   BLF_enable(font_id, BLF_SHADOW);
