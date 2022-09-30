@@ -21,22 +21,13 @@
 
 #  include "BKE_paint.h"
 #  include "BKE_report.h"
-static void rna_Palette_last_used_color_move_to_first(Palette *palette, const int index)
-{
-  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
-    return;
-  }
-
-  BKE_palette_last_used_color_move_to_first(palette, index);
-}
-
-static PaletteColor *rna_Palette_last_used_color_new(Palette *palette)
+static PaletteColor *rna_Palette_last_used_color_new(Palette *palette, const int max_entries)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
     return NULL;
   }
 
-  PaletteColor *color = BKE_palette_last_used_color_add(palette);
+  PaletteColor *color = BKE_palette_last_used_color_add(palette, max_entries);
   return color;
 }
 
@@ -162,13 +153,10 @@ static void rna_def_palettecolors_last_used(BlenderRNA *brna, PropertyRNA *cprop
 
   func = RNA_def_function(srna, "new", "rna_Palette_last_used_color_new");
   RNA_def_function_ui_description(func, "Add a new color to the palette");
+  parm = RNA_def_int(func, "max_entries", 10, 1, 20, "", "Maximum number of last used colors", 1, 20);
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created color");
   RNA_def_function_return(func, parm);
-
-  func = RNA_def_function(srna, "move_to_first", "rna_Palette_last_used_color_move_to_first");
-  RNA_def_function_ui_description(func,"Move a last used color to the first position in the list");
-  parm = RNA_def_int(func, "index", 0, 0, 9, "index", "index", 0, 9);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 static void rna_def_palettecolor(BlenderRNA *brna)

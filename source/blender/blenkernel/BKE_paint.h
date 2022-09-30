@@ -136,8 +136,7 @@ void BKE_paint_set_overlay_override(enum eOverlayFlags flag);
 
 struct Palette *BKE_palette_add(struct Main *bmain, const char *name);
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
-struct PaletteColor *BKE_palette_last_used_color_add(struct Palette *palette);
-bool BKE_palette_last_used_color_move_to_first(struct Palette *palette, int index);
+struct PaletteColor *BKE_palette_last_used_color_add(struct Palette *palette, const int max_entries);
 bool BKE_palette_is_empty(const struct Palette *palette);
 /**
  * Remove color from palette. Must be certain color is inside the palette!

@@ -785,23 +785,18 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
   return color;
 }
 
-PaletteColor *BKE_palette_last_used_color_add(Palette *palette)
+PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_entries)
 {
   PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
   BLI_addhead(&palette->last_used_colors, color);
 
-  /* Limit number of last used colors to 10 */
+  /* Limit number of last used colors */
   int count = BLI_listbase_count(&palette->last_used_colors);
-  if (count > 10) {
+  if (count > max_entries) {
     BLI_remlink(&palette->last_used_colors, palette->last_used_colors.last);
   }
 
   return color;
-}
-
-bool BKE_palette_last_used_color_move_to_first(Palette *palette, const int index)
-{
-  return BLI_listbase_move_index(&palette->last_used_colors, index, 0);
 }
 
 bool BKE_palette_is_empty(const Palette *palette)
