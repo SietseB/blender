@@ -419,10 +419,6 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
   /* Attenuate factor to get a smoother tinting. */
   float inf = (brush_influence_calc(gso, radius, co, mode_stroke) *
                brush->gpencil_settings->draw_strength) / 100.0f;
-  /* When tinting an entire stroke, always apply full strength */
-  //if (entire_stroke) {
-  //  inf = 1.0f;
-  //}
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
   CLAMP(inf, 0.0f, 1.0f);
@@ -838,10 +834,10 @@ static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
     pt2 = gps->points + i + 1;
 
     bGPDspoint npt;
-    gpencil_point_to_parent_space(pt1, diff_mat, &npt);
+    gpencil_point_to_world_space(pt1, diff_mat, &npt);
     gpencil_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
 
-    gpencil_point_to_parent_space(pt2, diff_mat, &npt);
+    gpencil_point_to_world_space(pt2, diff_mat, &npt);
     gpencil_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
 
     pt = &gps->points[i];
