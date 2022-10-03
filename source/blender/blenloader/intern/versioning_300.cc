@@ -1757,7 +1757,7 @@ static void versioning_replace_legacy_mix_rgb_node(bNodeTree *ntree)
       node->type = SH_NODE_MIX;
       NodeShaderMix *data = (NodeShaderMix *)MEM_callocN(sizeof(NodeShaderMix), __func__);
       data->blend_type = node->custom1;
-      data->clamp_result = node->custom2;
+      data->clamp_result = (node->custom2 & SHD_MIXRGB_CLAMP) ? 1 : 0;
       data->clamp_factor = 1;
       data->data_type = SOCK_RGBA;
       data->factor_mode = NODE_MIX_MODE_UNIFORM;
@@ -3610,7 +3610,7 @@ void blo_do_versions_300(FileData *fd, Library *UNUSED(lib), Main *bmain)
             View3D *v3d = (View3D *)sl;
             v3d->flag2 |= V3D_SHOW_VIEWER;
             v3d->overlay.flag |= V3D_OVERLAY_VIEWER_ATTRIBUTE;
-            v3d->overlay.viewer_attribute_opacity = 0.8f;
+            v3d->overlay.viewer_attribute_opacity = 1.0f;
           }
         }
       }
