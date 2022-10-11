@@ -811,14 +811,6 @@ typedef struct bGPdata {
   float layer_overlap_darkening;
   float dry_stroke_edge_jitter;
 
-  /* Pigment flow noise settings */
-  float pfn_freq;
-  int pfn_octaves;
-  float pfn_lacunarity;
-  float pfn_gain;
-  float pfn_warp_amp;
-  float pfn_warp_freq;
-
   /* Pigment flow particle settings */
   float pparticle_speed_min;
   float pparticle_speed_max;

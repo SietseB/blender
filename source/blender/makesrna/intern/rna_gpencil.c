@@ -2969,54 +2969,6 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
     "This factor controls how much the edge of a dry stroke will wobble");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* pigment flow noise settings */
-  prop = RNA_def_property(srna, "pfn_freq", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "pfn_freq");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
-  RNA_def_property_float_default(prop, 0.045f);
-  RNA_def_property_ui_text(prop, "Frequency", "Pigment flow noise frequency");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "pfn_octaves", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, NULL, "pfn_octaves");
-  RNA_def_property_range(prop, 1, 10);
-  RNA_def_property_int_default(prop, 3);
-  RNA_def_property_ui_text(prop, "Octaves", "Pigment flow noise octaves");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "pfn_lacunarity", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "pfn_lacunarity");
-  RNA_def_property_range(prop, 0.0f, 10.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 10.0f, 0.1f, 1);
-  RNA_def_property_float_default(prop, 2.0f);
-  RNA_def_property_ui_text(prop, "Lacunarity", "Pigment flow noise lacunarity");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "pfn_gain", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "pfn_gain");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
-  RNA_def_property_float_default(prop, 0.5f);
-  RNA_def_property_ui_text(prop, "Gain", "Pigment flow noise gain");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "pfn_warp_amp", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "pfn_warp_amp");
-  RNA_def_property_range(prop, 0.0f, 500.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 500.0f, 1.0f, 1);
-  RNA_def_property_float_default(prop, 150.0f);
-  RNA_def_property_ui_text(prop, "Warp Amplitude", "Pigment flow noise warp amplitude");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  prop = RNA_def_property(srna, "pfn_warp_freq", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "pfn_warp_freq");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.005f, 3);
-  RNA_def_property_float_default(prop, 0.045f);
-  RNA_def_property_ui_text(prop, "Warp Frequency", "Pigment flow noise warp frequency");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   /* pigment particle settings */
   prop = RNA_def_property(srna, "pparticle_speed_min", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "pparticle_speed_min");

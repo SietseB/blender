@@ -763,12 +763,6 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->watercolor_noise_strength_low = 1.0f;
   gpd->stroke_overlap_darkening = 0.02f;
   gpd->layer_overlap_darkening = 0.1f;
-  gpd->pfn_freq = 0.045f;
-  gpd->pfn_octaves = 3;
-  gpd->pfn_lacunarity = 2.0f;
-  gpd->pfn_gain = 0.5f;
-  gpd->pfn_warp_amp = 150.0f;
-  gpd->pfn_warp_freq = 0.045f;
   gpd->pparticle_speed_min = 0.7f;
   gpd->pparticle_speed_max = 1.4f;
   gpd->pparticle_len_min = 45;
@@ -1051,12 +1045,6 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
   gpd_dst->stroke_overlap_darkening = gpd_src->stroke_overlap_darkening;
   gpd_dst->layer_overlap_darkening = gpd_src->layer_overlap_darkening;
-  gpd_dst->pfn_freq = gpd_src->pfn_freq;
-  gpd_dst->pfn_octaves = gpd_src->pfn_octaves;
-  gpd_dst->pfn_lacunarity = gpd_src->pfn_lacunarity;
-  gpd_dst->pfn_gain = gpd_src->pfn_gain;
-  gpd_dst->pfn_warp_amp = gpd_src->pfn_warp_amp;
-  gpd_dst->pfn_warp_freq = gpd_src->pfn_warp_freq;
   gpd_dst->pparticle_speed_min = gpd_src->pparticle_speed_min;
   gpd_dst->pparticle_speed_max = gpd_src->pparticle_speed_max;
   gpd_dst->pparticle_len_min = gpd_src->pparticle_len_min;
