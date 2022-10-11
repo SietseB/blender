@@ -8,6 +8,7 @@ from bpy.types import (
 )
 
 from bl_ui.properties_grease_pencil_common import (
+    GreasePencilLayerTexturePanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
     GreasePencilLayerAdjustmentsPanel,
@@ -784,18 +785,16 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 layout.use_property_split = True
 
                 layout.separator()
-                col = layout.column(align=True)
+                col = layout.column()
                 col.prop(gpl, "mix_with_previous")
-                col = layout.column(align=True)
                 col.prop(gpl, "limit_to_background")
-                col = layout.column(align=True)
+                col.prop(gpl, "clear_beneath")
                 col.prop(gpl, "is_wetted")
                 
                 layout.separator()
                 col = layout.column(align=True)
                 col.enabled = gpl.stroke_dryness == 0
                 col.prop(gpl, "stroke_wetness", slider=True)
-                col = layout.column()
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
@@ -805,6 +804,12 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 col.prop(gpl, "layer_darkened_edge_width", slider=True)
                 col.prop(gpl, "darkened_edge_width_var", slider=True)
                 col.prop(gpl, "darkened_edge_intensity", slider=True)
+
+
+class DOPESHEET_PT_gpencil_layer_texture(LayersDopeSheetPanel, GreasePencilLayerTexturePanel, Panel):
+    bl_label = "Stroke Texture"
+    bl_parent_id = 'DOPESHEET_PT_gpencil_mode'
+    bl_options = {'DEFAULT_CLOSED'}
 
 
 class DOPESHEET_PT_gpencil_layer_masks(LayersDopeSheetPanel, GreasePencilLayerMasksPanel, Panel):
@@ -856,6 +861,7 @@ classes = (
     DOPESHEET_PT_filters,
     DOPESHEET_PT_action,
     DOPESHEET_PT_gpencil_mode,
+    DOPESHEET_PT_gpencil_layer_texture,
     DOPESHEET_PT_gpencil_layer_masks,
     DOPESHEET_PT_gpencil_layer_transform,
     DOPESHEET_PT_gpencil_layer_adjustments,

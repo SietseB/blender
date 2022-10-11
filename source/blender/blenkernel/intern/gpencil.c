@@ -681,6 +681,10 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->layer_darkened_edge_width = 0.0f;
     gpl->darkened_edge_width_var = 50.0f;
     gpl->darkened_edge_intensity = 1.0f;
+    gpl->texture_density = 0.5f;
+    gpl->texture_scale = 50.0f;
+    gpl->texture_color_variation = 0.1f;
+    ARRAY_SET_ITEMS(gpl->texture_shadow_color, 0.0f, 0.0f, 0.0f, 0.2f);
   }
 
   /* auto-name */
@@ -1083,6 +1087,14 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
   gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
   gpl_dst->brush_jitter = gpl_src->brush_jitter;
+  gpl_dst->texture_angle = gpl_src->texture_angle;
+  gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
+  gpl_dst->texture_color_variation = gpl_src->texture_color_variation;
+  gpl_dst->texture_density = gpl_src->texture_density;
+  gpl_dst->texture_image = gpl_src->texture_image;
+  gpl_dst->texture_scale = gpl_src->texture_scale;
+  copy_v4_v4(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
+  gpl_dst->texture_shadow_image = gpl_src->texture_shadow_image;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

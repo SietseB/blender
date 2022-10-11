@@ -588,6 +588,17 @@ typedef struct bGPDlayer {
   float darkened_edge_intensity;
   float brush_jitter;
 
+  /** Stroke texture */
+  struct Image *texture_image;
+  struct Image *texture_shadow_image;
+  float texture_shadow_color[4];
+  float texture_density;
+  float texture_angle;
+  float texture_angle_variation;
+  float texture_scale;
+  float texture_color_variation;
+  char _pad5[4];
+
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */
 
@@ -634,6 +645,12 @@ typedef enum eGPDlayer_OndineFlag {
   GP_LAYER_ONDINE_LIMIT_TO_BG = (1 << 1),
   /* layer is entirely wetted */
   GP_LAYER_ONDINE_IS_WETTED = (1 << 2),
+  /* clear beneath */
+  GP_LAYER_ONDINE_CLEAR_BENEATH = (1 << 3),
+  /* use stroke texture */
+  GP_LAYER_ONDINE_USE_STROKE_TEXTURE = (1 << 4),
+  /* mirror stroke texture angle */
+  GP_LAYER_ONDINE_STROKE_TEXTURE_MIRROR_ANGLE = (1 << 5),
 } eGPDlayer_OndineFlag;
 
 /** #bGPDlayer.onion_flag */

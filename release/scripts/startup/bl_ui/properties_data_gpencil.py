@@ -4,6 +4,7 @@ from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 
 from bl_ui.properties_grease_pencil_common import (
+    GreasePencilLayerTexturePanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
     GreasePencilLayerAdjustmentsPanel,
@@ -175,18 +176,16 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 layout.use_property_split = True
 
                 layout.separator()
-                col = layout.column(align=True)
+                col = layout.column()
                 col.prop(gpl, "mix_with_previous")
-                col = layout.column(align=True)
                 col.prop(gpl, "limit_to_background")
-                col = layout.column(align=True)
+                col.prop(gpl, "clear_beneath")
                 col.prop(gpl, "is_wetted")
                 
                 layout.separator()
-                col = layout.column(align=True)
+                col = layout.column()
                 col.enabled = gpl.stroke_dryness == 0
                 col.prop(gpl, "stroke_wetness", slider=True)
-                col = layout.column()
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
@@ -196,6 +195,12 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col.prop(gpl, "layer_darkened_edge_width", slider=True)
                 col.prop(gpl, "darkened_edge_width_var", slider=True)
                 col.prop(gpl, "darkened_edge_intensity", slider=True)
+
+
+class DATA_PT_gpencil_layer_texture(LayerDataButtonsPanel, GreasePencilLayerTexturePanel, Panel):
+    bl_label = "Stroke Texture"
+    bl_parent_id = 'DATA_PT_gpencil_layers'
+    bl_options = {'DEFAULT_CLOSED'}
 
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):
@@ -449,6 +454,7 @@ classes = (
     DATA_PT_gpencil_onion_skinning,
     DATA_PT_gpencil_onion_skinning_custom_colors,
     DATA_PT_gpencil_onion_skinning_display,
+    DATA_PT_gpencil_layer_texture,
     DATA_PT_gpencil_layer_masks,
     DATA_PT_gpencil_layer_transform,
     DATA_PT_gpencil_layer_adjustments,

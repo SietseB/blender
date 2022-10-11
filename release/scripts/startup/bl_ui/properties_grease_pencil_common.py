@@ -759,6 +759,44 @@ class GPENCIL_MT_layer_mask_menu(Menu):
             layout.label(text="No layers to add")
 
 
+class GreasePencilLayerTexturePanel:
+    def draw_header(self, context):
+        ob = context.active_object
+        gpd = ob.data
+        gpl = gpd.layers.active
+
+        self.layout.prop(gpl, "use_texture", text="")
+
+    def draw(self, context):
+        ob = context.active_object
+        gpd = ob.data
+        gpl = gpd.layers.active
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.enabled = gpl.use_texture
+
+        if gpl:
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            col.label(text="Texture Image")
+            col.template_ID(gpl, "texture_image", open="image.open")
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            col.label(text="Shadow Image")
+            col.template_ID(gpl, "texture_shadow_image", open="image.open")
+
+            layout.separator()
+            col = layout.column()
+            col.prop(gpl, "texture_shadow_color")
+            col.prop(gpl, "texture_density", slider=True)
+            col.prop(gpl, "texture_scale", slider=True)
+            col.prop(gpl, "texture_color_variation", slider=True)
+            col.prop(gpl, "texture_angle", slider=True)
+            col.prop(gpl, "texture_angle_variation", slider=True)
+            col.prop(gpl, "texture_mirror_angle")
+            
+
 class GreasePencilLayerMasksPanel:
     def draw_header(self, context):
         ob = context.active_object
