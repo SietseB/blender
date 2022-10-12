@@ -788,13 +788,18 @@ class GreasePencilLayerTexturePanel:
 
             layout.separator()
             col = layout.column()
-            col.prop(gpl, "texture_shadow_color")
             col.prop(gpl, "texture_density", slider=True)
             col.prop(gpl, "texture_scale", slider=True)
-            col.prop(gpl, "texture_color_variation", slider=True)
             col.prop(gpl, "texture_angle", slider=True)
-            col.prop(gpl, "texture_angle_variation", slider=True)
             col.prop(gpl, "texture_mirror_angle")
+            col.separator()
+            col.prop(gpl, "texture_scale_variation", slider=True)
+            col.prop(gpl, "texture_angle_variation", slider=True)
+            col.prop(gpl, "texture_color_variation", slider=True)
+            col.separator()
+            col.prop(gpl, "texture_shadow_color")
+            col.prop(gpl, "texture_shadow_angle", slider=True)
+            col.prop(gpl, "texture_shadow_distance", slider=True)
             
 
 class GreasePencilLayerMasksPanel:

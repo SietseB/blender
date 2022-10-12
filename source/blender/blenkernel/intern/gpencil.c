@@ -127,6 +127,8 @@ static void greasepencil_foreach_id(ID *id, LibraryForeachIDData *data)
 
   LISTBASE_FOREACH (bGPDlayer *, gplayer, &gpencil->layers) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, gplayer->parent, IDWALK_CB_NOP);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, gplayer->texture_image, IDWALK_CB_USER);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, gplayer->texture_shadow_image, IDWALK_CB_USER);
   }
 }
 
@@ -276,6 +278,13 @@ static void greasepencil_blend_read_lib(BlendLibReader *reader, ID *id)
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Layer -> Parent References */
     BLO_read_id_address(reader, gpd->id.lib, &gpl->parent);
+    /* Layer stroke texture images */
+    if (gpl->texture_image != NULL) {
+      BLO_read_id_address(reader, gpd->id.lib, &gpl->texture_image);
+    }
+    if (gpl->texture_shadow_image != NULL) {
+      BLO_read_id_address(reader, gpd->id.lib, &gpl->texture_shadow_image);
+    }
   }
 
   /* materials */
@@ -289,6 +298,8 @@ static void greasepencil_blend_read_expand(BlendExpander *expander, ID *id)
   bGPdata *gpd = (bGPdata *)id;
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     BLO_expand(expander, gpl->parent);
+    BLO_expand(expander, gpl->texture_image);
+    BLO_expand(expander, gpl->texture_shadow_image);
   }
 
   for (int a = 0; a < gpd->totcol; a++) {
@@ -683,7 +694,9 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->darkened_edge_intensity = 1.0f;
     gpl->texture_density = 0.5f;
     gpl->texture_scale = 50.0f;
-    gpl->texture_color_variation = 0.1f;
+    gpl->texture_color_variation = 10.0f;
+    gpl->texture_scale_variation = 5.0f;
+    gpl->texture_shadow_distance = 5;
     ARRAY_SET_ITEMS(gpl->texture_shadow_color, 0.0f, 0.0f, 0.0f, 0.2f);
   }
 
@@ -1087,14 +1100,16 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
   gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
   gpl_dst->brush_jitter = gpl_src->brush_jitter;
+  gpl_dst->texture_image = gpl_src->texture_image;
+  gpl_dst->texture_shadow_image = gpl_src->texture_shadow_image;
+  gpl_dst->texture_density = gpl_src->texture_density;
+  gpl_dst->texture_scale = gpl_src->texture_scale;
+  gpl_dst->texture_color_variation = gpl_src->texture_color_variation;
   gpl_dst->texture_angle = gpl_src->texture_angle;
   gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
-  gpl_dst->texture_color_variation = gpl_src->texture_color_variation;
-  gpl_dst->texture_density = gpl_src->texture_density;
-  gpl_dst->texture_image = gpl_src->texture_image;
-  gpl_dst->texture_scale = gpl_src->texture_scale;
   copy_v4_v4(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
-  gpl_dst->texture_shadow_image = gpl_src->texture_shadow_image;
+  gpl_dst->texture_shadow_angle = gpl_src->texture_shadow_angle;
+  gpl_dst->texture_shadow_distance = gpl_src->texture_shadow_distance;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

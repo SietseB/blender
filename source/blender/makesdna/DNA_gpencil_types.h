@@ -591,13 +591,15 @@ typedef struct bGPDlayer {
   /** Stroke texture */
   struct Image *texture_image;
   struct Image *texture_shadow_image;
-  float texture_shadow_color[4];
   float texture_density;
+  float texture_scale;
+  float texture_scale_variation;
+  float texture_color_variation;
   float texture_angle;
   float texture_angle_variation;
-  float texture_scale;
-  float texture_color_variation;
-  char _pad5[4];
+  float texture_shadow_color[4];
+  float texture_shadow_angle;
+  int texture_shadow_distance;
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */

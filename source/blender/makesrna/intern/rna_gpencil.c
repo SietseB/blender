@@ -2500,16 +2500,6 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Shadow Image", "");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* shadow color */
-  static const float default_shadow_color[] = {0.0f, 0.0f, 0.0f, 0.2f};
-  prop = RNA_def_property(srna, "texture_shadow_color", PROP_FLOAT, PROP_COLOR);
-  RNA_def_property_float_sdna(prop, NULL, "texture_shadow_color");
-  RNA_def_property_array(prop, 4);
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_float_array_default(prop, default_shadow_color);
-  RNA_def_property_ui_text(prop, "Shadow Color", "Color for shadow texture");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   /* density */
   prop = RNA_def_property(srna, "texture_density", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "texture_density");
@@ -2528,12 +2518,21 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Scale", "Scale of the texture stencils");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* scale variation */
+  prop = RNA_def_property(srna, "texture_scale_variation", PROP_FLOAT, PROP_PERCENTAGE);
+  RNA_def_property_float_sdna(prop, NULL, "texture_scale_variation");
+  RNA_def_property_range(prop, 0.0f, 50.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 50.0f, 1.0f, 0);
+  RNA_def_property_float_default(prop, 5.0f);
+  RNA_def_property_ui_text(prop, "Scale Variation", "Random variation of the scale of the texture stencils");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* color variation */
-  prop = RNA_def_property(srna, "texture_color_variation", PROP_FLOAT, PROP_FACTOR);
+  prop = RNA_def_property(srna, "texture_color_variation", PROP_FLOAT, PROP_PERCENTAGE);
   RNA_def_property_float_sdna(prop, NULL, "texture_color_variation");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.1f, 1);
-  RNA_def_property_float_default(prop, 0.1f);
+  RNA_def_property_range(prop, 0.0f, 50.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 50.0f, 1.0f, 0);
+  RNA_def_property_float_default(prop, 10.0f);
   RNA_def_property_ui_text(prop, "Color Variation", "Random variation of the color of the texture stencils");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
@@ -2561,6 +2560,34 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Mirror Angle", "Mirror the angle around the stroke axis for 50% of the texture stencils");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* shadow color */
+  static const float default_shadow_color[] = {0.0f, 0.0f, 0.0f, 0.2f};
+  prop = RNA_def_property(srna, "texture_shadow_color", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "texture_shadow_color");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_array_default(prop, default_shadow_color);
+  RNA_def_property_ui_text(prop, "Shadow Color", "Color for shadow texture");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* shadow angle */
+  prop = RNA_def_property(srna, "texture_shadow_angle", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_float_sdna(prop, NULL, "texture_shadow_angle");
+  RNA_def_property_range(prop, 0.0f, DEG2RADF(360.0f));
+  RNA_def_property_ui_range(prop, 0.0f, DEG2RADF(360.0f), 1.0f, 1);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Shadow Angle", "Angle of the shadow");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* shadow distance */
+  prop = RNA_def_property(srna, "texture_shadow_distance", PROP_INT, PROP_PIXEL);
+  RNA_def_property_int_sdna(prop, NULL, "texture_shadow_distance");
+  RNA_def_property_range(prop, 0, 20);
+  RNA_def_property_ui_range(prop, 0, 20, 1, 0);
+  RNA_def_property_int_default(prop, 5);
+  RNA_def_property_ui_text(prop, "Shadow Distance", "Shift distance of the shadow");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* Layers API */
