@@ -2475,6 +2475,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       prop, "Brush Jitter", "Sets the irregularity of strokes at start, end and sharp angles");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /** Stroke texture */
   /* use texture for strokes */
   prop = RNA_def_property(srna, "use_texture", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_USE_STROKE_TEXTURE);
@@ -2589,6 +2590,15 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_int_default(prop, 5);
   RNA_def_property_ui_text(prop, "Shadow Distance", "Shift distance of the shadow");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* position seed */
+  prop = RNA_def_property(srna, "texture_pos_seed", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "texture_pos_seed");
+  RNA_def_property_range(prop, 0, SHRT_MAX);
+  RNA_def_property_int_default(prop, 0);
+  RNA_def_property_ui_text(prop, "Position Seed", "Seed for the random position of the texture stencils along the stroke");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+  /** Stroke texture end */
 
   /* Layers API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");

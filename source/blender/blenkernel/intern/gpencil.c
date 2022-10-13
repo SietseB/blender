@@ -1110,6 +1110,7 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   copy_v4_v4(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
   gpl_dst->texture_shadow_angle = gpl_src->texture_shadow_angle;
   gpl_dst->texture_shadow_distance = gpl_src->texture_shadow_distance;
+  gpl_dst->texture_pos_seed = gpl_src->texture_pos_seed;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

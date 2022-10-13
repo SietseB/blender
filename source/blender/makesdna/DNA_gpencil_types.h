@@ -600,6 +600,8 @@ typedef struct bGPDlayer {
   float texture_shadow_color[4];
   float texture_shadow_angle;
   int texture_shadow_distance;
+  int texture_pos_seed;
+  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */
