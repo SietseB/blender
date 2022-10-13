@@ -262,9 +262,6 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${xkbcommon_INCLUDE_DIRS}
       ${wayland-cursor_INCLUDE_DIRS}
     )
-    list(APPEND LIB
-      ${xkbcommon_LINK_LIBRARIES}
-    )
 
     if(WITH_GHOST_WAYLAND_DYNLOAD)
       list(APPEND INC_SYS
@@ -274,20 +271,11 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
         bf_intern_wayland_dynload
       )
       add_definitions(-DWITH_GHOST_WAYLAND_DYNLOAD)
-    else()
-      list(APPEND LIB
-        ${wayland-client_LINK_LIBRARIES}
-        ${wayland-egl_LINK_LIBRARIES}
-        ${wayland-cursor_LINK_LIBRARIES}
-      )
     endif()
 
     if(WITH_GHOST_WAYLAND_DBUS)
       list(APPEND INC_SYS
         ${dbus_INCLUDE_DIRS}
-      )
-      list(APPEND LIB
-        ${dbus_LINK_LIBRARIES}
       )
     endif()
 
@@ -295,11 +283,6 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       list(APPEND INC_SYS
         ${libdecor_INCLUDE_DIRS}
       )
-      if(NOT WITH_GHOST_WAYLAND_DYNLOAD)
-        list(APPEND LIB
-          ${libdecor_LIBRARIES}
-        )
-      endif()
     endif()
 
     include(CheckSymbolExists)
@@ -349,16 +332,16 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${INC_DST}
     )
 
-    # Used when: LIBDECOR is not needed.
-    # `xdg-shell`.
-    generate_protocol_bindings(
-      "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
-    )
-    # `xdg-decoration`.
-    generate_protocol_bindings(
-      "${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
-    )
-    # End LIBDECOR alternative.
+    if(NOT WITH_GHOST_WAYLAND_LIBDECOR)
+      # `xdg-shell`.
+      generate_protocol_bindings(
+        "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
+      )
+      # `xdg-decoration`.
+      generate_protocol_bindings(
+        "${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+      )
+    endif()
 
     # `xdg-output`.
     generate_protocol_bindings(

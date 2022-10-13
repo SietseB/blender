@@ -182,9 +182,6 @@ static void gather_add_node_operations(const bContext &C,
       /* Skip the empty group type. */
       continue;
     }
-    if (StringRefNull(node_type->ui_name).endswith("(Legacy)")) {
-      continue;
-    }
 
     AddNodeItem item{};
     item.ui_name = IFACE_(node_type->ui_name);

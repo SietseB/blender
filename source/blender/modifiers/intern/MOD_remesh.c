@@ -67,9 +67,10 @@ static void init_dualcon_mesh(DualConInput *input, Mesh *mesh)
   input->mloop = (void *)BKE_mesh_loops(mesh);
   input->loop_stride = sizeof(MLoop);
 
-  input->looptri = (void *)BKE_mesh_runtime_looptri_ensure(mesh);
+  BKE_mesh_runtime_looptri_ensure(mesh);
+  input->looptri = (void *)mesh->runtime.looptris.array;
   input->tri_stride = sizeof(MLoopTri);
-  input->tottri = BKE_mesh_runtime_looptri_len(mesh);
+  input->tottri = mesh->runtime.looptris.len;
 
   INIT_MINMAX(input->min, input->max);
   BKE_mesh_minmax(mesh, input->min, input->max);
