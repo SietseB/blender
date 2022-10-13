@@ -796,6 +796,7 @@ class GreasePencilLayerTexturePanel:
             col.prop(gpl, "texture_scale_variation", slider=True)
             col.prop(gpl, "texture_angle_variation", slider=True)
             col.prop(gpl, "texture_color_variation", slider=True)
+            col.prop(gpl, "texture_pos_seed")
             col.separator()
             col.prop(gpl, "texture_shadow_color")
             col.prop(gpl, "texture_shadow_angle", slider=True)

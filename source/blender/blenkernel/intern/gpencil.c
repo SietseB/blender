@@ -693,6 +693,8 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->darkened_edge_width_var = 50.0f;
     gpl->darkened_edge_intensity = 1.0f;
     gpl->texture_density = 0.5f;
+    gpl->texture_image = NULL;
+    gpl->texture_shadow_image = NULL;
     gpl->texture_scale = 50.0f;
     gpl->texture_color_variation = 10.0f;
     gpl->texture_scale_variation = 5.0f;

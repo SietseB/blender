@@ -2592,7 +2592,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* position seed */
-  prop = RNA_def_property(srna, "texture_pos_seed", PROP_INT, PROP_UNSIGNED);
+  prop = RNA_def_property(srna, "texture_pos_seed", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "texture_pos_seed");
   RNA_def_property_range(prop, 0, SHRT_MAX);
   RNA_def_property_int_default(prop, 0);
