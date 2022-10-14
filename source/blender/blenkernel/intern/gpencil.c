@@ -699,7 +699,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->texture_color_variation = 10.0f;
     gpl->texture_scale_variation = 5.0f;
     gpl->texture_shadow_distance = 5;
-    ARRAY_SET_ITEMS(gpl->texture_shadow_color, 0.0f, 0.0f, 0.0f, 0.2f);
+    ARRAY_SET_ITEMS(gpl->texture_shadow_color, 0.0f, 0.0f, 0.0f);
   }
 
   /* auto-name */
@@ -1109,7 +1109,7 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->texture_color_variation = gpl_src->texture_color_variation;
   gpl_dst->texture_angle = gpl_src->texture_angle;
   gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
-  copy_v4_v4(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
+  copy_v3_v3(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
   gpl_dst->texture_shadow_angle = gpl_src->texture_shadow_angle;
   gpl_dst->texture_shadow_distance = gpl_src->texture_shadow_distance;
   gpl_dst->texture_pos_seed = gpl_src->texture_pos_seed;

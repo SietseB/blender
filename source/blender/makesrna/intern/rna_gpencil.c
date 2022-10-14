@@ -2564,10 +2564,10 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* shadow color */
-  static const float default_shadow_color[] = {0.0f, 0.0f, 0.0f, 0.2f};
+  static const float default_shadow_color[] = {0.0f, 0.0f, 0.0f};
   prop = RNA_def_property(srna, "texture_shadow_color", PROP_FLOAT, PROP_COLOR);
   RNA_def_property_float_sdna(prop, NULL, "texture_shadow_color");
-  RNA_def_property_array(prop, 4);
+  RNA_def_property_array(prop, 3);
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_float_array_default(prop, default_shadow_color);
   RNA_def_property_ui_text(prop, "Shadow Color", "Color for shadow texture");
