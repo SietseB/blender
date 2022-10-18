@@ -174,6 +174,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
             if gpd.watercolor:
                 layout.use_property_split = True
+                no_texture_image = not(gpl.use_texture and gpl.texture_image is not None)
 
                 layout.separator()
                 col = layout.column()
@@ -184,13 +185,15 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 
                 layout.separator()
                 col = layout.column()
-                col.enabled = gpl.stroke_dryness == 0
+                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
                 col.prop(gpl, "stroke_wetness", slider=True)
+                col = layout.column()
+                col.enabled = no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
                 col = layout.column()
-                col.enabled = gpl.stroke_dryness == 0
+                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
                 col.prop(gpl, "stroke_darkened_edge_width", slider=True)
                 col.prop(gpl, "layer_darkened_edge_width", slider=True)
                 col.prop(gpl, "darkened_edge_width_var", slider=True)

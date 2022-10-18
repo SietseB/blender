@@ -781,13 +781,10 @@ class GreasePencilLayerTexturePanel:
             col = row.column(align=True)
             col.label(text="Texture Image")
             col.template_ID(gpl, "texture_image", open="image.open")
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.label(text="Shadow Image")
-            col.template_ID(gpl, "texture_shadow_image", open="image.open")
 
-            layout.separator()
+            layout.separator(factor=0.2)
             col = layout.column()
+            col.enabled = gpl.texture_image is not None
             col.prop(gpl, "texture_density", slider=True)
             col.prop(gpl, "texture_scale", slider=True)
             col.prop(gpl, "texture_angle", slider=True)
@@ -797,7 +794,15 @@ class GreasePencilLayerTexturePanel:
             col.prop(gpl, "texture_angle_variation", slider=True)
             col.prop(gpl, "texture_color_variation", slider=True)
             col.prop(gpl, "texture_pos_seed")
-            col.separator()
+
+            layout.separator()
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            col.label(text="Shadow Image")
+            col.template_ID(gpl, "texture_shadow_image", open="image.open")
+            layout.separator(factor=0.2)
+            col = layout.column()
+            col.enabled = gpl.texture_shadow_image is not None
             col.prop(gpl, "texture_shadow_color")
             col.prop(gpl, "texture_shadow_angle", slider=True)
             col.prop(gpl, "texture_shadow_distance", slider=True)
