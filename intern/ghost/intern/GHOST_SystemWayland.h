@@ -162,9 +162,8 @@ class GHOST_SystemWayland : public GHOST_System {
 
   /* WAYLAND direct-data access. */
 
-  wl_display *display();
-
-  wl_compositor *compositor();
+  struct wl_display *wl_display();
+  struct wl_compositor *wl_compositor();
 
 #ifdef WITH_GHOST_WAYLAND_LIBDECOR
   libdecor *decor_context();
@@ -175,11 +174,11 @@ class GHOST_SystemWayland : public GHOST_System {
 
   const std::vector<GWL_Output *> &outputs() const;
 
-  wl_shm *shm() const;
+  struct wl_shm *wl_shm() const;
 
   /* WAYLAND utility functions. */
 
-  void selection_set(const std::string &selection);
+  void clipboard_set(const std::string &clipboard);
 
   /** Clear all references to this surface to prevent accessing NULL pointers. */
   void window_surface_unref(const wl_surface *wl_surface);
@@ -193,6 +192,6 @@ class GHOST_SystemWayland : public GHOST_System {
                               int scale);
 
  private:
-  struct GWL_Display *d;
-  std::string selection;
+  struct GWL_Display *display_;
+  std::string clipboard_;
 };

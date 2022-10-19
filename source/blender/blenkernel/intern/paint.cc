@@ -54,6 +54,7 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
+#include "BKE_scene.h"
 #include "BKE_subdiv_ccg.h"
 #include "BKE_subsurf.h"
 
@@ -1060,6 +1061,8 @@ eObjectMode BKE_paint_object_mode_from_paintmode(ePaintMode mode)
       return OB_MODE_TEXTURE_PAINT;
     case PAINT_MODE_SCULPT_UV:
       return OB_MODE_EDIT;
+    case PAINT_MODE_SCULPT_CURVES:
+      return OB_MODE_SCULPT_CURVES;
     case PAINT_MODE_INVALID:
     default:
       return OB_MODE_OBJECT;
@@ -1803,8 +1806,8 @@ static void sculpt_update_object(
       /* If the fully evaluated mesh has the same topology as the deform-only version, use it.
        * This matters because crazyspace evaluation is very restrictive and excludes even modifiers
        * that simply recompute vertex weights (which can even include Geometry Nodes). */
-      if (me_eval_deform->polys().data() == me_eval->polys().data() &&
-          me_eval_deform->loops().data() == me_eval->loops().data() &&
+      if (me_eval_deform->totpoly == me_eval->totpoly &&
+          me_eval_deform->totloop == me_eval->totloop &&
           me_eval_deform->totvert == me_eval->totvert) {
         BKE_sculptsession_free_deformMats(ss);
 
@@ -2004,7 +2007,10 @@ bool *BKE_sculpt_hide_poly_ensure(Mesh *mesh)
       &mesh->pdata, CD_PROP_BOOL, CD_SET_DEFAULT, nullptr, mesh->totpoly, ".hide_poly"));
 }
 
-int BKE_sculpt_mask_layers_ensure(Object *ob, MultiresModifierData *mmd)
+int BKE_sculpt_mask_layers_ensure(Depsgraph *depsgraph,
+                                  Main *bmain,
+                                  Object *ob,
+                                  MultiresModifierData *mmd)
 {
   Mesh *me = static_cast<Mesh *>(ob->data);
   const Span<MPoly> polys = me->polys();
@@ -2063,6 +2069,9 @@ int BKE_sculpt_mask_layers_ensure(Object *ob, MultiresModifierData *mmd)
     }
     /* The evaluated multires CCG must be updated to contain the new data. */
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+    if (depsgraph) {
+      BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
+    }
 
     ret |= SCULPT_MASK_LAYER_CALC_LOOP;
   }
@@ -2255,7 +2264,8 @@ static PBVH *build_pbvh_from_ccg(Object *ob, SubdivCCG *subdiv_ccg, bool respect
                        (void **)subdiv_ccg->grid_faces,
                        subdiv_ccg->grid_flag_mats,
                        subdiv_ccg->grid_hidden,
-                       base_mesh);
+                       base_mesh,
+                       subdiv_ccg);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
   pbvh_show_face_sets_set(pbvh, ob->sculpt->show_face_sets);
   return pbvh;
@@ -2313,11 +2323,15 @@ PBVH *BKE_sculpt_object_pbvh_ensure(Depsgraph *depsgraph, Object *ob)
 
 void BKE_sculpt_bvh_update_from_ccg(PBVH *pbvh, SubdivCCG *subdiv_ccg)
 {
+  CCGKey key;
+  BKE_subdiv_ccg_key_top_level(&key, subdiv_ccg);
+
   BKE_pbvh_grids_update(pbvh,
                         subdiv_ccg->grids,
                         (void **)subdiv_ccg->grid_faces,
                         subdiv_ccg->grid_flag_mats,
-                        subdiv_ccg->grid_hidden);
+                        subdiv_ccg->grid_hidden,
+                        &key);
 }
 
 bool BKE_sculptsession_use_pbvh_draw(const Object *ob, const View3D * /*v3d*/)
