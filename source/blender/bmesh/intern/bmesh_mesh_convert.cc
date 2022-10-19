@@ -1258,7 +1258,7 @@ void BM_mesh_bm_to_me_for_eval(BMesh *bm, Mesh *me, const CustomData_MeshMasks *
    * different than the BMesh's. */
   BKE_mesh_clear_derived_normals(me);
 
-  me->runtime.deformed_only = true;
+  me->runtime->deformed_only = true;
 
   bke::MutableAttributeAccessor mesh_attributes = me->attributes_for_write();
 
