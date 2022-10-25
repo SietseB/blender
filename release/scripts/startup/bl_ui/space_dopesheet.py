@@ -801,7 +801,7 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
-                col = layout.column()
+                col = layout.column(align=True)
                 col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
                 col.prop(gpl, "stroke_darkened_edge_width", slider=True)
                 col.prop(gpl, "layer_darkened_edge_width", slider=True)

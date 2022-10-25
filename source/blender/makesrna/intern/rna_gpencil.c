@@ -3067,6 +3067,15 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Smooth Randomize", "Smooth transition of watercolor noise between two randomization steps");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* stroke base alpha */
+  prop = RNA_def_property(srna, "stroke_base_alpha", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "stroke_base_alpha");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.95f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.01f, 2);
+  RNA_def_property_ui_text(prop, "Stroke Base Alpha", "Base alpha value (transparency) for strokes");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* stroke alpha variation */
   prop = RNA_def_property(srna, "stroke_alpha_var", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_alpha_var");

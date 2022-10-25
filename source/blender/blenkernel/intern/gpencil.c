@@ -777,6 +777,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   /* Ondine watercolor additions */
   gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
   gpd->randomize_seed_step = 0;
+  gpd->stroke_base_alpha = 0.95f;
   gpd->stroke_alpha_var = 0.05f;
   gpd->watercolor_noise_strength_high = 1.0f;
   gpd->watercolor_noise_strength_low = 1.0f;
@@ -1059,6 +1060,7 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   /* Ondine additions */
   gpd_dst->ondine_flag = gpd_src->ondine_flag;
   gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
+  gpd_dst->stroke_base_alpha = gpd_src->stroke_base_alpha;
   gpd_dst->stroke_alpha_var = gpd_src->stroke_alpha_var;
   gpd_dst->watercolor_noise_strength_high = gpd_src->watercolor_noise_strength_high;
   gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
