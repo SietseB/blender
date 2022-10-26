@@ -89,10 +89,13 @@ typedef struct bGPDspoint {
   /** Ondine additions */
   /** Coordinates in 2d space */
   float flat_x, flat_y;
+  /** Distance to camera */
+  float dist_to_cam;
+  /** Pressure adjusted to distance to camera */
+  float pressure_3d;
+  char _pad0[4];
 
   /** Runtime data */
-  char _pad2[4];
-
   bGPDspoint_Runtime runtime;
 } bGPDspoint;
 

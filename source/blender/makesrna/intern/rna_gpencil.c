@@ -1312,10 +1312,10 @@ static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
   /* x,y in 2d space - only used during rendering, not in the UI */
   prop = RNA_def_property(srna, "flat_x", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "flat_x");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
   prop = RNA_def_property(srna, "flat_y", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "flat_y");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+  prop = RNA_def_property(srna, "pressure_3d", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "pressure_3d");
 }
 
 static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cprop)

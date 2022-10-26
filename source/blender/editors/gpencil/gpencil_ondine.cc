@@ -85,9 +85,6 @@ void GpencilOndine::init(bContext *C)
   region_ = get_invoke_region(C);
   v3d_ = get_invoke_view3d(C);
   rv3d_ = (RegionView3D *)region_->regiondata;
-
-  invert_axis_[0] = false;
-  invert_axis_[1] = true;
 }
 
 bool GpencilOndine::prepare_camera_params(bContext *C)
@@ -152,26 +149,18 @@ float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
   float2 r_co;
   mul_v2_project_m4_v3(&r_co.x, persmat_, &parent_co.x);
   r_co.x = (r_co.x + 1.0f) / 2.0f * (float)render_x_;
-  r_co.y = (r_co.y + 1.0f) / 2.0f * (float)render_y_;
-
-  /* Invert X axis. */
-  if (invert_axis_[0]) {
-    r_co.x = (float)render_x_ - r_co.x;
-  }
-  /* Invert Y axis. */
-  if (invert_axis_[1]) {
-    r_co.y = (float)render_y_ - r_co.y;
-  }
+  r_co.y = (float)render_y_ - (r_co.y + 1.0f) / 2.0f * (float)render_y_;
 
   return r_co;
 }
 
-float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, float thickness)
+float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps,
+                                             const int p_index, const float thickness)
 {
   float defaultpixsize = 1000.0f / gpd->pixfactor;
   float stroke_radius = (thickness / defaultpixsize) / 2.0f;
 
-  bGPDspoint *pt1 = &gps->points[0];
+  bGPDspoint *pt1 = &gps->points[p_index];
   float3 p1, p2;
   p1.x = pt1->x;
   p1.y = pt1->y;
@@ -225,7 +214,7 @@ void GpencilOndine::set_zdepth(Object *object)
 
 void GpencilOndine::set_render_data(Object *object)
 {
-  float plane[4];
+  float cam_plane[4];
 
   /* Grease pencil object? */
   if (object->type != OB_GPENCIL) {
@@ -240,7 +229,7 @@ void GpencilOndine::set_render_data(Object *object)
   gpd_ = gpd;
 
   /* Calculate camera plane */
-  plane_from_point_normal_v3(plane, camera_loc_, camera_normal_vec_);
+  plane_from_point_normal_v3(cam_plane, camera_loc_, camera_normal_vec_);
 
   /* Iterate all layers of GP watercolor object */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
@@ -268,51 +257,58 @@ void GpencilOndine::set_render_data(Object *object)
       /* Set fill and stroke flags */
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(object, gps->mat_nr + 1);
 
-      const bool is_stroke = ((gp_style->flag & GP_MATERIAL_STROKE_SHOW) &&
+      const bool has_stroke = ((gp_style->flag & GP_MATERIAL_STROKE_SHOW) &&
                               (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
-      const bool is_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
+      const bool has_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
                             (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
 
       gps->render_flag = 0;
-      if (is_stroke) {
+      if (has_stroke) {
         gps->render_flag |= GP_ONDINE_STROKE_HAS_STROKE;
       }
-      if (is_fill) {
+      if (has_fill) {
         gps->render_flag |= GP_ONDINE_STROKE_HAS_FILL;
       }
 
       /* Set stroke and fill color, in linear sRGB */
       this->set_stroke_colors(object, gpl, gps, gp_style);
 
-      /* Calculate stroke width */
-      gps->render_stroke_width = 0.0f;
-      if (is_stroke) {
-        /* Get stroke thickness, taking object scale and layer line change into account */
-        float thickness = gps->thickness + gpl->line_change;
-        thickness *= mat4_to_scale(object->obmat);
-        CLAMP_MIN(thickness, 1.0f);
-        gps->render_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, thickness) * 2.0f;
-      }
-
       /* Calculate distance to camera */
-      gps->render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, plane);
+      gps->render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
 
-      /* Convert 3d stroke points to 2d */
+      /* Init min/max calculations */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
       strength = (float)strength / 1000;
       bool strength_is_constant = true;
-      float min_y = 100000.0f;
-      float max_x = -100000.0f;
+      float min_y = FLT_MAX;
+      float max_x = -FLT_MAX;
       int min_i1 = 0;
-      float bbox_minx = 100000.0f, bbox_miny = 100000.0f;
-      float bbox_maxx = -100000.0f, bbox_maxy = -100000.0f;
+      float bbox_minx = FLT_MAX, bbox_miny = FLT_MAX;
+      float bbox_maxx = -FLT_MAX, bbox_maxy = -FLT_MAX;
+      float dist_to_cam = 0.0f;
+      float min_dist_to_cam = -FLT_MAX, max_dist_to_cam = FLT_MAX;
+      int min_dist_point_index = 0, max_dist_point_index = 0;
+
+      /* Convert 3d stroke points to 2d */
       for (const int i : IndexRange(gps->totpoints)) {
         bGPDspoint &pt = gps->points[i];
         const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
         pt.flat_x = screen_co.x;
         pt.flat_y = screen_co.y;
+        dist_to_cam = dist_signed_squared_to_plane_v3(&pt.x, cam_plane);
+        pt.dist_to_cam = dist_to_cam;
 
-        /* Constant pressure? */
+        /* Keep track of closest/furthest point to camera */
+        if (dist_to_cam < max_dist_to_cam) {
+          max_dist_to_cam = dist_to_cam;
+          max_dist_point_index = i;
+        }
+        if ((dist_to_cam > min_dist_to_cam) && (dist_to_cam <= 0)) {
+          min_dist_to_cam = dist_to_cam;
+          min_dist_point_index = i;
+        }
+
+        /* Constant alpha strength? */
         if (strength_is_constant) {
           float p_strength = (int)(pt.strength * 1000 + 0.5);
           p_strength = (float)p_strength / 1000;
@@ -345,6 +341,39 @@ void GpencilOndine::set_render_data(Object *object)
         }
       }
 
+      /* Calculate stroke width */
+      bool pressure_is_set = false;
+      gps->render_stroke_width = 0.0f;
+      if (has_stroke) {
+        /* Get stroke thickness, taking object scale and layer line change into account */
+        float thickness = gps->thickness + gpl->line_change;
+        thickness *= mat4_to_scale(object->obmat);
+        CLAMP_MIN(thickness, 1.0f);
+        float max_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, min_dist_point_index, thickness) * 2.0f;
+        float min_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, max_dist_point_index, thickness) * 2.0f;
+        gps->render_stroke_width = max_stroke_width;
+
+        /* Adjust point pressure based on distance to camera.
+         * That way a stroke will get thinner when it is further away from the camera. */
+        float stroke_width_factor = (max_stroke_width - min_stroke_width) / max_stroke_width;
+        float delta_dist = min_dist_to_cam - max_dist_to_cam;
+        if (delta_dist != 0.0f) {
+          pressure_is_set = true;
+          for (const int i : IndexRange(gps->totpoints)) {
+            bGPDspoint &pt = gps->points[i];
+            /* Adjust pressure based on camera distance */
+            pt.pressure_3d = pt.pressure *
+              (1.0f - ((min_dist_to_cam - pt.dist_to_cam) / delta_dist) * stroke_width_factor);
+          }
+        }
+      }
+      if (!pressure_is_set) {
+        for (const int i : IndexRange(gps->totpoints)) {
+          bGPDspoint &pt = gps->points[i];
+          pt.pressure_3d = pt.pressure;
+        }
+      }
+
       /* Set constant strength flag */
       if (strength_is_constant) {
         gps->render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
@@ -353,7 +382,7 @@ void GpencilOndine::set_render_data(Object *object)
       /* Determine wether a fill is clockwise or counterclockwise */
       /* See: https://en.wikipedia.org/wiki/Curve_orientation */
       gps->render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
-      if (is_fill) {
+      if (has_fill) {
         int lenp = gps->totpoints - 1;
         int min_i0 = (min_i1 == 0) ? lenp : min_i1 - 1;
         int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
