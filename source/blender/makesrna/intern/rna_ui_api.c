@@ -1299,11 +1299,11 @@ void RNA_api_ui_layout(StructRNA *srna)
   RNA_def_float(func,
                 "factor",
                 1.0f,
-                0.0f,
+                -1.0f,
                 FLT_MAX,
                 "Percentage",
                 "Percentage of width to space (leave unset for default space)",
-                0.0f,
+                -1.0f,
                 FLT_MAX);
 
   func = RNA_def_function(srna, "separator_spacer", "uiItemSpacer");

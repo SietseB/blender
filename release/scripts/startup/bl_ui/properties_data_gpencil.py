@@ -181,14 +181,18 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col.prop(gpl, "mix_with_previous")
                 col.prop(gpl, "limit_to_background")
                 col.prop(gpl, "clear_beneath")
+                col = layout.column()
+                col.separator(factor=-0.9)
+                col.enabled = no_texture_image
                 col.prop(gpl, "is_wetted")
                 
                 layout.separator()
                 col = layout.column()
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = gpl.stroke_dryness == 0 and no_texture_image
                 col.prop(gpl, "stroke_wetness", slider=True)
                 col = layout.column()
-                col.enabled = no_texture_image
+                col.separator(factor=-0.9)
+                col.enabled = gpl.stroke_dryness == 0 and no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
