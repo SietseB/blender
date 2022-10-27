@@ -47,6 +47,8 @@ class GpencilOndine
     blender::float3 camera_z_axis_;
     blender::float3 camera_loc_;
     blender::float3 camera_normal_vec_;
+    float camera_rot_sin_;
+    float camera_rot_cos_;
 
     blender::float2 offset_;
 

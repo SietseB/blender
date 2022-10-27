@@ -113,9 +113,15 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     camera_loc_ = cam_ob->loc;
     mul_v3_m4v3(camera_normal_vec_, cam_ob->obmat, vec_z);
     normalize_v3(camera_normal_vec_);
+
+    /* Store camera rotation */
+    camera_rot_sin_ = (float)abs(sin(cam_ob->rot[0]));
+    camera_rot_cos_ = (float)abs(cos(cam_ob->rot[0]));
   }
   else {
     unit_m4(persmat_);
+    camera_rot_sin_ = 1.0f;
+    camera_rot_cos_ = 0.0f;
   }
   
   winx_ = region_->winx;
@@ -166,14 +172,14 @@ float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDs
   p1.y = pt1->y;
   p1.z = pt1->z;
   p2.x = pt1->x;
-  p2.y = pt1->y;
-  p2.z = pt1->z + stroke_radius;
+  p2.y = pt1->y + stroke_radius * camera_rot_cos_;
+  p2.z = pt1->z + stroke_radius * camera_rot_sin_;
   
   const float2 screen_co1 = gpencil_3D_point_to_2D(p1);
   const float2 screen_co2 = gpencil_3D_point_to_2D(p2);
   const float2 v1 = screen_co1 - screen_co2;
   float radius = math::length(v1);
-
+  
   return MAX2(radius, 1.0f);
 }
 
