@@ -1690,6 +1690,7 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
   DRW_globals_update();
 
   drw_debug_init();
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2053,6 +2054,7 @@ void DRW_render_object_iter(
     void (*callback)(void *vedata, Object *ob, RenderEngine *engine, struct Depsgraph *depsgraph))
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2113,6 +2115,7 @@ void DRW_custom_pipeline(DrawEngineType *draw_engine_type,
 
   drw_manager_init(&DST, NULL, NULL);
 
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2148,6 +2151,7 @@ void DRW_cache_restart(void)
 
   DST.buffer_finish_called = false;
 
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2473,6 +2477,7 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
 
   /* Init engines */
   drw_engines_init();
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2654,6 +2659,7 @@ void DRW_draw_depth_loop(struct Depsgraph *depsgraph,
 
   /* Init engines */
   drw_engines_init();
+  DRW_pointcloud_init();
   DRW_curves_init(DST.vmempool);
   DRW_volume_init(DST.vmempool);
   DRW_smoke_init(DST.vmempool);
@@ -2795,7 +2801,7 @@ void DRW_draw_depth_object(
 
   GPU_matrix_projection_set(rv3d->winmat);
   GPU_matrix_set(rv3d->viewmat);
-  GPU_matrix_mul(object->obmat);
+  GPU_matrix_mul(object->object_to_world);
 
   /* Setup frame-buffer. */
   GPUTexture *depth_tx = GPU_viewport_depth_texture(viewport);
@@ -2815,11 +2821,11 @@ void DRW_draw_depth_object(
   const bool use_clipping_planes = RV3D_CLIPPING_ENABLED(v3d, rv3d);
   if (use_clipping_planes) {
     GPU_clip_distances(6);
-    ED_view3d_clipping_local(rv3d, object->obmat);
+    ED_view3d_clipping_local(rv3d, object->object_to_world);
     for (int i = 0; i < 6; i++) {
       copy_v4_v4(planes.world[i], rv3d->clip_local[i]);
     }
-    copy_m4_m4(planes.ModelMatrix, object->obmat);
+    copy_m4_m4(planes.ModelMatrix, object->object_to_world);
   }
 
   drw_batch_cache_validate(object);
@@ -3068,6 +3074,7 @@ void DRW_engines_free(void)
   GPU_FRAMEBUFFER_FREE_SAFE(g_select_buffer.framebuffer_depth_only);
 
   DRW_shaders_free();
+  DRW_pointcloud_free();
   DRW_curves_free();
   DRW_volume_free();
   DRW_shape_cache_free();

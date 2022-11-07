@@ -177,8 +177,11 @@ option(WITH_INTERNATIONAL "Enable I18N (International fonts and text)" ON)
 
 option(WITH_PYTHON        "Enable Embedded Python API  (only disable for development)" ON)
 option(WITH_PYTHON_SECURITY "Disables execution of scripts within blend files by default" ON)
-mark_as_advanced(WITH_PYTHON)  # don't want people disabling this unless they really know what they are doing.
-mark_as_advanced(WITH_PYTHON_SECURITY)  # some distributions see this as a security issue, rather than have them patch it, make a build option.
+# Don't want people disabling this unless they really know what they are doing.
+mark_as_advanced(WITH_PYTHON)
+# Some distributions see this as a security issue, rather than have them patch it,
+# make a build option.
+mark_as_advanced(WITH_PYTHON_SECURITY)
 
 option(WITH_PYTHON_SAFETY "Enable internal API error checking to track invalid data to prevent crash on access (at the expense of some efficiency, only enable for development)." OFF)
 mark_as_advanced(WITH_PYTHON_SAFETY)
@@ -489,8 +492,8 @@ if(NOT APPLE)
   option(WITH_CYCLES_ONEAPI_BINARIES "Enable Ahead-Of-Time compilation for Cycles oneAPI device" OFF)
 
   # https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html
-  # acm-g10 is the architecture for the first Arc Alchemist GPUs but we'll keep using dg2 until IGC dependency is updated to support acm-g10.
-  set(CYCLES_ONEAPI_SPIR64_GEN_DEVICES "dg2" CACHE STRING "oneAPI Intel GPU architectures to build binaries for")
+  # acm-g10 is the target for the first Intel Arc Alchemist GPUs.
+  set(CYCLES_ONEAPI_SPIR64_GEN_DEVICES "acm-g10" CACHE STRING "oneAPI Intel GPU architectures to build binaries for")
   set(CYCLES_ONEAPI_SYCL_TARGETS spir64 spir64_gen CACHE STRING "oneAPI targets to build AOT binaries for")
 
   mark_as_advanced(CYCLES_ONEAPI_SPIR64_GEN_DEVICES)
@@ -550,6 +553,7 @@ endif()
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
 option(WITH_OPENGL_RENDER_TESTS "Enable OpenGL render related unit testing (Experimental)" OFF)
 option(WITH_OPENGL_DRAW_TESTS "Enable OpenGL UI drawing related unit testing (Experimental)" OFF)
+# NOTE: All callers of this must add `TEST_PYTHON_EXE_EXTRA_ARGS` before any other arguments.
 set(TEST_PYTHON_EXE "" CACHE PATH "Python executable to run unit tests")
 mark_as_advanced(TEST_PYTHON_EXE)
 
@@ -567,6 +571,12 @@ option(WITH_GPU_BUILDTIME_SHADER_BUILDER  "Shader builder is a developer option 
 mark_as_advanced(
   WITH_OPENGL
   WITH_GPU_BUILDTIME_SHADER_BUILDER
+)
+
+# Vulkan
+option(WITH_VULKAN_BACKEND "Enable Vulkan as graphics backend (only for development)" OFF)
+mark_as_advanced(
+  WITH_VULKAN_BACKEND
 )
 
 # Metal
@@ -1221,6 +1231,13 @@ if(WITH_OPENGL)
   add_definitions(-DWITH_OPENGL)
 endif()
 
+
+# -----------------------------------------------------------------------------
+# Configure Vulkan.
+
+if(WITH_VULKAN_BACKEND)
+  add_definitions(-DWITH_VULKAN_BACKEND)
+endif()
 
 # -----------------------------------------------------------------------------
 # Configure Metal
