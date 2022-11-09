@@ -105,13 +105,13 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     BKE_camera_params_compute_matrix(&params);
     
     float viewmat[4][4];
-    invert_m4_m4(viewmat, cam_ob->obmat);
+    invert_m4_m4(viewmat, cam_ob->object_to_world);
 
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
 
     /* Store camera position and normal vector */
     camera_loc_ = cam_ob->loc;
-    mul_v3_m4v3(camera_normal_vec_, cam_ob->obmat, vec_z);
+    mul_v3_m4v3(camera_normal_vec_, cam_ob->object_to_world, vec_z);
     normalize_v3(camera_normal_vec_);
 
     /* Store camera rotation */
@@ -215,7 +215,7 @@ void GpencilOndine::set_zdepth(Object *object)
   }
 
   /* Save z-depth from view to sort from back to front. */
-  gpd->render_zdepth = dot_v3v3(camera_z_axis_, object->obmat[3]);
+  gpd->render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
 }
 
 void GpencilOndine::set_render_data(Object *object)
@@ -353,7 +353,7 @@ void GpencilOndine::set_render_data(Object *object)
       if (has_stroke) {
         /* Get stroke thickness, taking object scale and layer line change into account */
         float thickness = gps->thickness + gpl->line_change;
-        thickness *= mat4_to_scale(object->obmat);
+        thickness *= mat4_to_scale(object->object_to_world);
         CLAMP_MIN(thickness, 1.0f);
         float max_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, min_dist_point_index, thickness) * 2.0f;
         float min_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, max_dist_point_index, thickness) * 2.0f;
