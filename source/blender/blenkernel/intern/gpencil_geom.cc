@@ -3019,7 +3019,7 @@ static void gpencil_stroke_join_islands(bGPdata *gpd,
   const int totpoints = gps_first->totpoints + gps_last->totpoints;
 
   /* create new stroke */
-  bGPDstroke *join_stroke = BKE_gpencil_stroke_duplicate(gps_first, false, true);
+  bGPDstroke *join_stroke = BKE_gpencil_stroke_duplicate(gps_first, false, true, false);
 
   join_stroke->points = (bGPDspoint *)MEM_callocN(sizeof(bGPDspoint) * totpoints, __func__);
   join_stroke->totpoints = totpoints;
@@ -3162,7 +3162,7 @@ bGPDstroke *BKE_gpencil_stroke_delete_tagged_points(bGPdata *gpd,
     /* Create each new stroke... */
     for (idx = 0; idx < num_islands; idx++) {
       tGPDeleteIsland *island = &islands[idx];
-      new_stroke = BKE_gpencil_stroke_duplicate(gps, false, true);
+      new_stroke = BKE_gpencil_stroke_duplicate(gps, false, true, false);
       if (flat_cap) {
         new_stroke->caps[1 - (idx % 2)] = GP_STROKE_CAP_FLAT;
       }
@@ -3308,7 +3308,7 @@ void BKE_gpencil_curve_delete_tagged_points(bGPdata *gpd,
         }
       }
 
-      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, false, false);
+      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, false, false, false);
       new_stroke->points = nullptr;
       new_stroke->flag &= ~GP_STROKE_CYCLIC;
       new_stroke->editcurve = BKE_gpencil_stroke_editcurve_new(island_length);
@@ -3564,7 +3564,7 @@ void BKE_gpencil_stroke_start_set(bGPDstroke *gps, int start_idx)
     return;
   }
 
-  bGPDstroke *gps_b = BKE_gpencil_stroke_duplicate(gps, true, false);
+  bGPDstroke *gps_b = BKE_gpencil_stroke_duplicate(gps, true, false, false);
   BKE_gpencil_stroke_trim_points(gps_b, 0, start_idx - 1, true);
   BKE_gpencil_stroke_trim_points(gps, start_idx, gps->totpoints - 1, true);
 
@@ -3594,7 +3594,7 @@ void BKE_gpencil_stroke_copy_to_keyframes(
         continue;
       }
 
-      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, true, true);
+      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, true, true, true);
       if (gps_new == nullptr) {
         continue;
       }

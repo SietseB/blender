@@ -830,7 +830,7 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
   gps->editcurve = NULL;
 
   /* Ondine: random seed */
-  gps->seed = rand();
+  gps->seed = rand() * 4096 + rand();
 
   return gps;
 }
@@ -900,7 +900,8 @@ bGPDcurve *BKE_gpencil_stroke_curve_duplicate(bGPDcurve *gpc_src)
 
 bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
                                          const bool dup_points,
-                                         const bool dup_curve)
+                                         const bool dup_curve,
+                                         const bool dup_seed)
 {
   bGPDstroke *gps_dst = NULL;
 
@@ -932,7 +933,12 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
   }
 
   /* Ondine: copy seed (used as an ID for strokes) */
-  gps_dst->seed = gps_src->seed;
+  if (dup_seed) {
+    gps_dst->seed = gps_src->seed;
+  }
+  else {
+    gps_dst->seed = rand() * 4096 + rand();
+  }
 
   /* return new stroke */
   return gps_dst;
@@ -957,7 +963,7 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src, const bool dup_
   if (dup_strokes) {
     LISTBASE_FOREACH (bGPDstroke *, gps_src, &gpf_src->strokes) {
       /* make copy of source stroke */
-      gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true);
+      gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
       BLI_addtail(&gpf_dst->strokes, gps_dst);
     }
   }
@@ -978,7 +984,7 @@ void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_ds
   BLI_listbase_clear(&gpf_dst->strokes);
   LISTBASE_FOREACH (bGPDstroke *, gps_src, &gpf_src->strokes) {
     /* make copy of source stroke */
-    gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true);
+    gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
     BLI_addtail(&gpf_dst->strokes, gps_dst);
   }
 }
@@ -3058,7 +3064,7 @@ static bool gpencil_update_on_write_stroke_cb(GPencilUpdateCache *gps_cache, voi
     BLI_remlink(&td->gpf_eval->strokes, td->gps_eval);
     BKE_gpencil_free_stroke(td->gps_eval);
 
-    td->gps_eval = BKE_gpencil_stroke_duplicate(gps, true, true);
+    td->gps_eval = BKE_gpencil_stroke_duplicate(gps, true, true, true);
     BLI_insertlinkbefore(&td->gpf_eval->strokes, gps_eval_next, td->gps_eval);
 
     td->gps_eval->runtime.gps_orig = gps;

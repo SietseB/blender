@@ -172,7 +172,7 @@ void GpencilExporterPDF::export_gpencil_layers()
         }
 
         /* Duplicate the stroke to apply any layer thickness change. */
-        bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
+        bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false, true);
 
         /* Apply layer thickness change. */
         gps_duplicate->thickness += gpl->line_change;
@@ -220,7 +220,7 @@ void GpencilExporterPDF::export_stroke_to_polyline(bGPDlayer *gpl,
   const float avg_pressure = BKE_gpencil_stroke_average_pressure_get(gps);
 
   /* Get the thickness in pixels using a simple 1 point stroke. */
-  bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false);
+  bGPDstroke *gps_temp = BKE_gpencil_stroke_duplicate(gps, false, false, true);
   gps_temp->totpoints = 1;
   gps_temp->points = MEM_new<bGPDspoint>("gp_stroke_points");
   const bGPDspoint *pt_src = &gps->points[0];

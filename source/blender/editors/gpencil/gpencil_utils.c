@@ -1067,7 +1067,7 @@ void ED_gpencil_stroke_reproject(Depsgraph *depsgraph,
   bGPDstroke *gps_active = gps;
   /* if duplicate, deselect all points. */
   if (keep_original) {
-    gps_active = BKE_gpencil_stroke_duplicate(gps, true, true);
+    gps_active = BKE_gpencil_stroke_duplicate(gps, true, true, false);
     gps_active->flag &= ~GP_STROKE_SELECT;
     BKE_gpencil_stroke_select_index_reset(gps_active);
     for (i = 0, pt = gps_active->points; i < gps_active->totpoints; i++, pt++) {

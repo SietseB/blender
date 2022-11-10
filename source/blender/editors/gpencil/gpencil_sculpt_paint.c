@@ -1108,7 +1108,7 @@ static void gpencil_brush_clone_add(bContext *C, tGP_BrushEditData *gso)
       }
 
       /* Make a new stroke */
-      new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true);
+      new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true, true);
 
       new_stroke->next = new_stroke->prev = NULL;
       BLI_addtail(&gpf->strokes, new_stroke);

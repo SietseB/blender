@@ -386,7 +386,7 @@ static void gpencil_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgp
       bGPDstroke *gps_to = (bGPDstroke *)BLI_ghash_lookup(tgpil->pair_strokes, gps_from);
 
       /* Create new stroke. */
-      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true);
+      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true, true);
       new_stroke->flag |= GP_STROKE_TAG;
       new_stroke->select_index = 0;
 
@@ -400,7 +400,7 @@ static void gpencil_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgp
 
       /* Add temp strokes to display. */
       if (gpf) {
-        bGPDstroke *gps_eval = BKE_gpencil_stroke_duplicate(new_stroke, true, true);
+        bGPDstroke *gps_eval = BKE_gpencil_stroke_duplicate(new_stroke, true, true, true);
         gps_eval->flag |= GP_STROKE_TAG;
         BLI_addtail(&gpf->strokes, gps_eval);
       }
@@ -530,7 +530,7 @@ static void gpencil_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
       }
 
       /* Create new stroke. */
-      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true);
+      bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true, true);
       new_stroke->flag |= GP_STROKE_TAG;
       new_stroke->select_index = 0;
 
@@ -818,7 +818,7 @@ static int gpencil_interpolate_modal(bContext *C, wmOperator *op, const wmEvent 
           }
 
           /* make copy of source stroke, then adjust pointer to points too */
-          gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true);
+          gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
           gps_dst->flag &= ~GP_STROKE_TAG;
 
           /* Calc geometry data. */
@@ -1370,7 +1370,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
         }
         bGPDstroke *gps_to = (bGPDstroke *)BLI_ghash_lookup(pair_strokes, gps_from);
         /* Create new stroke. */
-        bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true);
+        bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps_from, true, true, true);
         new_stroke->flag |= GP_STROKE_TAG;
         new_stroke->select_index = 0;
 

@@ -203,7 +203,8 @@ struct bGPDcurve *BKE_gpencil_stroke_curve_duplicate(struct bGPDcurve *gpc_src);
  */
 struct bGPDstroke *BKE_gpencil_stroke_duplicate(struct bGPDstroke *gps_src,
                                                 bool dup_points,
-                                                bool dup_curve);
+                                                bool dup_curve,
+                                                bool dup_seed);
 
 /**
  * Make a copy of a given gpencil data-block.

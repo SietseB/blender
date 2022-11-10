@@ -868,7 +868,7 @@ static void gpencil_duplicate_points(bGPdata *gpd,
         bGPDstroke *gpsd;
 
         /* make a stupid copy first of the entire stroke (to get the flags too) */
-        gpsd = BKE_gpencil_stroke_duplicate((bGPDstroke *)gps, false, true);
+        gpsd = BKE_gpencil_stroke_duplicate((bGPDstroke *)gps, false, true, false);
 
         /* saves original layer name */
         BLI_strncpy(gpsd->runtime.tmp_layerinfo, layername, sizeof(gpsd->runtime.tmp_layerinfo));
@@ -952,7 +952,7 @@ static int gpencil_duplicate_exec(bContext *C, wmOperator *op)
             bGPDstroke *gpsd;
 
             /* make direct copies of the stroke and its points */
-            gpsd = BKE_gpencil_stroke_duplicate(gps, true, true);
+            gpsd = BKE_gpencil_stroke_duplicate(gps, true, true, true);
 
             BLI_strncpy(
                 gpsd->runtime.tmp_layerinfo, gpl->info, sizeof(gpsd->runtime.tmp_layerinfo));
@@ -1078,7 +1078,7 @@ static void gpencil_add_move_points(bGPdata *gpd, bGPDframe *gpf, bGPDstroke *gp
     pt = &gps->points[i];
     if (pt->flag == GP_SPOINT_SELECT) {
       /* duplicate original stroke data */
-      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, false, true);
+      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, false, true, true);
       gps_new->prev = gps_new->next = NULL;
 
       /* add new points array */
@@ -1200,7 +1200,7 @@ static void gpencil_curve_extrude_points(bGPdata *gpd,
 
     /* Create new stroke if selected point */
     if (gpc_pt->flag & GP_CURVE_POINT_SELECT) {
-      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, false, false);
+      bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(gps, false, false, true);
       gps_new->points = NULL;
       gps_new->flag &= ~GP_STROKE_CYCLIC;
       gps_new->prev = gps_new->next = NULL;
@@ -1526,7 +1526,7 @@ static int gpencil_strokes_copy_exec(bContext *C, wmOperator *op)
             bGPDstroke *gpsd;
 
             /* make direct copies of the stroke and its points */
-            gpsd = BKE_gpencil_stroke_duplicate(gps, false, true);
+            gpsd = BKE_gpencil_stroke_duplicate(gps, false, true, false);
 
             /* saves original layer name */
             BLI_strncpy(
@@ -1727,7 +1727,7 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
         }
         if (gpf) {
           /* Create new stroke */
-          bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true);
+          bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true, true);
           new_stroke->runtime.tmp_layerinfo[0] = '\0';
           new_stroke->next = new_stroke->prev = NULL;
 
@@ -3644,7 +3644,7 @@ static int gpencil_stroke_join_exec(bContext *C, wmOperator *op)
   elem->used = true;
 
   /* Create a new stroke. */
-  bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(elem->gps, true, true);
+  bGPDstroke *gps_new = BKE_gpencil_stroke_duplicate(elem->gps, true, true, false);
   gps_new->flag &= ~GP_STROKE_CYCLIC;
   BLI_insertlinkbefore(&elem->gpf->strokes, elem->gps, gps_new);
 
@@ -4224,7 +4224,7 @@ static int gpencil_stroke_outline_exec(bContext *C, wmOperator *op)
           }
 
           /* Duplicate the stroke to apply any layer thickness change. */
-          bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
+          bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false, true);
 
           /* Apply layer thickness change. */
           gps_duplicate->thickness += gpl->line_change;
@@ -5137,7 +5137,7 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
                   }
 
                   /* make copy of source stroke */
-                  bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true);
+                  bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true, true);
 
                   /* Reassign material. */
                   gps_dst->mat_nr = idx;
@@ -5325,7 +5325,7 @@ static int gpencil_stroke_split_exec(bContext *C, wmOperator *op)
             }
             else {
               /* make copy of source stroke */
-              bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true);
+              bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true, false);
 
               /* link to same frame */
               BLI_addtail(&gpf->strokes, gps_dst);

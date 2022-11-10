@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -156,6 +157,8 @@ void BKE_blender_globals_init(void)
 #endif
 
   G.log.level = 1;
+  
+  srand(time(NULL));
 }
 
 void BKE_blender_globals_clear(void)

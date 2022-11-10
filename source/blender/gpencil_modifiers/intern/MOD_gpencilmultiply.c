@@ -144,10 +144,7 @@ static void duplicateStroke(Object *ob,
    * to be processed, since we duplicate its data. */
   for (i = count - 1; i >= 0; i--) {
     if (i != 0) {
-      new_gps = BKE_gpencil_stroke_duplicate(gps, true, true);
-
-        /* Ondine: set unique stroke seed */
-      new_gps->seed += 21;
+      new_gps = BKE_gpencil_stroke_duplicate(gps, true, true, false);
 
       BLI_addtail(results, new_gps);
     }

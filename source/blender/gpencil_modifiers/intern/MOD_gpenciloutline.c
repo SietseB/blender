@@ -111,7 +111,7 @@ static void convert_stroke(GpencilModifierData *md,
   }
 
   /* Duplicate the stroke to apply any layer thickness change. */
-  bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false);
+  bGPDstroke *gps_duplicate = BKE_gpencil_stroke_duplicate(gps, true, false, true);
 
   /* Apply layer thickness change. */
   gps_duplicate->thickness += gpl->line_change;
