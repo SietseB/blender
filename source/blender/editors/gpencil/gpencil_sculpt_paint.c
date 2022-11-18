@@ -1717,6 +1717,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
                                 GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_STROKE |
                                 GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE |
                                 GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE)) != 0;
+  const bool stroke_mode = brush->gpencil_settings->scope_mode == GP_BRUSH_SCOPE_STROKE;
   /* Calc bound box matrix. */
   float bound_mat[4][4];
   BKE_gpencil_layer_transform_matrix_get(gso->depsgraph, gso->object, gpl, bound_mat);
