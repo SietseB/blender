@@ -2019,7 +2019,7 @@ bNode *nodeFindNodebyName(bNodeTree *ntree, const char *name)
   return (bNode *)BLI_findstring(&ntree->nodes, name, offsetof(bNode, name));
 }
 
-bool nodeFindNode(bNodeTree *ntree, bNodeSocket *sock, bNode **r_node, int *r_sockindex)
+void nodeFindNode(bNodeTree *ntree, bNodeSocket *sock, bNode **r_node, int *r_sockindex)
 {
   *r_node = nullptr;
   if (!ntree->runtime->topology_cache_is_dirty) {
@@ -2029,9 +2029,15 @@ bool nodeFindNode(bNodeTree *ntree, bNodeSocket *sock, bNode **r_node, int *r_so
       ListBase *sockets = (sock->in_out == SOCK_IN) ? &node->inputs : &node->outputs;
       *r_sockindex = BLI_findindex(sockets, sock);
     }
-    return true;
+    return;
   }
+  const bool success = nodeFindNodeTry(ntree, sock, r_node, r_sockindex);
+  BLI_assert(success);
+  UNUSED_VARS_NDEBUG(success);
+}
 
+bool nodeFindNodeTry(bNodeTree *ntree, bNodeSocket *sock, bNode **r_node, int *r_sockindex)
+{
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     ListBase *sockets = (sock->in_out == SOCK_IN) ? &node->inputs : &node->outputs;
     int i;
@@ -3436,7 +3442,7 @@ void ntreeRemoveSocketInterface(bNodeTree *ntree, bNodeSocket *sock)
 static void ntree_interface_identifier_base(bNodeTree *ntree, char *base)
 {
   /* generate a valid RNA identifier */
-  sprintf(base, "NodeTreeInterface_%s", ntree->id.name + 2);
+  BLI_sprintf(base, "NodeTreeInterface_%s", ntree->id.name + 2);
   RNA_identifier_sanitize(base, false);
 }
 
@@ -3462,8 +3468,8 @@ static void ntree_interface_identifier(bNodeTree *ntree,
   BLI_uniquename_cb(
       ntree_interface_unique_identifier_check, nullptr, base, '_', identifier, maxlen);
 
-  sprintf(name, "Node Tree %s Interface", ntree->id.name + 2);
-  sprintf(description, "Interface properties of node group %s", ntree->id.name + 2);
+  BLI_sprintf(name, "Node Tree %s Interface", ntree->id.name + 2);
+  BLI_sprintf(description, "Interface properties of node group %s", ntree->id.name + 2);
 }
 
 static void ntree_interface_type_create(bNodeTree *ntree)
@@ -3773,15 +3779,9 @@ struct bNodeClipboard {
 #endif
 
   ListBase links;
-  int type;
 };
 
 static bNodeClipboard node_clipboard = {{nullptr}};
-
-void BKE_node_clipboard_init(const struct bNodeTree *ntree)
-{
-  node_clipboard.type = ntree->type;
-}
 
 void BKE_node_clipboard_clear()
 {
@@ -3886,11 +3886,6 @@ const ListBase *BKE_node_clipboard_get_nodes()
 const ListBase *BKE_node_clipboard_get_links()
 {
   return &node_clipboard.links;
-}
-
-int BKE_node_clipboard_get_type()
-{
-  return node_clipboard.type;
 }
 
 void BKE_node_clipboard_free()
@@ -4747,6 +4742,7 @@ static void registerGeometryNodes()
   register_node_type_geo_field_at_index();
   register_node_type_geo_flip_faces();
   register_node_type_geo_geometry_to_instance();
+  register_node_type_geo_image_info();
   register_node_type_geo_image_texture();
   register_node_type_geo_input_curve_handles();
   register_node_type_geo_input_curve_tilt();
