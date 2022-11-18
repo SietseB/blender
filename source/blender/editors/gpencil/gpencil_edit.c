@@ -830,7 +830,8 @@ void GPENCIL_OT_selection_opacity_toggle(wmOperatorType *ot)
 static void gpencil_duplicate_points(bGPdata *gpd,
                                      const bGPDstroke *gps,
                                      ListBase *new_strokes,
-                                     const char *layername)
+                                     const char *layername,
+                                     const bool dup_seed)
 {
   bGPDspoint *pt;
   int i;
@@ -868,7 +869,7 @@ static void gpencil_duplicate_points(bGPdata *gpd,
         bGPDstroke *gpsd;
 
         /* make a stupid copy first of the entire stroke (to get the flags too) */
-        gpsd = BKE_gpencil_stroke_duplicate((bGPDstroke *)gps, false, true, false);
+        gpsd = BKE_gpencil_stroke_duplicate((bGPDstroke *)gps, false, true, dup_seed);
 
         /* saves original layer name */
         BLI_strncpy(gpsd->runtime.tmp_layerinfo, layername, sizeof(gpsd->runtime.tmp_layerinfo));
@@ -952,7 +953,7 @@ static int gpencil_duplicate_exec(bContext *C, wmOperator *op)
             bGPDstroke *gpsd;
 
             /* make direct copies of the stroke and its points */
-            gpsd = BKE_gpencil_stroke_duplicate(gps, true, true, true);
+            gpsd = BKE_gpencil_stroke_duplicate(gps, true, true, false);
 
             BLI_strncpy(
                 gpsd->runtime.tmp_layerinfo, gpl->info, sizeof(gpsd->runtime.tmp_layerinfo));
@@ -966,7 +967,7 @@ static int gpencil_duplicate_exec(bContext *C, wmOperator *op)
           }
           else {
             /* delegate to a helper, as there's too much to fit in here (for copying subsets)... */
-            gpencil_duplicate_points(gpd, gps, &new_strokes, gpl->info);
+            gpencil_duplicate_points(gpd, gps, &new_strokes, gpl->info, false);
           }
 
           /* deselect original stroke, or else the originals get moved too
@@ -1471,6 +1472,28 @@ GHash *gpencil_copybuf_validate_colormap(bContext *C)
   return new_colors;
 }
 
+/* Ensure that given stroke has a unique seed within layer frame */
+static void gpencil_stroke_ensure_unique_seed(bGPDframe *gpf, bGPDstroke *gps_new)
+{
+  bGPDstroke *gps;
+  bool check_needed = true;
+
+  /* Rather primitive approach: we loop through all existing strokes in the frame
+  * and check for duplicate seeds.
+  */
+  while (check_needed) {
+    check_needed = false;
+    for (gps = gpf->strokes.first; gps; gps = gps->next) {
+      if (gps->seed == gps_new->seed) {
+        /* Seed already exists: set a different one for the new stroke */
+        gps_new->seed = rand() * 4096 + rand();
+        check_needed = true;
+        break;
+      }
+    }
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1526,7 +1549,7 @@ static int gpencil_strokes_copy_exec(bContext *C, wmOperator *op)
             bGPDstroke *gpsd;
 
             /* make direct copies of the stroke and its points */
-            gpsd = BKE_gpencil_stroke_duplicate(gps, false, true, false);
+            gpsd = BKE_gpencil_stroke_duplicate(gps, false, true, true);
 
             /* saves original layer name */
             BLI_strncpy(
@@ -1546,7 +1569,7 @@ static int gpencil_strokes_copy_exec(bContext *C, wmOperator *op)
           }
           else {
             /* delegate to a helper, as there's too much to fit in here (for copying subsets)... */
-            gpencil_duplicate_points(gpd, gps, &gpencil_strokes_copypastebuf, gpl->info);
+            gpencil_duplicate_points(gpd, gps, &gpencil_strokes_copypastebuf, gpl->info, true);
           }
         }
       }
@@ -1731,6 +1754,9 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
           new_stroke->runtime.tmp_layerinfo[0] = '\0';
           new_stroke->next = new_stroke->prev = NULL;
 
+          /* Ondine: ensure unique seed */
+          gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
+
           /* Calc geometry data. */
           BKE_gpencil_stroke_geometry_update(gpd, new_stroke);
 
@@ -1874,6 +1900,12 @@ static int gpencil_move_to_layer_exec(bContext *C, wmOperator *op)
         if (strokes.first) {
           bGPDframe *gpf_dst = BKE_gpencil_layer_frame_get(
               target_layer, gpf_src->framenum, GP_GETFRAME_ADD_NEW);
+
+          /* Ondine: ensure unique seed */
+          /* TODO: how to handle multi-edit? */
+          for (bGPDstroke *gps = strokes.first; gps; gps = gps->next) {
+            gpencil_stroke_ensure_unique_seed(gpf_dst, gps);
+          }
 
           BLI_movelisttolist(&gpf_dst->strokes, &strokes);
           BLI_assert((strokes.first == strokes.last) && (strokes.first == NULL));
