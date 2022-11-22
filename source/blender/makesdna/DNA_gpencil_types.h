@@ -844,10 +844,10 @@ typedef struct bGPdata {
   float pparticle_speed_max;
   int pparticle_len_min;
   int pparticle_len_max;
+  float pparticle_hairiness;
 
   /* Render calculations */
   float render_zdepth;
-  int render_collected;
   char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
