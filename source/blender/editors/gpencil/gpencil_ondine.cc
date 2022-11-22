@@ -232,7 +232,6 @@ void GpencilOndine::set_render_data(Object *object)
   if ((gpd->ondine_flag & GP_ONDINE_WATERCOLOR) == 0) {
     return;
   }
-  gpd_ = gpd;
 
   /* Calculate camera plane */
   plane_from_point_normal_v3(cam_plane, camera_loc_, camera_normal_vec_);

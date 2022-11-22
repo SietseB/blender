@@ -35,7 +35,6 @@ class GpencilOndine
     struct Main *bmain_;
     struct Depsgraph *depsgraph_;
     struct Scene *scene_;
-    struct bGPdata *gpd_;
     struct RegionView3D *rv3d_;
     struct View3D *v3d_;
     struct ARegion *region_;
