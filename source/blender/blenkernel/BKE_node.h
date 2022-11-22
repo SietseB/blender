@@ -512,11 +512,6 @@ bool ntreeHasTree(const struct bNodeTree *ntree, const struct bNodeTree *lookup)
 void ntreeUpdateAllNew(struct Main *main);
 void ntreeUpdateAllUsers(struct Main *main, struct ID *id);
 
-void ntreeGetDependencyList(struct bNodeTree *ntree,
-                            struct bNode ***r_deplist,
-                            int *r_deplist_len);
-void ntreeUpdateNodeLevels(struct bNodeTree *ntree);
-
 /**
  * XXX: old trees handle output flags automatically based on special output
  * node types and last active selection.
@@ -688,6 +683,10 @@ void nodeRemoveNode(struct Main *bmain,
                     struct bNode *node,
                     bool do_id_user);
 
+void nodeDimensionsGet(const struct bNode *node, float *r_width, float *r_height);
+void nodeTagUpdateID(struct bNode *node);
+void nodeInternalLinks(struct bNode *node, struct bNodeLink ***r_links, int *r_len);
+
 #ifdef __cplusplus
 
 namespace blender::bke {
@@ -730,8 +729,8 @@ void nodeInternalRelink(struct bNodeTree *ntree, struct bNode *node);
 void nodeToView(const struct bNode *node, float x, float y, float *rx, float *ry);
 void nodeFromView(const struct bNode *node, float x, float y, float *rx, float *ry);
 bool nodeAttachNodeCheck(const struct bNode *node, const struct bNode *parent);
-void nodeAttachNode(struct bNode *node, struct bNode *parent);
-void nodeDetachNode(struct bNode *node);
+void nodeAttachNode(struct bNodeTree *ntree, struct bNode *node, struct bNode *parent);
+void nodeDetachNode(struct bNodeTree *ntree, struct bNode *node);
 
 void nodePositionRelative(struct bNode *from_node,
                           struct bNode *to_node,
