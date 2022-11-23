@@ -3170,9 +3170,9 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "pparticle_hairiness", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "pparticle_hairiness");
-  RNA_def_property_range(prop, 0.1f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.1f, 1.0f, 0.1f, 2);
-  RNA_def_property_float_default(prop, 0.2f);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.1f, 2);
+  RNA_def_property_float_default(prop, 0.5f);
   RNA_def_property_ui_text(
       prop, "Hairiness", "Hairiness of the pigment flow (thin lines at the end)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");

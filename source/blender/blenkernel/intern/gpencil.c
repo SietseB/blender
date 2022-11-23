@@ -787,7 +787,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pparticle_speed_max = 1.4f;
   gpd->pparticle_len_min = 45;
   gpd->pparticle_len_max = 60;
-  gpd->pparticle_hairiness = 0.2f;
+  gpd->pparticle_hairiness = 0.5f;
   gpd->dry_stroke_edge_jitter = 0.25f;
 
   return gpd;
