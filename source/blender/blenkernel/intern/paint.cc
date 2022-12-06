@@ -761,12 +761,15 @@ void BKE_palette_color_remove(Palette *palette, PaletteColor *color)
     palette->active_color = 0;
   }
 
+  BLI_freelistN(&color->mixed_colors);
+
   MEM_freeN(color);
 }
 
 void BKE_palette_clear(Palette *palette)
 {
   BLI_freelistN(&palette->colors);
+  BLI_freelistN(&palette->last_used_colors);
   palette->active_color = 0;
 }
 
@@ -795,6 +798,34 @@ PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_en
   }
 
   return color;
+}
+
+MixingColor *BKE_palette_mixing_color_add(Palette *palette)
+{
+  MixingColor *color = MEM_cnew<MixingColor>(__func__);
+  BLI_addtail(&palette->mixing_colors, color);
+  return color;
+}
+
+void BKE_palette_mixing_color_remove(Palette *palette, MixingColor *color)
+{
+  BLI_remlink(&palette->mixing_colors, color);
+
+  MEM_freeN(color);
+}
+
+MixingColor *BKE_palettecolor_mixed_color_add(PaletteColor *palcolor)
+{
+  MixingColor *color = MEM_cnew<MixingColor>(__func__);
+  BLI_addtail(&palcolor->mixed_colors, color);
+  return color;
+}
+
+void BKE_palettecolor_mixed_color_remove(PaletteColor *palcolor, MixingColor *color)
+{
+  BLI_remlink(&palcolor->mixed_colors, color);
+
+  MEM_freeN(color);
 }
 
 bool BKE_palette_is_empty(const Palette *palette)

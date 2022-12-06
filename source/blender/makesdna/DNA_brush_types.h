@@ -407,11 +407,23 @@ typedef struct tPaletteColorHSV {
   float v;
 } tPaletteColorHSV;
 
+typedef struct MixingColor {
+  struct MixingColor *next, *prev;
+  float rgb[3];
+  int paint_id;
+  float percentage;
+  char _pad0[4];
+} MixingColor;
+
 typedef struct PaletteColor {
   struct PaletteColor *next, *prev;
+  /* Mixed colors this palette color is mixed of. */
+  ListBase mixed_colors;
   /* two values, one to store rgb, other to store values for sculpt/weight */
   float rgb[3];
   float value;
+  float shading_factor;
+  char _pad0[4];
 } PaletteColor;
 
 typedef struct Palette {
@@ -423,8 +435,11 @@ typedef struct Palette {
   /** Pointer to last used colors. */
   ListBase last_used_colors;
 
+  /** Pointer to mixing colors. */
+  ListBase mixing_colors;
+
   int active_color;
-  char _pad[4];
+  int shader_count;
 } Palette;
 
 typedef struct PaintCurvePoint {
