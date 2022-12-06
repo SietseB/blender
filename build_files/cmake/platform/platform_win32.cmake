@@ -240,7 +240,7 @@ if(NOT EXISTS "${LIBDIR}/")
 endif()
 
 if(NOT DEFINED PYTHON_PACKAGES_DIR_FOR_ONDINE)
-  set(PYTHON_PACKAGES_DIR_FOR_ONDINE ${CMAKE_SOURCE_DIR}/python_packages)
+  set(PYTHON_PACKAGES_DIR_FOR_ONDINE ${CMAKE_SOURCE_DIR}/../lib_ondine/windows)
 endif()
 
 include(platform_old_libs_update)
