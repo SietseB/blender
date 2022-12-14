@@ -139,6 +139,7 @@ void BKE_paint_set_overlay_override(enum eOverlayFlags flag);
 struct Palette *BKE_palette_add(struct Main *bmain, const char *name);
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 struct PaletteColor *BKE_palette_last_used_color_add(struct Palette *palette, const int max_entries);
+struct PaletteColor *BKE_palette_unshaded_color_add(struct Palette *palette);
 struct MixingColor *BKE_palette_mixing_color_add(struct Palette *palette);
 struct MixingColor *BKE_palettecolor_mixed_color_add(struct PaletteColor *palcolor);
 bool BKE_palette_is_empty(const struct Palette *palette);
@@ -147,6 +148,7 @@ bool BKE_palette_is_empty(const struct Palette *palette);
  */
 void BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 void BKE_palette_clear(struct Palette *palette);
+void BKE_palette_unshaded_color_remove(struct Palette *palette, struct PaletteColor *color);
 void BKE_palette_mixing_color_remove(struct Palette *palette, struct MixingColor *color);
 void BKE_palettecolor_mixed_color_remove(struct PaletteColor *palcolor, struct MixingColor *color);
 

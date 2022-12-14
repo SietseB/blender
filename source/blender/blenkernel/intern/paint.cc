@@ -97,14 +97,24 @@ static void palette_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, co
 
   BLI_duplicatelist(&palette_dst->colors, &palette_src->colors);
   BLI_duplicatelist(&palette_dst->last_used_colors, &palette_src->last_used_colors);
+  BLI_duplicatelist(&palette_dst->mixing_colors, &palette_src->mixing_colors);
+  BLI_duplicatelist(&palette_dst->unshaded_colors, &palette_src->unshaded_colors);
+
+  /* Ondine TODO: copy unshaded_colors->mixed_colors from src to dst */
 }
 
 static void palette_free_data(ID *id)
 {
   Palette *palette = (Palette *)id;
 
+  LISTBASE_FOREACH (PaletteColor *, color, &palette->unshaded_colors) {
+    BLI_freelistN(&color->mixed_colors);
+  }
+
   BLI_freelistN(&palette->colors);
   BLI_freelistN(&palette->last_used_colors);
+  BLI_freelistN(&palette->mixing_colors);
+  BLI_freelistN(&palette->unshaded_colors);
 }
 
 static void palette_blend_write(BlendWriter *writer, ID *id, const void *id_address)
@@ -116,6 +126,11 @@ static void palette_blend_write(BlendWriter *writer, ID *id, const void *id_addr
 
   BLO_write_struct_list(writer, PaletteColor, &palette->colors);
   BLO_write_struct_list(writer, PaletteColor, &palette->last_used_colors);
+  BLO_write_struct_list(writer, MixingColor, &palette->mixing_colors);
+  BLO_write_struct_list(writer, PaletteColor, &palette->unshaded_colors);
+  LISTBASE_FOREACH (PaletteColor *, color, &palette->unshaded_colors) {
+    BLO_write_struct_list(writer, MixingColor, &color->mixed_colors);
+  }
 }
 
 static void palette_blend_read_data(BlendDataReader *reader, ID *id)
@@ -123,6 +138,13 @@ static void palette_blend_read_data(BlendDataReader *reader, ID *id)
   Palette *palette = (Palette *)id;
   BLO_read_list(reader, &palette->colors);
   BLO_read_list(reader, &palette->last_used_colors);
+  BLO_read_list(reader, &palette->mixing_colors);
+  BLO_read_list(reader, &palette->unshaded_colors);
+
+  /* Relink mixed colors. */
+  LISTBASE_FOREACH (PaletteColor *, color, &palette->unshaded_colors) {
+    BLO_read_list(reader, &color->mixed_colors);
+  }
 }
 
 static void palette_undo_preserve(BlendLibReader * /*reader*/, ID *id_new, ID *id_old)
@@ -762,12 +784,15 @@ void BKE_palette_color_remove(Palette *palette, PaletteColor *color)
   }
 
   BLI_freelistN(&color->mixed_colors);
-
   MEM_freeN(color);
 }
 
 void BKE_palette_clear(Palette *palette)
 {
+  LISTBASE_FOREACH (PaletteColor *, color, &palette->colors) {
+    BLI_freelistN(&color->mixed_colors);
+  }
+
   BLI_freelistN(&palette->colors);
   BLI_freelistN(&palette->last_used_colors);
   palette->active_color = 0;
@@ -798,6 +823,21 @@ PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_en
   }
 
   return color;
+}
+
+PaletteColor *BKE_palette_unshaded_color_add(Palette *palette)
+{
+  PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
+  BLI_addtail(&palette->unshaded_colors, color);
+  return color;
+}
+
+void BKE_palette_unshaded_color_remove(Palette *palette, PaletteColor *color)
+{
+  BLI_remlink(&palette->unshaded_colors, color);
+
+  BLI_freelistN(&color->mixed_colors);
+  MEM_freeN(color);
 }
 
 MixingColor *BKE_palette_mixing_color_add(Palette *palette)

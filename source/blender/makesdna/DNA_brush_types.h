@@ -435,6 +435,9 @@ typedef struct Palette {
   /** Pointer to last used colors. */
   ListBase last_used_colors;
 
+  /** Pointer to unshaded colors. */
+  ListBase unshaded_colors;
+
   /** Pointer to mixing colors. */
   ListBase mixing_colors;
 

@@ -21,6 +21,65 @@
 
 #  include "BKE_paint.h"
 #  include "BKE_report.h"
+
+static PaletteColor *rna_Palette_unshaded_color_new(Palette *palette)
+{
+  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+    return NULL;
+  }
+
+  PaletteColor *color = BKE_palette_unshaded_color_add(palette);
+  return color;
+}
+
+static void rna_Palette_unshaded_color_remove(Palette *palette,
+                                              ReportList *reports,
+                                              PointerRNA *color_ptr)
+{
+  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+    return;
+  }
+
+  PaletteColor *color = color_ptr->data;
+
+  if (BLI_findindex(&palette->unshaded_colors, color) == -1) {
+    BKE_reportf(reports,
+                RPT_ERROR,
+                "Palette '%s' does not contain unshaded color given",
+                palette->id.name + 2);
+    return;
+  }
+
+  BKE_palette_unshaded_color_remove(palette, color);
+
+  RNA_POINTER_INVALIDATE(color_ptr);
+}
+
+static void rna_Palette_unshaded_color_move(Palette *palette,
+                                            ReportList *reports,
+                                            PointerRNA *color_ptr,
+                                            const int direction)
+{
+  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+    return;
+  }
+
+  PaletteColor *color = color_ptr->data;
+
+  if (BLI_findindex(&palette->unshaded_colors, color) == -1) {
+    BKE_reportf(reports,
+                RPT_ERROR,
+                "Palette '%s' does not contain unshaded color given",
+                palette->id.name + 2);
+    return;
+  }
+
+  BLI_assert(ELEM(direction, -1, 0, 1));
+  BLI_listbase_link_move(&palette->unshaded_colors, color, direction);
+
+  RNA_POINTER_INVALIDATE(color_ptr);
+}
+
 static MixingColor *rna_Palette_mixing_color_new(Palette *palette)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
@@ -114,31 +173,6 @@ static PaletteColor *rna_Palette_color_new(Palette *palette)
   return color;
 }
 
-static void rna_Palette_color_move(Palette *palette,
-                                   ReportList *reports,
-                                   PointerRNA *color_ptr,
-                                   const int direction)
-{
-  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
-    return;
-  }
-
-  PaletteColor *color = color_ptr->data;
-
-  if (BLI_findindex(&palette->colors, color) == -1) {
-    BKE_reportf(reports,
-                RPT_ERROR,
-                "Palette '%s' does not contain color given",
-                palette->id.name + 2);
-    return;
-  }
-
-  BLI_assert(ELEM(direction, -1, 0, 1));
-  BLI_listbase_link_move(&palette->colors, color, direction);
-
-  RNA_POINTER_INVALIDATE(color_ptr);
-}
-
 static void rna_Palette_color_remove(Palette *palette, ReportList *reports, PointerRNA *color_ptr)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
@@ -218,15 +252,6 @@ static void rna_def_palettecolors(BlenderRNA *brna, PropertyRNA *cprop)
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created color");
   RNA_def_function_return(func, parm);
 
-  func = RNA_def_function(srna, "move", "rna_Palette_color_move");
-  RNA_def_function_ui_description(func, "Move a color in the palette (change order)");
-  RNA_def_function_flag(func, FUNC_USE_REPORTS);
-  parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The color to move");
-  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
-  parm = RNA_def_int(
-      func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-
   func = RNA_def_function(srna, "remove", "rna_Palette_color_remove");
   RNA_def_function_ui_description(func, "Remove a color from the palette");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
@@ -264,6 +289,40 @@ static void rna_def_palettecolors_last_used(BlenderRNA *brna, PropertyRNA *cprop
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created color");
   RNA_def_function_return(func, parm);
+}
+
+/* palette.unshaded_colors */
+static void rna_def_palettecolors_unshaded(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  RNA_def_property_srna(cprop, "PaletteColorsUnshaded");
+  srna = RNA_def_struct(brna, "PaletteColorsUnshaded", NULL);
+  RNA_def_struct_sdna(srna, "Palette");
+  RNA_def_struct_ui_text(srna, "Unshaded Colors", "Collection of unshaded colors");
+
+  func = RNA_def_function(srna, "new", "rna_Palette_unshaded_color_new");
+  RNA_def_function_ui_description(func, "Add a new unshaded color to the palette");
+  parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created mixing color");
+  RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "remove", "rna_Palette_unshaded_color_remove");
+  RNA_def_function_ui_description(func, "Remove a unshaded color from the palette");
+  RNA_def_function_flag(func, FUNC_USE_REPORTS);
+  parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The unshaded color to remove");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+
+  func = RNA_def_function(srna, "move", "rna_Palette_unshaded_color_move");
+  RNA_def_function_ui_description(func, "Move a unshaded color in the palette (change order)");
+  RNA_def_function_flag(func, FUNC_USE_REPORTS);
+  parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The unshaded color to move");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  parm = RNA_def_int(func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 /* palette.mixing_colors */
@@ -410,6 +469,10 @@ static void rna_def_palette(BlenderRNA *brna)
   prop = RNA_def_property(srna, "last_used_colors", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "PaletteColor");
   rna_def_palettecolors_last_used(brna, prop);
+
+  prop = RNA_def_property(srna, "unshaded_colors", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "PaletteColor");
+  rna_def_palettecolors_unshaded(brna, prop);
 
   prop = RNA_def_property(srna, "mixing_colors", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "MixingColor");
