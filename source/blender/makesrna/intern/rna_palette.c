@@ -153,6 +153,11 @@ static void rna_PaletteColor_mixed_color_remove(PaletteColor *palcolor, PointerR
   RNA_POINTER_INVALIDATE(mixcolor_ptr);
 }
 
+static void rna_PaletteColor_mixed_color_clear(PaletteColor *color)
+{
+  BKE_palettecolor_mixed_color_clear(color);
+}
+
 static PaletteColor *rna_Palette_last_used_color_new(Palette *palette, const int max_entries)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
@@ -382,6 +387,9 @@ static void rna_def_palettecolor_mixed(BlenderRNA *brna, PropertyRNA *cprop)
   parm = RNA_def_pointer(func, "color", "MixingColor", "", "The mix color to remove");
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+
+  func = RNA_def_function(srna, "clear", "rna_PaletteColor_mixed_color_clear");
+  RNA_def_function_ui_description(func, "Remove all mixed colors from the palette color");
 }
 
 static void rna_def_palettecolor(BlenderRNA *brna)
@@ -441,15 +449,14 @@ static void rna_def_mixingcolor(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
   prop = RNA_def_property(srna, "paint_id", PROP_INT, PROP_NONE);
-  RNA_def_property_range(prop, 0.0, 1.0);
   RNA_def_property_int_sdna(prop, NULL, "paint_id");
   RNA_def_property_ui_text(prop, "Paint ID", "");
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-  prop = RNA_def_property(srna, "percentage", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_range(prop, 0.0, 1.0);
-  RNA_def_property_float_sdna(prop, NULL, "percentage");
-  RNA_def_property_ui_text(prop, "Percentage", "");
+  prop = RNA_def_property(srna, "portion", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0, 10.0);
+  RNA_def_property_float_sdna(prop, NULL, "portion");
+  RNA_def_property_ui_text(prop, "Portion", "");
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 }
 

@@ -868,6 +868,11 @@ void BKE_palettecolor_mixed_color_remove(PaletteColor *palcolor, MixingColor *co
   MEM_freeN(color);
 }
 
+void BKE_palettecolor_mixed_color_clear(PaletteColor *palcolor)
+{
+  BLI_freelistN(&palcolor->mixed_colors);
+}
+
 bool BKE_palette_is_empty(const Palette *palette)
 {
   return BLI_listbase_is_empty(&palette->colors);

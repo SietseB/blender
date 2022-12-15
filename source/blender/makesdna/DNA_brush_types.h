@@ -411,7 +411,7 @@ typedef struct MixingColor {
   struct MixingColor *next, *prev;
   float rgb[3];
   int paint_id;
-  float percentage;
+  float portion;
   char _pad0[4];
 } MixingColor;
 

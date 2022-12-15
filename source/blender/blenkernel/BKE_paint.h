@@ -151,6 +151,7 @@ void BKE_palette_clear(struct Palette *palette);
 void BKE_palette_unshaded_color_remove(struct Palette *palette, struct PaletteColor *color);
 void BKE_palette_mixing_color_remove(struct Palette *palette, struct MixingColor *color);
 void BKE_palettecolor_mixed_color_remove(struct PaletteColor *palcolor, struct MixingColor *color);
+void BKE_palettecolor_mixed_color_clear(struct PaletteColor *palcolor);
 
 void BKE_palette_sort_hsv(struct tPaletteColorHSV *color_array, int totcol);
 void BKE_palette_sort_svh(struct tPaletteColorHSV *color_array, int totcol);
