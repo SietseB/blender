@@ -3108,7 +3108,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "stroke_overlap_darkening");
   RNA_def_property_range(prop, 0, 0.2f);
   RNA_def_property_float_default(prop, 0.02f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.2f, 0.005f, 3);
+  RNA_def_property_ui_range(prop, 0.0f, 0.2f, 0.005f, 2);
   RNA_def_property_ui_text(prop, "Stroke Overlap Darkening",
     "When strokes overlap on the same layer, this factor controls how much the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -3118,7 +3118,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "layer_overlap_darkening");
   RNA_def_property_range(prop, 0, 0.5f);
   RNA_def_property_float_default(prop, 0.1f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 3);
+  RNA_def_property_ui_range(prop, 0.0f, 0.5f, 0.01f, 2);
   RNA_def_property_ui_text(prop, "Layer Overlap Darkening",
     "When layers overlap, this factor controls how much the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");

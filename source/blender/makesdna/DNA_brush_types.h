@@ -423,7 +423,7 @@ typedef struct PaletteColor {
   float rgb[3];
   float value;
   float shading_factor;
-  char _pad0[4];
+  float water_portion;
 } PaletteColor;
 
 typedef struct Palette {

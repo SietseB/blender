@@ -426,9 +426,16 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "shading_factor", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "shading_factor");
-  RNA_def_property_range(prop, -1.0, 1.0);
+  RNA_def_property_range(prop, -1.0f, 1.0f);
   RNA_def_property_float_default(prop, 0.0f);
   RNA_def_property_ui_text(prop, "Shading Factor", "");
+  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+  prop = RNA_def_property(srna, "water_portion", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "water_portion");
+  RNA_def_property_range(prop, 0.0f, 10.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(prop, "Portion of Water in Mix", "");
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 }
 
