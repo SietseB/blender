@@ -8,6 +8,7 @@
 #include "BLI_multi_value_map.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
+#include "BLI_vector_set.hh"
 
 #include "DNA_node_types.h"
 
@@ -23,6 +24,36 @@ struct FieldInferencingInterface;
 class NodeDeclaration;
 struct GeometryNodesLazyFunctionGraphInfo;
 }  // namespace blender::nodes
+
+namespace blender {
+
+struct NodeIDHash {
+  uint64_t operator()(const bNode *node) const
+  {
+    return node->identifier;
+  }
+  uint64_t operator()(const int32_t id) const
+  {
+    return id;
+  }
+};
+
+struct NodeIDEquality {
+  bool operator()(const bNode *a, const bNode *b) const
+  {
+    return a->identifier == b->identifier;
+  }
+  bool operator()(const bNode *a, const int32_t b) const
+  {
+    return a->identifier == b;
+  }
+  bool operator()(const int32_t a, const bNode *b) const
+  {
+    return this->operator()(b, a);
+  }
+};
+
+}  // namespace blender
 
 namespace blender::bke {
 
@@ -46,10 +77,12 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
    */
   uint8_t runtime_flag = 0;
 
-  /** Flag to prevent re-entrant update calls. */
-  short is_updating = 0;
-  /** Generic temporary flag for recursion check (DFS/BFS). */
-  short done = 0;
+  /**
+   * Storage of nodes based on their identifier. Also used as a contiguous array of nodes to
+   * allow simpler and more cache friendly iteration. Supports lookup by integer or by node.
+   * Unlike other caches, this is maintained eagerly while changing the tree.
+   */
+  VectorSet<bNode *, DefaultProbingStrategy, NodeIDHash, NodeIDEquality> nodes_by_id;
 
   /** Execution data.
    *
@@ -96,7 +129,6 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   mutable std::atomic<int> allow_use_dirty_topology_cache = 0;
 
   /** Only valid when #topology_cache_is_dirty is false. */
-  Vector<bNode *> nodes;
   Vector<bNodeLink *> links;
   Vector<bNodeSocket *> sockets;
   Vector<bNodeSocket *> input_sockets;
@@ -109,6 +141,8 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   bool has_undefined_nodes_or_sockets = false;
   bNode *group_output_node = nullptr;
   Vector<bNode *> root_frames;
+  Vector<bNodeSocket *> interface_inputs;
+  Vector<bNodeSocket *> interface_outputs;
 };
 
 /**
@@ -137,9 +171,6 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
 
   /* Runtime-only cache of the number of input links, for multi-input sockets. */
   short total_inputs = 0;
-
-  /** Cached data from execution. */
-  void *cache = nullptr;
 
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNodeLink *> directly_linked_links;
@@ -183,9 +214,6 @@ class bNodeRuntime : NonCopyable, NonMovable {
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
 
-  /** For dependency and sorting. */
-  short done = 0;
-
   /** Used as a boolean for execution. */
   uint8_t need_exec = 0;
 
@@ -225,12 +253,14 @@ class bNodeRuntime : NonCopyable, NonMovable {
   /** List of cached internal links (input to output), for muted nodes and operators. */
   Vector<bNodeLink *> internal_links;
 
+  /** Eagerly maintained cache of the node's index in the tree. */
+  int index_in_tree = -1;
+
   /** Only valid if #topology_cache_is_dirty is false. */
   Vector<bNodeSocket *> inputs;
   Vector<bNodeSocket *> outputs;
   Map<StringRefNull, bNodeSocket *> inputs_by_identifier;
   Map<StringRefNull, bNodeSocket *> outputs_by_identifier;
-  int index_in_tree = -1;
   bool has_available_linked_inputs = false;
   bool has_available_linked_outputs = false;
   Vector<bNode *> direct_children_in_frame;
@@ -294,11 +324,37 @@ inline bool topology_cache_is_available(const bNodeSocket &socket)
 
 }  // namespace node_tree_runtime
 
+namespace node_field_inferencing {
+bool update_field_inferencing(const bNodeTree &tree);
+}
+
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
 /** \name #bNodeTree Inline Methods
  * \{ */
+
+inline blender::Span<const bNode *> bNodeTree::all_nodes() const
+{
+  return this->runtime->nodes_by_id.as_span();
+}
+
+inline blender::Span<bNode *> bNodeTree::all_nodes()
+{
+  return this->runtime->nodes_by_id;
+}
+
+inline bNode *bNodeTree::node_by_id(const int32_t identifier)
+{
+  bNode *const *node = this->runtime->nodes_by_id.lookup_key_ptr_as(identifier);
+  return node ? *node : nullptr;
+}
+
+inline const bNode *bNodeTree::node_by_id(const int32_t identifier) const
+{
+  const bNode *const *node = this->runtime->nodes_by_id.lookup_key_ptr_as(identifier);
+  return node ? *node : nullptr;
+}
 
 inline blender::Span<bNode *> bNodeTree::nodes_by_type(const blender::StringRefNull type_idname)
 {
@@ -337,18 +393,6 @@ inline blender::Span<bNode *> bNodeTree::toposort_right_to_left()
   return this->runtime->toposort_right_to_left;
 }
 
-inline blender::Span<const bNode *> bNodeTree::all_nodes() const
-{
-  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
-  return this->runtime->nodes;
-}
-
-inline blender::Span<bNode *> bNodeTree::all_nodes()
-{
-  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
-  return this->runtime->nodes;
-}
-
 inline blender::Span<const bNode *> bNodeTree::group_nodes() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
@@ -377,6 +421,23 @@ inline const bNode *bNodeTree::group_output_node() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return this->runtime->group_output_node;
+}
+
+inline blender::Span<const bNode *> bNodeTree::group_input_nodes() const
+{
+  return this->nodes_by_type("NodeGroupInput");
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::interface_inputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->interface_inputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::interface_outputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->interface_outputs;
 }
 
 inline blender::Span<const bNodeSocket *> bNodeTree::all_input_sockets() const
@@ -426,6 +487,15 @@ inline blender::Span<bNode *> bNodeTree::root_frames() const
 /* -------------------------------------------------------------------- */
 /** \name #bNode Inline Methods
  * \{ */
+
+inline int bNode::index() const
+{
+  const int index = this->runtime->index_in_tree;
+  /* The order of nodes should always be consistent with the `nodes_by_id` vector. */
+  BLI_assert(index ==
+             this->runtime->owner_tree->runtime->nodes_by_id.index_of_as(this->identifier));
+  return index;
+}
 
 inline blender::Span<bNodeSocket *> bNode::input_sockets()
 {
@@ -482,6 +552,18 @@ inline const bNodeSocket &bNode::input_by_identifier(blender::StringRef identifi
 }
 
 inline const bNodeSocket &bNode::output_by_identifier(blender::StringRef identifier) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->outputs_by_identifier.lookup_as(identifier);
+}
+
+inline bNodeSocket &bNode::input_by_identifier(blender::StringRef identifier)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->inputs_by_identifier.lookup_as(identifier);
+}
+
+inline bNodeSocket &bNode::output_by_identifier(blender::StringRef identifier)
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return *this->runtime->outputs_by_identifier.lookup_as(identifier);
@@ -580,6 +662,11 @@ inline int bNodeSocket::index_in_tree() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return this->runtime->index_in_all_sockets;
+}
+
+inline bool bNodeSocket::is_hidden() const
+{
+  return (this->flag & SOCK_HIDDEN) != 0;
 }
 
 inline bool bNodeSocket::is_available() const

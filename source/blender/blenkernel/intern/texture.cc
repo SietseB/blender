@@ -451,7 +451,7 @@ Tex *give_current_linestyle_texture(FreestyleLineStyle *linestyle)
   Tex *tex = nullptr;
 
   if (linestyle) {
-    mtex = linestyle->mtex[(int)(linestyle->texact)];
+    mtex = linestyle->mtex[int(linestyle->texact)];
     if (mtex) {
       tex = mtex->tex;
     }
@@ -555,7 +555,7 @@ Tex *give_current_particle_texture(ParticleSettings *part)
     return nullptr;
   }
 
-  mtex = part->mtex[(int)(part->texact)];
+  mtex = part->mtex[int(part->texact)];
   if (mtex) {
     tex = mtex->tex;
   }
@@ -730,7 +730,7 @@ static void texture_nodes_fetch_images_for_pool(Tex *texture,
                                                 bNodeTree *ntree,
                                                 struct ImagePool *pool)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->type == SH_NODE_TEX_IMAGE && node->id != nullptr) {
       Image *image = (Image *)node->id;
       BKE_image_pool_acquire_ibuf(image, &texture->iuser, pool);

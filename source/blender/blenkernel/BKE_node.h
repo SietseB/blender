@@ -405,8 +405,6 @@ typedef struct bNodeTreeType {
   int ui_icon;
 
   /* callbacks */
-  void (*free_cache)(struct bNodeTree *ntree);
-  void (*free_node_cache)(struct bNodeTree *ntree, struct bNode *node);
   /* Iteration over all node classes. */
   void (*foreach_nodeclass)(struct Scene *scene, void *calldata, bNodeClassCallback func);
   /* Check visibility in the node editor */
@@ -509,7 +507,7 @@ struct bNodeTree *ntreeFromID(struct ID *id);
 
 void ntreeFreeLocalNode(struct bNodeTree *ntree, struct bNode *node);
 void ntreeFreeLocalTree(struct bNodeTree *ntree);
-struct bNode *ntreeFindType(const struct bNodeTree *ntree, int type);
+struct bNode *ntreeFindType(struct bNodeTree *ntree, int type);
 bool ntreeHasTree(const struct bNodeTree *ntree, const struct bNodeTree *lookup);
 void ntreeUpdateAllNew(struct Main *main);
 void ntreeUpdateAllUsers(struct Main *main, struct ID *id);
@@ -520,8 +518,6 @@ void ntreeUpdateAllUsers(struct Main *main, struct ID *id);
  * New tree types have a per-output socket flag to indicate the final output to use explicitly.
  */
 void ntreeSetOutput(struct bNodeTree *ntree);
-
-void ntreeFreeCache(struct bNodeTree *ntree);
 
 void ntreeNodeFlagSet(const bNodeTree *ntree, int flag, bool enable);
 /**
@@ -633,7 +629,7 @@ const char *nodeStaticSocketLabel(int type, int subtype);
   } \
   ((void)0)
 
-struct bNodeSocket *nodeFindSocket(const struct bNode *node,
+struct bNodeSocket *nodeFindSocket(struct bNode *node,
                                    eNodeSocketInOut in_out,
                                    const char *identifier);
 struct bNodeSocket *nodeAddSocket(struct bNodeTree *ntree,
@@ -672,6 +668,18 @@ void nodeUnlinkNode(struct bNodeTree *ntree, struct bNode *node);
  * Find the first available, non-duplicate name for a given node.
  */
 void nodeUniqueName(struct bNodeTree *ntree, struct bNode *node);
+/**
+ * Create a new unique integer identifier for the node. Also set the node's
+ * index in the tree, which is an eagerly maintained cache.
+ */
+void nodeUniqueID(struct bNodeTree *ntree, struct bNode *node);
+
+/**
+ * Rebuild the `node_by_id` runtime vector set. Call after removing a node if not handled
+ * separately. This is important instead of just using `nodes_by_id.remove()` since it maintains
+ * the node order.
+ */
+void nodeRebuildIDVector(struct bNodeTree *node_tree);
 
 /**
  * Delete node, associated animation data and ID user count.
@@ -691,16 +699,17 @@ namespace blender::bke {
 
 /**
  * \note keeps socket list order identical, for copying links.
- * \note `unique_name` should usually be true, unless the \a dst_tree is temporary,
- * or the names can already be assumed valid.
+ * \param use_unique: If true, make sure the node's identifier and name are unique in the new
+ * tree. Must be *true* if the \a dst_tree had nodes that weren't in the source node's tree.
+ * Must be *false* when simply copying a node tree, so that identifiers don't change.
  */
 bNode *node_copy_with_mapping(bNodeTree *dst_tree,
                               const bNode &node_src,
                               int flag,
-                              bool unique_name,
+                              bool use_unique,
                               Map<const bNodeSocket *, bNodeSocket *> &new_socket_map);
 
-bNode *node_copy(bNodeTree *dst_tree, const bNode &src_node, int flag, bool unique_name);
+bNode *node_copy(bNodeTree *dst_tree, const bNode &src_node, int flag, bool use_unique);
 
 }  // namespace blender::bke
 
@@ -1389,7 +1398,7 @@ struct TexResult;
  * \{ */
 
 #define GEO_NODE_TRIANGULATE 1000
-#define GEO_NODE_TRANSFORM 1002
+#define GEO_NODE_TRANSFORM_GEOMETRY 1002
 #define GEO_NODE_MESH_BOOLEAN 1003
 #define GEO_NODE_OBJECT_INFO 1007
 #define GEO_NODE_JOIN_GEOMETRY 1010
@@ -1536,6 +1545,8 @@ struct TexResult;
 #define GEO_NODE_SAMPLE_UV_SURFACE 1187
 #define GEO_NODE_SET_CURVE_NORMAL 1188
 #define GEO_NODE_IMAGE_INFO 1189
+#define GEO_NODE_BLUR_ATTRIBUTE 1190
+#define GEO_NODE_IMAGE 1191
 
 /** \} */
 
@@ -1568,6 +1579,7 @@ struct TexResult;
 void BKE_node_system_init(void);
 void BKE_node_system_exit(void);
 
+extern bNodeTreeType NodeTreeTypeUndefined;
 extern struct bNodeType NodeTypeUndefined;
 extern struct bNodeSocketType NodeSocketTypeUndefined;
 

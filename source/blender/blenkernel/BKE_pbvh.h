@@ -71,7 +71,7 @@ struct PBVHPublic {
 
 /* A generic PBVH vertex.
  *
- * Note: in PBVH_GRIDS we consider the final grid points
+ * NOTE: in PBVH_GRIDS we consider the final grid points
  * to be vertices.  This is not true of edges or faces which are pulled from
  * the base mesh.
  */
@@ -79,12 +79,12 @@ typedef struct PBVHVertRef {
   intptr_t i;
 } PBVHVertRef;
 
-/* Note: edges in PBVH_GRIDS are always pulled from the base mesh.*/
+/* NOTE: edges in PBVH_GRIDS are always pulled from the base mesh. */
 typedef struct PBVHEdgeRef {
   intptr_t i;
 } PBVHEdgeRef;
 
-/* Note: faces in PBVH_GRIDS are always puled from the base mesh.*/
+/* NOTE: faces in PBVH_GRIDS are always puled from the base mesh. */
 typedef struct PBVHFaceRef {
   intptr_t i;
 } PBVHFaceRef;
@@ -98,6 +98,15 @@ typedef struct {
 typedef struct {
   float (*color)[4];
 } PBVHColorBufferNode;
+
+typedef struct PBVHPixels {
+  /**
+   * Storage for texture painting on PBVH level.
+   *
+   * Contains #blender::bke::pbvh::pixels::PBVHData
+   */
+  void *data;
+} PBVHPixels;
 
 typedef struct PBVHPixelsNode {
   /**
@@ -405,7 +414,8 @@ void BKE_pbvh_sync_visibility_from_verts(PBVH *pbvh, struct Mesh *me);
 int BKE_pbvh_count_grid_quads(BLI_bitmap **grid_hidden,
                               const int *grid_indices,
                               int totgrid,
-                              int gridsize);
+                              int gridsize,
+                              int display_gridsize);
 
 /**
  * Multi-res level, only valid for type == #PBVH_GRIDS.

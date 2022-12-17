@@ -59,7 +59,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
   bNodeSocket *socket_boolean = socket_color4f->next;
   bNodeSocket *socket_int32 = socket_boolean->next;
 
-  nodeSetSocketAvailability(ntree, socket_vector, data_type == CD_PROP_FLOAT3);
+  nodeSetSocketAvailability(ntree, socket_vector, ELEM(data_type, CD_PROP_FLOAT2, CD_PROP_FLOAT3));
   nodeSetSocketAvailability(ntree, socket_float, data_type == CD_PROP_FLOAT);
   nodeSetSocketAvailability(
       ntree, socket_color4f, ELEM(data_type, CD_PROP_COLOR, CD_PROP_BYTE_COLOR));
@@ -113,6 +113,11 @@ static void node_geo_exec(GeoNodeExecParams params)
     case CD_PROP_FLOAT:
       field = params.get_input<Field<float>>("Value_Float");
       break;
+    case CD_PROP_FLOAT2: {
+      field = params.get_input<Field<float3>>("Value_Vector");
+      field = bke::get_implicit_type_conversions().try_convert(field, CPPType::get<float2>());
+      break;
+    }
     case CD_PROP_FLOAT3:
       field = params.get_input<Field<float3>>("Value_Vector");
       break;
@@ -143,7 +148,9 @@ static void node_geo_exec(GeoNodeExecParams params)
       GeometryComponent &component = geometry_set.get_component_for_write(
           GEO_COMPONENT_TYPE_INSTANCES);
       if (!bke::try_capture_field_on_geometry(component, name, domain, field)) {
-        failure.store(true);
+        if (component.attribute_domain_size(domain) != 0) {
+          failure.store(true);
+        }
       }
     }
   }
@@ -154,7 +161,9 @@ static void node_geo_exec(GeoNodeExecParams params)
         if (geometry_set.has(type)) {
           GeometryComponent &component = geometry_set.get_component_for_write(type);
           if (!bke::try_capture_field_on_geometry(component, name, domain, field)) {
-            failure.store(true);
+            if (component.attribute_domain_size(domain) != 0) {
+              failure.store(true);
+            }
           }
         }
       }

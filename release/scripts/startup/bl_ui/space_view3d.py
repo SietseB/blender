@@ -845,13 +845,13 @@ class VIEW3D_HT_header(Header):
                 layout.popover(
                     panel="VIEW3D_PT_gpencil_sculpt_automasking",
                     text="",
-                    icon="MOD_MASK"
+                    icon='MOD_MASK',
                 )
         elif object_mode == 'SCULPT':
             layout.popover(
                 panel="VIEW3D_PT_sculpt_automasking",
                 text="",
-                icon="MOD_MASK"
+                icon='MOD_MASK',
             )
         else:
             # Transform settings depending on tool header visibility
@@ -1254,12 +1254,21 @@ class VIEW3D_MT_view(Menu):
 
         layout.separator()
 
-        layout.operator("render.opengl", text="Viewport Render Image", icon='RENDER_STILL')
-        layout.operator("render.opengl", text="Viewport Render Animation", icon='RENDER_ANIMATION').animation = True
-        props = layout.operator("render.opengl",
-                                text="Viewport Render Keyframes",
-                                icon='RENDER_ANIMATION',
-                                )
+        layout.operator(
+            "render.opengl",
+            text="Viewport Render Image",
+            icon='RENDER_STILL',
+        )
+        layout.operator(
+            "render.opengl",
+            text="Viewport Render Animation",
+            icon='RENDER_ANIMATION',
+        ).animation = True
+        props = layout.operator(
+            "render.opengl",
+            text="Viewport Render Keyframes",
+            icon='RENDER_ANIMATION',
+        )
         props.animation = True
         props.render_keyed_only = True
 
@@ -6211,10 +6220,14 @@ class VIEW3D_PT_shading_compositor(Panel):
     def draw(self, context):
         shading = context.space_data.shading
 
-        row = self.layout.row()
         import sys
-        row.active = sys.platform != "darwin"
+        is_macos = sys.platform == "darwin"
+
+        row = self.layout.row()
+        row.active = not is_macos
         row.prop(shading, "use_compositor", expand=True)
+        if is_macos and shading.use_compositor != "DISABLED":
+            self.layout.label(text="Compositor not supported on MacOS.", icon='ERROR')
 
 
 class VIEW3D_PT_gizmo_display(Panel):
@@ -7172,6 +7185,9 @@ class VIEW3D_PT_overlay_gpencil_options(Panel):
                 else:
                     # Handles for Curve Edit
                     layout.prop(overlay, "display_handle", text="Handles")
+
+        if context.object.mode == 'SCULPT_GPENCIL':
+            layout.prop(overlay, "vertex_opacity", text="Vertex Opacity", slider=True)
 
         if context.object.mode in {'PAINT_GPENCIL', 'VERTEX_GPENCIL'}:
             layout.label(text="Vertex Paint")

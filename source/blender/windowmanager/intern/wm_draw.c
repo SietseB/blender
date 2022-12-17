@@ -64,6 +64,31 @@
 #endif
 
 /* -------------------------------------------------------------------- */
+/** \name Internal Utilities
+ * \{ */
+
+/**
+ * Return true when the cursor is grabbed and wrapped within a region.
+ */
+static bool wm_window_grab_warp_region_is_set(const wmWindow *win)
+{
+  if (ELEM(win->grabcursor, GHOST_kGrabWrap, GHOST_kGrabHide)) {
+    GHOST_TGrabCursorMode mode_dummy;
+    GHOST_TAxisFlag wrap_axis_dummy;
+    int bounds[4] = {0};
+    bool use_software_cursor_dummy = false;
+    GHOST_GetCursorGrabState(
+        win->ghostwin, &mode_dummy, &wrap_axis_dummy, bounds, &use_software_cursor_dummy);
+    if ((bounds[0] != bounds[2]) || (bounds[1] != bounds[3])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Draw Paint Cursor
  * \{ */
 
@@ -102,8 +127,14 @@ static void wm_paintcursor_draw(bContext *C, ScrArea *area, ARegion *region)
                   region->winrct.ymin,
                   BLI_rcti_size_x(&region->winrct) + 1,
                   BLI_rcti_size_y(&region->winrct) + 1);
-
-      if (ELEM(win->grabcursor, GHOST_kGrabWrap, GHOST_kGrabHide)) {
+      /* Reading the cursor location from the operating-system while the cursor is grabbed
+       * conflicts with grabbing logic that hides the cursor, then keeps it centered to accumulate
+       * deltas without it escaping from the window. In this case we never want to show the actual
+       * cursor coordinates so limit reading the cursor location to when the cursor is grabbed and
+       * wrapping in a region since this is the case when it would otherwise attempt to draw the
+       * cursor outside the view/window. See: T102792. */
+      if ((WM_capabilities_flag() & WM_CAPABILITY_CURSOR_WARP) &&
+          wm_window_grab_warp_region_is_set(win)) {
         int x = 0, y = 0;
         wm_cursor_position_get(win, &x, &y);
         pc->draw(C, x, y, pc->customdata);
@@ -922,6 +953,7 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
         }
       }
       else {
+        wm_draw_region_stereo_set(bmain, area, region, STEREO_LEFT_ID);
         wm_draw_region_buffer_create(region, false, use_viewport);
         wm_draw_region_bind(region, 0);
         ED_region_do_draw(C, region);

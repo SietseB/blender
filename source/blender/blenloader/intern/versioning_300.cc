@@ -653,6 +653,15 @@ static void seq_speed_factor_fix_rna_path(Sequence *seq, ListBase *fcurves)
   MEM_freeN(path);
 }
 
+static bool version_fix_seq_meta_range(Sequence *seq, void *user_data)
+{
+  Scene *scene = (Scene *)user_data;
+  if (seq->type == SEQ_TYPE_META) {
+    SEQ_time_update_meta_strip_range(scene, seq);
+  }
+  return true;
+}
+
 static bool seq_speed_factor_set(Sequence *seq, void *user_data)
 {
   const Scene *scene = static_cast<const Scene *>(user_data);
@@ -811,6 +820,99 @@ static void version_geometry_nodes_replace_transfer_attribute_node(bNodeTree *nt
     /* The storage must be freed manually because the node type isn't defined anymore. */
     MEM_freeN(node->storage);
     nodeRemoveNode(nullptr, ntree, node, false);
+  }
+}
+
+/**
+ * The mesh primitive nodes created a uv map with a hardcoded name. Now they are outputting the uv
+ * map as a socket instead. The versioning just inserts a Store Named Attribute node after
+ * primitive nodes.
+ */
+static void version_geometry_nodes_primitive_uv_maps(bNodeTree &ntree)
+{
+  blender::Vector<bNode *> new_nodes;
+  LISTBASE_FOREACH_MUTABLE (bNode *, node, &ntree.nodes) {
+    if (!ELEM(node->type,
+              GEO_NODE_MESH_PRIMITIVE_CONE,
+              GEO_NODE_MESH_PRIMITIVE_CUBE,
+              GEO_NODE_MESH_PRIMITIVE_CYLINDER,
+              GEO_NODE_MESH_PRIMITIVE_GRID,
+              GEO_NODE_MESH_PRIMITIVE_ICO_SPHERE,
+              GEO_NODE_MESH_PRIMITIVE_UV_SPHERE)) {
+      continue;
+    }
+    bNodeSocket *primitive_output_socket = nullptr;
+    bNodeSocket *uv_map_output_socket = nullptr;
+    LISTBASE_FOREACH (bNodeSocket *, socket, &node->outputs) {
+      if (STREQ(socket->name, "UV Map")) {
+        uv_map_output_socket = socket;
+      }
+      if (socket->type == SOCK_GEOMETRY) {
+        primitive_output_socket = socket;
+      }
+    }
+    if (uv_map_output_socket != nullptr) {
+      continue;
+    }
+    uv_map_output_socket = nodeAddStaticSocket(
+        &ntree, node, SOCK_OUT, SOCK_VECTOR, PROP_NONE, "UV Map", "UV Map");
+
+    bNode *store_attribute_node = nodeAddStaticNode(
+        nullptr, &ntree, GEO_NODE_STORE_NAMED_ATTRIBUTE);
+    new_nodes.append(store_attribute_node);
+    store_attribute_node->parent = node->parent;
+    store_attribute_node->locx = node->locx + 25;
+    store_attribute_node->locy = node->locy;
+    store_attribute_node->offsetx = node->offsetx;
+    store_attribute_node->offsety = node->offsety;
+    NodeGeometryStoreNamedAttribute &storage = *static_cast<NodeGeometryStoreNamedAttribute *>(
+        store_attribute_node->storage);
+    storage.domain = ATTR_DOMAIN_CORNER;
+    /* Intentionally use 3D instead of 2D vectors, because 2D vectors did not exist in older
+     * releases and would make the file crash when trying to open it. */
+    storage.data_type = CD_PROP_FLOAT3;
+
+    bNodeSocket *store_attribute_geometry_input = static_cast<bNodeSocket *>(
+        store_attribute_node->inputs.first);
+    bNodeSocket *store_attribute_name_input = store_attribute_geometry_input->next;
+    bNodeSocket *store_attribute_value_input = nullptr;
+    LISTBASE_FOREACH (bNodeSocket *, socket, &store_attribute_node->inputs) {
+      if (socket->type == SOCK_VECTOR) {
+        store_attribute_value_input = socket;
+        break;
+      }
+    }
+    bNodeSocket *store_attribute_geometry_output = static_cast<bNodeSocket *>(
+        store_attribute_node->outputs.first);
+    LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+      if (link->fromsock == primitive_output_socket) {
+        link->fromnode = store_attribute_node;
+        link->fromsock = store_attribute_geometry_output;
+      }
+    }
+
+    bNodeSocketValueString *name_value = static_cast<bNodeSocketValueString *>(
+        store_attribute_name_input->default_value);
+    const char *uv_map_name = node->type == GEO_NODE_MESH_PRIMITIVE_ICO_SPHERE ? "UVMap" :
+                                                                                 "uv_map";
+    BLI_strncpy(name_value->value, uv_map_name, sizeof(name_value->value));
+
+    nodeAddLink(&ntree,
+                node,
+                primitive_output_socket,
+                store_attribute_node,
+                store_attribute_geometry_input);
+    nodeAddLink(
+        &ntree, node, uv_map_output_socket, store_attribute_node, store_attribute_value_input);
+  }
+
+  /* Move nodes to the front so that they are drawn behind existing nodes. */
+  for (bNode *node : new_nodes) {
+    BLI_remlink(&ntree.nodes, node);
+    BLI_addhead(&ntree.nodes, node);
+  }
+  if (!new_nodes.is_empty()) {
+    nodeRebuildIDVector(&ntree);
   }
 }
 
@@ -1046,6 +1148,7 @@ void do_versions_after_linking_300(Main *bmain, ReportList * /*reports*/)
         continue;
       }
       SEQ_for_each_callback(&ed->seqbase, seq_speed_factor_set, scene);
+      SEQ_for_each_callback(&ed->seqbase, version_fix_seq_meta_range, scene);
     }
   }
 
@@ -1484,15 +1587,6 @@ static void version_node_tree_socket_id_delim(bNodeTree *ntree)
       version_node_socket_id_delim(socket);
     }
   }
-}
-
-static bool version_fix_seq_meta_range(Sequence *seq, void *user_data)
-{
-  Scene *scene = (Scene *)user_data;
-  if (seq->type == SEQ_TYPE_META) {
-    SEQ_time_update_meta_strip_range(scene, seq);
-  }
-  return true;
 }
 
 static bool version_merge_still_offsets(Sequence *seq, void * /*user_data*/)
@@ -2816,17 +2910,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
         }
       }
     }
-
-    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      Editing *ed = SEQ_editing_get(scene);
-      /* Make sure range of meta strips is correct.
-       * It was possible to save .blend file with incorrect state of meta strip
-       * range. The root cause is expected to be fixed, but need to ensure files
-       * with invalid meta strip range are corrected. */
-      if (ed != nullptr) {
-        SEQ_for_each_callback(&ed->seqbase, version_fix_seq_meta_range, scene);
-      }
-    }
   }
 
   /* Special case to handle older in-development 3.1 files, before change from 3.0 branch gets
@@ -3114,10 +3197,10 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
 
         if (actlayer) {
           if (step) {
-            BKE_id_attributes_render_color_set(&me->id, actlayer);
+            BKE_id_attributes_default_color_set(&me->id, actlayer->name);
           }
           else {
-            BKE_id_attributes_active_color_set(&me->id, actlayer);
+            BKE_id_attributes_active_color_set(&me->id, actlayer->name);
           }
         }
       }
@@ -3279,10 +3362,10 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
 
         if (actlayer) {
           if (step) {
-            BKE_id_attributes_render_color_set(&me->id, actlayer);
+            BKE_id_attributes_default_color_set(&me->id, actlayer->name);
           }
           else {
-            BKE_id_attributes_active_color_set(&me->id, actlayer);
+            BKE_id_attributes_active_color_set(&me->id, actlayer->name);
           }
         }
       }
@@ -3706,8 +3789,8 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
     LISTBASE_FOREACH (MovieClip *, clip, &bmain->movieclips) {
       MovieTracking *tracking = &clip->tracking;
 
-      const float frame_center_x = ((float)clip->lastsize[0]) / 2;
-      const float frame_center_y = ((float)clip->lastsize[1]) / 2;
+      const float frame_center_x = (float(clip->lastsize[0])) / 2;
+      const float frame_center_y = float(clip->lastsize[1]) / 2;
 
       tracking->camera.principal_point[0] = (tracking->camera.principal_legacy[0] -
                                              frame_center_x) /
@@ -3715,6 +3798,27 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       tracking->camera.principal_point[1] = (tracking->camera.principal_legacy[1] -
                                              frame_center_y) /
                                             frame_center_y;
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 305, 4)) {
+    LISTBASE_FOREACH (bNodeTree *, ntree, &bmain->nodetrees) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_node_socket_name(ntree, GEO_NODE_COLLECTION_INFO, "Geometry", "Instances");
+      }
+    }
+
+    /* UVSeam fixing distance. */
+    if (!DNA_struct_elem_find(fd->filesdna, "Image", "short", "seam_margin")) {
+      LISTBASE_FOREACH (Image *, image, &bmain->images) {
+        image->seam_margin = 8;
+      }
+    }
+
+    LISTBASE_FOREACH (bNodeTree *, ntree, &bmain->nodetrees) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_geometry_nodes_primitive_uv_maps(*ntree);
+      }
     }
   }
 

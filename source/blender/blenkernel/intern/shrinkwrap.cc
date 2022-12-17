@@ -134,7 +134,7 @@ bool BKE_shrinkwrap_init_tree(
   }
 
   if (force_normals || BKE_shrinkwrap_needs_normals(shrinkType, shrinkMode)) {
-    data->pnors = BKE_mesh_poly_normals_ensure(mesh);
+    data->poly_normals = BKE_mesh_poly_normals_ensure(mesh);
     if ((mesh->flag & ME_AUTOSMOOTH) != 0) {
       data->clnors = static_cast<const float(*)[3]>(CustomData_get_layer(&mesh->ldata, CD_NORMAL));
     }
@@ -239,7 +239,7 @@ static ShrinkwrapBoundaryData *shrinkwrap_build_boundary_data(Mesh *mesh)
 
   for (int i = 0; i < totlooptri; i++) {
     int edges[3];
-    BKE_mesh_looptri_get_real_edges(mesh, &mlooptri[i], edges);
+    BKE_mesh_looptri_get_real_edges(medge, mloop, &mlooptri[i], edges);
 
     for (int j = 0; j < 3; j++) {
       if (edges[j] >= 0 && edge_mode[edges[j]]) {
@@ -1049,7 +1049,7 @@ static void mesh_looptri_target_project(void *userdata,
     const BLI_bitmap *is_boundary = tree->boundary->edge_is_boundary;
     int edges[3];
 
-    BKE_mesh_looptri_get_real_edges(tree->mesh, lt, edges);
+    BKE_mesh_looptri_get_real_edges(data->edge, data->loop, lt, edges);
 
     for (int i = 0; i < 3; i++) {
       if (edges[i] >= 0 && BLI_BITMAP_TEST(is_boundary, edges[i])) {
@@ -1218,8 +1218,8 @@ void BKE_shrinkwrap_compute_smooth_normal(const ShrinkwrapTreeData *tree,
     }
   }
   /* Use the polygon normal if flat. */
-  else if (tree->pnors != nullptr) {
-    copy_v3_v3(r_no, tree->pnors[tri->poly]);
+  else if (tree->poly_normals != nullptr) {
+    copy_v3_v3(r_no, tree->poly_normals[tri->poly]);
   }
   /* Finally fallback to the looptri normal. */
   else {

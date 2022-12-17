@@ -72,6 +72,11 @@ void BKE_mesh_tag_coords_changed_uniformly(struct Mesh *mesh);
 
 void BKE_mesh_tag_topology_changed(struct Mesh *mesh);
 
+/**
+ * Call when new edges and vertices have been created but positions and faces haven't changed.
+ */
+void BKE_mesh_tag_edges_split(struct Mesh *mesh);
+
 /* *** mesh.c *** */
 
 struct BMesh *BKE_mesh_to_bmesh_ex(const struct Mesh *me,
@@ -127,7 +132,8 @@ int BKE_mesh_edge_other_vert(const struct MEdge *e, int v);
 /**
  * Sets each output array element to the edge index if it is a real edge, or -1.
  */
-void BKE_mesh_looptri_get_real_edges(const struct Mesh *mesh,
+void BKE_mesh_looptri_get_real_edges(const struct MEdge *edges,
+                                     const struct MLoop *loops,
                                      const struct MLoopTri *looptri,
                                      int r_edges[3]);
 
@@ -249,14 +255,6 @@ void BKE_mesh_texspace_get_reference(struct Mesh *me,
 void BKE_mesh_texspace_copy_from_object(struct Mesh *me, struct Object *ob);
 
 /**
- * Split faces based on the edge angle and loop normals.
- * Matches behavior of face splitting in render engines.
- *
- * \note Will leave #CD_NORMAL loop data layer which is used by render engines to set shading up.
- */
-void BKE_mesh_split_faces(struct Mesh *mesh, bool free_loop_normals);
-
-/**
  * Create new mesh from the given object at its current state.
  * The owner of this mesh is unknown, it is up to the caller to decide.
  *
@@ -280,18 +278,6 @@ struct Mesh *BKE_mesh_new_from_object_to_bmain(struct Main *bmain,
                                                struct Depsgraph *depsgraph,
                                                struct Object *object,
                                                bool preserve_all_data_layers);
-
-/**
- * \param use_virtual_modifiers: When enabled calculate virtual-modifiers before applying `md_eval`
- * support this since virtual-modifiers are not modifiers from a user perspective,
- * allowing shape keys to be included with the modifier being applied, see: T91923.
- */
-struct Mesh *BKE_mesh_create_derived_for_modifier(struct Depsgraph *depsgraph,
-                                                  struct Scene *scene,
-                                                  struct Object *ob_eval,
-                                                  struct ModifierData *md_eval,
-                                                  bool use_virtual_modifiers,
-                                                  bool build_shapekey_layers);
 
 /**
  * Move data from a mesh outside of the main data-base into a mesh in the data-base.
@@ -490,14 +476,12 @@ void BKE_mesh_ensure_normals_for_display(struct Mesh *mesh);
  * Used when defining an empty custom loop normals data layer,
  * to keep same shading as with auto-smooth!
  */
-void BKE_edges_sharp_from_angle_set(const struct MVert *mverts,
-                                    int numVerts,
-                                    struct MEdge *medges,
+void BKE_edges_sharp_from_angle_set(struct MEdge *medges,
                                     int numEdges,
                                     const struct MLoop *mloops,
                                     int numLoops,
                                     const struct MPoly *mpolys,
-                                    const float (*polynors)[3],
+                                    const float (*poly_normals)[3],
                                     int numPolys,
                                     float split_angle);
 
@@ -619,10 +603,10 @@ void BKE_mesh_normals_loop_split(const struct MVert *mverts,
                                  const struct MEdge *medges,
                                  int numEdges,
                                  const struct MLoop *mloops,
-                                 float (*r_loopnors)[3],
+                                 float (*r_loop_normals)[3],
                                  int numLoops,
                                  const struct MPoly *mpolys,
-                                 const float (*polynors)[3],
+                                 const float (*poly_normals)[3],
                                  int numPolys,
                                  bool use_split_normals,
                                  float split_angle,
@@ -636,22 +620,22 @@ void BKE_mesh_normals_loop_custom_set(const struct MVert *mverts,
                                       struct MEdge *medges,
                                       int numEdges,
                                       const struct MLoop *mloops,
-                                      float (*r_custom_loopnors)[3],
+                                      float (*r_custom_loop_normals)[3],
                                       int numLoops,
                                       const struct MPoly *mpolys,
-                                      const float (*polynors)[3],
+                                      const float (*poly_normals)[3],
                                       int numPolys,
                                       short (*r_clnors_data)[2]);
 void BKE_mesh_normals_loop_custom_from_verts_set(const struct MVert *mverts,
                                                  const float (*vert_normals)[3],
-                                                 float (*r_custom_vertnors)[3],
+                                                 float (*r_custom_vert_normals)[3],
                                                  int numVerts,
                                                  struct MEdge *medges,
                                                  int numEdges,
                                                  const struct MLoop *mloops,
                                                  int numLoops,
                                                  const struct MPoly *mpolys,
-                                                 const float (*polynors)[3],
+                                                 const float (*poly_normals)[3],
                                                  int numPolys,
                                                  short (*r_clnors_data)[2]);
 
@@ -688,18 +672,18 @@ void BKE_mesh_calc_normals_split_ex(struct Mesh *mesh,
  * Higher level functions hiding most of the code needed around call to
  * #BKE_mesh_normals_loop_custom_set().
  *
- * \param r_custom_loopnors: is not const, since code will replace zero_v3 normals there
+ * \param r_custom_loop_normals: is not const, since code will replace zero_v3 normals there
  * with automatically computed vectors.
  */
-void BKE_mesh_set_custom_normals(struct Mesh *mesh, float (*r_custom_loopnors)[3]);
+void BKE_mesh_set_custom_normals(struct Mesh *mesh, float (*r_custom_loop_normals)[3]);
 /**
  * Higher level functions hiding most of the code needed around call to
  * #BKE_mesh_normals_loop_custom_from_verts_set().
  *
- * \param r_custom_vertnors: is not const, since code will replace zero_v3 normals there
+ * \param r_custom_vert_normals: is not const, since code will replace zero_v3 normals there
  * with automatically computed vectors.
  */
-void BKE_mesh_set_custom_normals_from_verts(struct Mesh *mesh, float (*r_custom_vertnors)[3]);
+void BKE_mesh_set_custom_normals_from_verts(struct Mesh *mesh, float (*r_custom_vert_normals)[3]);
 
 /* *** mesh_evaluate.cc *** */
 
@@ -1114,6 +1098,18 @@ inline blender::Span<MDeformVert> Mesh::deform_verts() const
 inline blender::MutableSpan<MDeformVert> Mesh::deform_verts_for_write()
 {
   return {BKE_mesh_deform_verts_for_write(this), this->totvert};
+}
+
+inline blender::Span<blender::float3> Mesh::poly_normals() const
+{
+  return {reinterpret_cast<const blender::float3 *>(BKE_mesh_poly_normals_ensure(this)),
+          this->totpoly};
+}
+
+inline blender::Span<blender::float3> Mesh::vertex_normals() const
+{
+  return {reinterpret_cast<const blender::float3 *>(BKE_mesh_vertex_normals_ensure(this)),
+          this->totvert};
 }
 
 #endif

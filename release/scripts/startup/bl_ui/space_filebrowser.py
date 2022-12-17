@@ -41,14 +41,14 @@ class FILEBROWSER_HT_header(Header):
         layout.popover(
             panel="ASSETBROWSER_PT_filter",
             text="",
-            icon='FILTER'
+            icon='FILTER',
         )
 
         layout.operator(
             "screen.region_toggle",
             text="",
             icon='PREFERENCES',
-            depress=is_option_region_visible(context, space_data)
+            depress=is_option_region_visible(context, space_data),
         ).region_type = 'TOOL_PROPS'
 
     def draw(self, context):
@@ -464,7 +464,7 @@ class FILEBROWSER_PT_directory_path(Panel):
                 "screen.region_toggle",
                 text="",
                 icon='PREFERENCES',
-                depress=is_option_region_visible(context, space)
+                depress=is_option_region_visible(context, space),
             ).region_type = 'TOOL_PROPS'
 
 
@@ -862,8 +862,7 @@ def asset_path_str_get(_self):
     if asset_file_handle.local_id:
         return "Current File"
 
-    asset_library_ref = bpy.context.asset_library_ref
-    return bpy.types.AssetHandle.get_full_library_path(asset_file_handle, asset_library_ref)
+    return bpy.types.AssetHandle.get_full_library_path(asset_file_handle)
 
 
 def register_props():
