@@ -794,7 +794,6 @@ void BKE_palette_clear(Palette *palette)
   }
 
   BLI_freelistN(&palette->colors);
-  BLI_freelistN(&palette->last_used_colors);
   palette->active_color = 0;
 }
 
