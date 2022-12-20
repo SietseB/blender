@@ -443,6 +443,8 @@ typedef struct Palette {
 
   int active_color;
   int shader_count;
+  int darker_shades;
+  int lighter_shades;
 } Palette;
 
 typedef struct PaintCurvePoint {

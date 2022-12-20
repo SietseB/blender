@@ -494,6 +494,10 @@ static void rna_def_palette(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "shader_count", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "shader_count");
+  prop = RNA_def_property(srna, "darker_shades", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "darker_shades");
+  prop = RNA_def_property(srna, "lighter_shades", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "lighter_shades");
 }
 
 void RNA_def_palette(BlenderRNA *brna)
