@@ -3820,6 +3820,15 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
         version_geometry_nodes_primitive_uv_maps(*ntree);
       }
     }
+
+    /* Grease Pencil: Set default value for showing the radius of the draw brush. */
+    if (!DNA_struct_elem_find(fd->filesdna, "BrushGpencilSettings", "bool", "show_brush_size")) {
+      LISTBASE_FOREACH (Brush *, brush, &bmain->brushes) {
+        if (brush->gpencil_settings) {
+          brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
+        }
+      }
+    }
   }
 
   /**
