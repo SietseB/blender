@@ -2010,7 +2010,7 @@ bNode *nodeFindNodebyName(bNodeTree *ntree, const char *name)
 void nodeFindNode(bNodeTree *ntree, bNodeSocket *sock, bNode **r_node, int *r_sockindex)
 {
   *r_node = nullptr;
-  if (!ntree->runtime->topology_cache_is_dirty) {
+  if (ntree->runtime->topology_cache_mutex.is_cached()) {
     bNode *node = &sock->owner_node();
     *r_node = node;
     if (r_sockindex) {
@@ -2326,6 +2326,10 @@ bNode *node_copy_with_mapping(bNodeTree *dst_tree,
     node_src.typeinfo->copyfunc(dst_tree, node_dst, &node_src);
   }
 
+  if (dst_tree) {
+    BKE_ntree_update_tag_node_new(dst_tree, node_dst);
+  }
+
   /* Only call copy function when a copy is made for the main database, not
    * for cases like the dependency graph and localization. */
   if (node_dst->typeinfo->copyfunc_api && !(flag & LIB_ID_CREATE_NO_MAIN)) {
@@ -2333,10 +2337,6 @@ bNode *node_copy_with_mapping(bNodeTree *dst_tree,
     RNA_pointer_create((ID *)dst_tree, &RNA_Node, node_dst, &ptr);
 
     node_dst->typeinfo->copyfunc_api(&ptr, &node_src);
-  }
-
-  if (dst_tree) {
-    BKE_ntree_update_tag_node_new(dst_tree, node_dst);
   }
 
   /* Reset the declaration of the new node. */
@@ -2369,6 +2369,8 @@ bNodeLink *nodeAddLink(
 {
   BLI_assert(fromnode);
   BLI_assert(tonode);
+  BLI_assert(ntree->all_nodes().contains(fromnode));
+  BLI_assert(ntree->all_nodes().contains(tonode));
 
   bNodeLink *link = nullptr;
   if (fromsock->in_out == SOCK_OUT && tosock->in_out == SOCK_IN) {
@@ -3388,16 +3390,16 @@ bNodeSocket *ntreeInsertSocketInterface(bNodeTree *ntree,
 }
 
 bNodeSocket *ntreeAddSocketInterfaceFromSocket(bNodeTree *ntree,
-                                               bNode *from_node,
-                                               bNodeSocket *from_sock)
+                                               const bNode *from_node,
+                                               const bNodeSocket *from_sock)
 {
   return ntreeAddSocketInterfaceFromSocketWithName(
       ntree, from_node, from_sock, from_sock->idname, from_sock->name);
 }
 
 bNodeSocket *ntreeAddSocketInterfaceFromSocketWithName(bNodeTree *ntree,
-                                                       bNode *from_node,
-                                                       bNodeSocket *from_sock,
+                                                       const bNode *from_node,
+                                                       const bNodeSocket *from_sock,
                                                        const char *idname,
                                                        const char *name)
 {
@@ -3413,8 +3415,8 @@ bNodeSocket *ntreeAddSocketInterfaceFromSocketWithName(bNodeTree *ntree,
 
 bNodeSocket *ntreeInsertSocketInterfaceFromSocket(bNodeTree *ntree,
                                                   bNodeSocket *next_sock,
-                                                  bNode *from_node,
-                                                  bNodeSocket *from_sock)
+                                                  const bNode *from_node,
+                                                  const bNodeSocket *from_sock)
 {
   bNodeSocket *iosock = ntreeInsertSocketInterface(
       ntree,
