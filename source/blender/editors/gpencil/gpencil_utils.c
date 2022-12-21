@@ -1750,6 +1750,7 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
   float color[3] = {1.0f, 1.0f, 1.0f};
   float darkcolor[3];
   float radius = 3.0f;
+  bool fixed_radius = true;
 
   const int mval_i[2] = {x, y};
   /* Check if cursor is in drawing region and has valid data-block. */
@@ -1763,7 +1764,7 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
     if ((brush == NULL) || (brush->gpencil_settings == NULL)) {
       return;
     }
-
+    
     /* while drawing hide */
     if ((gpd->runtime.sbuffer_used > 0) &&
         ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
@@ -1787,16 +1788,51 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
     if (ma) {
       gp_style = ma->gp_style;
 
-      /* after some testing, display the size of the brush is not practical because
-       * is too disruptive and the size of cursor does not change with zoom factor.
-       * The decision was to use a fix size, instead of brush->thickness value.
-       */
+      /* Follow user settings for the size of the draw cursor:
+      * 1. Fixed size
+      * 2. Brush size (i.e. stroke thickness)
+      */
       if ((gp_style) && GPENCIL_PAINT_MODE(gpd) &&
           ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
           ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
           (brush->gpencil_tool == GPAINT_TOOL_DRAW)) {
-        radius = 2.0f;
-        copy_v3_v3(color, gp_style->stroke_rgba);
+
+        /* Check user setting for fixed radius. */
+        fixed_radius = ((brush->gpencil_settings->flag & GP_BRUSH_SHOW_DRAW_SIZE) == 0);
+
+        /* Show brush size. */
+        if (!fixed_radius) {
+          tGPspoint point2D;
+          float p1[3];
+          float p2[3];
+          float dist;
+
+          /* To calculate the brush size, convert two screen coordinates with 64 pixels
+          * between them to 3d coordinates and measure the distance in 3d. */
+          point2D.m_xy[0] = (float)x;
+          point2D.m_xy[1] = (float)y;
+          gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p1);
+          point2D.m_xy[0] = (float)(x + 64);
+          gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p2);
+          dist = len_v3v3(p1, p2);
+
+          /* Rare case, but avoid division by zero. */
+          if (dist == 0) {
+            /* Fall back to fixed radius. */
+            fixed_radius = true;
+          }
+          else {
+            /* Convert the distance to brush radius. */
+            radius = (1 / dist) * 2.0f * gpd->pixfactor * ((float)brush->size / 64);
+            copy_v3_v3(color, brush->rgb);
+          }
+        }
+
+        /* Show fixed radius. */
+        if (fixed_radius) {
+          radius = 2.0f;
+          copy_v3_v3(color, gp_style->stroke_rgba);
+        }
       }
       else {
         /* Only Tint tool must show big cursor. */
@@ -1876,7 +1912,7 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
 
   /* Inner Ring: Color from UI panel */
   immUniformColor4f(color[0], color[1], color[2], 0.8f);
-  if ((gp_style) && GPENCIL_PAINT_MODE(gpd) &&
+  if ((gp_style) && GPENCIL_PAINT_MODE(gpd) && (fixed_radius) &&
       ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
       ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
       (brush->gpencil_tool == GPAINT_TOOL_DRAW)) {
