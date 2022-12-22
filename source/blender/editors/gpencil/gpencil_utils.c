@@ -1764,7 +1764,7 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
     if ((brush == NULL) || (brush->gpencil_settings == NULL)) {
       return;
     }
-    
+
     /* while drawing hide */
     if ((gpd->runtime.sbuffer_used > 0) &&
         ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
@@ -1789,49 +1789,52 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
       gp_style = ma->gp_style;
 
       /* Follow user settings for the size of the draw cursor:
-      * 1. Fixed size
-      * 2. Brush size (i.e. stroke thickness)
-      */
+       * - Fixed size, or
+       * - Brush size (i.e. stroke thickness)
+       */
       if ((gp_style) && GPENCIL_PAINT_MODE(gpd) &&
           ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
           ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
           (brush->gpencil_tool == GPAINT_TOOL_DRAW)) {
 
-        /* Check user setting for fixed radius. */
+        /* Check user setting for cursor size. */
         fixed_radius = ((brush->gpencil_settings->flag & GP_BRUSH_SHOW_DRAW_SIZE) == 0);
 
-        /* Show brush size. */
-        if (!fixed_radius) {
+        if (fixed_radius) {
+          /* Show fixed radius. */
+          radius = 2.0f;
+          copy_v3_v3(color, gp_style->stroke_rgba);
+        }
+        else {
+          /* Show brush size. */
           tGPspoint point2D;
           float p1[3];
           float p2[3];
-          float dist;
+          float distance;
 
-          /* To calculate the brush size, convert two screen coordinates with 64 pixels
-          * between them to 3d coordinates and measure the distance in 3d. */
-          point2D.m_xy[0] = (float)x;
-          point2D.m_xy[1] = (float)y;
-          gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p1);
-          point2D.m_xy[0] = (float)(x + 64);
-          gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p2);
-          dist = len_v3v3(p1, p2);
-
-          /* Rare case, but avoid division by zero. */
-          if (dist == 0) {
-            /* Fall back to fixed radius. */
-            fixed_radius = true;
+          /* Strokes in screen space or world space? */
+          if ((gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS) != 0) {
+            /* In screen space the cursor radius matches the brush size. */
+            radius = (float)brush->size * 0.5f;
           }
           else {
-            /* Convert the distance to brush radius. */
-            radius = (1 / dist) * 2.0f * gpd->pixfactor * ((float)brush->size / 64);
-            copy_v3_v3(color, brush->rgb);
-          }
-        }
+            /* To calculate the brush size in World Space, we have to establish the zoom level.
+             * For this we take two 2D screen coordinates with a fixed offset,
+             * convert them to 3D coordinates and measure the offset distance in 3D.
+             * A small distance means a high zoom level. */
+            point2D.m_xy[0] = (float)x;
+            point2D.m_xy[1] = (float)y;
+            gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p1);
+            point2D.m_xy[0] = (float)(x + 64);
+            gpencil_stroke_convertcoords_tpoint(scene, region, ob, &point2D, NULL, p2);
+            /* Clip extreme zoom level (and avoid division by zero). */
+            distance = MAX2(len_v3v3(p1, p2), 0.001f);
 
-        /* Show fixed radius. */
-        if (fixed_radius) {
-          radius = 2.0f;
-          copy_v3_v3(color, gp_style->stroke_rgba);
+            /* Convert the 3D offset distance to a brush radius. */
+            radius = (1 / distance) * 2.0f * gpd->pixfactor * ((float)brush->size / 64);
+          }
+
+          copy_v3_v3(color, brush->rgb);
         }
       }
       else {
