@@ -1830,8 +1830,15 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
             /* Clip extreme zoom level (and avoid division by zero). */
             distance = MAX2(len_v3v3(p1, p2), 0.001f);
 
+            /* Handle layer thickness change. */
+            float brush_size = (float)brush->size;
+            bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
+            if (gpl != NULL) {
+              brush_size = MAX2(1.0f, brush_size + gpl->line_change);
+            }
+
             /* Convert the 3D offset distance to a brush radius. */
-            radius = (1 / distance) * 2.0f * gpd->pixfactor * ((float)brush->size / 64);
+            radius = (1 / distance) * 2.0f * gpd->pixfactor * (brush_size / 64);
           }
 
           copy_v3_v3(color, brush->rgb);
