@@ -1803,7 +1803,6 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
         if (fixed_radius) {
           /* Show fixed radius. */
           radius = 2.0f;
-          copy_v3_v3(color, gp_style->stroke_rgba);
         }
         else {
           /* Show brush size. */
@@ -1840,8 +1839,20 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
             /* Convert the 3D offset distance to a brush radius. */
             radius = (1 / distance) * 2.0f * gpd->pixfactor * (brush_size / 64);
           }
+        }
 
+        /* Get cursor color based on color mode (material or vertex). */
+        ToolSettings *ts = scene->toolsettings;
+        if ((GPENCIL_USE_VERTEX_COLOR_STROKE(ts, brush) &&
+             (brush->gpencil_settings->brush_draw_mode != GP_BRUSH_MODE_MATERIAL)) ||
+            (!GPENCIL_USE_VERTEX_COLOR_STROKE(ts, brush) &&
+             (brush->gpencil_settings->brush_draw_mode == GP_BRUSH_MODE_VERTEXCOLOR))) {
+          /* Use vertex color. */
           copy_v3_v3(color, brush->rgb);
+        }
+        else {
+          /* Use material color. */
+          copy_v3_v3(color, gp_style->stroke_rgba);
         }
       }
       else {
