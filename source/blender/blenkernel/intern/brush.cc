@@ -533,7 +533,6 @@ void BKE_brush_init_gpencil_settings(Brush *brush)
   brush->gpencil_settings->draw_smoothlvl = 1;
   brush->gpencil_settings->flag = 0;
   brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-  brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
   brush->gpencil_settings->draw_strength = 1.0f;
   brush->gpencil_settings->draw_jitter = 0.0f;
   brush->gpencil_settings->flag |= GP_BRUSH_USE_JITTER_PRESSURE;
@@ -729,7 +728,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_AIRBRUSH: {
       brush->size = 300.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 0.4f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
@@ -754,7 +752,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
 
       brush->size = 60.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 1.0f;
 
@@ -790,7 +787,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_INK_PEN_ROUGH: {
       brush->size = 60.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 1.0f;
 
@@ -828,7 +824,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_MARKER_BOLD: {
       brush->size = 150.0f;
       brush->gpencil_settings->flag &= ~GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 0.3f;
 
@@ -866,7 +861,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_MARKER_CHISEL: {
       brush->size = 150.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 1.0f;
 
@@ -908,7 +902,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_PEN: {
       brush->size = 25.0f;
       brush->gpencil_settings->flag &= ~GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 1.0f;
       brush->gpencil_settings->flag &= ~GP_BRUSH_USE_STRENGTH_PRESSURE;
@@ -940,7 +933,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_PENCIL_SOFT: {
       brush->size = 80.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 0.4f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
@@ -975,7 +967,6 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     case GP_BRUSH_PRESET_PENCIL: {
       brush->size = 20.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-      brush->gpencil_settings->flag |= GP_BRUSH_SHOW_DRAW_SIZE;
 
       brush->gpencil_settings->draw_strength = 0.6f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;

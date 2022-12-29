@@ -1801,7 +1801,6 @@ static void gpencil_brush_cursor_draw(bContext *C, int x, int y, void *customdat
   float color[3] = {1.0f, 1.0f, 1.0f};
   float darkcolor[3];
   float radius = 3.0f;
-  bool fixed_radius = true;
 
   const int mval_i[2] = {x, y};
   /* Check if cursor is in drawing region and has valid data-block. */
