@@ -69,11 +69,8 @@ class GreasePencilDisplayPanel:
         ob = context.active_object
         brush = context.tool_settings.gpencil_paint.brush
         if ob and ob.type == 'GPENCIL' and brush:
-            if context.mode == 'PAINT_GPENCIL':
-                return brush.gpencil_tool != 'ERASE'
-            else:
-                # GP Sculpt, Vertex and Weight Paint always have Brush Tip panel.
-                return True
+            return True
+
         return False
 
     def draw_header(self, context):
@@ -258,7 +255,7 @@ class GPENCIL_MT_layer_active(Menu):
 
         gpd = context.gpencil_data
         if gpd:
-            layout.operator("gpencil.layer_add", text="New Layer", icon='ADD')
+            layout.operator("gpencil.layer_add", text="New Layer", icon='ADD').layer = -1
 
             layout.separator()
 
