@@ -801,7 +801,7 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 col.prop(gpl, "stroke_wetness", slider=True)
                 col = layout.column()
                 col.separator(factor=-0.9)
-                col.enabled = gpl.stroke_dryness == 0 and no_texture_image
+                col.enabled = no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
