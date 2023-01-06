@@ -1736,6 +1736,7 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
          *       we reuse active frame or add a new frame if one
          *       doesn't exist already depending on REC button status.
          */
+        int new_seed = -1;
 
         for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
           if (gpf->flag & GP_FRAME_SELECT) {
@@ -1747,6 +1748,16 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
 
               /* Calc geometry data. */
               BKE_gpencil_stroke_geometry_update(gpd, new_stroke);
+
+              /* Ondine: ensure unique seed */
+              if (new_seed != -1) {
+                new_stroke->seed = new_seed;
+              }
+              gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
+              if (((new_seed != -1) && (new_stroke->seed != new_seed)) ||
+                  ((new_seed == -1) && (new_stroke->seed != gps->seed))) {
+                new_seed = new_stroke->seed;
+              }
 
               if (on_back) {
                 BLI_addhead(&gpf->strokes, new_stroke);
@@ -1781,6 +1792,9 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
           new_stroke->next = new_stroke->prev = NULL;
 
           /* Ondine: ensure unique seed */
+          if (new_seed != -1) {
+            new_stroke->seed = new_seed;
+          }
           gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
 
           /* Calc geometry data. */
