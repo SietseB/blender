@@ -713,6 +713,13 @@ bNode *node_copy_with_mapping(bNodeTree *dst_tree,
 
 bNode *node_copy(bNodeTree *dst_tree, const bNode &src_node, int flag, bool use_unique);
 
+/**
+ * Free the node itself.
+ *
+ * \note ID user reference-counting and changing the `nodes_by_id` vector are up to the caller.
+ */
+void node_free_node(bNodeTree *tree, bNode *node);
+
 }  // namespace blender::bke
 
 #endif
@@ -864,20 +871,6 @@ bool nodeDeclarationEnsureOnOutdatedNode(struct bNodeTree *ntree, struct bNode *
  * and sockets are up to date already.
  */
 void nodeSocketDeclarationsUpdate(struct bNode *node);
-
-/**
- * Node Clipboard.
- */
-void BKE_node_clipboard_clear(void);
-void BKE_node_clipboard_free(void);
-/**
- * Return false when one or more ID's are lost.
- */
-bool BKE_node_clipboard_validate(void);
-void BKE_node_clipboard_add_node(struct bNode *node);
-void BKE_node_clipboard_add_link(struct bNodeLink *link);
-const struct ListBase *BKE_node_clipboard_get_nodes(void);
-const struct ListBase *BKE_node_clipboard_get_links(void);
 
 /**
  * Node Instance Hash.
