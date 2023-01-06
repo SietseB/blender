@@ -1474,8 +1474,8 @@ static void gpencil_stroke_ensure_unique_seed(bGPDframe *gpf, bGPDstroke *gps_ne
   bool check_needed = true;
 
   /* Rather primitive approach: we loop through all existing strokes in the frame
-  * and check for duplicate seeds.
-  */
+   * and check for duplicate seeds.
+   */
   while (check_needed) {
     check_needed = false;
     for (gps = gpf->strokes.first; gps; gps = gps->next) {
@@ -1741,7 +1741,7 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
           if (gpf->flag & GP_FRAME_SELECT) {
             if (gpf) {
               /* Create new stroke */
-              bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true);
+              bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true, true);
               new_stroke->runtime.tmp_layerinfo[0] = '\0';
               new_stroke->next = new_stroke->prev = NULL;
 
