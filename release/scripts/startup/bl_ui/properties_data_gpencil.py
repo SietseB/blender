@@ -178,9 +178,9 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
                 layout.separator()
                 col = layout.column()
-                col.prop(gpl, "mix_with_previous")
-                col.prop(gpl, "limit_to_background")
-                col.prop(gpl, "clear_beneath")
+                col.prop(gpl, "mix_with_underlying")
+                col.prop(gpl, "limit_to_underlying")
+                col.prop(gpl, "clear_underlying")
                 col = layout.column()
                 col.separator(factor=-0.9)
                 col.enabled = no_texture_image

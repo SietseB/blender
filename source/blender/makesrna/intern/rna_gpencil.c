@@ -2382,34 +2382,34 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Is Parented", "True when the layer parent object is set");
 
   /* Ondine watercolor additions */
-  /* mix with previous */
-  prop = RNA_def_property(srna, "mix_with_previous", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_MIX_WITH_PREV);
+  /* mix with underlying */
+  prop = RNA_def_property(srna, "mix_with_underlying", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_MIX_WITH_UNDERLYING);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop,
-      "Mix with Previous",
-      "Mix this layer with the previous layer (pigment diffusion in wet areas)");
+      "Mix with Underlying",
+      "Mix this layer with the underlying layers (pigment diffusion in wet areas)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* limit to background */
-  prop = RNA_def_property(srna, "limit_to_background", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_LIMIT_TO_BG);
+  /* limit to underlying */
+  prop = RNA_def_property(srna, "limit_to_underlying", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_LIMIT_TO_UNDERLYING);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop,
-      "Limit to Background",
-      "When true, strokes on this layer are masked by strokes in the background");
+      "Limit to Underlying",
+      "When true, strokes on this layer are masked by strokes in the underlying layers");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* clear beneath */
-  prop = RNA_def_property(srna, "clear_beneath", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_CLEAR_BENEATH);
+  /* clear underlying */
+  prop = RNA_def_property(srna, "clear_underlying", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_CLEAR_UNDERLYING);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop,
-      "Clear Beneath",
-      "When drawing this layer, clear everything beneath in the grease pencil object");
+      "Clear Underlying",
+      "When drawing this layer, clear everything beneath in the underlying layers");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* is wetted */
@@ -3150,18 +3150,6 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       "Strength of low frequency watercolor noise applied to strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* stroke overlap darkening */
-  prop = RNA_def_property(srna, "stroke_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, NULL, "stroke_overlap_darkening");
-  RNA_def_property_range(prop, 0, 0.2f);
-  RNA_def_property_float_default(prop, 0.02f);
-  RNA_def_property_ui_range(prop, 0.0f, 0.2f, 0.005f, 2);
-  RNA_def_property_ui_text(prop,
-                           "Stroke Overlap Darkening",
-                           "When strokes overlap on the same layer, this factor controls how much "
-                           "the overlapping areas will darken");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   /* layer overlap darkening */
   prop = RNA_def_property(srna, "layer_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "layer_overlap_darkening");
@@ -3172,6 +3160,18 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop,
       "Layer Overlap Darkening",
       "When layers overlap, this factor controls how much the overlapping areas will darken");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* stroke overlap darkening */
+  prop = RNA_def_property(srna, "stroke_overlap_darkening", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "stroke_overlap_darkening");
+  RNA_def_property_range(prop, 0, 0.2f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 0.2f, 0.005f, 2);
+  RNA_def_property_ui_text(prop,
+                           "Stroke Overlap Darkening",
+                           "When strokes overlap on the same layer, this factor controls how much "
+                           "the overlapping areas will darken");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* dry stroke edge jitter */

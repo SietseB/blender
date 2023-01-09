@@ -781,8 +781,8 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->stroke_alpha_var = 0.05f;
   gpd->watercolor_noise_strength_high = 1.0f;
   gpd->watercolor_noise_strength_low = 1.0f;
-  gpd->stroke_overlap_darkening = 0.02f;
   gpd->layer_overlap_darkening = 0.1f;
+  gpd->stroke_overlap_darkening = 0.0f;
   gpd->pparticle_speed_min = 0.7f;
   gpd->pparticle_speed_max = 1.4f;
   gpd->pparticle_len_min = 45;

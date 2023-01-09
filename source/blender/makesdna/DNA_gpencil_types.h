@@ -649,13 +649,13 @@ typedef enum eGPDlayer_Flag {
 /** bGPDlayer.OndineFlag */
 typedef enum eGPDlayer_OndineFlag {
   /* mix with previous layer */
-  GP_LAYER_ONDINE_MIX_WITH_PREV = (1 << 0),
+  GP_LAYER_ONDINE_MIX_WITH_UNDERLYING = (1 << 0),
   /* limit to background layers */
-  GP_LAYER_ONDINE_LIMIT_TO_BG = (1 << 1),
+  GP_LAYER_ONDINE_LIMIT_TO_UNDERLYING = (1 << 1),
   /* layer is entirely wetted */
   GP_LAYER_ONDINE_IS_WETTED = (1 << 2),
   /* clear beneath */
-  GP_LAYER_ONDINE_CLEAR_BENEATH = (1 << 3),
+  GP_LAYER_ONDINE_CLEAR_UNDERLYING = (1 << 3),
   /* use stroke texture */
   GP_LAYER_ONDINE_USE_STROKE_TEXTURE = (1 << 4),
   /* mirror stroke texture angle */
