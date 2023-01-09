@@ -3660,10 +3660,6 @@ class VIEW3D_MT_pose_propagate(Menu):
     def draw(self, _context):
         layout = self.layout
 
-        layout.operator("pose.propagate").mode = 'WHILE_HELD'
-
-        layout.separator()
-
         layout.operator("pose.propagate", text="To Next Keyframe").mode = 'NEXT_KEY'
         layout.operator("pose.propagate", text="To Last Keyframe (Make Cyclic)").mode = 'LAST_KEY'
 
@@ -6216,8 +6212,7 @@ class VIEW3D_PT_shading_compositor(Panel):
 
     @classmethod
     def poll(cls, context):
-        return (context.space_data.shading.type in {'MATERIAL', 'RENDERED'} and
-                context.preferences.experimental.use_realtime_compositor)
+        return context.space_data.shading.type in {'MATERIAL', 'RENDERED'}
 
     def draw(self, context):
         shading = context.space_data.shading
@@ -6229,7 +6224,7 @@ class VIEW3D_PT_shading_compositor(Panel):
         row.active = not is_macos
         row.prop(shading, "use_compositor", expand=True)
         if is_macos and shading.use_compositor != "DISABLED":
-            self.layout.label(text="Compositor not supported on MacOS.", icon='ERROR')
+            self.layout.label(text="Compositor not supported on MacOS", icon='ERROR')
 
 
 class VIEW3D_PT_gizmo_display(Panel):
