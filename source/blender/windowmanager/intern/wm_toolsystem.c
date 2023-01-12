@@ -336,7 +336,19 @@ void WM_toolsystem_ref_set_from_runtime(struct bContext *C,
     tref->runtime->keymap_fallback[0] = '\0';
   }
 
+  /* Ugly fix for tool settings not updating when switching from Fill/Erase/Tint
+   * to GP primitives (line, polyline, etc.)
+   */
+  bool is_gp_primitive = (tref->mode == 15) && (tref->runtime->cursor == 5);
+  if (is_gp_primitive) {
+    STRNCPY(tref->runtime->data_block, "DRAW");
+  }
+
   toolsystem_ref_link(C, workspace, tref);
+
+  if (is_gp_primitive) {
+    STRNCPY(tref->runtime->data_block, "");
+  }
 
   toolsystem_refresh_screen_from_active_tool(bmain, workspace, tref);
 
