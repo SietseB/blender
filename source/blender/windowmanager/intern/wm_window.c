@@ -399,6 +399,10 @@ void wm_quit_with_optional_confirmation_prompt(bContext *C, wmWindow *win)
 
 void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
+  if (win->can_close_cb && !win->can_close_cb(C, win)) {
+    return;
+  }
+
   wmWindow *win_other;
 
   /* First check if there is another main window remaining. */
@@ -772,23 +776,28 @@ wmWindow *WM_window_open(bContext *C,
 
   const float native_pixel_size = GHOST_GetNativePixelSize(win_prev->ghostwin);
   /* convert to native OS window coordinates */
-  rect.xmin = win_prev->posx + (x / native_pixel_size);
-  rect.ymin = win_prev->posy + (y / native_pixel_size);
+  rect.xmin = x / native_pixel_size;
+  rect.ymin = y / native_pixel_size;
   sizex /= native_pixel_size;
   sizey /= native_pixel_size;
 
   if (alignment == WIN_ALIGN_LOCATION_CENTER) {
     /* Window centered around x,y location. */
-    rect.xmin -= sizex / 2;
-    rect.ymin -= sizey / 2;
+    rect.xmin += win_prev->posx - (sizex / 2);
+    rect.ymin += win_prev->posy - (sizey / 2);
   }
   else if (alignment == WIN_ALIGN_PARENT_CENTER) {
     /* Centered within parent. X,Y as offsets from there. */
-    rect.xmin += (win_prev->sizex - sizex) / 2;
-    rect.ymin += (win_prev->sizey - sizey) / 2;
+    rect.xmin += win_prev->posx + ((win_prev->sizex - sizex) / 2);
+    rect.ymin += win_prev->posy + ((win_prev->sizey - sizey) / 2);
+  }
+  else if (alignment == WIN_ALIGN_ABSOLUTE_PARENT) {
+    /* Positioned absolutely within parent bounds. */
+    rect.xmin += win_prev->posx;
+    rect.ymin += win_prev->posy;
   }
   else {
-    /* Positioned absolutely within parent bounds. */
+    /* WIN_ALIGN_ABSOLUTE_DESKTOP - Positioned absolutely. */
   }
 
   rect.xmax = rect.xmin + sizex;

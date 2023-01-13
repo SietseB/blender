@@ -4495,8 +4495,13 @@ static void rna_def_userdef_view(BlenderRNA *brna)
       {USER_RENDER_DISPLAY_WINDOW,
        "WINDOW",
        0,
-       "New Window",
-       "Images are rendered in a new window"},
+       "New Window - Auto-sized",
+       "Rendered in a new window, sized and positioned based on render output size"},
+      {USER_RENDER_DISPLAY_WINDOW_SAVED,
+       "WINDOW_SAVED",
+       0,
+       "New Window - Saved",
+       "Rendered in a new window, at its last size and position."},
       {0, NULL, 0, NULL, NULL},
   };
   static const EnumPropertyItem temp_space_display_types[] = {

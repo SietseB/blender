@@ -111,7 +111,7 @@ typedef struct ReportTimerInfo {
   float widthfac;
 } ReportTimerInfo;
 
-//#ifdef WITH_XR_OPENXR
+// #ifdef WITH_XR_OPENXR
 typedef struct wmXrData {
   /** Runtime information for managing Blender specific behaviors. */
   struct wmXrRuntimeData *runtime;
@@ -119,7 +119,7 @@ typedef struct wmXrData {
    * even before the session runs. */
   XrSessionSettings session_settings;
 } wmXrData;
-//#endif
+// #endif
 
 /* reports need to be before wmWindowManager */
 
@@ -199,9 +199,9 @@ typedef struct wmWindowManager {
 
   struct wmMsgBus *message_bus;
 
-  //#ifdef WITH_XR_OPENXR
+  // #ifdef WITH_XR_OPENXR
   wmXrData xr;
-  //#endif
+  // #endif
 } wmWindowManager;
 
 /** #wmWindowManager.initialized */
@@ -346,6 +346,9 @@ typedef struct wmWindow {
 
   /* custom drawing callbacks */
   ListBase drawcalls;
+
+  /* Callback on close. Return false to stop from closing. */
+  bool (*can_close_cb)(struct bContext *C, struct wmWindow *win);
 
   /* Private runtime info to show text in the status bar. */
   void *cursor_keymap_status;

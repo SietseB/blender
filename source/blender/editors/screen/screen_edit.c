@@ -1587,7 +1587,7 @@ ScrArea *ED_screen_temp_space_open(bContext *C,
                          false,
                          dialog,
                          true,
-                         WIN_ALIGN_LOCATION_CENTER)) {
+                         WIN_ALIGN_ABSOLUTE_DESKTOP)) {
         area = CTX_wm_area(C);
       }
       break;

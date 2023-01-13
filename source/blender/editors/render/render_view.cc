@@ -117,6 +117,28 @@ static ScrArea *find_area_image_empty(bContext *C)
 
 /********************** open image editor for render *************************/
 
+static bool render_view_close(bContext *C, struct wmWindow *win)
+{
+  /* Get DPI and scale from parent window, if there is one. */
+  WM_window_set_dpi(win->parent ? win->parent : win);
+  float sizex = (float)WM_window_pixels_x(win) / UI_DPI_FAC;
+  float sizey = (float)WM_window_pixels_y(win) / UI_DPI_FAC;
+  float posx = (float)win->posx / UI_DPI_FAC;
+  float posy = (float)win->posy / UI_DPI_FAC;
+
+  if (sizex != U.render_win_data.win_sizex || sizey != U.render_win_data.win_sizey ||
+      posx != U.render_win_data.win_posx || posy != U.render_win_data.win_posy) {
+    U.render_win_data.win_sizex = sizex;
+    U.render_win_data.win_sizey = sizey;
+    U.render_win_data.win_posx = posx;
+    U.render_win_data.win_posy = posy;
+    /* Tag user preferences as dirty. */
+    U.runtime.is_dirty = true;
+  }
+
+  return true;
+}
+
 ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 {
   Main *bmain = CTX_data_main(C);
@@ -131,35 +153,73 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
   }
 
   if (U.render_display_type == USER_RENDER_DISPLAY_WINDOW) {
+
+    /* Get DPI and scale from current (parent) window. */
+    WM_window_set_dpi(CTX_wm_window(C));
+
     int sizex, sizey;
     BKE_render_resolution(&scene->r, false, &sizex, &sizey);
-
-    sizex += 30 * UI_DPI_FAC;
-    sizey += 60 * UI_DPI_FAC;
-
-    /* arbitrary... miniature image window views don't make much sense */
-    if (sizex < 320) {
-      sizex = 320;
-    }
-    if (sizey < 256) {
-      sizey = 256;
-    }
+    sizex = MAX2(sizex + 30 * UI_DPI_FAC, 320);
+    sizey = MAX2(sizey + 60 * UI_DPI_FAC, 256);
 
     /* changes context! */
     if (WM_window_open(C,
                        IFACE_("Blender Render"),
-                       mx,
-                       my,
+                       0,
+                       0,
                        sizex,
                        sizey,
                        SPACE_IMAGE,
                        true,
                        false,
                        true,
-                       WIN_ALIGN_LOCATION_CENTER) == nullptr) {
+                       WIN_ALIGN_PARENT_CENTER) == nullptr) {
       BKE_report(reports, RPT_ERROR, "Failed to open window!");
       return nullptr;
     }
+
+    area = CTX_wm_area(C);
+    if (BLI_listbase_is_single(&area->spacedata) == false) {
+      sima = static_cast<SpaceImage *>(area->spacedata.first);
+      sima->flag |= SI_PREVSPACE;
+    }
+  }
+  else if (U.render_display_type == USER_RENDER_DISPLAY_WINDOW_SAVED) {
+    /* Get DPI and scale from current (parent) window. */
+    WM_window_set_dpi(CTX_wm_window(C));
+    int posx, posy, sizex, sizey;
+    if (U.render_win_data.win_sizex == 0.0f) {
+      posx = 50;
+      posy = 100;
+      sizex = 1280 + (30 * UI_DPI_FAC);
+      sizey = 720 + (60 * UI_DPI_FAC);
+    }
+    else {
+      posx = (int)(U.render_win_data.win_posx * UI_DPI_FAC);
+      posy = (int)(U.render_win_data.win_posy * UI_DPI_FAC);
+      sizex = (int)(U.render_win_data.win_sizex * UI_DPI_FAC);
+      sizey = (int)(U.render_win_data.win_sizey * UI_DPI_FAC);
+    }
+
+    /* changes context! */
+    win = WM_window_open(C,
+                         IFACE_("Blender Render"),
+                         posx,
+                         posy,
+                         sizex,
+                         sizey,
+                         SPACE_IMAGE,
+                         false,
+                         false,
+                         true,
+                         WIN_ALIGN_ABSOLUTE_DESKTOP);
+
+    if (win == nullptr) {
+      BKE_report(reports, RPT_ERROR, "Failed to open window!");
+      return nullptr;
+    }
+
+    win->can_close_cb = render_view_close;
 
     area = CTX_wm_area(C);
     if (BLI_listbase_is_single(&area->spacedata) == false) {
