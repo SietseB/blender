@@ -6,17 +6,17 @@
  * Operators for Ondine watercolor Grease Pencil.
  */
 
-#include "DNA_scene_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_material_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_space_types.h"
 
-#include "BKE_context.h"
 #include "BKE_camera.h"
-#include "BKE_screen.h"
+#include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
 #include "BKE_material.h"
+#include "BKE_screen.h"
 
 #include "BLI_listbase.h"
 
@@ -26,8 +26,8 @@
 #include "RNA_define.h"
 #include "RNA_prototypes.h"
 
-#include "ED_view3d.h"
 #include "ED_gpencil.h"
+#include "ED_view3d.h"
 #include "gpencil_intern.h"
 
 #include "gpencil_ondine.hh"
@@ -103,7 +103,7 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     RenderData *rd = &scene_->r;
     BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
     BKE_camera_params_compute_matrix(&params);
-    
+
     float viewmat[4][4];
     invert_m4_m4(viewmat, cam_ob->object_to_world);
 
@@ -123,7 +123,7 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     camera_rot_sin_ = 1.0f;
     camera_rot_cos_ = 0.0f;
   }
-  
+
   winx_ = region_->winx;
   winy_ = region_->winy;
 
@@ -160,8 +160,8 @@ float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
   return r_co;
 }
 
-float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps,
-                                             const int p_index, const float thickness)
+float GpencilOndine::stroke_point_radius_get(
+    bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, const int p_index, const float thickness)
 {
   float defaultpixsize = 1000.0f / gpd->pixfactor;
   float stroke_radius = (thickness / defaultpixsize) / 2.0f;
@@ -174,25 +174,29 @@ float GpencilOndine::stroke_point_radius_get(bGPdata *gpd, bGPDlayer *gpl, bGPDs
   p2.x = pt1->x;
   p2.y = pt1->y + stroke_radius * camera_rot_cos_;
   p2.z = pt1->z + stroke_radius * camera_rot_sin_;
-  
+
   const float2 screen_co1 = gpencil_3D_point_to_2D(p1);
   const float2 screen_co2 = gpencil_3D_point_to_2D(p2);
   const float2 v1 = screen_co1 - screen_co2;
   float radius = math::length(v1);
-  
+
   return MAX2(radius, 1.0f);
 }
 
-void GpencilOndine::set_stroke_colors(Object *ob, bGPDlayer *gpl, bGPDstroke *gps, MaterialGPencilStyle *gp_style)
+void GpencilOndine::set_stroke_colors(Object *ob,
+                                      bGPDlayer *gpl,
+                                      bGPDstroke *gps,
+                                      MaterialGPencilStyle *gp_style)
 {
   float col[3];
 
   /* Get stroke color. */
   copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
-  interp_v3_v3v3(stroke_color_, stroke_color_, gps->points[0].vert_color, gps->points[0].vert_color[3]);
+  interp_v3_v3v3(
+      stroke_color_, stroke_color_, gps->points[0].vert_color, gps->points[0].vert_color[3]);
   interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
   copy_v3_v3(gps->render_stroke_color, col);
-  
+
   /* Get fill color */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
@@ -263,9 +267,9 @@ void GpencilOndine::set_render_data(Object *object)
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(object, gps->mat_nr + 1);
 
       const bool has_stroke = ((gp_style->flag & GP_MATERIAL_STROKE_SHOW) &&
-                              (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+                               (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
       const bool has_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
-                            (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+                             (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
 
       gps->render_flag = 0;
       if (has_stroke) {
@@ -354,8 +358,12 @@ void GpencilOndine::set_render_data(Object *object)
         float thickness = gps->thickness + gpl->line_change;
         thickness *= mat4_to_scale(object->object_to_world);
         CLAMP_MIN(thickness, 1.0f);
-        float max_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, min_dist_point_index, thickness) * 2.0f;
-        float min_stroke_width = this->stroke_point_radius_get(gpd, gpl, gps, max_dist_point_index, thickness) * 2.0f;
+        float max_stroke_width = this->stroke_point_radius_get(
+                                     gpd, gpl, gps, min_dist_point_index, thickness) *
+                                 2.0f;
+        float min_stroke_width = this->stroke_point_radius_get(
+                                     gpd, gpl, gps, max_dist_point_index, thickness) *
+                                 2.0f;
         gps->render_stroke_width = max_stroke_width;
 
         /* Adjust point pressure based on distance to camera.
@@ -368,7 +376,8 @@ void GpencilOndine::set_render_data(Object *object)
             bGPDspoint &pt = gps->points[i];
             /* Adjust pressure based on camera distance */
             pt.pressure_3d = pt.pressure *
-              (1.0f - ((min_dist_to_cam - pt.dist_to_cam) / delta_dist) * stroke_width_factor);
+                             (1.0f - ((min_dist_to_cam - pt.dist_to_cam) / delta_dist) *
+                                         stroke_width_factor);
           }
         }
       }
@@ -391,11 +400,10 @@ void GpencilOndine::set_render_data(Object *object)
         int lenp = gps->totpoints - 1;
         int min_i0 = (min_i1 == 0) ? lenp : min_i1 - 1;
         int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
-        float det =
-          (gps->points[min_i1].flat_x - gps->points[min_i0].flat_x) *
-          (gps->points[min_i2].flat_y - gps->points[min_i0].flat_y) -
-          (gps->points[min_i2].flat_x - gps->points[min_i0].flat_x) *
-          (gps->points[min_i1].flat_y - gps->points[min_i0].flat_y);
+        float det = (gps->points[min_i1].flat_x - gps->points[min_i0].flat_x) *
+                        (gps->points[min_i2].flat_y - gps->points[min_i0].flat_y) -
+                    (gps->points[min_i2].flat_x - gps->points[min_i0].flat_x) *
+                        (gps->points[min_i1].flat_y - gps->points[min_i0].flat_y);
         if (det > 0) {
           gps->render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
         }
