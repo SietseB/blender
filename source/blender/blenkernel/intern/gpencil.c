@@ -1079,7 +1079,6 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->pparticle_len_max = gpd_src->pparticle_len_max;
   gpd_dst->pparticle_hairiness = gpd_src->pparticle_hairiness;
   gpd_dst->dry_stroke_edge_jitter = gpd_src->dry_stroke_edge_jitter;
-  gpd_dst->render_zdepth = gpd_src->render_zdepth;
 }
 
 void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)

@@ -195,14 +195,14 @@ void GpencilOndine::set_stroke_colors(Object *ob,
   interp_v3_v3v3(
       stroke_color_, stroke_color_, gps->points[0].vert_color, gps->points[0].vert_color[3]);
   interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  copy_v3_v3(gps->render_stroke_color, col);
+  copy_v3_v3(gps->runtime.render_stroke_color, col);
 
   /* Get fill color */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
   interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  copy_v3_v3(gps->render_fill_color, col);
-  gps->render_fill_opacity = fill_color_[3] * gpl->opacity;
+  copy_v3_v3(gps->runtime.render_fill_color, col);
+  gps->runtime.render_fill_opacity = fill_color_[3] * gpl->opacity;
 }
 
 void GpencilOndine::set_zdepth(Object *object)
@@ -219,7 +219,7 @@ void GpencilOndine::set_zdepth(Object *object)
   }
 
   /* Save z-depth from view to sort from back to front. */
-  gpd->render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
+  gpd->runtime.render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
 }
 
 void GpencilOndine::set_render_data(Object *object)
@@ -271,19 +271,19 @@ void GpencilOndine::set_render_data(Object *object)
       const bool has_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
                              (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
 
-      gps->render_flag = 0;
+      gps->runtime.render_flag = 0;
       if (has_stroke) {
-        gps->render_flag |= GP_ONDINE_STROKE_HAS_STROKE;
+        gps->runtime.render_flag |= GP_ONDINE_STROKE_HAS_STROKE;
       }
       if (has_fill) {
-        gps->render_flag |= GP_ONDINE_STROKE_HAS_FILL;
+        gps->runtime.render_flag |= GP_ONDINE_STROKE_HAS_FILL;
       }
 
       /* Set stroke and fill color, in linear sRGB */
       this->set_stroke_colors(object, gpl, gps, gp_style);
 
       /* Calculate distance to camera */
-      gps->render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
+      gps->runtime.render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
 
       /* Init min/max calculations */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
@@ -302,10 +302,10 @@ void GpencilOndine::set_render_data(Object *object)
       for (const int i : IndexRange(gps->totpoints)) {
         bGPDspoint &pt = gps->points[i];
         const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
-        pt.flat_x = screen_co.x;
-        pt.flat_y = screen_co.y;
+        pt.runtime.flat_x = screen_co.x;
+        pt.runtime.flat_y = screen_co.y;
         dist_to_cam = dist_signed_squared_to_plane_v3(&pt.x, cam_plane);
-        pt.dist_to_cam = dist_to_cam;
+        pt.runtime.dist_to_cam = dist_to_cam;
 
         /* Keep track of closest/furthest point to camera */
         if (dist_to_cam < max_dist_to_cam) {
@@ -327,32 +327,32 @@ void GpencilOndine::set_render_data(Object *object)
         }
 
         /* Keep track of minimum y point */
-        if (pt.flat_y <= min_y) {
-          if ((pt.flat_y < min_y) || (pt.flat_x > max_x)) {
+        if (pt.runtime.flat_y <= min_y) {
+          if ((pt.runtime.flat_y < min_y) || (pt.runtime.flat_x > max_x)) {
             min_i1 = i;
-            min_y = pt.flat_y;
-            max_x = pt.flat_x;
+            min_y = pt.runtime.flat_y;
+            max_x = pt.runtime.flat_x;
           }
         }
 
         /* Get bounding box */
-        if (bbox_minx > pt.flat_x) {
-          bbox_minx = pt.flat_x;
+        if (bbox_minx > pt.runtime.flat_x) {
+          bbox_minx = pt.runtime.flat_x;
         }
-        if (bbox_miny > pt.flat_y) {
-          bbox_miny = pt.flat_y;
+        if (bbox_miny > pt.runtime.flat_y) {
+          bbox_miny = pt.runtime.flat_y;
         }
-        if (bbox_maxx < pt.flat_x) {
-          bbox_maxx = pt.flat_x;
+        if (bbox_maxx < pt.runtime.flat_x) {
+          bbox_maxx = pt.runtime.flat_x;
         }
-        if (bbox_maxy < pt.flat_y) {
-          bbox_maxy = pt.flat_y;
+        if (bbox_maxy < pt.runtime.flat_y) {
+          bbox_maxy = pt.runtime.flat_y;
         }
       }
 
       /* Calculate stroke width */
       bool pressure_is_set = false;
-      gps->render_stroke_width = 0.0f;
+      gps->runtime.render_stroke_width = 0.0f;
       if (has_stroke) {
         /* Get stroke thickness, taking object scale and layer line change into account */
         float thickness = gps->thickness + gpl->line_change;
@@ -364,7 +364,7 @@ void GpencilOndine::set_render_data(Object *object)
         float min_stroke_width = this->stroke_point_radius_get(
                                      gpd, gpl, gps, max_dist_point_index, thickness) *
                                  2.0f;
-        gps->render_stroke_width = max_stroke_width;
+        gps->runtime.render_stroke_width = max_stroke_width;
 
         /* Adjust point pressure based on distance to camera.
          * That way a stroke will get thinner when it is further away from the camera. */
@@ -375,45 +375,46 @@ void GpencilOndine::set_render_data(Object *object)
           for (const int i : IndexRange(gps->totpoints)) {
             bGPDspoint &pt = gps->points[i];
             /* Adjust pressure based on camera distance */
-            pt.pressure_3d = pt.pressure *
-                             (1.0f - ((min_dist_to_cam - pt.dist_to_cam) / delta_dist) *
-                                         stroke_width_factor);
+            pt.runtime.pressure_3d = pt.pressure *
+                                     (1.0f -
+                                      ((min_dist_to_cam - pt.runtime.dist_to_cam) / delta_dist) *
+                                          stroke_width_factor);
           }
         }
       }
       if (!pressure_is_set) {
         for (const int i : IndexRange(gps->totpoints)) {
           bGPDspoint &pt = gps->points[i];
-          pt.pressure_3d = pt.pressure;
+          pt.runtime.pressure_3d = pt.pressure;
         }
       }
 
       /* Set constant strength flag */
       if (strength_is_constant) {
-        gps->render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
+        gps->runtime.render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
       }
 
       /* Determine wether a fill is clockwise or counterclockwise */
       /* See: https://en.wikipedia.org/wiki/Curve_orientation */
-      gps->render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+      gps->runtime.render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
       if (has_fill) {
         int lenp = gps->totpoints - 1;
         int min_i0 = (min_i1 == 0) ? lenp : min_i1 - 1;
         int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
-        float det = (gps->points[min_i1].flat_x - gps->points[min_i0].flat_x) *
-                        (gps->points[min_i2].flat_y - gps->points[min_i0].flat_y) -
-                    (gps->points[min_i2].flat_x - gps->points[min_i0].flat_x) *
-                        (gps->points[min_i1].flat_y - gps->points[min_i0].flat_y);
+        float det = (gps->points[min_i1].runtime.flat_x - gps->points[min_i0].runtime.flat_x) *
+                        (gps->points[min_i2].runtime.flat_y - gps->points[min_i0].runtime.flat_y) -
+                    (gps->points[min_i2].runtime.flat_x - gps->points[min_i0].runtime.flat_x) *
+                        (gps->points[min_i1].runtime.flat_y - gps->points[min_i0].runtime.flat_y);
         if (det > 0) {
-          gps->render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+          gps->runtime.render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
         }
       }
 
       /* Set bounding box */
-      gps->render_bbox[0] = bbox_minx;
-      gps->render_bbox[1] = bbox_miny;
-      gps->render_bbox[2] = bbox_maxx;
-      gps->render_bbox[3] = bbox_maxy;
+      gps->runtime.render_bbox[0] = bbox_minx;
+      gps->runtime.render_bbox[1] = bbox_miny;
+      gps->runtime.render_bbox[2] = bbox_maxx;
+      gps->runtime.render_bbox[3] = bbox_maxy;
     }
   }
 }

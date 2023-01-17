@@ -54,6 +54,14 @@ typedef struct bGPDspoint_Runtime {
   struct bGPDspoint *pt_orig;
   /** Original index array position */
   int idx_orig;
+
+  /** Ondine additions */
+  /** Coordinates in 2d space */
+  float flat_x, flat_y;
+  /** Distance to camera */
+  float dist_to_cam;
+  /** Pressure adjusted to distance to camera */
+  float pressure_3d;
   char _pad0[4];
 } bGPDspoint_Runtime;
 
@@ -85,14 +93,6 @@ typedef struct bGPDspoint {
 
   /** Vertex Color RGBA (A=mix factor). */
   float vert_color[4];
-
-  /** Ondine additions */
-  /** Coordinates in 2d space */
-  float flat_x, flat_y;
-  /** Distance to camera */
-  float dist_to_cam;
-  /** Pressure adjusted to distance to camera */
-  float pressure_3d;
   char _pad0[4];
 
   /** Runtime data */
@@ -260,6 +260,18 @@ typedef struct bGPDstroke_Runtime {
   int curve_start;
   int _pad0;
 
+  /** Ondine runtime render calculations */
+  float render_fill_color[3];
+  float render_stroke_color[3];
+  float render_fill_opacity;
+  float render_stroke_opacity;
+  float render_stroke_width;
+  float render_thickness;
+  float render_dist_to_camera;
+  short render_flag;
+  char _pad1[2];
+  float render_bbox[4];
+
   /** Original stroke (used to dereference evaluated data) */
   struct bGPDstroke *gps_orig;
   void *_pad2;
@@ -335,24 +347,13 @@ typedef struct bGPDstroke {
   /** Ondine watercolor additions */
   /** Seed for randomization of stroke density, noise etc. */
   int seed;
-
-  /** Render calculations */
-  float render_fill_color[3];
-  float render_stroke_color[3];
-  float render_fill_opacity;
-  float render_stroke_opacity;
-  float render_stroke_width;
-  float render_thickness;
-  float render_dist_to_camera;
-  short render_flag;
-  char _pad6[6];
-  float render_bbox[4];
+  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as
    * well! */
 
   bGPDstroke_Runtime runtime;
-  void *_pad5;
+  void *_pad6;
 } bGPDstroke;
 
 /** #bGPDstroke.flag */
@@ -722,9 +723,11 @@ typedef struct bGPdata_Runtime {
   int arrow_start_style;
   int arrow_end_style;
 
+  /* Ondine render runtimes */
+  float render_zdepth;
+
   /** Number of control-points for stroke. */
   int tot_cp_points;
-  char _pad2[4];
   /** Array of control-points for stroke. */
   bGPDcontrolpoint *cp_points;
   /** Brush pointer */
@@ -845,10 +848,6 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
-
-  /* Render calculations */
-  float render_zdepth;
-  char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */
