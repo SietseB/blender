@@ -519,7 +519,7 @@ void fill_points(const CurvesGeometry &curves,
 }
 
 /**
- * Copy only the information on the point domain, but not the offsets or any point attributes,
+ * Copy only the attributes on the curve domain, but not the offsets or any point attributes,
  * meant for operations that change the number of points but not the number of curves.
  * \warning The returned curves have invalid offsets!
  */
@@ -531,11 +531,6 @@ bke::CurvesGeometry copy_only_curve_domain(const bke::CurvesGeometry &src_curves
 void fill_curve_counts(const bke::CurvesGeometry &curves,
                        Span<IndexRange> curve_ranges,
                        MutableSpan<int> counts);
-
-/**
- * Turn an array of sizes into the offset at each index including all previous sizes.
- */
-void accumulate_counts_to_offsets(MutableSpan<int> counts_to_offsets, int start_offset = 0);
 
 IndexMask indices_for_type(const VArray<int8_t> &types,
                            const std::array<int, CURVE_TYPES_NUM> &type_counts,
