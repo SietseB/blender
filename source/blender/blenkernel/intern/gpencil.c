@@ -1659,7 +1659,6 @@ bGPDlayer *BKE_gpencil_layer_active_get(bGPdata *gpd)
 bGPDlayer *BKE_gpencil_layer_get_by_name(bGPdata *gpd, char *name, int first_if_not_found)
 {
   bGPDlayer *gpl;
-  int i = 0;
 
   /* error checking */
   if (ELEM(NULL, gpd, gpd->layers.first)) {
@@ -1671,7 +1670,6 @@ bGPDlayer *BKE_gpencil_layer_get_by_name(bGPdata *gpd, char *name, int first_if_
     if (STREQ(name, gpl->info)) {
       return gpl;
     }
-    i++;
   }
 
   /* no such layer */

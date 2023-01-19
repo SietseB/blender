@@ -536,9 +536,11 @@ Array<int> CurvesGeometry::point_to_curve_map() const
 {
   const OffsetIndices points_by_curve = this->points_by_curve();
   Array<int> map(this->points_num());
-  for (const int i : this->curves_range()) {
-    map.as_mutable_span().slice(points_by_curve[i]).fill(i);
-  }
+  threading::parallel_for(this->curves_range(), 1024, [&](const IndexRange range) {
+    for (const int i_curve : range) {
+      map.as_mutable_span().slice(points_by_curve[i_curve]).fill(i_curve);
+    }
+  });
   return map;
 }
 
@@ -554,7 +556,7 @@ void CurvesGeometry::ensure_nurbs_basis_cache() const
     this->runtime->nurbs_basis_cache.resize(this->curves_num());
     MutableSpan<curves::nurbs::BasisCache> basis_caches(this->runtime->nurbs_basis_cache);
 
-    const OffsetIndices points_by_curve = this->points_by_curve();
+    const OffsetIndices<int> points_by_curve = this->points_by_curve();
     VArray<bool> cyclic = this->cyclic();
     VArray<int8_t> orders = this->nurbs_orders();
     VArray<int8_t> knots_modes = this->nurbs_knots_modes();
@@ -600,7 +602,7 @@ Span<float3> CurvesGeometry::evaluated_positions() const
     MutableSpan<float3> evaluated_positions = this->runtime->evaluated_position_cache;
     this->runtime->evaluated_positions_span = evaluated_positions;
 
-    const OffsetIndices points_by_curve = this->points_by_curve();
+    const OffsetIndices<int> points_by_curve = this->points_by_curve();
     VArray<int8_t> types = this->curve_types();
     VArray<bool> cyclic = this->cyclic();
     VArray<int> resolution = this->resolution();
@@ -681,7 +683,7 @@ Span<float3> CurvesGeometry::evaluated_tangents() const
     Vector<int64_t> bezier_indices;
     const IndexMask bezier_mask = this->indices_for_curve_type(CURVE_TYPE_BEZIER, bezier_indices);
     if (!bezier_mask.is_empty()) {
-      const OffsetIndices points_by_curve = this->points_by_curve();
+      const OffsetIndices<int> points_by_curve = this->points_by_curve();
       const Span<float3> positions = this->positions();
       const Span<float3> handles_left = this->handle_positions_left();
       const Span<float3> handles_right = this->handle_positions_right();
@@ -758,7 +760,7 @@ static void evaluate_generic_data_for_curve(
 Span<float3> CurvesGeometry::evaluated_normals() const
 {
   this->runtime->normal_cache_mutex.ensure([&]() {
-    const OffsetIndices points_by_curve = this->points_by_curve();
+    const OffsetIndices<int> points_by_curve = this->points_by_curve();
     const VArray<int8_t> types = this->curve_types();
     const VArray<bool> cyclic = this->cyclic();
     const VArray<int8_t> normal_mode = this->normal_mode();
@@ -1075,28 +1077,13 @@ static void copy_with_map(const GSpan src, const Span<int> map, GMutableSpan dst
   });
 }
 
-/**
- * Builds an array that for every point, contains the corresponding curve index.
- */
-static Array<int> build_point_to_curve_map(const CurvesGeometry &curves)
-{
-  const OffsetIndices points_by_curve = curves.points_by_curve();
-  Array<int> point_to_curve_map(curves.points_num());
-  threading::parallel_for(curves.curves_range(), 1024, [&](const IndexRange curves_range) {
-    for (const int i_curve : curves_range) {
-      point_to_curve_map.as_mutable_span().slice(points_by_curve[i_curve]).fill(i_curve);
-    }
-  });
-  return point_to_curve_map;
-}
-
 static CurvesGeometry copy_with_removed_points(
     const CurvesGeometry &curves,
     const IndexMask points_to_delete,
     const AnonymousAttributePropagationInfo &propagation_info)
 {
   /* Use a map from points to curves to facilitate using an #IndexMask input. */
-  const Array<int> point_to_curve_map = build_point_to_curve_map(curves);
+  const Array<int> point_to_curve_map = curves.point_to_curve_map();
 
   const Vector<IndexRange> copy_point_ranges = points_to_delete.extract_ranges_invert(
       curves.points_range());
