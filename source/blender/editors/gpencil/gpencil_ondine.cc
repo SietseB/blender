@@ -288,7 +288,6 @@ void GpencilOndine::set_render_data(Object *object)
       /* Init min/max calculations */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
       strength = (float)strength / 1000;
-      bool strength_is_constant = true;
       float min_y = FLT_MAX;
       float max_x = -FLT_MAX;
       int min_i1 = 0;
@@ -315,15 +314,6 @@ void GpencilOndine::set_render_data(Object *object)
         if ((dist_to_cam > min_dist_to_cam) && (dist_to_cam <= 0)) {
           min_dist_to_cam = dist_to_cam;
           min_dist_point_index = i;
-        }
-
-        /* Constant alpha strength? */
-        if (strength_is_constant) {
-          float p_strength = (int)(pt.strength * 1000 + 0.5);
-          p_strength = (float)p_strength / 1000;
-          if ((strength_is_constant) && (p_strength != strength)) {
-            strength_is_constant = false;
-          }
         }
 
         /* Keep track of minimum y point */
@@ -387,11 +377,6 @@ void GpencilOndine::set_render_data(Object *object)
           bGPDspoint &pt = gps->points[i];
           pt.runtime.pressure_3d = pt.pressure;
         }
-      }
-
-      /* Set constant strength flag */
-      if (strength_is_constant) {
-        gps->runtime.render_flag |= GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT;
       }
 
       /* Determine wether a fill is clockwise or counterclockwise */

@@ -778,15 +778,14 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->ondine_flag = GP_ONDINE_WATERCOLOR;
   gpd->randomize_seed_step = 0;
   gpd->stroke_base_alpha = 0.95f;
-  gpd->stroke_alpha_var = 0.05f;
   gpd->watercolor_noise_strength_high = 1.0f;
   gpd->watercolor_noise_strength_low = 1.0f;
   gpd->layer_overlap_darkening = 0.1f;
   gpd->stroke_overlap_darkening = 0.0f;
-  gpd->pparticle_speed_min = 0.7f;
-  gpd->pparticle_speed_max = 1.4f;
-  gpd->pparticle_len_min = 45;
-  gpd->pparticle_len_max = 60;
+  gpd->pparticle_speed_min = 0.8f;
+  gpd->pparticle_speed_max = 1.2f;
+  gpd->pparticle_len_min = 50;
+  gpd->pparticle_len_max = 65;
   gpd->pparticle_hairiness = 0.3f;
   gpd->dry_stroke_edge_jitter = 0.25f;
 
@@ -1068,7 +1067,6 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->ondine_flag = gpd_src->ondine_flag;
   gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
   gpd_dst->stroke_base_alpha = gpd_src->stroke_base_alpha;
-  gpd_dst->stroke_alpha_var = gpd_src->stroke_alpha_var;
   gpd_dst->watercolor_noise_strength_high = gpd_src->watercolor_noise_strength_high;
   gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
   gpd_dst->stroke_overlap_darkening = gpd_src->stroke_overlap_darkening;

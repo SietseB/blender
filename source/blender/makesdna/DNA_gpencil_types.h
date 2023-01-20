@@ -402,8 +402,7 @@ typedef enum eGPDstroke_Caps {
 typedef enum eGPDstroke_RenderFlag {
   GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
   GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
-  GP_ONDINE_STROKE_STRENGTH_IS_CONSTANT = (1 << 2),
-  GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 3),
+  GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 2),
 } eGPDstroke_RenderFlag;
 
 /* Arrows ----------------------- */
@@ -835,7 +834,6 @@ typedef struct bGPdata {
   char _pad3[2];
   int randomize_seed_step;
   float stroke_base_alpha;
-  float stroke_alpha_var;
   float watercolor_noise_strength_low;
   float watercolor_noise_strength_high;
   float stroke_overlap_darkening;
@@ -848,6 +846,7 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
+  char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */
