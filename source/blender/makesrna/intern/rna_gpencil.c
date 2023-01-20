@@ -1818,6 +1818,10 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "runtime.render_thickness");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
+  prop = RNA_def_property(srna, "render_max_pressure", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "runtime.render_max_pressure");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
   prop = RNA_def_property(srna, "render_dist_to_camera", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "runtime.render_dist_to_camera");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);

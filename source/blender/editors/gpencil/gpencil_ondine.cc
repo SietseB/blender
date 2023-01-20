@@ -342,6 +342,7 @@ void GpencilOndine::set_render_data(Object *object)
 
       /* Calculate stroke width */
       bool pressure_is_set = false;
+      float max_pressure = 0.001f;
       gps->runtime.render_stroke_width = 0.0f;
       if (has_stroke) {
         /* Get stroke thickness, taking object scale and layer line change into account */
@@ -369,6 +370,9 @@ void GpencilOndine::set_render_data(Object *object)
                                      (1.0f -
                                       ((min_dist_to_cam - pt.runtime.dist_to_cam) / delta_dist) *
                                           stroke_width_factor);
+            if (pt.runtime.pressure_3d > max_pressure) {
+              max_pressure = pt.runtime.pressure_3d;
+            }
           }
         }
       }
@@ -376,8 +380,12 @@ void GpencilOndine::set_render_data(Object *object)
         for (const int i : IndexRange(gps->totpoints)) {
           bGPDspoint &pt = gps->points[i];
           pt.runtime.pressure_3d = pt.pressure;
+          if (pt.runtime.pressure_3d > max_pressure) {
+            max_pressure = pt.runtime.pressure_3d;
+          }
         }
       }
+      gps->runtime.render_max_pressure = max_pressure;
 
       /* Determine wether a fill is clockwise or counterclockwise */
       /* See: https://en.wikipedia.org/wiki/Curve_orientation */

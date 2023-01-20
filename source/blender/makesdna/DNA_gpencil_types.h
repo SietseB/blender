@@ -258,7 +258,6 @@ typedef struct bGPDstroke_Runtime {
   int vertex_start;
   /** Curve Handles offset in the IBO where this handle starts. */
   int curve_start;
-  int _pad0;
 
   /** Ondine runtime render calculations */
   float render_fill_color[3];
@@ -271,6 +270,7 @@ typedef struct bGPDstroke_Runtime {
   short render_flag;
   char _pad1[2];
   float render_bbox[4];
+  float render_max_pressure;
 
   /** Original stroke (used to dereference evaluated data) */
   struct bGPDstroke *gps_orig;
