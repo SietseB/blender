@@ -731,6 +731,21 @@ bool BKE_gpencil_can_avoid_full_copy_on_write(const struct Depsgraph *depsgraph,
 
 void BKE_gpencil_update_on_write(struct bGPdata *gpd_orig, struct bGPdata *gpd_eval);
 
+/**
+ * Get the active morph target for editing.
+ * \param gpd: Grease pencil data-block
+ * \return Pointer to morph target
+ */
+struct bGPDmorph_target *BKE_gpencil_morph_target_active_get(struct bGPdata *gpd);
+/**
+ * Set active grease pencil morph target.
+ * \param gpd: Grease pencil data-block
+ * \param active: Grease pencil morph target to set as active
+ */
+void BKE_gpencil_morph_target_active_set(struct bGPdata *gpd, struct bGPDmorph_target *active);
+
+#define GPENCIL_MORPH_TARGETS_MAX 128
+
 #ifdef __cplusplus
 }
 #endif

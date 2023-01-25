@@ -72,6 +72,14 @@ static void greasepencil_copy_data(Main *UNUSED(bmain),
 
   BKE_defgroup_copy_list(&gpd_dst->vertex_group_names, &gpd_src->vertex_group_names);
 
+  /* Duplicate morph targets. */
+  BLI_listbase_clear(&gpd_dst->morph_targets);
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt_src, &gpd_src->morph_targets) {
+    bGPDmorph_target *gpmt_dst = MEM_dupallocN(gpmt_src);
+    gpmt_dst->prev = gpmt_dst->next = NULL;
+    BLI_addtail(&gpd_dst->morph_targets, gpmt_dst);
+  }
+
   /* copy layers */
   BLI_listbase_clear(&gpd_dst->layers);
   LISTBASE_FOREACH (bGPDlayer *, gpl_src, &gpd_src->layers) {
@@ -177,9 +185,18 @@ static void greasepencil_blend_write(BlendWriter *writer, ID *id, const void *id
           BLO_write_struct_array(
               writer, bGPDcurve_point, gpc->tot_curve_points, gpc->curve_points);
         }
+        /* Write morph delta's in strokes. */
+        BLO_write_struct_list(writer, bGPDsmorph, &gps->morphs);
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          BLO_write_struct_array(
+              writer, bGPDspoint_delta, gpsm->tot_point_deltas, gpsm->point_deltas);
+        }
       }
     }
   }
+
+  /* Write morph targets to file. */
+  BLO_write_struct_list(writer, bGPDmorph_target, &gpd->morph_targets);
 }
 
 void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
@@ -258,9 +275,18 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
           BLO_read_data_address(reader, &gps->dvert);
           BKE_defvert_blend_read(reader, gps->totpoints, gps->dvert);
         }
+
+        /* Relink morph data. */
+        BLO_read_list(reader, &gps->morphs);
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          BLO_read_data_address(reader, &gpsm->point_deltas);
+        }
       }
     }
   }
+
+  /* Relink morph targets. */
+  BLO_read_list(reader, &gpd->morph_targets);
 }
 
 static void greasepencil_blend_read_data(BlendDataReader *reader, ID *id)
@@ -399,6 +425,22 @@ void BKE_gpencil_free_stroke_editcurve(bGPDstroke *gps)
   gps->editcurve = NULL;
 }
 
+void BKE_gpencil_free_stroke_morphs(ListBase *list)
+{
+  bGPDsmorph *gpsm_next;
+
+  if (list == NULL) {
+    return;
+  }
+
+  for (bGPDsmorph *gpsm = list->first; gpsm; gpsm = gpsm_next) {
+    gpsm_next = gpsm->next;
+
+    MEM_freeN(gpsm->point_deltas);
+    BLI_freelinkN(list, gpsm);
+  }
+}
+
 void BKE_gpencil_free_stroke(bGPDstroke *gps)
 {
   if (gps == NULL) {
@@ -417,6 +459,10 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
   }
   if (gps->editcurve != NULL) {
     BKE_gpencil_free_stroke_editcurve(gps);
+  }
+  if (&gps->morphs != NULL) {
+    BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    BLI_listbase_clear(&gps->morphs);
   }
 
   MEM_freeN(gps);
@@ -496,6 +542,8 @@ void BKE_gpencil_free_data(bGPdata *gpd, bool free_all)
   MEM_SAFE_FREE(gpd->mat);
 
   BLI_freelistN(&gpd->vertex_group_names);
+
+  BLI_freelistN(&gpd->morph_targets);
 
   BKE_gpencil_free_update_cache(gpd);
 
@@ -919,10 +967,22 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
     else {
       gps_dst->dvert = NULL;
     }
+
+    /* Copy morhps. */
+    BLI_listbase_clear(&gps_dst->morphs);
+    if (&gps_src->morphs != NULL) {
+      LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps_src->morphs) {
+        bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm);
+        gpsm_dst->prev = gpsm_dst->next = NULL;
+        gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+        BLI_addtail(&gps_dst->morphs, gpsm_dst);
+      }
+    }
   }
   else {
     gps_dst->points = NULL;
     gps_dst->dvert = NULL;
+    BLI_listbase_clear(&gps_dst->morphs);
   }
 
   if (dup_curve && gps_src->editcurve != NULL) {
@@ -965,6 +1025,15 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src, const bool dup_
       /* make copy of source stroke */
       gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
       BLI_addtail(&gpf_dst->strokes, gps_dst);
+
+      /* Copy morphs. */
+      BLI_listbase_clear(&gps_dst->morphs);
+      LISTBASE_FOREACH (bGPDsmorph *, gpsm_src, &gps_src->morphs) {
+        bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm_src);
+        gpsm_dst->prev = gpsm_dst->next = NULL;
+        gpsm_dst->point_deltas = MEM_dupallocN(gpsm_src->point_deltas);
+        BLI_addtail(&gps_dst->morphs, gpsm_dst);
+      }
     }
   }
 
@@ -986,6 +1055,15 @@ void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_ds
     /* make copy of source stroke */
     gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
     BLI_addtail(&gpf_dst->strokes, gps_dst);
+
+    /* Copy morphs. */
+    BLI_listbase_clear(&gps_dst->morphs);
+    LISTBASE_FOREACH (bGPDsmorph *, gpsm_src, &gps_src->morphs) {
+      bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm_src);
+      gpsm_dst->prev = gpsm_dst->next = NULL;
+      gpsm_dst->point_deltas = MEM_dupallocN(gpsm_src->point_deltas);
+      BLI_addtail(&gps_dst->morphs, gpsm_dst);
+    }
   }
 }
 
@@ -1274,6 +1352,9 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
   if (gps->dvert) {
     BKE_gpencil_free_stroke_weights(gps);
     MEM_freeN(gps->dvert);
+  }
+  if (&gps->morphs) {
+    BKE_gpencil_free_stroke_morphs(&gps->morphs);
   }
   MEM_freeN(gps->triangles);
   BLI_freelinkN(&gpf->strokes, gps);
@@ -3126,6 +3207,40 @@ void BKE_gpencil_update_on_write(bGPdata *gpd_orig, bGPdata *gpd_eval)
 
   /* TODO: This might cause issues when we have multiple depsgraphs? */
   BKE_gpencil_free_update_cache(gpd_orig);
+}
+
+bGPDmorph_target *BKE_gpencil_morph_target_active_get(bGPdata *gpd)
+{
+  /* error checking */
+  if (ELEM(NULL, gpd, gpd->morph_targets.first)) {
+    return NULL;
+  }
+
+  /* loop over morph target until found (assume only one active) */
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
+    if (gpmt->flag & GP_MORPH_TARGET_ACTIVE) {
+      return gpmt;
+    }
+  }
+
+  /* no active layer found */
+  return NULL;
+}
+
+void BKE_gpencil_morph_target_active_set(bGPdata *gpd, bGPDmorph_target *active)
+{
+  /* error checking */
+  if (ELEM(NULL, gpd, gpd->morph_targets.first, active)) {
+    return;
+  }
+
+  /* loop over morph targets deactivating all */
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
+    gpmt->flag &= ~GP_MORPH_TARGET_ACTIVE;
+  }
+
+  /* set as active one */
+  active->flag |= GP_MORPH_TARGET_ACTIVE;
 }
 
 /** \} */

@@ -384,6 +384,39 @@ class DATA_PT_gpencil_vertex_groups(ObjectButtonsPanel, Panel):
             layout.prop(context.tool_settings, "vertex_group_weight", text="Weight")
 
 
+class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
+    bl_label = "Morph Targets"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        #layout.use_property_decorate = False
+
+        gpd = context.gpencil
+        gpmt = gpd.morph_targets.active
+
+        row = layout.row()
+        mt_rows = 4
+
+        col = row.column()
+        col.template_list("GPENCIL_UL_morph_target", "", gpd, "morph_targets", gpd.morph_targets,
+                          "active_index", rows=mt_rows, sort_reverse=False)
+
+        col = row.column()
+        sub = col.column(align=True)
+        sub.operator("gpencil.morph_target_add", icon='ADD', text="")
+        sub.operator("gpencil.morph_target_remove", icon='REMOVE', text="")
+
+        if gpmt:
+            layout.use_property_split = True
+            col = layout.column()
+            col.prop(gpmt, "value", slider=True)
+
+            col = layout.column(align=True)
+            col.prop(gpmt, "slider_min", text="Range Min")
+            col.prop(gpmt, "slider_max", text="Max")
+
+
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):
     bl_label = "Strokes"
     bl_options = {'DEFAULT_CLOSED'}
@@ -468,6 +501,7 @@ classes = (
     DATA_PT_gpencil_layer_relations,
     DATA_PT_gpencil_layer_display,
     DATA_PT_gpencil_vertex_groups,
+    DATA_PT_gpencil_morph_targets,
     DATA_PT_gpencil_strokes,
     DATA_PT_gpencil_display,
     DATA_PT_gpencil_canvas,

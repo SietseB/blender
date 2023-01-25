@@ -2564,6 +2564,8 @@ typedef enum eGPencil_Flags {
   GP_TOOL_FLAG_CREATE_WEIGHTS = (1 << 4),
   /** Auto-merge with last stroke. */
   GP_TOOL_FLAG_AUTOMERGE_STROKE = (1 << 5),
+  /** In morph target editing mode. */
+  GP_TOOL_FLAG_IN_MORPH_EDIT_MODE = (1 << 6),
 } eGPencil_Flags;
 
 /** #Scene.r.simplify_gpencil */

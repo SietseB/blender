@@ -654,6 +654,22 @@ class GPENCIL_UL_layer(UIList):
             )
 
 
+class GPENCIL_UL_morph_target(UIList):
+    # TODO: make this user configurable (somehow...)
+    def __init__(self):
+        self.use_filter_sort_alpha = True
+
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
+        gpmt = item
+
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            row = layout.row(align=True)
+            row.prop(gpmt, "name", text="", emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
 class GreasePencilSimplifyPanel:
 
     def draw_header(self, context):
@@ -953,6 +969,7 @@ classes = (
     GPENCIL_UL_annotation_layer,
     GPENCIL_UL_layer,
     GPENCIL_UL_masks,
+    GPENCIL_UL_morph_target,
 
     GreasePencilFlipTintColors,
 )

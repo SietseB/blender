@@ -1244,6 +1244,180 @@ static void rna_Gpencil_texture_shadow_image_set(PointerRNA *ptr,
   gpl->texture_shadow_image = (struct Image *)id;
 }
 
+static void rna_GPencilMorphTarget_name_set(PointerRNA *ptr, const char *value)
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+  bGPDmorph_target *gpmt = ptr->data;
+
+  char oldname[128] = "";
+  BLI_strncpy(oldname, gpmt->name, sizeof(oldname));
+
+  /* copy the new name into the name slot */
+  BLI_strncpy_utf8(gpmt->name, value, sizeof(gpmt->name));
+
+  BLI_uniquename(&gpd->morph_targets,
+                 gpmt,
+                 DATA_("Morph"),
+                 '.',
+                 offsetof(bGPDmorph_target, name),
+                 sizeof(gpmt->name));
+
+  /* now fix animation paths */
+  BKE_animdata_fix_paths_rename_all(&gpd->id, "morph_targets", oldname, gpmt->name);
+}
+
+static PointerRNA rna_GPencil_active_morph_target_get(PointerRNA *ptr)
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+
+  bGPDmorph_target *gpmt;
+
+  for (gpmt = gpd->morph_targets.first; gpmt; gpmt = gpmt->next) {
+    if (gpmt->flag & GP_MORPH_TARGET_ACTIVE) {
+      break;
+    }
+  }
+
+  if (gpmt) {
+    return rna_pointer_inherit_refine(ptr, &RNA_GPencilMorphTarget, gpmt);
+  }
+
+  return rna_pointer_inherit_refine(ptr, NULL, NULL);
+}
+
+static void rna_GPencil_active_morph_target_set(PointerRNA *ptr,
+                                                PointerRNA value,
+                                                struct ReportList *UNUSED(reports))
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+
+  /* Don't allow setting active morph target to NULL. */
+  if (value.data == NULL) {
+    printf("%s: Setting active morph target to None is not allowed\n", __func__);
+    return;
+  }
+
+  bGPDmorph_target *gpmt;
+
+  for (gpmt = gpd->morph_targets.first; gpmt; gpmt = gpmt->next) {
+    if (gpmt == value.data) {
+      gpmt->flag |= GP_MORPH_TARGET_ACTIVE;
+    }
+    else {
+      gpmt->flag &= ~GP_MORPH_TARGET_ACTIVE;
+    }
+  }
+
+  WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
+}
+
+static char *rna_GPencilMorphTarget_path(const PointerRNA *ptr)
+{
+  bGPDmorph_target *gpmt = (bGPDmorph_target *)ptr->data;
+  char name_esc[sizeof(gpmt->name) * 2];
+
+  BLI_str_escape(name_esc, gpmt->name, sizeof(name_esc));
+
+  return BLI_sprintfN("morph_targets[\"%s\"]", name_esc);
+}
+
+static int rna_GPencil_active_morph_target_index_get(PointerRNA *ptr)
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+  bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
+
+  return BLI_findindex(&gpd->morph_targets, gpmt);
+}
+
+static void rna_GPencil_active_morph_target_index_set(PointerRNA *ptr, int value)
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+  bGPDmorph_target *gpmt = BLI_findlink(&gpd->morph_targets, value);
+
+  BKE_gpencil_morph_target_active_set(gpd, gpmt);
+}
+
+static void rna_GPencil_active_morph_target_index_range(
+    PointerRNA *ptr, int *min, int *max, int *softmin, int *softmax)
+{
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+
+  *min = 0;
+  *max = max_ii(0, BLI_listbase_count(&gpd->morph_targets) - 1);
+
+  *softmin = *min;
+  *softmax = *max;
+}
+
+static void rna_MorphTarget_value_set(PointerRNA *ptr, float value)
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+  CLAMP(value, data->range_min, data->range_max);
+  data->value = value;
+}
+
+static void rna_MorphTarget_value_range(
+    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+
+  *min = data->range_min;
+  *max = data->range_max;
+}
+
+/* epsilon for how close one end of morph target range can get to the other */
+#  define MORPHTARGET_SLIDER_TOL 0.001f
+
+static void rna_MorphTarget_slider_min_range(
+    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+
+  *min = -10.0f;
+  *max = data->range_max - MORPHTARGET_SLIDER_TOL;
+}
+
+static void rna_MorphTarget_slider_min_set(PointerRNA *ptr, float value)
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+  float min, max, softmin, softmax;
+
+  rna_MorphTarget_slider_min_range(ptr, &min, &max, &softmin, &softmax);
+  CLAMP(value, min, max);
+  data->range_min = value;
+}
+
+static void rna_MorphTarget_slider_max_range(
+    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+
+  *min = data->range_min + MORPHTARGET_SLIDER_TOL;
+  *max = 10.0f;
+}
+
+static void rna_MorphTarget_slider_max_set(PointerRNA *ptr, float value)
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+  float min, max, softmin, softmax;
+
+  rna_MorphTarget_slider_max_range(ptr, &min, &max, &softmin, &softmax);
+  CLAMP(value, min, max);
+  data->range_max = value;
+}
+
+#  undef MORPHTARGET_SLIDER_TOL
+
+static void rna_MorphTarget_update_minmax(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+  if (IN_RANGE_INCL(data->value, data->range_min, data->range_max)) {
+    return;
+  }
+  CLAMP(data->value, data->range_min, data->range_max);
+  rna_GPencil_update(bmain, scene, ptr);
+}
+
 #else
 
 static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
@@ -1613,6 +1787,87 @@ static void rna_def_gpencil_mvert_group(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 }
 
+static void rna_def_gpencil_point_morph_delta(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GPencilPointMorphDelta", NULL);
+  RNA_def_struct_sdna(srna, "bGPDspoint_delta");
+  RNA_def_struct_ui_text(
+      srna, "Point Morph", "A deformed stroke point relative to the base stroke point");
+
+  prop = RNA_def_property(srna, "co", PROP_FLOAT, PROP_XYZ);
+  RNA_def_property_float_sdna(prop, NULL, "x");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(prop, "Coordinate Delta", "");
+
+  prop = RNA_def_property(srna, "pressure", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "pressure");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_text(prop, "Pressure Delta", "");
+
+  prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "strength");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_text(prop, "Strength Delta", "");
+
+  prop = RNA_def_property(srna, "vertex_color", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "vert_color");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Vertex Color Delta", "");
+}
+
+static void rna_def_gpencil_point_morph_deltas_api(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "GPencilStrokeMorphDeltas", NULL);
+  RNA_def_struct_sdna(srna, "bGPDsmorph");
+  RNA_def_struct_ui_text(srna,
+                         "Point Morph Deltas",
+                         "A collection of deformed stroke points relative to the base stroke");
+}
+
+static void rna_def_gpencil_stroke_morph(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GPencilStrokeMorph", NULL);
+  RNA_def_struct_sdna(srna, "bGPDsmorph");
+  RNA_def_struct_ui_text(srna, "Stroke Morph", "A deformed stroke relative to the base stroke");
+
+  /* Point deltas */
+  prop = RNA_def_property(srna, "point_deltas", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "point_deltas", "tot_point_deltas");
+  RNA_def_property_struct_type(prop, "GPencilPointMorphDelta");
+  RNA_def_property_ui_text(
+      prop, "Point Morph Deltas", "Collection of morph delta values of stroke points");
+  rna_def_gpencil_point_morph_deltas_api(brna);
+
+  /* Morph target index */
+  prop = RNA_def_property(srna, "morph_target", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
+}
+
+static void rna_def_gpencil_stroke_morphs_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+
+  RNA_def_property_srna(cprop, "GPencilStrokeMorphs");
+  srna = RNA_def_struct(brna, "GPencilStrokeMorphs", NULL);
+  RNA_def_struct_sdna(srna, "bGPDstroke");
+  RNA_def_struct_ui_text(srna, "Stroke Morphs", "Collection of grease pencil stroke morphs");
+}
+
 static void rna_def_gpencil_stroke(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -1658,6 +1913,13 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "mat_nr");
   RNA_def_property_ui_text(prop, "Material Index", "Material slot index of this stroke");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* Morphs */
+  prop = RNA_def_property(srna, "morphs", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "morphs", NULL);
+  RNA_def_property_struct_type(prop, "GPencilStrokeMorph");
+  RNA_def_property_ui_text(prop, "Morphs", "");
+  rna_def_gpencil_stroke_morphs_api(brna, prop);
 
   /* Settings */
   prop = RNA_def_property(srna, "display_mode", PROP_ENUM, PROP_NONE);
@@ -2753,6 +3015,90 @@ static void rna_def_gpencil_grid(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 }
 
+static void rna_def_gpencil_morph_target(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GPencilMorphTarget", NULL);
+  RNA_def_struct_sdna(srna, "bGPDmorph_target");
+  RNA_def_struct_ui_text(srna,
+                         "Grease Pencil Morph Target",
+                         "A set of deformed strokes relative to the base drawing");
+  RNA_def_struct_path_func(srna, "rna_GPencilMorphTarget_path");
+
+  /* Name */
+  prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Name", "Morph target name");
+  RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GPencilMorphTarget_name_set");
+  RNA_def_struct_name_property(srna, prop);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "group_nr", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "group_nr");
+  RNA_def_property_range(prop, 0, INT_MAX);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "value");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_float_funcs(
+      prop, NULL, "rna_MorphTarget_value_set", "rna_MorphTarget_value_range");
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 10, 3);
+  RNA_def_property_ui_text(prop, "Value", "Value of the morph target");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "slider_min", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "range_min");
+  RNA_def_property_float_funcs(
+      prop, NULL, "rna_MorphTarget_slider_min_set", "rna_MorphTarget_slider_min_range");
+  RNA_def_property_range(prop, -10.0f, 10.0f);
+  RNA_def_property_ui_text(prop, "Range Min", "Minimum for slider");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
+
+  prop = RNA_def_property(srna, "slider_max", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "range_max");
+  RNA_def_property_float_funcs(
+      prop, NULL, "rna_MorphTarget_slider_max_set", "rna_MorphTarget_slider_max_range");
+  RNA_def_property_range(prop, -10.0f, 10.0f);
+  RNA_def_property_ui_text(prop, "Range Max", "Maximum for slider");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
+}
+
+static void rna_def_gpencil_morph_targets_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  RNA_def_property_srna(cprop, "GreasePencilMorphTargets");
+  srna = RNA_def_struct(brna, "GreasePencilMorphTargets", NULL);
+  RNA_def_struct_sdna(srna, "bGPdata");
+  RNA_def_struct_ui_text(
+      srna, "Grease Pencil Morph Targets", "Collection of grease pencil morph targets");
+
+  prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "GPencilMorphTarget");
+  RNA_def_property_pointer_funcs(prop,
+                                 "rna_GPencil_active_morph_target_get",
+                                 "rna_GPencil_active_morph_target_set",
+                                 NULL,
+                                 NULL);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Active Layer", "Active grease pencil layer");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+
+  prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_funcs(prop,
+                             "rna_GPencil_active_morph_target_index_get",
+                             "rna_GPencil_active_morph_target_index_set",
+                             "rna_GPencil_active_morph_target_index_range");
+  RNA_def_property_ui_text(
+      prop, "Active Morph Target Index", "Index of active grease pencil morph target");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+}
+
 static void rna_def_gpencil_data(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -3056,6 +3402,13 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
   rna_def_gpencil_grid(brna);
 
+  /* Morph targets */
+  prop = RNA_def_property(srna, "morph_targets", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "morph_targets", NULL);
+  RNA_def_property_struct_type(prop, "GPencilMorphTarget");
+  RNA_def_property_ui_text(prop, "Morph Targets", "");
+  rna_def_gpencil_morph_targets_api(brna, prop);
+
   /* Ondine watercolor additions */
   /* watercolor GP object */
   prop = RNA_def_property(srna, "watercolor", PROP_BOOLEAN, PROP_NONE);
@@ -3254,6 +3607,10 @@ void RNA_def_gpencil(BlenderRNA *brna)
   rna_def_gpencil_curve_point(brna);
 
   rna_def_gpencil_mvert_group(brna);
+
+  rna_def_gpencil_morph_target(brna);
+  rna_def_gpencil_stroke_morph(brna);
+  rna_def_gpencil_point_morph_delta(brna);
 }
 
 #endif

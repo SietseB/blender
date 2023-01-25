@@ -668,6 +668,10 @@ void ED_operatortypes_gpencil(void)
   WM_operatortype_append(GPENCIL_OT_material_select);
   WM_operatortype_append(GPENCIL_OT_material_set);
 
+  /* morph targets */
+  WM_operatortype_append(GPENCIL_OT_morph_target_add);
+  WM_operatortype_append(GPENCIL_OT_morph_target_remove);
+
   /* Editing (Time) --------------- */
 
   /* Interpolation */

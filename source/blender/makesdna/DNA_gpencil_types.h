@@ -113,6 +113,36 @@ typedef enum eGPDspoint_Flag {
 } eGPSPoint_Flag;
 
 /* ***************************************** */
+/* GP stroke point delta's for storing morph target data. */
+typedef struct bGPDspoint_delta {
+  DNA_DEFINE_CXX_METHODS(bGPDspoint_delta)
+
+  /** Delta in point coordinates. */
+  float x, y, z;
+  /** Delta in pressure (thickness). */
+  float pressure;
+  /** Delta in strength (opacity). */
+  float strength;
+  /** Delta in vertex color RGBA. */
+  float vert_color[4];
+  char _pad0[4];
+} bGPDspoint_delta;
+
+/* Morph target data for GP strokes. */
+typedef struct bGPDsmorph {
+  DNA_DEFINE_CXX_METHODS(bGPDsmorph)
+
+  struct bGPDsmorph *next, *prev;
+
+  /** Array of data-points delta's for stroke. */
+  bGPDspoint_delta *point_deltas;
+  /** Morph target index. */
+  int morph_target_nr;
+  /** Number of delta's in array. */
+  int tot_point_deltas;
+} bGPDsmorph;
+
+/* ***************************************** */
 /* GP Fill - Triangle Tessellation Data */
 
 /* Grease-Pencil Annotations - 'Triangle'
@@ -343,6 +373,9 @@ typedef struct bGPDstroke {
 
   /** Curve used to edit the stroke using Bezier handlers. */
   struct bGPDcurve *editcurve;
+
+  /** Morph target data. */
+  ListBase morphs;
 
   /** Ondine watercolor additions */
   /** Seed for randomization of stroke density, noise etc. */
@@ -748,6 +781,28 @@ typedef struct bGPgrid {
   char _pad[4];
 } bGPgrid;
 
+/* Morph target definition. */
+typedef struct bGPDmorph_target {
+  DNA_DEFINE_CXX_METHODS(bGPDmorph_target)
+
+  struct bGPDmorph_target *next, *prev;
+
+  char name[128];
+  int group_nr;
+  float value;
+  float value_stored;
+  float range_min;
+  float range_max;
+  short flag;
+  char _pad0[2];
+} bGPDmorph_target;
+
+/* bGPDlayer->flag */
+typedef enum eGPDmorph_target_Flag {
+  /* Morhp target is active */
+  GP_MORPH_TARGET_ACTIVE = (1 << 0),
+} eGPDmorph_target_Flag;
+
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {
   DNA_DEFINE_CXX_METHODS(bGPdata)
@@ -829,9 +884,13 @@ typedef struct bGPdata {
   int vertex_group_active_index;
   bGPgrid grid;
 
+  /** Morph targets. */
+  ListBase morph_targets;
+  char _pad3[4];
+
   /* Ondine watercolor additions */
   short ondine_flag;
-  char _pad3[2];
+  char _pad4[2];
   int randomize_seed_step;
   float stroke_base_alpha;
   float watercolor_noise_strength_low;
@@ -846,7 +905,6 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
-  char _pad4[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */
