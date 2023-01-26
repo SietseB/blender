@@ -270,6 +270,14 @@ struct wmWindow *WM_window_open(struct bContext *C,
                                 bool temp,
                                 eWindowAlignment alignment);
 
+struct wmWindow *WM_window_open_temp(struct bContext *C,
+                                     const char *title,
+                                     struct UserDef_WinState *state,
+                                     int def_sizex,
+                                     int def_sizey,
+                                     int space_type,
+                                     bool dialog);
+
 void WM_window_set_dpi(const wmWindow *win);
 
 bool WM_stereo3d_enabled(struct wmWindow *win, bool only_fullscreen_test);

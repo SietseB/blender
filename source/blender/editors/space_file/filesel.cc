@@ -577,17 +577,6 @@ void ED_fileselect_deselect_all(SpaceFile *sfile)
  * may also be remembered, but only conditionally. */
 #define PARAMS_FLAGS_REMEMBERED (FILE_HIDE_DOT)
 
-void ED_fileselect_window_params_get(const wmWindow *win, int win_size[2], bool *is_maximized)
-{
-  /* Get DPI/pixel-size independent size to be stored in preferences. */
-  WM_window_set_dpi(win); /* Ensure the DPI is taken from the right window. */
-
-  win_size[0] = WM_window_pixels_x(win) / UI_DPI_FAC;
-  win_size[1] = WM_window_pixels_y(win) / UI_DPI_FAC;
-
-  *is_maximized = WM_window_is_maximized(win);
-}
-
 static bool file_select_use_default_display_type(const SpaceFile *sfile)
 {
   PropertyRNA *prop;
@@ -634,9 +623,7 @@ void ED_fileselect_set_params_from_userdef(SpaceFile *sfile)
   }
 }
 
-void ED_fileselect_params_to_userdef(SpaceFile *sfile,
-                                     const int temp_win_size[2],
-                                     const bool is_maximized)
+void ED_fileselect_params_to_userdef(SpaceFile *sfile)
 {
   FileSelectParams *params = ED_fileselect_get_active_params(sfile);
   UserDef_FileSpaceData *sfile_udata_new = &U.file_space_data;
@@ -658,11 +645,6 @@ void ED_fileselect_params_to_userdef(SpaceFile *sfile,
     /* In this case also remember the invert flag. */
     sfile_udata_new->flag = (sfile_udata_new->flag & ~FILE_SORT_INVERT) |
                             (params->flag & FILE_SORT_INVERT);
-  }
-
-  if (temp_win_size && !is_maximized) {
-    sfile_udata_new->temp_win_sizex = temp_win_size[0];
-    sfile_udata_new->temp_win_sizey = temp_win_size[1];
   }
 
   /* Tag prefs as dirty if something has changed. */
@@ -1246,20 +1228,7 @@ void ED_fileselect_exit(wmWindowManager *wm, SpaceFile *sfile)
     return;
   }
   if (sfile->op) {
-    wmWindow *temp_win = (wm->winactive && WM_window_is_temp_screen(wm->winactive)) ?
-                             wm->winactive :
-                             nullptr;
-    if (temp_win) {
-      int win_size[2];
-      bool is_maximized;
-
-      ED_fileselect_window_params_get(temp_win, win_size, &is_maximized);
-      ED_fileselect_params_to_userdef(sfile, win_size, is_maximized);
-    }
-    else {
-      ED_fileselect_params_to_userdef(sfile, nullptr, false);
-    }
-
+    ED_fileselect_params_to_userdef(sfile);
     WM_event_fileselect_event(wm, sfile->op, EVT_FILESELECT_EXTERNAL_CANCEL);
     sfile->op = nullptr;
   }

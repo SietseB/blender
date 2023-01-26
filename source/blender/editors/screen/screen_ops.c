@@ -1381,6 +1381,7 @@ static void SCREEN_OT_area_swap(wmOperatorType *ot)
 static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   ScrArea *area = CTX_wm_area(C);
+  wmWindow *win = CTX_wm_window(C);
 
   if (event && event->customdata) {
     sActionzoneData *sad = event->customdata;
@@ -1393,8 +1394,8 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   /* Create new window. No need to set space_type since it will be copied over. */
   wmWindow *newwin = WM_window_open(C,
                                     "Blender",
-                                    area->totrct.xmin,
-                                    area->totrct.ymin,
+                                    win->posx + area->totrct.xmin,
+                                    win->posy + area->totrct.ymin,
                                     area->winx,
                                     area->winy,
                                     SPACE_EMPTY,
@@ -4563,7 +4564,7 @@ static void screen_animation_region_tag_redraw(
   ED_region_tag_redraw(region);
 }
 
-//#define PROFILE_AUDIO_SYNCH
+// #define PROFILE_AUDIO_SYNCH
 
 static int screen_animation_step_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
@@ -5041,12 +5042,6 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 
 static int userpref_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
-  int sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_DPI_FAC;
-  int sizey = 520 * UI_DPI_FAC;
-
   PropertyRNA *prop = RNA_struct_find_property(op->ptr, "section");
   if (prop && RNA_property_is_set(op->ptr, prop)) {
     /* Set active section via RNA, so it can fail properly. */
@@ -5060,17 +5055,13 @@ static int userpref_show_exec(bContext *C, wmOperator *op)
   }
 
   /* changes context! */
-  if (WM_window_open(C,
-                     IFACE_("Blender Preferences"),
-                     event->xy[0],
-                     event->xy[1],
-                     sizex,
-                     sizey,
-                     SPACE_USERPREF,
-                     false,
-                     false,
-                     true,
-                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
+  if (WM_window_open_temp(C,
+                          IFACE_("Blender Preferences"),
+                          &U.preferences_winstate,
+                          500 + UI_NAVIGATION_REGION_WIDTH,
+                          520,
+                          SPACE_USERPREF,
+                          false) != NULL) {
     /* The header only contains the editor switcher and looks empty.
      * So hiding in the temp window makes sense. */
     ScrArea *area = CTX_wm_area(C);
@@ -5120,13 +5111,6 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 
 static int drivers_editor_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
-
-  int sizex = 900 * UI_DPI_FAC;
-  int sizey = 580 * UI_DPI_FAC;
-
   /* Get active property to show driver for
    * - Need to grab it first, or else this info disappears
    *   after we've created the window
@@ -5137,17 +5121,13 @@ static int drivers_editor_show_exec(bContext *C, wmOperator *op)
   uiBut *but = UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
   /* changes context! */
-  if (WM_window_open(C,
-                     IFACE_("Blender Drivers Editor"),
-                     event->xy[0],
-                     event->xy[1],
-                     sizex,
-                     sizey,
-                     SPACE_GRAPH,
-                     false,
-                     false,
-                     true,
-                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
+  if (WM_window_open_temp(C,
+                          IFACE_("Blender Drivers Editor"),
+                          &U.drivers_winstate,
+                          900,
+                          580,
+                          SPACE_GRAPH,
+                          false) != NULL) {
     ED_drivers_editor_init(C, CTX_wm_area(C));
 
     /* activate driver F-Curve for the property under the cursor */
@@ -5198,25 +5178,9 @@ static void SCREEN_OT_drivers_editor_show(struct wmOperatorType *ot)
 
 static int info_log_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
-  int sizex = 900 * UI_DPI_FAC;
-  int sizey = 580 * UI_DPI_FAC;
-  int shift_y = 480;
-
   /* changes context! */
-  if (WM_window_open(C,
-                     IFACE_("Blender Info Log"),
-                     event->xy[0],
-                     event->xy[1] + shift_y,
-                     sizex,
-                     sizey,
-                     SPACE_INFO,
-                     false,
-                     false,
-                     true,
-                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
+  if (WM_window_open_temp(
+          C, IFACE_("Blender Info Log"), &U.info_winstate, 900, 580, SPACE_INFO, false) != NULL) {
     return OPERATOR_FINISHED;
   }
   BKE_report(op->reports, RPT_ERROR, "Failed to open window!");

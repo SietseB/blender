@@ -104,13 +104,8 @@ void ED_fileselect_set_params_from_userdef(struct SpaceFile *sfile);
 /**
  * Update the user-preference data for the file space. In fact, this also contains some
  * non-FileSelectParams data, but we can safely ignore this.
- *
- * \param temp_win_size: If the browser was opened in a temporary window,
- * pass its size here so we can store that in the preferences. Otherwise NULL.
  */
-void ED_fileselect_params_to_userdef(struct SpaceFile *sfile,
-                                     const int temp_win_size[2],
-                                     bool is_maximized);
+void ED_fileselect_params_to_userdef(struct SpaceFile *sfile);
 
 void ED_fileselect_init_layout(struct SpaceFile *sfile, struct ARegion *region);
 
@@ -158,10 +153,6 @@ void ED_fileselect_activate_by_id(struct SpaceFile *sfile, struct ID *asset_id, 
 
 void ED_fileselect_deselect_all(struct SpaceFile *sfile);
 void ED_fileselect_activate_by_relpath(struct SpaceFile *sfile, const char *relative_path);
-
-void ED_fileselect_window_params_get(const struct wmWindow *win,
-                                     int win_size[2],
-                                     bool *is_maximized);
 
 /**
  * Return the File Browser area in which \a file_operator is active.
