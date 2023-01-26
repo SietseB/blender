@@ -2587,29 +2587,15 @@ static int wm_handler_fileselect_do(bContext *C,
 
   switch (val) {
     case EVT_FILESELECT_FULL_OPEN: {
-      ScrArea *area;
-
-      /* Get DPI and scale from current (parent) window. */
       wmWindow *win = CTX_wm_window(C);
-      WM_window_set_dpi(win);
-
-      int posx, posy;
-
-      if (U.file_space_data.temp_win_posy == 0.0f) {
-        posx = (int)(win->posx + (50 * UI_DPI_FAC));
-        posy = (int)(win->posy + (50 * UI_DPI_FAC));
-      }
-      else {
-        posx = (int)(U.file_space_data.temp_win_posx * UI_DPI_FAC);
-        posy = (int)(U.file_space_data.temp_win_posy * UI_DPI_FAC);
-      }
+      ScrArea *area;
 
       if ((area = ED_screen_temp_space_open(C,
                                             IFACE_("Blender File View"),
-                                            posx,
-                                            posy,
-                                            (int)(U.file_space_data.temp_win_sizex * UI_DPI_FAC),
-                                            (int)(U.file_space_data.temp_win_sizey * UI_DPI_FAC),
+                                            WM_window_pixels_x(win) / 2,
+                                            WM_window_pixels_y(win) / 2,
+                                            U.file_space_data.temp_win_sizex * UI_DPI_FAC,
+                                            U.file_space_data.temp_win_sizey * UI_DPI_FAC,
                                             SPACE_FILE,
                                             U.filebrowser_display_type,
                                             true))) {
@@ -2673,13 +2659,10 @@ static int wm_handler_fileselect_do(bContext *C,
           }
 
           int win_size[2];
-          float win_pos[2];
           bool is_maximized;
-          ED_fileselect_window_params_get(win, win_size, win_pos, &is_maximized);
-          ED_fileselect_params_to_userdef(static_cast<SpaceFile *>(file_area->spacedata.first),
-                                          win_size,
-                                          win_pos,
-                                          is_maximized);
+          ED_fileselect_window_params_get(win, win_size, &is_maximized);
+          ED_fileselect_params_to_userdef(
+              static_cast<SpaceFile *>(file_area->spacedata.first), win_size, is_maximized);
 
           if (BLI_listbase_is_single(&file_area->spacedata)) {
             BLI_assert(root_win != win);
@@ -2709,7 +2692,7 @@ static int wm_handler_fileselect_do(bContext *C,
 
         if (!temp_win && ctx_area->full) {
           ED_fileselect_params_to_userdef(
-              static_cast<SpaceFile *>(ctx_area->spacedata.first), nullptr, nullptr, false);
+              static_cast<SpaceFile *>(ctx_area->spacedata.first), nullptr, false);
           ED_screen_full_prevspace(C, ctx_area);
         }
       }

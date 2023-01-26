@@ -1401,7 +1401,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
                                     false,
                                     false,
                                     false,
-                                    WIN_ALIGN_ABSOLUTE_PARENT);
+                                    WIN_ALIGN_ABSOLUTE);
 
   if (newwin) {
     /* copy area to new screen */
@@ -4563,7 +4563,7 @@ static void screen_animation_region_tag_redraw(
   ED_region_tag_redraw(region);
 }
 
-// #define PROFILE_AUDIO_SYNCH
+//#define PROFILE_AUDIO_SYNCH
 
 static int screen_animation_step_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
@@ -5039,30 +5039,14 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 /** \name Show User Preferences Operator
  * \{ */
 
-static bool preferences_close(bContext *C, struct wmWindow *win)
-{
-  /* Get DPI and scale from parent window, if there is one. */
-  WM_window_set_dpi(win->parent ? win->parent : win);
-  float sizex = (float)WM_window_pixels_x(win) / UI_DPI_FAC;
-  float sizey = (float)WM_window_pixels_y(win) / UI_DPI_FAC;
-  float posx = (float)win->posx / UI_DPI_FAC;
-  float posy = (float)win->posy / UI_DPI_FAC;
-
-  if (sizex != U.preferences_win_data.win_sizex || sizey != U.preferences_win_data.win_sizey ||
-      posx != U.preferences_win_data.win_posx || posy != U.preferences_win_data.win_posy) {
-    U.preferences_win_data.win_sizex = sizex;
-    U.preferences_win_data.win_sizey = sizey;
-    U.preferences_win_data.win_posx = posx;
-    U.preferences_win_data.win_posy = posy;
-    /* Tag user preferences as dirty. */
-    U.runtime.is_dirty = true;
-  }
-
-  return true;
-}
-
 static int userpref_show_exec(bContext *C, wmOperator *op)
 {
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
+  int sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_DPI_FAC;
+  int sizey = 520 * UI_DPI_FAC;
+
   PropertyRNA *prop = RNA_struct_find_property(op->ptr, "section");
   if (prop && RNA_property_is_set(op->ptr, prop)) {
     /* Set active section via RNA, so it can fail properly. */
@@ -5075,51 +5059,22 @@ static int userpref_show_exec(bContext *C, wmOperator *op)
     RNA_property_update(C, &pref_ptr, active_section_prop);
   }
 
-  /* Get DPI and scale from current (parent) window. */
-  WM_window_set_dpi(CTX_wm_window(C));
-
-  int sizex, sizey, posx, posy;
-  eWindowAlignment align;
-
-  if (U.preferences_win_data.win_sizex == 0) {
-    /* Not set. */
-    wmWindow *win_cur = CTX_wm_window(C);
-    /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-    const wmEvent *event = win_cur->eventstate;
-    sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_DPI_FAC;
-    sizey = 520 * UI_DPI_FAC;
-    posx = event->xy[0];
-    posy = event->xy[1];
-    align = WIN_ALIGN_LOCATION_CENTER;
-  }
-  else {
-    posx = (int)(U.preferences_win_data.win_posx * UI_DPI_FAC);
-    posy = (int)(U.preferences_win_data.win_posy * UI_DPI_FAC);
-    sizex = (int)(U.preferences_win_data.win_sizex * UI_DPI_FAC);
-    sizey = (int)(U.preferences_win_data.win_sizey * UI_DPI_FAC);
-    align = WIN_ALIGN_ABSOLUTE_DESKTOP;
-  }
-
   /* changes context! */
-  wmWindow *win = WM_window_open(C,
-                                 IFACE_("Blender Preferences"),
-                                 posx,
-                                 posy,
-                                 sizex,
-                                 sizey,
-                                 SPACE_USERPREF,
-                                 false,
-                                 false,
-                                 true,
-                                 align);
-
-  if (win != NULL) {
+  if (WM_window_open(C,
+                     IFACE_("Blender Preferences"),
+                     event->xy[0],
+                     event->xy[1],
+                     sizex,
+                     sizey,
+                     SPACE_USERPREF,
+                     false,
+                     false,
+                     true,
+                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
     /* The header only contains the editor switcher and looks empty.
      * So hiding in the temp window makes sense. */
     ScrArea *area = CTX_wm_area(C);
     ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_HEADER);
-
-    win->can_close_cb = preferences_close;
 
     region->flag |= RGN_FLAG_HIDDEN;
     ED_region_visibility_change_update(C, area, region);
@@ -5163,30 +5118,15 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 /** \name Show Drivers Editor Operator
  * \{ */
 
-static bool drivers_close(bContext *C, struct wmWindow *win)
-{
-  /* Get DPI and scale from parent window, if there is one. */
-  WM_window_set_dpi(win->parent ? win->parent : win);
-  float sizex = (float)WM_window_pixels_x(win) / UI_DPI_FAC;
-  float sizey = (float)WM_window_pixels_y(win) / UI_DPI_FAC;
-  float posx = (float)win->posx / UI_DPI_FAC;
-  float posy = (float)win->posy / UI_DPI_FAC;
-
-  if (sizex != U.drivers_win_data.win_sizex || sizey != U.drivers_win_data.win_sizey ||
-      posx != U.drivers_win_data.win_posx || posy != U.drivers_win_data.win_posy) {
-    U.drivers_win_data.win_sizex = sizex;
-    U.drivers_win_data.win_sizey = sizey;
-    U.drivers_win_data.win_posx = posx;
-    U.drivers_win_data.win_posy = posy;
-    /* Tag user preferences as dirty. */
-    U.runtime.is_dirty = true;
-  }
-
-  return true;
-}
-
 static int drivers_editor_show_exec(bContext *C, wmOperator *op)
 {
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
+
+  int sizex = 900 * UI_DPI_FAC;
+  int sizey = 580 * UI_DPI_FAC;
+
   /* Get active property to show driver for
    * - Need to grab it first, or else this info disappears
    *   after we've created the window
@@ -5196,48 +5136,19 @@ static int drivers_editor_show_exec(bContext *C, wmOperator *op)
   PropertyRNA *prop;
   uiBut *but = UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
-  int posx, posy, sizex, sizey;
-  eWindowAlignment align;
-
-  /* Get DPI and scale from current (parent) window. */
-  WM_window_set_dpi(CTX_wm_window(C));
-
-  if (U.drivers_win_data.win_sizex == 0) {
-    /* Not set. */
-    wmWindow *win_cur = CTX_wm_window(C);
-    /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-    const wmEvent *event = win_cur->eventstate;
-    posx = event->xy[0];
-    posy = event->xy[1];
-    sizex = 900 * UI_DPI_FAC;
-    sizey = 580 * UI_DPI_FAC;
-    align = WIN_ALIGN_LOCATION_CENTER;
-  }
-  else {
-    posx = (int)(U.drivers_win_data.win_posx * UI_DPI_FAC);
-    posy = (int)(U.drivers_win_data.win_posy * UI_DPI_FAC);
-    sizex = (int)(U.drivers_win_data.win_sizex * UI_DPI_FAC);
-    sizey = (int)(U.drivers_win_data.win_sizey * UI_DPI_FAC);
-    align = WIN_ALIGN_ABSOLUTE_DESKTOP;
-  }
-
   /* changes context! */
-  wmWindow *win = WM_window_open(C,
-                                 IFACE_("Blender Drivers Editor"),
-                                 posx,
-                                 posy,
-                                 sizex,
-                                 sizey,
-                                 SPACE_GRAPH,
-                                 false,
-                                 false,
-                                 true,
-                                 align);
-
-  if (win != NULL) {
+  if (WM_window_open(C,
+                     IFACE_("Blender Drivers Editor"),
+                     event->xy[0],
+                     event->xy[1],
+                     sizex,
+                     sizey,
+                     SPACE_GRAPH,
+                     false,
+                     false,
+                     true,
+                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
     ED_drivers_editor_init(C, CTX_wm_area(C));
-
-    win->can_close_cb = drivers_close;
 
     /* activate driver F-Curve for the property under the cursor */
     if (but) {
@@ -5285,69 +5196,27 @@ static void SCREEN_OT_drivers_editor_show(struct wmOperatorType *ot)
 /** \name Show Info Log Operator
  * \{ */
 
-static bool info_log_close(bContext *C, struct wmWindow *win)
-{
-  /* Get DPI and scale from parent window, if there is one. */
-  WM_window_set_dpi(win->parent ? win->parent : win);
-  float sizex = (float)WM_window_pixels_x(win) / UI_DPI_FAC;
-  float sizey = (float)WM_window_pixels_y(win) / UI_DPI_FAC;
-  float posx = (float)win->posx / UI_DPI_FAC;
-  float posy = (float)win->posy / UI_DPI_FAC;
-
-  if (sizex != U.info_win_data.win_sizex || sizey != U.info_win_data.win_sizey ||
-      posx != U.info_win_data.win_posx || posy != U.info_win_data.win_posy) {
-    U.info_win_data.win_sizex = sizex;
-    U.info_win_data.win_sizey = sizey;
-    U.info_win_data.win_posx = posx;
-    U.info_win_data.win_posy = posy;
-    /* Tag user preferences as dirty. */
-    U.runtime.is_dirty = true;
-  }
-
-  return true;
-}
-
 static int info_log_show_exec(bContext *C, wmOperator *op)
 {
-  int posx, posy, sizex, sizey;
-  eWindowAlignment align;
-
-  /* Get DPI and scale from current (parent) window. */
-  WM_window_set_dpi(CTX_wm_window(C));
-
-  if (U.info_win_data.win_sizex == 0) {
-    wmWindow *win_cur = CTX_wm_window(C);
-    /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-    const wmEvent *event = win_cur->eventstate;
-    sizex = 900 * UI_DPI_FAC;
-    sizey = 580 * UI_DPI_FAC;
-    posx = event->xy[0];
-    posy = event->xy[1] + 480;
-    align = WIN_ALIGN_LOCATION_CENTER;
-  }
-  else {
-    posx = (int)(U.info_win_data.win_posx * UI_DPI_FAC);
-    posy = (int)(U.info_win_data.win_posy * UI_DPI_FAC);
-    sizex = (int)(U.info_win_data.win_sizex * UI_DPI_FAC);
-    sizey = (int)(U.info_win_data.win_sizey * UI_DPI_FAC);
-    align = WIN_ALIGN_ABSOLUTE_DESKTOP;
-  }
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
+  int sizex = 900 * UI_DPI_FAC;
+  int sizey = 580 * UI_DPI_FAC;
+  int shift_y = 480;
 
   /* changes context! */
-  wmWindow *win = WM_window_open(C,
-                                 IFACE_("Blender Info Log"),
-                                 posx,
-                                 posy,
-                                 sizex,
-                                 sizey,
-                                 SPACE_INFO,
-                                 false,
-                                 false,
-                                 true,
-                                 align);
-
-  if (win != NULL) {
-    win->can_close_cb = info_log_close;
+  if (WM_window_open(C,
+                     IFACE_("Blender Info Log"),
+                     event->xy[0],
+                     event->xy[1] + shift_y,
+                     sizex,
+                     sizey,
+                     SPACE_INFO,
+                     false,
+                     false,
+                     true,
+                     WIN_ALIGN_LOCATION_CENTER) != NULL) {
     return OPERATOR_FINISHED;
   }
   BKE_report(op->reports, RPT_ERROR, "Failed to open window!");

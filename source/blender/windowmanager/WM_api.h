@@ -245,10 +245,9 @@ void WM_opengl_context_release(void *context);
 
 /* #WM_window_open alignment */
 typedef enum eWindowAlignment {
-  WIN_ALIGN_ABSOLUTE_PARENT = 0,
+  WIN_ALIGN_ABSOLUTE = 0,
   WIN_ALIGN_LOCATION_CENTER,
   WIN_ALIGN_PARENT_CENTER,
-  WIN_ALIGN_ABSOLUTE_DESKTOP,
 } eWindowAlignment;
 
 /**

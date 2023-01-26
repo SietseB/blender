@@ -630,20 +630,7 @@ typedef struct UserDef_FileSpaceData {
   /** Info used when creating the file browser in a temporary window. */
   int temp_win_sizex;
   int temp_win_sizey;
-  float temp_win_posx;
-  float temp_win_posy;
 } UserDef_FileSpaceData;
-
-/**
- * Storage for temp window position and size. Similar to #UserDef_SpaceData.
- * Needs to use floats (divided by UI_DPI_FAC) to avoid drifting.
- */
-typedef struct UserDef_WinData {
-  float win_posx;
-  float win_posy;
-  float win_sizex;
-  float win_sizey;
-} UserDef_WinData;
 
 typedef struct UserDef_Experimental {
   /* Debug options, always available. */
@@ -960,11 +947,6 @@ typedef struct UserDef {
   UserDef_SpaceData space_data;
   UserDef_FileSpaceData file_space_data;
 
-  UserDef_WinData preferences_win_data;
-  UserDef_WinData render_win_data;
-  UserDef_WinData info_win_data;
-  UserDef_WinData drivers_win_data;
-
   UserDef_Experimental experimental;
 
   /** Runtime data (keep last). */
@@ -977,7 +959,7 @@ extern UserDef U;
 /* ***************** USERDEF ****************** */
 
 /* Toggles for unfinished 2.8 UserPref design. */
-// #define WITH_USERDEF_WORKSPACES
+//#define WITH_USERDEF_WORKSPACES
 
 /** #UserDef_SpaceData.section_active (UI active_section) */
 typedef enum eUserPref_Section {
@@ -1390,8 +1372,7 @@ typedef enum eUserpref_RenderDisplayType {
   USER_RENDER_DISPLAY_NONE = 0,
   USER_RENDER_DISPLAY_SCREEN = 1,
   USER_RENDER_DISPLAY_AREA = 2,
-  USER_RENDER_DISPLAY_WINDOW = 3,
-  USER_RENDER_DISPLAY_WINDOW_SAVED = 4,
+  USER_RENDER_DISPLAY_WINDOW = 3
 } eUserpref_RenderDisplayType;
 
 typedef enum eUserpref_TempSpaceDisplayType {

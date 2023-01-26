@@ -110,7 +110,6 @@ void ED_fileselect_set_params_from_userdef(struct SpaceFile *sfile);
  */
 void ED_fileselect_params_to_userdef(struct SpaceFile *sfile,
                                      const int temp_win_size[2],
-                                     const float temp_win_pos[2],
                                      bool is_maximized);
 
 void ED_fileselect_init_layout(struct SpaceFile *sfile, struct ARegion *region);
@@ -162,7 +161,6 @@ void ED_fileselect_activate_by_relpath(struct SpaceFile *sfile, const char *rela
 
 void ED_fileselect_window_params_get(const struct wmWindow *win,
                                      int win_size[2],
-                                     float win_pos[2],
                                      bool *is_maximized);
 
 /**
