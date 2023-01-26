@@ -62,7 +62,9 @@ typedef struct bGPDspoint_Runtime {
   float dist_to_cam;
   /** Pressure adjusted to distance to camera */
   float pressure_3d;
-  char _pad0[4];
+
+  /** Morph index for syncing morph target and base. */
+  int morph_index;
 } bGPDspoint_Runtime;
 
 /* Grease-Pencil Annotations - 'Stroke Point'
@@ -289,6 +291,10 @@ typedef struct bGPDstroke_Runtime {
   /** Curve Handles offset in the IBO where this handle starts. */
   int curve_start;
 
+  /** Morph index for syncing morph target and base. */
+  int morph_index;
+  char _pad0[4];
+
   /** Ondine runtime render calculations */
   float render_fill_color[3];
   float render_stroke_color[3];
@@ -461,6 +467,10 @@ typedef struct bGPDframe_Runtime {
   /** Onion offset from active frame. 0 if not onion. INT_MAX to bypass frame. */
   int onion_id;
 
+  /** Morph index for syncing morph target and base. */
+  int morph_index;
+  char _pad0[4];
+
   /** Original frame (used to dereference evaluated data) */
   struct bGPDframe *gpf_orig;
 } bGPDframe_Runtime;
@@ -529,7 +539,10 @@ typedef struct bGPDlayer_Runtime {
 
   /** Id for dynamic icon used to show annotation color preview for layer. */
   int icon_id;
-  char _pad[4];
+
+  /** Morph index for syncing morph target and base. */
+  int morph_index;
+
   /** Original layer (used to dereference evaluated data) */
   struct bGPDlayer *gpl_orig;
 } bGPDlayer_Runtime;

@@ -427,7 +427,7 @@ void BKE_gpencil_free_stroke_editcurve(bGPDstroke *gps)
 
 void BKE_gpencil_free_stroke_morphs(ListBase *list)
 {
-  bGPDsmorph *gpsm_next;
+  bGPDsmorph *gpsm_next = NULL;
 
   if (list == NULL) {
     return;

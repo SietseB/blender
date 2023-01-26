@@ -40,6 +40,7 @@ set(SRC
   gpencil_interpolate.c
   gpencil_merge.c
   gpencil_mesh.cc
+  gpencil_morph_targets.c
   gpencil_ondine.cc
   gpencil_ondine_render.c
   gpencil_ops.c
