@@ -671,6 +671,8 @@ void ED_operatortypes_gpencil(void)
   /* morph targets */
   WM_operatortype_append(GPENCIL_OT_morph_target_add);
   WM_operatortype_append(GPENCIL_OT_morph_target_remove);
+  WM_operatortype_append(GPENCIL_OT_morph_target_edit);
+  WM_operatortype_append(GPENCIL_OT_morph_target_edit_finish);
 
   /* Editing (Time) --------------- */
 

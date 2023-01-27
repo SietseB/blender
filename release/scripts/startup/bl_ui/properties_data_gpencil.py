@@ -390,7 +390,6 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        #layout.use_property_decorate = False
 
         gpd = context.gpencil
         gpmt = gpd.morph_targets.active
@@ -408,7 +407,20 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         sub.operator("gpencil.morph_target_remove", icon='REMOVE', text="")
 
         if gpmt:
+            row = layout.row()
+            sub = row.column()
+            sub.active = not context.tool_settings.in_gpencil_morph_edit_mode
+            sub.operator("gpencil.morph_target_edit", text="Edit")
+            sub = row.column()
+            sub.active = context.tool_settings.in_gpencil_morph_edit_mode
+            sub.operator("gpencil.morph_target_edit_finish", text="Finish Edit", depress=sub.active)
+
+            if sub.active:
+                row = layout.row()
+                row.label(text="Note: do not add or remove points while editing.")
+
             layout.use_property_split = True
+            layout.separator()
             col = layout.column()
             col.prop(gpmt, "value", slider=True)
 

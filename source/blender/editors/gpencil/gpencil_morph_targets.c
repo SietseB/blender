@@ -16,18 +16,13 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_string_utils.h"
-#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_brush_types.h"
 #include "DNA_gpencil_types.h"
-#include "DNA_material_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -37,23 +32,15 @@
 
 #include "BKE_anim_data.h"
 #include "BKE_animsys.h"
-#include "BKE_brush.h"
 #include "BKE_context.h"
-#include "BKE_deform.h"
-#include "BKE_fcurve_driver.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
-#include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
-#include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-
-#include "UI_interface.h"
-#include "UI_resources.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -66,16 +53,12 @@
 #include "ED_object.h"
 
 #include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
 #include "gpencil_intern.h"
 
 /* Temporary morph operation data `op->customdata`. */
 typedef struct tGPDmorph {
-  bContext *C;
-  struct Main *bmain;
-  struct Depsgraph *depsgraph;
   /** window where painting originated */
   struct wmWindow *win;
   /** current scene from context */
@@ -90,10 +73,17 @@ typedef struct tGPDmorph {
   struct View3D *v3d;
   /** region where painting originated */
   struct ARegion *region;
+
   /** Base GP data-block. */
   struct bGPdata *gpd_base;
   /** Morph target GP data-block. */
   struct bGPdata *gpd_morph;
+  /** Active morph target. */
+  bGPDmorph_target *active_gpmt;
+  /** Active morph target index. */
+  int active_index;
+  /** Morph target modifier show_viewport state. */
+  bool modifier_active_in_viewport;
 } tGPDmorph;
 
 /* ************************************************ */
@@ -142,8 +132,11 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
                    '.',
                    offsetof(bGPDmorph_target, name),
                    sizeof(gpmt->name));
+
     /* set active */
     BKE_gpencil_morph_target_active_set(gpd, gpmt);
+
+    /* TODO: when this is the first morph target, add morph target modifier automatically. */
   }
 
   /* notifiers */
@@ -231,6 +224,8 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   /* Delete morph target. */
   BLI_freelinkN(&gpd->morph_targets, gpmt);
 
+  // TODO: when all morph targets are remove, remove morph target modifier automatically.
+
   /* notifiers */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -239,7 +234,7 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-bool gpencil_morph_target_remove_poll(bContext *C)
+bool gpencil_morph_target_active_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
   if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
@@ -262,5 +257,355 @@ void GPENCIL_OT_morph_target_remove(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = gpencil_morph_target_remove_exec;
-  ot->poll = gpencil_morph_target_remove_poll;
+  ot->poll = gpencil_morph_target_active_poll;
+}
+
+/* ******************* Edit Morph Target ************************ */
+
+static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
+{
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  tGPDmorph *tgpm = op->customdata;
+
+  /* Clear 'in morph edit mode' flag. */
+  ts->gpencil_flags &= ~GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+
+  if (tgpm) {
+    /* Clean up temp GP data. */
+
+    // TODO: with `blender.exe --debug-memory` we have multiple
+    // dupli_alloc len: 32
+    // dupli_alloc len: 1560
+
+    LISTBASE_FOREACH_MUTABLE (bGPDlayer *, gpl, &tgpm->gpd_base->layers) {
+      LISTBASE_FOREACH_MUTABLE (bGPDframe *, gpf, &gpl->frames) {
+        LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
+          MEM_freeN(gps->points);
+          BLI_freelinkN(&gpf->strokes, gps);
+        }
+        BLI_freelinkN(&gpl->frames, gpf);
+      }
+      BLI_freelinkN(&tgpm->gpd_base->layers, gpl);
+    }
+    MEM_freeN(tgpm->gpd_base);
+
+    /* TODO: Restore modifier show_viewport state. */
+    /*
+    if (tgpm->modifier_active_in_viewport) {
+      gpm->mode |= eGpencilModifierMode_Realtime;
+    }
+    */
+
+    /* Update GP object. */
+    DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+
+    MEM_freeN(tgpm);
+  }
+
+  op->customdata = NULL;
+}
+
+static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
+{
+#define EPSILON 0.00001f
+
+  /* Match the stored base GP object with the morphed one. */
+  int uneq_layers = 0, uneq_frames = 0, uneq_strokes = 0;
+  tGPDmorph *tgpm = op->customdata;
+  bGPDlayer *gpl_base = tgpm->gpd_base->layers.first;
+  bGPDlayer *gpl_morph = tgpm->gpd_morph->layers.first;
+
+  for (; gpl_morph; gpl_morph = gpl_morph->next) {
+    /* Skip newly created layers. */
+    if (gpl_morph->runtime.morph_index == 0) {
+      uneq_layers++;
+      continue;
+    }
+    /* Find matching base layer. */
+    while (gpl_base && (gpl_base->runtime.morph_index < gpl_morph->runtime.morph_index)) {
+      gpl_base = gpl_base->next;
+    }
+    if (gpl_base == NULL) {
+      uneq_layers++;
+      break;
+    }
+
+    bGPDframe *gpf_base = gpl_base->frames.first;
+    bGPDframe *gpf_morph = gpl_morph->frames.first;
+    for (; gpf_morph; gpf_morph = gpf_morph->next) {
+      /* Skip newly created frames. */
+      if (gpf_morph->runtime.morph_index == 0) {
+        uneq_frames++;
+        continue;
+      }
+      /* Find matching base frame. */
+      while (gpf_base && (gpf_base->runtime.morph_index < gpf_morph->runtime.morph_index)) {
+        gpf_base = gpf_base->next;
+      }
+      if (gpf_base == NULL) {
+        uneq_frames++;
+        break;
+      }
+
+      bGPDstroke *gps_base = gpf_base->strokes.first;
+      bGPDstroke *gps_morph = gpf_morph->strokes.first;
+      for (; gps_morph; gps_morph = gps_morph->next) {
+        /* Skip newly created strokes. */
+        if (gps_morph->runtime.morph_index == 0) {
+          uneq_strokes++;
+          continue;
+        }
+        /* Find match base stroke. */
+        while (gps_base && (gps_base->runtime.morph_index < gps_morph->runtime.morph_index)) {
+          gps_base = gps_base->next;
+        }
+        if (gps_base == NULL) {
+          uneq_strokes++;
+          break;
+        }
+
+        /* Remove existing morph data for active morph target. */
+        bGPDsmorph *gpsm = gps_morph->morphs.first;
+        for (; gpsm; gpsm = gpsm->next) {
+          if (gpsm->morph_target_nr == tgpm->active_index) {
+            MEM_freeN(gpsm->point_deltas);
+            BLI_freelinkN(&gps_morph->morphs, gpsm);
+            break;
+          }
+        }
+
+        /* When the number of points in the base stroke and the morph stroke doesn't match,
+         * it's difficult to create a morph.
+         * For now, we consider the modified stroke a base stroke, without morph.
+         * In the future we could implement a smarter algorithm for matching the points.
+         */
+        if (gps_base->totpoints != gps_morph->totpoints) {
+          uneq_strokes++;
+          break;
+        }
+
+        /* Store the delta's between stroke points. */
+        bool is_morphed = false;
+        gpsm = MEM_callocN(sizeof(bGPDsmorph), "bGPDsmorph");
+        gpsm->point_deltas = MEM_callocN(sizeof(bGPDspoint_delta) * gps_morph->totpoints,
+                                         "bGPDsmorph point deltas");
+        for (int i = 0; i < gps_morph->totpoints; i++) {
+          bGPDspoint *ptb = &gps_base->points[i];
+          bGPDspoint *ptm = &gps_morph->points[i];
+          bGPDspoint_delta *pd = &gpsm->point_deltas[i];
+          pd->x = ptm->x - ptb->x;
+          pd->y = ptm->y - ptb->y;
+          pd->z = ptm->z - ptb->z;
+          pd->pressure = ptm->pressure - ptb->pressure;
+          pd->strength = ptm->strength - ptb->strength;
+          sub_v3_v3v3(pd->vert_color, ptm->vert_color, ptb->vert_color);
+
+          /* Revert to base values, since the morph was applied during edit. */
+          ptm->x = ptb->x;
+          ptm->y = ptb->y;
+          ptm->z = ptb->z;
+          ptm->pressure = ptb->pressure;
+          ptm->strength = ptb->strength;
+          copy_v3_v3(ptm->vert_color, ptb->vert_color);
+
+          /* Check on difference between morph and base. */
+          if ((fabs(pd->x) > EPSILON) || (fabs(pd->y) > EPSILON) || (fabs(pd->z) > EPSILON) ||
+              (fabs(pd->pressure) > EPSILON) || (fabs(pd->strength) > EPSILON) ||
+              (fabs(pd->vert_color[0]) > EPSILON) || (fabs(pd->vert_color[1]) > EPSILON) ||
+              (fabs(pd->vert_color[2]) > EPSILON)) {
+            is_morphed = true;
+          }
+        }
+
+        /* When there is no difference between morph and base stroke,
+         * we don't store delta data. */
+        if (!is_morphed) {
+          MEM_freeN(gpsm->point_deltas);
+          MEM_freeN(gpsm);
+        }
+        else {
+          /* Add morph deltas to stroke. */
+          gpsm->morph_target_nr = tgpm->active_index;
+          gpsm->tot_point_deltas = gps_morph->totpoints;
+          BLI_addtail(&gps_morph->morphs, gpsm);
+        }
+      }
+    }
+  }
+
+  /* Show a warning when there is a mismatch between base and morph. */
+  if ((uneq_layers > 0) || (uneq_frames > 0) || (uneq_strokes > 0)) {
+    printf("Warning: mismatch between base and morph target after editing '%s' - ",
+           tgpm->active_gpmt->name);
+    if (uneq_layers > 0) {
+      printf("layers: %d ", uneq_layers);
+    }
+    if (uneq_layers > 0) {
+      printf("frames: %d ", uneq_frames);
+    }
+    if (uneq_layers > 0) {
+      printf("strokes: %d ", uneq_strokes);
+    }
+    printf("\r\n");
+  }
+
+  /* Clean up temp data. */
+  gpencil_morph_target_edit_exit(C, op);
+
+#undef EPSILON
+}
+
+static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
+{
+  int layer_index, frame_index, stroke_index;
+
+  tGPDmorph *tgpm = MEM_callocN(sizeof(tGPDmorph), "GPencil Morph Target Edit Data");
+  bGPdata *gpd_base = MEM_callocN(sizeof(bGPdata), "Gpencil Morph Target base gGPdata");
+
+  /* Get context attributes. */
+  Object *ob = CTX_data_active_object(C);
+  bGPdata *gpd = CTX_data_gpencil_data(C);
+  ToolSettings *ts = CTX_data_tool_settings(C);
+
+  /* Get active morph target. */
+  bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
+  tgpm->active_gpmt = gpmt;
+  tgpm->active_index = BLI_findindex(&gpd->morph_targets, gpmt);
+
+  /* Set temp data. */
+  tgpm->gpd_base = gpd_base;
+  tgpm->gpd_morph = gpd;
+  tgpm->ob = ob;
+
+  /* Copy layers, frames, strokes of base GP object. */
+  layer_index = 1;
+  BLI_listbase_clear(&gpd_base->layers);
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    bGPDlayer *gpl_base = MEM_callocN(sizeof(bGPDlayer), "bGPDlayer");
+    gpl->runtime.morph_index = layer_index;
+    gpl_base->runtime.morph_index = layer_index++;
+    BLI_addtail(&gpd_base->layers, gpl_base);
+    BLI_listbase_clear(&gpl_base->frames);
+    frame_index = 1;
+
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      bGPDframe *gpf_base = MEM_callocN(sizeof(bGPDframe), "bGPDframe");
+      gpf->runtime.morph_index = frame_index;
+      gpf_base->runtime.morph_index = frame_index++;
+      BLI_addtail(&gpl_base->frames, gpf_base);
+      BLI_listbase_clear(&gpf_base->strokes);
+      stroke_index = 1;
+
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        bGPDstroke *gps_base = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
+        gps->runtime.morph_index = stroke_index;
+        gps_base->runtime.morph_index = stroke_index++;
+        BLI_addtail(&gpf_base->strokes, gps_base);
+        gps_base->points = MEM_dupallocN(gps->points);
+        gps_base->totpoints = gps->totpoints;
+
+        /* Apply active morph target to GP object in viewport. */
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          if (gpsm->morph_target_nr == tgpm->active_index) {
+            for (int i = 0; (i < gps->totpoints) && (i < gpsm->tot_point_deltas); i++) {
+              bGPDspoint *pt = &gps->points[i];
+              bGPDspoint_delta *pd = &gpsm->point_deltas[i];
+              pt->x += pd->x;
+              pt->y += pd->y;
+              pt->z += pd->z;
+              pt->pressure += pd->pressure;
+              pt->pressure += pd->strength;
+              add_v3_v3(pt->vert_color, pd->vert_color);
+              clamp_v3(pt->vert_color, 0.0f, 1.0f);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* TODO: disable morph target modifier in the viewport. */
+  // tgpm->modifier_active_in_viewport = (gpm->mode &= eGpencilModifierMode_Realtime) != 0;
+  // gpm->mode &= ~eGpencilModifierMode_Realtime;
+
+  /* Set 'in morph edit mode' flag. */
+  ts->gpencil_flags |= GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+
+  op->customdata = tgpm;
+}
+
+static int gpencil_morph_target_edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  /* Operator ends when 'in_morph_edit_mode' flag is disabled (by the Finish Edit operator). */
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  if ((ts->gpencil_flags & GP_TOOL_FLAG_IN_MORPH_EDIT_MODE) == 0) {
+    gpencil_morph_target_edit_get_deltas(C, op);
+    return OPERATOR_FINISHED;
+  }
+
+  return OPERATOR_PASS_THROUGH;
+}
+
+static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
+{
+  tGPDmorph *tgpm = NULL;
+
+  /* Initialize temp GP data. */
+  gpencil_morph_target_edit_init(C, op);
+
+  /* Update GP object with morph target activated. */
+  tgpm = op->customdata;
+  DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+  WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+
+  /* Add a modal handler for this operator. */
+  WM_event_add_modal_handler(C, op);
+
+  return OPERATOR_RUNNING_MODAL;
+}
+
+void GPENCIL_OT_morph_target_edit(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Edit Morph Target";
+  ot->idname = "GPENCIL_OT_morph_target_edit";
+  ot->description = "Edit active Grease Pencil morph target";
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* callbacks */
+  ot->poll = gpencil_morph_target_active_poll;
+  ot->exec = gpencil_morph_target_edit_exec;
+  ot->modal = gpencil_morph_target_edit_modal;
+  ot->cancel = gpencil_morph_target_edit_exit;
+}
+
+/* ******************* Finish Edit Morph Target ************************ */
+static int gpencil_morph_target_edit_finish_exec(bContext *C, wmOperator *op)
+{
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  ts->gpencil_flags &= ~GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+
+  return OPERATOR_FINISHED;
+}
+
+bool gpencil_morph_target_edit_finish_poll(bContext *C)
+{
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  return (ts->gpencil_flags & GP_TOOL_FLAG_IN_MORPH_EDIT_MODE) != 0;
+}
+
+void GPENCIL_OT_morph_target_edit_finish(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Finish Edit Morph Target";
+  ot->idname = "GPENCIL_OT_morph_target_edit_finish";
+  ot->description = "Finish the editing of the active Grease Pencil morph target";
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* callbacks */
+  ot->poll = gpencil_morph_target_edit_finish_poll;
+  ot->exec = gpencil_morph_target_edit_finish_exec;
 }

@@ -62,9 +62,7 @@ typedef struct bGPDspoint_Runtime {
   float dist_to_cam;
   /** Pressure adjusted to distance to camera */
   float pressure_3d;
-
-  /** Morph index for syncing morph target and base. */
-  int morph_index;
+  char _pad0[4];
 } bGPDspoint_Runtime;
 
 /* Grease-Pencil Annotations - 'Stroke Point'

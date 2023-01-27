@@ -668,6 +668,8 @@ void GPENCIL_OT_materials_copy_to_object(struct wmOperatorType *ot);
 /* morph targets */
 void GPENCIL_OT_morph_target_add(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_remove(struct wmOperatorType *ot);
+void GPENCIL_OT_morph_target_edit(struct wmOperatorType *ot);
+void GPENCIL_OT_morph_target_edit_finish(struct wmOperatorType *ot);
 
 /* convert old 2.7 files to 2.8 */
 void GPENCIL_OT_convert_old_files(struct wmOperatorType *ot);
