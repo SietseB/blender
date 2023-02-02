@@ -111,6 +111,10 @@ static void deformStroke(GpencilModifierData *md,
     }
 
     /* Apply morph to stroke. */
+    bGPDspoint *pt1;
+    float vecb[3], vecm[3];
+    float mat[3][3];
+
     for (int i = 0; i < gps->totpoints; i++) {
       /* Verify point is part of vertex group. */
       MDeformVert *dvert = gps->dvert != NULL ? &gps->dvert[i] : NULL;
@@ -123,9 +127,26 @@ static void deformStroke(GpencilModifierData *md,
       bGPDspoint *pt = &gps->points[i];
       bGPDspoint_delta *pd = &gpsm->point_deltas[i];
       float color_delta[3];
-      pt->x += pd->x * factor;
-      pt->y += pd->y * factor;
-      pt->z += pd->z * factor;
+
+      /* Convert quaternion rotation to point delta. */
+      if (pd->distance > 0.0f) {
+        quat_to_mat3(mat, pd->rot_quat);
+        if (i < (gps->totpoints - 1)) {
+          pt1 = &gps->points[i + 1];
+          sub_v3_v3v3(vecb, &pt1->x, &pt->x);
+          mul_m3_v3(mat, vecb);
+          normalize_v3(vecb);
+        }
+        else if (gps->totpoints == 1) {
+          zero_v3(vecb);
+          vecb[0] = 1.0f;
+          mul_m3_v3(mat, vecb);
+          normalize_v3(vecb);
+        }
+        mul_v3_v3fl(vecm, vecb, pd->distance * factor);
+        add_v3_v3(&pt->x, vecm);
+      }
+
       pt->pressure += pd->pressure * factor;
       clamp_f(pt->pressure, 0.0f, FLT_MAX);
       pt->strength += pd->strength * factor;

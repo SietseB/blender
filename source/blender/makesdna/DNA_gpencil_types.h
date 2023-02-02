@@ -117,8 +117,9 @@ typedef enum eGPDspoint_Flag {
 typedef struct bGPDspoint_delta {
   DNA_DEFINE_CXX_METHODS(bGPDspoint_delta)
 
-  /** Delta in point coordinates. */
-  float x, y, z;
+  /** Delta in point coordinate (rotation quaternion and distance). */
+  float rot_quat[4];
+  float distance;
   /** Delta in pressure (thickness). */
   float pressure;
   /** Delta in strength (opacity). */

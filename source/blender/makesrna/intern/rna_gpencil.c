@@ -1802,21 +1802,26 @@ static void rna_def_gpencil_point_morph_delta(BlenderRNA *brna)
   RNA_def_struct_ui_text(
       srna, "Point Morph", "A deformed stroke point relative to the base stroke point");
 
-  prop = RNA_def_property(srna, "co", PROP_FLOAT, PROP_XYZ);
-  RNA_def_property_float_sdna(prop, NULL, "x");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  prop = RNA_def_property(srna, "rot_quat", PROP_FLOAT, PROP_XYZ);
+  RNA_def_property_float_sdna(prop, NULL, "rot_quat");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Coordinate Delta", "");
+  RNA_def_property_ui_text(prop, "Point Rotation Delta", "");
+
+  prop = RNA_def_property(srna, "distance", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "distance");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Point Distance Delta", "");
 
   prop = RNA_def_property(srna, "pressure", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "pressure");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 0.0f, FLT_MAX);
   RNA_def_property_ui_text(prop, "Pressure Delta", "");
 
   prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "strength");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_ui_text(prop, "Strength Delta", "");
 
@@ -1824,7 +1829,7 @@ static void rna_def_gpencil_point_morph_delta(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "vert_color");
   RNA_def_property_array(prop, 4);
   RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Vertex Color Delta", "");
 }
 
@@ -1859,7 +1864,7 @@ static void rna_def_gpencil_stroke_morph(BlenderRNA *brna)
   /* Morph target index */
   prop = RNA_def_property(srna, "morph_target", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
 }
 

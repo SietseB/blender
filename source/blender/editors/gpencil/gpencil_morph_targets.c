@@ -440,12 +440,33 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
         gpsm->point_deltas = MEM_callocN(sizeof(bGPDspoint_delta) * gps_morph->totpoints,
                                          "bGPDsmorph point deltas");
         for (int i = 0; i < gps_morph->totpoints; i++) {
+          float vecb[3], vecm[3];
+          bGPDspoint *ptb1;
           bGPDspoint *ptb = &gps_base->points[i];
           bGPDspoint *ptm = &gps_morph->points[i];
           bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-          pd->x = ptm->x - ptb->x;
-          pd->y = ptm->y - ptb->y;
-          pd->z = ptm->z - ptb->z;
+
+          /* Get quaternion rotation and distance between base and morph point. */
+          sub_v3_v3v3(vecm, &ptm->x, &ptb->x);
+          pd->distance = len_v3(vecm);
+          if (pd->distance > 0.0f) {
+            if (i < (gps_morph->totpoints - 1)) {
+              ptb1 = &gps_base->points[i + 1];
+              sub_v3_v3v3(vecb, &ptb1->x, &ptb->x);
+              normalize_v3(vecb);
+            }
+            else if (gps_morph->totpoints == 1) {
+              zero_v3(vecb);
+              vecb[0] = 1.0f;
+            }
+            normalize_v3(vecm);
+            rotation_between_vecs_to_quat(pd->rot_quat, vecb, vecm);
+          }
+          else {
+            unit_qt(pd->rot_quat);
+          }
+
+          /* Get delta's in pressure, strength and vertex color. */
           pd->pressure = ptm->pressure - ptb->pressure;
           pd->strength = ptm->strength - ptb->strength;
           sub_v3_v3v3(pd->vert_color, ptm->vert_color, ptb->vert_color);
@@ -459,10 +480,9 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
           copy_v3_v3(ptm->vert_color, ptb->vert_color);
 
           /* Check on difference between morph and base. */
-          if ((fabs(pd->x) > EPSILON) || (fabs(pd->y) > EPSILON) || (fabs(pd->z) > EPSILON) ||
-              (fabs(pd->pressure) > EPSILON) || (fabs(pd->strength) > EPSILON) ||
-              (fabs(pd->vert_color[0]) > EPSILON) || (fabs(pd->vert_color[1]) > EPSILON) ||
-              (fabs(pd->vert_color[2]) > EPSILON)) {
+          if ((fabs(pd->distance) > EPSILON) || (fabs(pd->pressure) > EPSILON) ||
+              (fabs(pd->strength) > EPSILON) || (fabs(pd->vert_color[0]) > EPSILON) ||
+              (fabs(pd->vert_color[1]) > EPSILON) || (fabs(pd->vert_color[2]) > EPSILON)) {
             is_morphed = true;
           }
         }
@@ -581,13 +601,35 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
 
         /* Apply active morph target to GP object in viewport. */
         LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
-          if (gpsm->morph_target_nr == tgpm->active_index) {
-            for (int i = 0; (i < gps->totpoints) && (i < gpsm->tot_point_deltas); i++) {
+          if ((gpsm->morph_target_nr == tgpm->active_index) &&
+              (gps->totpoints == gpsm->tot_point_deltas)) {
+            bGPDspoint *pt1;
+            float vecb[3], vecm[3];
+            float mat[3][3];
+
+            for (int i = 0; i < gps->totpoints; i++) {
               bGPDspoint *pt = &gps->points[i];
               bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-              pt->x += pd->x;
-              pt->y += pd->y;
-              pt->z += pd->z;
+
+              /* Convert quaternion rotation to point delta. */
+              if (pd->distance > 0.0f) {
+                quat_to_mat3(mat, pd->rot_quat);
+                if (i < (gps->totpoints - 1)) {
+                  pt1 = &gps->points[i + 1];
+                  sub_v3_v3v3(vecb, &pt1->x, &pt->x);
+                  mul_m3_v3(mat, vecb);
+                  normalize_v3(vecb);
+                }
+                else if (gps->totpoints == 1) {
+                  zero_v3(vecb);
+                  vecb[0] = 1.0f;
+                  mul_m3_v3(mat, vecb);
+                  normalize_v3(vecb);
+                }
+                mul_v3_v3fl(vecm, vecb, pd->distance);
+                add_v3_v3(&pt->x, vecm);
+              }
+
               pt->pressure += pd->pressure;
               clamp_f(pt->pressure, 0.0f, FLT_MAX);
               pt->strength += pd->strength;
