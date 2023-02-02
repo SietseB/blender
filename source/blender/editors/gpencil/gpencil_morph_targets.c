@@ -51,28 +51,30 @@
 
 #include "ED_gpencil.h"
 #include "ED_object.h"
+#include "ED_space_api.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
+
+#include "GPU_immediate.h"
+#include "GPU_state.h"
 
 #include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
 
 #include "gpencil_intern.h"
 
 /* Temporary morph operation data `op->customdata`. */
 typedef struct tGPDmorph {
-  /** window where painting originated */
-  struct wmWindow *win;
-  /** current scene from context */
-  struct Scene *scene;
   /** current active gp object */
   struct Object *ob;
   /** area where painting originated */
   struct ScrArea *area;
   /** region where painting originated */
-  struct RegionView3D *rv3d;
-  /** view3 where painting originated */
-  struct View3D *v3d;
-  /** region where painting originated */
   struct ARegion *region;
+  /** 3D viewport draw handler */
+  void *draw_handle;
+  /** Height of header regions in viewport. */
+  int header_height;
 
   /** Base GP data-block. */
   struct bGPdata *gpd_base;
@@ -82,8 +84,8 @@ typedef struct tGPDmorph {
   bGPDmorph_target *active_gpmt;
   /** Active morph target index. */
   int active_index;
-  /** Morph target modifier show_viewport state. */
-  bool modifier_active_in_viewport;
+  /** Morph target was muted before editing. */
+  bool active_was_muted;
 } tGPDmorph;
 
 /* ************************************************ */
@@ -100,7 +102,10 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpd = (bGPdata *)ob->data;
     int count = BLI_listbase_count_at_most(&gpd->morph_targets, GPENCIL_MORPH_TARGETS_MAX);
     if (count >= GPENCIL_MORPH_TARGETS_MAX) {
-      BKE_report(op->reports, RPT_ERROR, "Maximum number of morph targets reached");
+      BKE_reportf(op->reports,
+                  RPT_ERROR,
+                  "Maximum number of morph targets reached (%d)",
+                  GPENCIL_MORPH_TARGETS_MAX);
       return OPERATOR_CANCELLED;
     }
 
@@ -124,7 +129,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpmt->range_max = 1.0f;
     gpmt->value = 0.0f;
 
-    /* auto-name */
+    /* Auto-name. */
     BLI_strncpy(gpmt->name, DATA_(name), sizeof(gpmt->name));
     BLI_uniquename(&gpd->morph_targets,
                    gpmt,
@@ -133,10 +138,21 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
                    offsetof(bGPDmorph_target, name),
                    sizeof(gpmt->name));
 
-    /* set active */
+    /* Set active. */
     BKE_gpencil_morph_target_active_set(gpd, gpmt);
 
-    /* TODO: when this is the first morph target, add morph target modifier automatically. */
+    /* Add morph targets modifier automatically when there isn't one. */
+    GpencilModifierData *md = BKE_gpencil_modifiers_findby_type(ob,
+                                                                eGpencilModifierType_MorphTargets);
+    if (md == NULL) {
+      Main *bmain = CTX_data_main(C);
+      Scene *scene = CTX_data_scene(C);
+      md = ED_object_gpencil_modifier_add(
+          op->reports, bmain, scene, ob, "Morph Targets", eGpencilModifierType_MorphTargets);
+      if (md == NULL) {
+        BKE_report(op->reports, RPT_ERROR, "Unable to add a Morph Targets modifier to object");
+      }
+    }
   }
 
   /* notifiers */
@@ -224,7 +240,19 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   /* Delete morph target. */
   BLI_freelinkN(&gpd->morph_targets, gpmt);
 
-  // TODO: when all morph targets are remove, remove morph target modifier automatically.
+  /* When no morph targets left, remove all morph target modifiers automatically. */
+  if (BLI_listbase_count(&gpd->morph_targets) == 0) {
+    Object *ob = CTX_data_active_object(C);
+    Main *bmain = CTX_data_main(C);
+    while (true) {
+      GpencilModifierData *md = BKE_gpencil_modifiers_findby_type(
+          ob, eGpencilModifierType_MorphTargets);
+      if (md == NULL) {
+        break;
+      }
+      ED_object_gpencil_modifier_remove(op->reports, bmain, ob, md);
+    }
+  }
 
   /* notifiers */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -270,13 +298,8 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
   /* Clear 'in morph edit mode' flag. */
   ts->gpencil_flags &= ~GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
 
+  /* Clean up temp GP data. */
   if (tgpm) {
-    /* Clean up temp GP data. */
-
-    // TODO: with `blender.exe --debug-memory` we have multiple
-    // dupli_alloc len: 32
-    // dupli_alloc len: 1560
-
     LISTBASE_FOREACH_MUTABLE (bGPDlayer *, gpl, &tgpm->gpd_base->layers) {
       LISTBASE_FOREACH_MUTABLE (bGPDframe *, gpf, &gpl->frames) {
         LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
@@ -289,21 +312,47 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
     }
     MEM_freeN(tgpm->gpd_base);
 
-    /* TODO: Restore modifier show_viewport state. */
-    /*
-    if (tgpm->modifier_active_in_viewport) {
-      gpm->mode |= eGpencilModifierMode_Realtime;
+    /* Restore mute state of active morph target. */
+    if (!tgpm->active_was_muted) {
+      tgpm->active_gpmt->flag &= ~GP_MORPH_TARGET_MUTE;
     }
-    */
 
     /* Update GP object. */
     DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
     WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 
+    /* Remove viewport draw handler. */
+    if (tgpm->draw_handle) {
+      ED_region_draw_cb_exit(tgpm->region->type, tgpm->draw_handle);
+    }
+
     MEM_freeN(tgpm);
   }
 
   op->customdata = NULL;
+}
+
+static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *UNUSED(region), void *arg)
+{
+  tGPDmorph *tgpm = (tGPDmorph *)arg;
+  /* Draw only in the region set by the operator. */
+  ARegion *region = CTX_wm_region(C);
+  if (region != tgpm->region) {
+    return;
+  }
+
+  /* Draw rectangle outline. */
+  rcti *rect = &tgpm->region->winrct;
+  float color[4];
+  UI_GetThemeColor4fv(TH_SELECT_ACTIVE, color);
+  GPUVertFormat *format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  immUniformColor4fv(color);
+  GPU_line_width(6.0f);
+  imm_draw_box_wire_2d(
+      pos, 3, 3, rect->xmax - rect->xmin - 3, rect->ymax - rect->ymin - tgpm->header_height - 2);
+  immUnbindProgram();
 }
 
 static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
@@ -473,7 +522,32 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   tgpm->active_gpmt = gpmt;
   tgpm->active_index = BLI_findindex(&gpd->morph_targets, gpmt);
 
-  /* Set temp data. */
+  /* Get largest 3D viewport in screen. */
+  tgpm->area = NULL;
+  tgpm->region = NULL;
+  bScreen *screen = CTX_wm_screen(C);
+  int max_w = 0;
+  LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+    if (area->spacetype == SPACE_VIEW3D) {
+      int w = area->totrct.xmax - area->totrct.xmin;
+      if (w > max_w) {
+        tgpm->area = area;
+        max_w = w;
+      }
+    }
+  }
+  if (tgpm->area) {
+    LISTBASE_FOREACH (ARegion *, region, &tgpm->area->regionbase) {
+      if (region->regiontype == RGN_TYPE_WINDOW) {
+        tgpm->region = region;
+      }
+      if (region->alignment == RGN_ALIGN_TOP && region->regiontype == RGN_TYPE_TOOL_HEADER) {
+        tgpm->header_height += (int)(region->sizey * UI_DPI_FAC + 0.5f);
+      }
+    }
+  }
+
+  /* Set temp operator data. */
   tgpm->gpd_base = gpd_base;
   tgpm->gpd_morph = gpd;
   tgpm->ob = ob;
@@ -515,7 +589,9 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
               pt->y += pd->y;
               pt->z += pd->z;
               pt->pressure += pd->pressure;
-              pt->pressure += pd->strength;
+              clamp_f(pt->pressure, 0.0f, FLT_MAX);
+              pt->strength += pd->strength;
+              clamp_f(pt->strength, 0.0f, 1.0f);
               add_v3_v3(pt->vert_color, pd->vert_color);
               clamp_v3(pt->vert_color, 0.0f, 1.0f);
             }
@@ -525,12 +601,16 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
     }
   }
 
-  /* TODO: disable morph target modifier in the viewport. */
-  // tgpm->modifier_active_in_viewport = (gpm->mode &= eGpencilModifierMode_Realtime) != 0;
-  // gpm->mode &= ~eGpencilModifierMode_Realtime;
+  /* Mute active morph target (because we applied the morph to the stroke points). */
+  tgpm->active_was_muted = (tgpm->active_gpmt->flag & GP_MORPH_TARGET_MUTE) != 0;
+  tgpm->active_gpmt->flag |= GP_MORPH_TARGET_MUTE;
 
   /* Set 'in morph edit mode' flag. */
   ts->gpencil_flags |= GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+
+  /* Add draw handler to viewport for colored rectangle (marking 'edit mode'). */
+  tgpm->draw_handle = ED_region_draw_cb_activate(
+      tgpm->region->type, gpencil_morph_target_edit_draw, tgpm, REGION_DRAW_POST_PIXEL);
 
   op->customdata = tgpm;
 }

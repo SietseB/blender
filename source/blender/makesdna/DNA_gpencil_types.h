@@ -801,17 +801,18 @@ typedef struct bGPDmorph_target {
   char name[128];
   int group_nr;
   float value;
-  float value_stored;
   float range_min;
   float range_max;
   short flag;
-  char _pad0[2];
+  char _pad0[6];
 } bGPDmorph_target;
 
 /* bGPDlayer->flag */
 typedef enum eGPDmorph_target_Flag {
   /* Morhp target is active */
   GP_MORPH_TARGET_ACTIVE = (1 << 0),
+  /* Morph target is muted */
+  GP_MORPH_TARGET_MUTE = (1 << 1),
 } eGPDmorph_target_Flag;
 
 /* Grease-Pencil Annotations - 'DataBlock' */

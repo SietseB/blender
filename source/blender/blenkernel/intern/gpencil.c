@@ -462,7 +462,6 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
   }
   if (&gps->morphs != NULL) {
     BKE_gpencil_free_stroke_morphs(&gps->morphs);
-    BLI_listbase_clear(&gps->morphs);
   }
 
   MEM_freeN(gps);
@@ -1025,15 +1024,6 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src, const bool dup_
       /* make copy of source stroke */
       gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
       BLI_addtail(&gpf_dst->strokes, gps_dst);
-
-      /* Copy morphs. */
-      BLI_listbase_clear(&gps_dst->morphs);
-      LISTBASE_FOREACH (bGPDsmorph *, gpsm_src, &gps_src->morphs) {
-        bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm_src);
-        gpsm_dst->prev = gpsm_dst->next = NULL;
-        gpsm_dst->point_deltas = MEM_dupallocN(gpsm_src->point_deltas);
-        BLI_addtail(&gps_dst->morphs, gpsm_dst);
-      }
     }
   }
 
@@ -1055,15 +1045,6 @@ void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_ds
     /* make copy of source stroke */
     gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
     BLI_addtail(&gpf_dst->strokes, gps_dst);
-
-    /* Copy morphs. */
-    BLI_listbase_clear(&gps_dst->morphs);
-    LISTBASE_FOREACH (bGPDsmorph *, gpsm_src, &gps_src->morphs) {
-      bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm_src);
-      gpsm_dst->prev = gpsm_dst->next = NULL;
-      gpsm_dst->point_deltas = MEM_dupallocN(gpsm_src->point_deltas);
-      BLI_addtail(&gps_dst->morphs, gpsm_dst);
-    }
   }
 }
 

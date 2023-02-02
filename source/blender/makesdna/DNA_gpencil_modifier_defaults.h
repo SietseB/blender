@@ -412,5 +412,17 @@
     .skip = 0, \
   }
 
+#define _DNA_DEFAULT_MorphTargetsGpencilModifierData \
+  { \
+    .material = NULL, \
+    .layername = "", \
+    .layer_pass = 0, \
+    .vgname = "", \
+    .pass_index = 0, \
+    .flag = 0, \
+    .factor = 1.0f, \
+  }
+
+
 
 /* clang-format off */

@@ -15,6 +15,7 @@ extern "C" {
 
 struct LatticeDeformData;
 struct ShrinkwrapTreeData;
+struct MorphTargetsData;
 
 /* WARNING ALERT! TYPEDEF VALUES ARE WRITTEN IN FILES! SO DO NOT CHANGE!
  * (ONLY ADD NEW ITEMS AT THE END)
@@ -48,6 +49,7 @@ typedef enum GpencilModifierType {
   eGpencilModifierType_Shrinkwrap = 24,
   eGpencilModifierType_Envelope = 25,
   eGpencilModifierType_Outline = 26,
+  eGpencilModifierType_MorphTargets = 27,
   /* Keep last. */
   NUM_GREASEPENCIL_MODIFIER_TYPES,
 } GpencilModifierType;
@@ -1311,6 +1313,33 @@ typedef enum eEnvelopeGpencil_Mode {
   GP_ENVELOPE_SEGMENTS = 1,
   GP_ENVELOPE_FILLS = 2,
 } eEnvelopeGpencil_Mode;
+
+typedef struct MorphTargetsGpencilModifierData {
+  GpencilModifierData modifier;
+  /** Material for filtering. */
+  struct Material *material;
+  /** Layer name. */
+  char layername[64];
+  /** Custom index for passes. */
+  int layer_pass;
+  /** Optional vertexgroup name, MAX_VGROUP_NAME. */
+  char vgname[64];
+  /** Custom index for passes. */
+  int pass_index;
+  /** Flags. */
+  int flag;
+  /** Morph strength. */
+  float factor;
+  float mt_factor[128];
+} MorphTargetsGpencilModifierData;
+
+typedef enum eMorphTargetsGpencil_Flag {
+  GP_MORPHTARGETS_INVERT_LAYER = (1 << 0),
+  GP_MORPHTARGETS_INVERT_LAYERPASS = (1 << 1),
+  GP_MORPHTARGETS_INVERT_MATERIAL = (1 << 2),
+  GP_MORPHTARGETS_INVERT_PASS = (1 << 3),
+  GP_MORPHTARGETS_INVERT_VGROUP = (1 << 4),
+} eMorphTargetsGpencil_Flag;
 
 #ifdef __cplusplus
 }

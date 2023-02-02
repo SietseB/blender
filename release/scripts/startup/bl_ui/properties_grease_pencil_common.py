@@ -663,8 +663,11 @@ class GPENCIL_UL_morph_target(UIList):
         gpmt = item
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row = layout.row(align=True)
-            row.prop(gpmt, "name", text="", emboss=False)
+            split = layout.split(factor=0.66, align=False)
+            split.prop(gpmt, "name", text="", emboss=False, icon_value=icon)
+            row = split.row(align=True)
+            row.prop(gpmt, "value", text="", emboss=False, slider=True)
+            row.prop(gpmt, "mute", text="", emboss=False)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)

@@ -1924,6 +1924,9 @@ void BKE_gpencil_dissolve_points(bGPdata *gpd, bGPDframe *gpf, bGPDstroke *gps, 
     if (gps->triangles) {
       MEM_freeN(gps->triangles);
     }
+    if (&gps->morphs) {
+      BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    }
     BLI_freelinkN(&gpf->strokes, gps);
   }
   else {

@@ -105,7 +105,18 @@ void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Object *ob)
         }
         break;
       }
-
+      case eGpencilModifierType_MorphTargets: {
+        /* Create lookup table for morph target values by index. */
+        MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
+        bGPdata *gpd = ob->data;
+        int i = 0;
+        LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
+          mmd->mt_factor[i] = (gpmt->flag & GP_MORPH_TARGET_MUTE) != 0 ? 0.0f :
+                                                                         gpmt->value * mmd->factor;
+          i++;
+        }
+        break;
+      }
       default:
         break;
     }

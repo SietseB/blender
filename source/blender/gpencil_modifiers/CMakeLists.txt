@@ -43,6 +43,7 @@ set(SRC
   intern/MOD_gpencillength.c
   intern/MOD_gpencillineart.c
   intern/MOD_gpencilmirror.c
+  intern/MOD_gpencilmorphtargets.c
   intern/MOD_gpencilmultiply.c
   intern/MOD_gpencilnoise.c
   intern/MOD_gpenciloffset.c

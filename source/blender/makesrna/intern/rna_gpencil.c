@@ -2056,7 +2056,7 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "inittime");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Init Time", "Initial time of the stroke");
-  
+
   /* Ondine additions */
   /* Seed */
   prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
@@ -3055,7 +3055,7 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_float_funcs(
       prop, NULL, "rna_MorphTarget_value_set", "rna_MorphTarget_value_range");
-  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 10, 3);
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
   RNA_def_property_ui_text(prop, "Value", "Value of the morph target");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
@@ -3076,6 +3076,13 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Range Max", "Maximum for slider");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
+
+  prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_MORPH_TARGET_MUTE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Mute", "Toggle this morph target");
+  RNA_def_property_ui_icon(prop, ICON_CHECKBOX_HLT, -1);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
 }
 
 static void rna_def_gpencil_morph_targets_api(BlenderRNA *brna, PropertyRNA *cprop)

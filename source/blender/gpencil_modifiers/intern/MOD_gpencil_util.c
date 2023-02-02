@@ -58,6 +58,7 @@ void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[])
   INIT_GP_TYPE(Dash);
   INIT_GP_TYPE(Shrinkwrap);
   INIT_GP_TYPE(Envelope);
+  INIT_GP_TYPE(MorphTargets);
 #undef INIT_GP_TYPE
 }
 

@@ -1430,6 +1430,9 @@ void ED_gpencil_strokes_copybuf_free(void)
       BKE_gpencil_free_stroke_weights(gps);
       MEM_freeN(gps->dvert);
     }
+    if (&gps->morphs) {
+      BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    }
 
     MEM_SAFE_FREE(gps->triangles);
 

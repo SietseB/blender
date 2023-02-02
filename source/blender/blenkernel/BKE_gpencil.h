@@ -75,6 +75,7 @@ struct bGPdata;
 void BKE_gpencil_free_point_weights(struct MDeformVert *dvert);
 void BKE_gpencil_free_stroke_weights(struct bGPDstroke *gps);
 void BKE_gpencil_free_stroke_editcurve(struct bGPDstroke *gps);
+void BKE_gpencil_free_stroke_morphs(struct ListBase *list);
 /** Free stroke, doesn't unlink from any #ListBase. */
 void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
 /** Free strokes belonging to a gp-frame. */
