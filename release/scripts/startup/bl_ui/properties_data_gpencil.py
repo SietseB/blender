@@ -417,7 +417,7 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
 
             if sub.active:
                 row = layout.row()
-                row.label(text="Note: do not add or remove points while editing.")
+                row.label(text="Note: do not add or remove points while editing.", icon='INFO')
 
             layout.use_property_split = True
             layout.separator()
@@ -427,6 +427,9 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
             col = layout.column(align=True)
             col.prop(gpmt, "slider_min", text="Range Min")
             col.prop(gpmt, "slider_max", text="Max")
+
+            col = layout.column()
+            col.prop(gpmt, "group_nr", slider=False)
 
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):

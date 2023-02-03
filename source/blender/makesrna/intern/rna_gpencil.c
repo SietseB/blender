@@ -3042,6 +3042,7 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
                          "Grease Pencil Morph Target",
                          "A set of deformed strokes relative to the base drawing");
   RNA_def_struct_path_func(srna, "rna_GPencilMorphTarget_path");
+  RNA_def_struct_ui_icon(srna, ICON_SHAPEKEY_DATA);
 
   /* Name */
   prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
@@ -3054,6 +3055,9 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "group_nr");
   RNA_def_property_range(prop, 0, INT_MAX);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop, "Group", "Group number, used for grouping/sorting morph targets in lists");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "value");
@@ -3109,7 +3113,7 @@ static void rna_def_gpencil_morph_targets_api(BlenderRNA *brna, PropertyRNA *cpr
                                  NULL,
                                  NULL);
   RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Active Layer", "Active grease pencil layer");
+  RNA_def_property_ui_text(prop, "Active Morph Target", "Active grease pencil morph target");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
 
   prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);

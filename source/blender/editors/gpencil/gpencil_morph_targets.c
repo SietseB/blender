@@ -73,8 +73,9 @@ typedef struct tGPDmorph {
   struct ARegion *region;
   /** 3D viewport draw handler */
   void *draw_handle;
-  /** Height of header regions in viewport. */
+  /** Height of tool header region in viewport. */
   int header_height;
+  int npanel_width;
 
   /** Base GP data-block. */
   struct bGPdata *gpd_base;
@@ -120,6 +121,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
       strcpy(name, "Morph");
     }
 
+    /* Create morph target and set default values. */
     bGPDmorph_target *gpmt = NULL;
     gpmt = MEM_callocN(sizeof(bGPDmorph_target), "bGPDmorph_target");
     BLI_addtail(&gpd->morph_targets, gpmt);
@@ -128,6 +130,14 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpmt->range_min = 0.0f;
     gpmt->range_max = 1.0f;
     gpmt->value = 0.0f;
+
+    /* Copy values of currently active morph target. */
+    bGPDmorph_target *gpmt_act = BKE_gpencil_morph_target_active_get(gpd);
+    if (gpmt_act != NULL) {
+      gpmt->group_nr = gpmt_act->group_nr;
+      gpmt->range_min = gpmt_act->range_min;
+      gpmt->range_max = gpmt_act->range_max;
+    }
 
     /* Auto-name. */
     BLI_strncpy(gpmt->name, DATA_(name), sizeof(gpmt->name));
@@ -350,8 +360,11 @@ static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *UNUSED(re
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(color);
   GPU_line_width(6.0f);
-  imm_draw_box_wire_2d(
-      pos, 3, 3, rect->xmax - rect->xmin - 3, rect->ymax - rect->ymin - tgpm->header_height - 2);
+  imm_draw_box_wire_2d(pos,
+                       3,
+                       3,
+                       rect->xmax - rect->xmin - tgpm->npanel_width - 3,
+                       rect->ymax - rect->ymin - tgpm->header_height - 2);
   immUnbindProgram();
 }
 
@@ -563,6 +576,9 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
       }
       if (region->alignment == RGN_ALIGN_TOP && region->regiontype == RGN_TYPE_TOOL_HEADER) {
         tgpm->header_height += (int)(region->sizey * UI_DPI_FAC + 0.5f);
+      }
+      if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
+        tgpm->npanel_width = region->visible ? 20 : 0;
       }
     }
   }
