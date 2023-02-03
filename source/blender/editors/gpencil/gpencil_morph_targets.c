@@ -111,11 +111,13 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     }
 
     /* Get name. */
+    bool name_given = false;
     PropertyRNA *prop;
     char name[128];
-    prop = RNA_struct_find_property(op->ptr, "new_morph_target_name");
+    prop = RNA_struct_find_property(op->ptr, "name");
     if (RNA_property_is_set(op->ptr, prop)) {
       RNA_property_string_get(op->ptr, prop, name);
+      name_given = true;
     }
     else {
       strcpy(name, "Morph");
@@ -126,7 +128,6 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpmt = MEM_callocN(sizeof(bGPDmorph_target), "bGPDmorph_target");
     BLI_addtail(&gpd->morph_targets, gpmt);
 
-    gpmt->group_nr = 0;
     gpmt->range_min = 0.0f;
     gpmt->range_max = 1.0f;
     gpmt->value = 0.0f;
@@ -134,7 +135,9 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     /* Copy values of currently active morph target. */
     bGPDmorph_target *gpmt_act = BKE_gpencil_morph_target_active_get(gpd);
     if (gpmt_act != NULL) {
-      gpmt->group_nr = gpmt_act->group_nr;
+      if (!name_given) {
+        strcpy(name, gpmt_act->name);
+      }
       gpmt->range_min = gpmt_act->range_min;
       gpmt->range_max = gpmt_act->range_max;
     }
@@ -194,12 +197,8 @@ void GPENCIL_OT_morph_target_add(wmOperatorType *ot)
       ot->srna, "morph_target", 0, -1, INT_MAX, "Grease Pencil Morph Target", "", -1, INT_MAX);
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
-  prop = RNA_def_string(ot->srna,
-                        "new_morph_target_name",
-                        NULL,
-                        MAX_NAME,
-                        "Name",
-                        "Name of the newly added morph target");
+  prop = RNA_def_string(
+      ot->srna, "name", NULL, MAX_NAME, "Name", "Name of the newly added morph target");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   ot->prop = prop;
 }

@@ -3051,14 +3051,6 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_struct_name_property(srna, prop);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
 
-  prop = RNA_def_property(srna, "group_nr", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, NULL, "group_nr");
-  RNA_def_property_range(prop, 0, INT_MAX);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(
-      prop, "Group", "Group number, used for grouping/sorting morph targets in lists");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "value");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);

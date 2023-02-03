@@ -395,7 +395,7 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         gpmt = gpd.morph_targets.active
 
         row = layout.row()
-        mt_rows = 4
+        mt_rows = 5
 
         col = row.column()
         col.template_list("GPENCIL_UL_morph_target", "", gpd, "morph_targets", gpd.morph_targets,
@@ -427,9 +427,6 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
             col = layout.column(align=True)
             col.prop(gpmt, "slider_min", text="Range Min")
             col.prop(gpmt, "slider_max", text="Max")
-
-            col = layout.column()
-            col.prop(gpmt, "group_nr", slider=False)
 
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):

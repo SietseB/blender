@@ -655,14 +655,13 @@ class GPENCIL_UL_layer(UIList):
 
 
 class GPENCIL_UL_morph_target(UIList):
-    # TODO: make this user configurable (somehow...)
+    # Morph targets are always sorted on name
     def __init__(self):
         self.use_filter_sort_alpha = True
 
     def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
-        gpmt = item
-
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            gpmt = item
             split = layout.split(factor=0.66, align=False)
             split.prop(gpmt, "name", text="", emboss=False, icon_value=icon)
             row = split.row(align=True)
@@ -671,6 +670,26 @@ class GPENCIL_UL_morph_target(UIList):
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        morph_targets = getattr(data, propname)
+        helper_funcs = bpy.types.UI_UL_list
+
+        # Default return values
+        flt_flags = []
+        flt_order = []
+
+        # Filtering by name
+        if self.filter_name:
+            flt_flags = helper_funcs.filter_items_by_name(self.filter_name, self.bitflag_filter_item, morph_targets, "name")
+        if not flt_flags:
+            flt_flags = [self.bitflag_filter_item] * len(morph_targets)
+
+        # Sort by name
+        _sort = [(index, mt.name) for index, mt in enumerate(morph_targets)]
+        flt_order = helper_funcs.sort_items_helper(_sort, lambda el: el[1])
+
+        return flt_flags, flt_order
 
 
 class GreasePencilSimplifyPanel:

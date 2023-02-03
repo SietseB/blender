@@ -800,12 +800,11 @@ typedef struct bGPDmorph_target {
   struct bGPDmorph_target *next, *prev;
 
   char name[128];
-  int group_nr;
   float value;
   float range_min;
   float range_max;
   short flag;
-  char _pad0[6];
+  char _pad0[2];
 } bGPDmorph_target;
 
 /* bGPDlayer->flag */
