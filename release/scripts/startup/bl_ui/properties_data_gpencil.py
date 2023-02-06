@@ -384,6 +384,18 @@ class DATA_PT_gpencil_vertex_groups(ObjectButtonsPanel, Panel):
             layout.prop(context.tool_settings, "vertex_group_weight", text="Weight")
 
 
+class DATA_MT_morph_targets_context_menu(Menu):
+    bl_label = "Grease Pencil Morph Targets"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("gpencil.morph_target_duplicate", icon='DUPLICATE', text="Duplicate")
+        layout.separator()
+        layout.operator("gpencil.morph_target_remove_all", icon='X', text="Delete All")
+        layout.operator("gpencil.morph_target_apply_all", icon='NODE_COMPOSITING', text="Apply All")
+
+
 class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
     bl_label = "Morph Targets"
     bl_options = {'DEFAULT_CLOSED'}
@@ -405,6 +417,9 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         sub = col.column(align=True)
         sub.operator("gpencil.morph_target_add", icon='ADD', text="")
         sub.operator("gpencil.morph_target_remove", icon='REMOVE', text="")
+
+        sub.separator()
+        sub.menu("DATA_MT_morph_targets_context_menu", icon='DOWNARROW_HLT', text="")
 
         if gpmt:
             row = layout.row()
@@ -523,6 +538,7 @@ classes = (
 
     GPENCIL_MT_layer_context_menu,
     GPENCIL_MT_gpencil_vertex_group,
+    DATA_MT_morph_targets_context_menu,
 )
 
 if __name__ == "__main__":  # only for live edit.

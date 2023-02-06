@@ -181,26 +181,24 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
 
 void GPENCIL_OT_morph_target_add(wmOperatorType *ot)
 {
-  PropertyRNA *prop;
-  /* identifiers */
+
+  /* Identifiers. */
   ot->name = "Add New Morph Target";
   ot->idname = "GPENCIL_OT_morph_target_add";
   ot->description = "Add new morph target for the active data-block";
 
-  /* callbacks */
-  ot->exec = gpencil_morph_target_add_exec;
-  ot->poll = gpencil_add_poll;
-
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  prop = RNA_def_int(
-      ot->srna, "morph_target", 0, -1, INT_MAX, "Grease Pencil Morph Target", "", -1, INT_MAX);
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-
+  /* Operator properties. */
+  PropertyRNA *prop;
   prop = RNA_def_string(
       ot->srna, "name", NULL, MAX_NAME, "Name", "Name of the newly added morph target");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   ot->prop = prop;
+
+  /* Callbacks. */
+  ot->exec = gpencil_morph_target_add_exec;
+  ot->poll = gpencil_add_poll;
 }
 
 /* ******************* Remove Morph Target ************************ */
@@ -213,11 +211,11 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   int index = BLI_findindex(&gpd->morph_targets, gpmt);
 
   /* Set new active morph target. */
-  if (gpmt->prev) {
-    BKE_gpencil_morph_target_active_set(gpd, gpmt->prev);
+  if (gpmt->next) {
+    BKE_gpencil_morph_target_active_set(gpd, gpmt->next);
   }
   else {
-    BKE_gpencil_morph_target_active_set(gpd, gpmt->next);
+    BKE_gpencil_morph_target_active_set(gpd, gpmt->prev);
   }
 
   /* Delete morph target data from all strokes and
@@ -351,6 +349,7 @@ static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *UNUSED(re
   }
 
   /* Draw rectangle outline. */
+  float half_line_w = 3.0f * UI_DPI_FAC;
   rcti *rect = &tgpm->region->winrct;
   float color[4];
   UI_GetThemeColor4fv(TH_SELECT_ACTIVE, color);
@@ -358,11 +357,11 @@ static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *UNUSED(re
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(color);
-  GPU_line_width(6.0f);
+  GPU_line_width(2 * half_line_w);
   imm_draw_box_wire_2d(pos,
-                       3,
-                       3,
-                       rect->xmax - rect->xmin - tgpm->npanel_width - 3,
+                       half_line_w,
+                       half_line_w,
+                       rect->xmax - rect->xmin - tgpm->npanel_width - half_line_w,
                        rect->ymax - rect->ymin - tgpm->header_height - 2);
   immUnbindProgram();
 }
@@ -537,6 +536,47 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 #undef EPSILON
 }
 
+static void gpencil_morph_target_apply_to_stroke(bGPDstroke *gps, bGPDsmorph *gpsm, float factor)
+{
+  bGPDspoint *pt1;
+  float vecb[3], vecm[3];
+  float mat[3][3];
+  float color_delta[3];
+
+  for (int i = 0; i < gps->totpoints; i++) {
+    bGPDspoint *pt = &gps->points[i];
+    bGPDspoint_delta *pd = &gpsm->point_deltas[i];
+
+    /* Convert quaternion rotation to point delta. */
+    if (pd->distance > 0.0f) {
+      quat_to_mat3(mat, pd->rot_quat);
+      if (i < (gps->totpoints - 1)) {
+        pt1 = &gps->points[i + 1];
+        sub_v3_v3v3(vecb, &pt1->x, &pt->x);
+        mul_m3_v3(mat, vecb);
+        normalize_v3(vecb);
+      }
+      else if (gps->totpoints == 1) {
+        zero_v3(vecb);
+        vecb[0] = 1.0f;
+        mul_m3_v3(mat, vecb);
+        normalize_v3(vecb);
+      }
+      mul_v3_v3fl(vecm, vecb, pd->distance * factor);
+      add_v3_v3(&pt->x, vecm);
+    }
+
+    pt->pressure += pd->pressure * factor;
+    clamp_f(pt->pressure, 0.0f, FLT_MAX);
+    pt->strength += pd->strength * factor;
+    clamp_f(pt->strength, 0.0f, 1.0f);
+    copy_v3_v3(color_delta, pd->vert_color);
+    mul_v3_fl(color_delta, factor);
+    add_v3_v3(pt->vert_color, color_delta);
+    clamp_v3(pt->vert_color, 0.0f, 1.0f);
+  }
+}
+
 static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
 {
   int layer_index, frame_index, stroke_index;
@@ -618,40 +658,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
         LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
           if ((gpsm->morph_target_nr == tgpm->active_index) &&
               (gps->totpoints == gpsm->tot_point_deltas)) {
-            bGPDspoint *pt1;
-            float vecb[3], vecm[3];
-            float mat[3][3];
-
-            for (int i = 0; i < gps->totpoints; i++) {
-              bGPDspoint *pt = &gps->points[i];
-              bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-
-              /* Convert quaternion rotation to point delta. */
-              if (pd->distance > 0.0f) {
-                quat_to_mat3(mat, pd->rot_quat);
-                if (i < (gps->totpoints - 1)) {
-                  pt1 = &gps->points[i + 1];
-                  sub_v3_v3v3(vecb, &pt1->x, &pt->x);
-                  mul_m3_v3(mat, vecb);
-                  normalize_v3(vecb);
-                }
-                else if (gps->totpoints == 1) {
-                  zero_v3(vecb);
-                  vecb[0] = 1.0f;
-                  mul_m3_v3(mat, vecb);
-                  normalize_v3(vecb);
-                }
-                mul_v3_v3fl(vecm, vecb, pd->distance);
-                add_v3_v3(&pt->x, vecm);
-              }
-
-              pt->pressure += pd->pressure;
-              clamp_f(pt->pressure, 0.0f, FLT_MAX);
-              pt->strength += pd->strength;
-              clamp_f(pt->strength, 0.0f, 1.0f);
-              add_v3_v3(pt->vert_color, pd->vert_color);
-              clamp_v3(pt->vert_color, 0.0f, 1.0f);
-            }
+            gpencil_morph_target_apply_to_stroke(gps, gpsm, 1.0f);
           }
         }
       }
@@ -735,14 +742,181 @@ bool gpencil_morph_target_edit_finish_poll(bContext *C)
 
 void GPENCIL_OT_morph_target_edit_finish(wmOperatorType *ot)
 {
-  /* identifiers */
+  /* Identifiers. */
   ot->name = "Finish Edit Morph Target";
   ot->idname = "GPENCIL_OT_morph_target_edit_finish";
   ot->description = "Finish the editing of the active Grease Pencil morph target";
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  /* callbacks */
+  /* Callbacks. */
   ot->poll = gpencil_morph_target_edit_finish_poll;
   ot->exec = gpencil_morph_target_edit_finish_exec;
+}
+
+/* ******************* Duplicate Morph Target ************************ */
+static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
+{
+  /* Get source. */
+  bGPdata *gpd = NULL;
+  Object *ob = CTX_data_active_object(C);
+  if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+    return OPERATOR_CANCELLED;
+  }
+  gpd = (bGPdata *)ob->data;
+  bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
+  int index_src = BLI_findindex(&gpd->morph_targets, gpmt);
+  float value_src = gpmt->value;
+
+  /* Create destination. */
+  if (gpencil_morph_target_add_exec(C, op) == OPERATOR_CANCELLED) {
+    return OPERATOR_CANCELLED;
+  }
+  gpmt->value = 0.0f;
+  gpmt = BKE_gpencil_morph_target_active_get(gpd);
+  int index_dst = BLI_findindex(&gpd->morph_targets, gpmt);
+  gpmt->value = value_src;
+
+  /* Copy stroke morph data. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          if (gpsm->morph_target_nr == index_src) {
+            bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm);
+            gpsm_dst->prev = gpsm_dst->next = NULL;
+            gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+            gpsm_dst->morph_target_nr = index_dst;
+            BLI_addtail(&gps->morphs, gpsm_dst);
+          }
+        }
+      }
+    }
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_morph_target_duplicate(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Duplicate Morph Target";
+  ot->idname = "GPENCIL_OT_morph_target_duplicate";
+  ot->description = "Duplicate the active Grease Pencil morph target";
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Operator properties. */
+  PropertyRNA *prop;
+  prop = RNA_def_int(
+      ot->srna, "morph_target", 0, -1, INT_MAX, "Grease Pencil Morph Target", "", -1, INT_MAX);
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+  prop = RNA_def_string(
+      ot->srna, "name", NULL, MAX_NAME, "Name", "Name of the newly added morph target");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  ot->prop = prop;
+
+  /* Callbacks. */
+  ot->poll = gpencil_morph_target_active_poll;
+  ot->exec = gpencil_morph_target_duplicate_exec;
+}
+
+/* ******************* Delete All Morph Targets ************************ */
+static int gpencil_morph_target_remove_all_exec(bContext *C, wmOperator *op)
+{
+  bGPdata *gpd = ED_gpencil_data_get_active(C);
+  if (gpd == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Remove all morph data from strokes. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        BKE_gpencil_free_stroke_morphs(&gps->morphs);
+      }
+    }
+  }
+
+  /* Update animation data. */
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
+    char name_esc[sizeof(gpmt->name) * 2];
+    char rna_path[sizeof(gpmt->name) * 2 + 32];
+    BLI_str_escape(name_esc, gpmt->name, sizeof(name_esc));
+    BLI_snprintf(rna_path, sizeof(rna_path), "morph_targets[\"%s\"]", name_esc);
+    BKE_animdata_fix_paths_remove(&gpd->id, rna_path);
+  }
+
+  /* Remove all morph targets. */
+  BLI_freelistN(&gpd->morph_targets);
+
+  /* Remove all morph target modifiers automatically. */
+  Object *ob = CTX_data_active_object(C);
+  Main *bmain = CTX_data_main(C);
+  while (true) {
+    GpencilModifierData *md = BKE_gpencil_modifiers_findby_type(ob,
+                                                                eGpencilModifierType_MorphTargets);
+    if (md == NULL) {
+      break;
+    }
+    ED_object_gpencil_modifier_remove(op->reports, bmain, ob, md);
+  }
+
+  /* Notifiers. */
+  DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+
+  return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_morph_target_remove_all(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Remove All Morph Targets";
+  ot->idname = "GPENCIL_OT_morph_target_remove_all";
+  ot->description = "Remove all morph targets in the Grease Pencil object";
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Callbacks. */
+  ot->poll = gpencil_morph_target_active_poll;
+  ot->exec = gpencil_morph_target_remove_all_exec;
+}
+
+/* ******************* Apply All Morph Targets ************************ */
+static int gpencil_morph_target_apply_all_exec(bContext *C, wmOperator *op)
+{
+  Object *ob = CTX_data_active_object(C);
+  Main *bmain = CTX_data_main(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  GpencilModifierData *md_prev = NULL;
+
+  /* Apply all morph target modifiers in reversed order. */
+  for (GpencilModifierData *md = ob->greasepencil_modifiers.last; md; md = md_prev) {
+    md_prev = md->prev;
+    if (md->type == eGpencilModifierType_MorphTargets) {
+      if (!ED_object_gpencil_modifier_apply(bmain, op->reports, depsgraph, ob, md, 0)) {
+        return OPERATOR_CANCELLED;
+      }
+    }
+  }
+
+  /* All modifiers applied, now remove all morph targets. */
+  return gpencil_morph_target_remove_all_exec(C, op);
+}
+
+void GPENCIL_OT_morph_target_apply_all(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Apply All Morph Targets";
+  ot->idname = "GPENCIL_OT_morph_target_apply_all";
+  ot->description = "Apply all morph targets in the Grease Pencil object";
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Callbacks. */
+  ot->poll = gpencil_morph_target_active_poll;
+  ot->exec = gpencil_morph_target_apply_all_exec;
 }

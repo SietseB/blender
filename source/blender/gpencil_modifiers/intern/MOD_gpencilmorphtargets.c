@@ -164,6 +164,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
+  BKE_gpencil_cache_data_init(depsgraph, ob);
   generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
