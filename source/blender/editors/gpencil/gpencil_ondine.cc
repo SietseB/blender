@@ -19,6 +19,8 @@
 #include "BKE_screen.h"
 
 #include "BLI_listbase.h"
+#include "BLI_math_matrix.hh"
+#include "BLI_math_vector.h"
 
 #include "WM_api.h"
 
@@ -150,7 +152,7 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
 
 float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
 {
-  float3 parent_co = diff_mat_ * co;
+  float3 parent_co = math::transform_point(diff_mat_, co);
 
   float2 r_co;
   mul_v2_project_m4_v3(&r_co.x, persmat_, &parent_co.x);
@@ -178,7 +180,7 @@ float GpencilOndine::stroke_point_radius_get(
   const float2 screen_co1 = gpencil_3D_point_to_2D(p1);
   const float2 screen_co2 = gpencil_3D_point_to_2D(p2);
   const float2 v1 = screen_co1 - screen_co2;
-  float radius = math::length(v1);
+  float radius = len_v2(v1);
 
   return MAX2(radius, 1.0f);
 }
@@ -248,7 +250,7 @@ void GpencilOndine::set_render_data(Object *object)
     }
 
     /* Prepare layer matrix */
-    BKE_gpencil_layer_transform_matrix_get(depsgraph_, object, gpl, diff_mat_.values);
+    BKE_gpencil_layer_transform_matrix_get(depsgraph_, object, gpl, diff_mat_.ptr());
     diff_mat_ = diff_mat_ * float4x4(gpl->layer_invmat);
 
     /* Active keyframe? */

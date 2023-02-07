@@ -2,63 +2,58 @@
  * Copyright 2022 Blender Foundation. All rights reserved. */
 #pragma once
 
-#include "BLI_float4x4.hh"
+#include "BLI_math_matrix_types.hh"
 
 namespace blender {
 
-class GpencilOndine
-{
-  public:
-    /* Methods */
-    GpencilOndine();
-    void init(bContext *C);
-    bool prepare_camera_params(bContext *C);
-    void set_zdepth(Object *object);
-    void set_render_data(Object *object);
-    void set_stroke_colors(Object *ob,
-                           bGPDlayer *gpl,
-                           bGPDstroke *gps,
-                           MaterialGPencilStyle *gp_style);
-    float stroke_point_radius_get(bGPdata *gpd,
-                                  bGPDlayer *gpl,
-                                  bGPDstroke *gps,
-                                  const int p_index,
-                                  const float thickness);
-    float2 gpencil_3D_point_to_2D(const float3 co);
+class GpencilOndine {
+ public:
+  /* Methods */
+  GpencilOndine();
+  void init(bContext *C);
+  bool prepare_camera_params(bContext *C);
+  void set_zdepth(Object *object);
+  void set_render_data(Object *object);
+  void set_stroke_colors(Object *ob,
+                         bGPDlayer *gpl,
+                         bGPDstroke *gps,
+                         MaterialGPencilStyle *gp_style);
+  float stroke_point_radius_get(
+      bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, const int p_index, const float thickness);
+  float2 gpencil_3D_point_to_2D(const float3 co);
 
+ protected:
+  bool invert_axis_[2];
+  blender::float4x4 diff_mat_;
 
-  protected:
-    bool invert_axis_[2];
-    blender::float4x4 diff_mat_;
+  /* Data for easy access. */
+  struct Main *bmain_;
+  struct Depsgraph *depsgraph_;
+  struct Scene *scene_;
+  struct RegionView3D *rv3d_;
+  struct View3D *v3d_;
+  struct ARegion *region_;
 
-    /* Data for easy access. */
-    struct Main *bmain_;
-    struct Depsgraph *depsgraph_;
-    struct Scene *scene_;
-    struct RegionView3D *rv3d_;
-    struct View3D *v3d_;
-    struct ARegion *region_;
+  int16_t winx_, winy_;
+  int16_t render_x_, render_y_;
+  float camera_ratio_;
+  rctf camera_rect_;
+  blender::float3 camera_z_axis_;
+  blender::float3 camera_loc_;
+  blender::float3 camera_normal_vec_;
+  float camera_rot_sin_;
+  float camera_rot_cos_;
 
-    int16_t winx_, winy_;
-    int16_t render_x_, render_y_;
-    float camera_ratio_;
-    rctf camera_rect_;
-    blender::float3 camera_z_axis_;
-    blender::float3 camera_loc_;
-    blender::float3 camera_normal_vec_;
-    float camera_rot_sin_;
-    float camera_rot_cos_;
+  blender::float2 offset_;
 
-    blender::float2 offset_;
+  int cfra_;
 
-    int cfra_;
+  float stroke_color_[4], fill_color_[4];
 
-    float stroke_color_[4], fill_color_[4];
-
-  private:
-    float avg_opacity_;
-    bool is_camera_;
-    float persmat_[4][4];
+ private:
+  float avg_opacity_;
+  bool is_camera_;
+  float persmat_[4][4];
 };
 
 }  // namespace blender
