@@ -120,9 +120,9 @@ struct SamplingData {
 BLI_STATIC_ASSERT_ALIGN(SamplingData, 16)
 
 /* Returns total sample count in a web pattern of the given size. */
-static inline int sampling_web_sample_count_get(int web_density, int ring_count)
+static inline int sampling_web_sample_count_get(int web_density, int in_ring_count)
 {
-  return ((ring_count * ring_count + ring_count) / 2) * web_density + 1;
+  return ((in_ring_count * in_ring_count + in_ring_count) / 2) * web_density + 1;
 }
 
 /* Returns lowest possible ring count that contains at least sample_count samples. */
@@ -604,10 +604,10 @@ struct LightData {
 #define _spot_bias object_mat[3][3]
   /** Aliases for axes. */
 #ifndef USE_GPU_SHADER_CREATE_INFO
-#  define _right object_mat[0]
-#  define _up object_mat[1]
-#  define _back object_mat[2]
-#  define _position object_mat[3]
+#  define _right object_mat[0].xyz()
+#  define _up object_mat[1].xyz()
+#  define _back object_mat[2].xyz()
+#  define _position object_mat[3].xyz()
 #else
 #  define _right object_mat[0].xyz
 #  define _up object_mat[1].xyz

@@ -24,9 +24,9 @@
 
 #include "BLI_array.hh"
 #include "BLI_edgehash.h"
-#include "BLI_float3x3.hh"
 #include "BLI_map.hh"
 #include "BLI_math.h"
+#include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector_types.hh"
 #include "BLI_rect.h"
 #include "BLI_vector.hh"
@@ -289,6 +289,12 @@ struct UVBorder {
 };
 
 struct UVIsland {
+  /**
+   * Id (Index) of the UVIsland. Contains the index of this island in UVIslands.
+   *
+   * Useful during debugging to set a breaking condition on a specific island/vert.
+   */
+  int id;
   VectorList<UVVertex> uv_vertices;
   VectorList<UVEdge> uv_edges;
   VectorList<UVPrimitive> uv_primitives;

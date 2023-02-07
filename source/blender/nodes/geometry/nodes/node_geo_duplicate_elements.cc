@@ -81,8 +81,22 @@ static OffsetIndices<int> accumulate_counts_to_offsets(const IndexMask selection
                                                        Array<int> &r_offset_data)
 {
   r_offset_data.reinitialize(selection.size() + 1);
-  counts.materialize_compressed(selection, r_offset_data);
-  offset_indices::accumulate_counts_to_offsets(r_offset_data);
+  if (counts.is_single()) {
+    const int count = counts.get_internal_single();
+    threading::parallel_for(selection.index_range(), 1024, [&](const IndexRange range) {
+      for (const int64_t i : range) {
+        r_offset_data[i] = count * i;
+      }
+    });
+    r_offset_data.last() = count * selection.size();
+  }
+  else {
+    threading::parallel_for(selection.index_range(), 1024, [&](const IndexRange range) {
+      counts.materialize_compressed(selection.slice(range),
+                                    r_offset_data.as_mutable_span().slice(range));
+    });
+    offset_indices::accumulate_counts_to_offsets(r_offset_data);
+  }
   return OffsetIndices<int>(r_offset_data);
 }
 
@@ -330,7 +344,7 @@ static void duplicate_curves(GeometrySet &geometry_set,
   GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(geometry_set);
 
   const Curves &curves_id = *geometry_set.get_curves_for_read();
-  const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
+  const bke::CurvesGeometry &curves = curves_id.geometry.wrap();
 
   bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_CURVE};
   FieldEvaluator evaluator{field_context, curves.curves_num()};
@@ -363,7 +377,7 @@ static void duplicate_curves(GeometrySet &geometry_set,
 
   Curves *new_curves_id = bke::curves_new_nomain(dst_points_num, dst_curves_num);
   bke::curves_copy_parameters(curves_id, *new_curves_id);
-  bke::CurvesGeometry &new_curves = bke::CurvesGeometry::wrap(new_curves_id->geometry);
+  bke::CurvesGeometry &new_curves = new_curves_id->geometry.wrap();
   MutableSpan<int> all_dst_offsets = new_curves.offsets_for_write();
 
   threading::parallel_for(selection.index_range(), 512, [&](IndexRange range) {
@@ -811,7 +825,7 @@ static void duplicate_points_curve(GeometrySet &geometry_set,
                                    const AnonymousAttributePropagationInfo &propagation_info)
 {
   const Curves &src_curves_id = *geometry_set.get_curves_for_read();
-  const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(src_curves_id.geometry);
+  const bke::CurvesGeometry &src_curves = src_curves_id.geometry.wrap();
   if (src_curves.points_num() == 0) {
     return;
   }
@@ -833,7 +847,7 @@ static void duplicate_points_curve(GeometrySet &geometry_set,
 
   Curves *new_curves_id = bke::curves_new_nomain(dst_num, dst_num);
   bke::curves_copy_parameters(src_curves_id, *new_curves_id);
-  bke::CurvesGeometry &new_curves = bke::CurvesGeometry::wrap(new_curves_id->geometry);
+  bke::CurvesGeometry &new_curves = new_curves_id->geometry.wrap();
   MutableSpan<int> new_curve_offsets = new_curves.offsets_for_write();
   for (const int i : new_curves.curves_range()) {
     new_curve_offsets[i] = i;

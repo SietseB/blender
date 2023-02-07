@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_math_matrix.hh"
+
 #include "pbvh_uv_islands.hh"
 
 #include <optional>
@@ -925,8 +927,7 @@ static void extend_at_vert(const MeshData &mesh_data,
    * triangle when the corner angle is near 180 degrees. In order to fix this we will
    * always add two segments both using the same fill primitive.
    */
-  if ((num_to_add == 0 && winding_solution.size() == 1) ||
-      (corner.angle > 1.0f && winding_solution.size() < 2)) {
+  if (winding_solution.size() < 2 && (num_to_add == 0 || corner.angle > 2.0f)) {
     int fill_primitive_1_i = corner.second->uv_primitive->primitive_i;
     int fill_primitive_2_i = corner.first->uv_primitive->primitive_i;
 
@@ -1244,14 +1245,14 @@ UVBorderCorner::UVBorderCorner(UVBorderEdge *first, UVBorderEdge *second, float 
 
 float2 UVBorderCorner::uv(float factor, float min_uv_distance)
 {
+  using namespace blender::math;
   float2 origin = first->get_uv_vertex(1)->uv;
   float angle_between = angle * factor;
   float desired_len = max_ff(second->length() * factor + first->length() * (1.0 - factor),
                              min_uv_distance);
-  float2 v = first->get_uv_vertex(0)->uv - origin;
-  normalize_v2(v);
+  float2 v = normalize(first->get_uv_vertex(0)->uv - origin);
 
-  float3x3 rot_mat = float3x3::from_rotation(angle_between);
+  float2x2 rot_mat = from_rotation<float2x2>(AngleRadian(angle_between));
   float2 rotated = rot_mat * v;
   float2 result = rotated * desired_len + first->get_uv_vertex(1)->uv;
   return result;
@@ -1460,9 +1461,10 @@ UVIslands::UVIslands(const MeshData &mesh_data)
 {
   islands.reserve(mesh_data.uv_island_len);
 
-  for (int64_t uv_island_id = 0; uv_island_id < mesh_data.uv_island_len; uv_island_id++) {
+  for (const int64_t uv_island_id : IndexRange(mesh_data.uv_island_len)) {
     islands.append_as(UVIsland());
     UVIsland *uv_island = &islands.last();
+    uv_island->id = uv_island_id;
     for (const int primitive_i : mesh_data.looptris.index_range()) {
       if (mesh_data.uv_island_ids[primitive_i] == uv_island_id) {
         add_primitive(mesh_data, *uv_island, primitive_i);

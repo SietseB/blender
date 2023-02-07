@@ -10,6 +10,7 @@
 #include "BLI_devirtualize_parameters.hh"
 #include "BLI_index_mask_ops.hh"
 #include "BLI_kdtree.h"
+#include "BLI_math_matrix.hh"
 #include "BLI_rand.hh"
 #include "BLI_utildefines.h"
 #include "BLI_vector_set.hh"
@@ -238,7 +239,7 @@ static void try_convert_single_object(Object &curves_ob,
     return;
   }
   Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
-  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  CurvesGeometry &curves = curves_id.geometry.wrap();
   if (curves_id.surface == nullptr) {
     return;
   }
@@ -314,7 +315,7 @@ static void try_convert_single_object(Object &curves_ob,
     const IndexRange points = points_by_curve[curve_i];
 
     const float3 &root_pos_cu = positions_cu[points.first()];
-    const float3 root_pos_su = transforms.curves_to_surface * root_pos_cu;
+    const float3 root_pos_su = math::transform_point(transforms.curves_to_surface, root_pos_cu);
 
     BVHTreeNearest nearest;
     nearest.dist_sq = FLT_MAX;
@@ -346,15 +347,15 @@ static void try_convert_single_object(Object &curves_ob,
 
     float4x4 hair_to_surface_mat;
     psys_mat_hair_to_object(
-        &surface_ob, &surface_me, PART_FROM_FACE, &particle, hair_to_surface_mat.values);
+        &surface_ob, &surface_me, PART_FROM_FACE, &particle, hair_to_surface_mat.ptr());
     /* In theory, #psys_mat_hair_to_object should handle this, but it doesn't right now. */
-    copy_v3_v3(hair_to_surface_mat.values[3], root_pos_su);
-    const float4x4 surface_to_hair_mat = hair_to_surface_mat.inverted();
+    hair_to_surface_mat.location() = root_pos_su;
+    const float4x4 surface_to_hair_mat = math::invert(hair_to_surface_mat);
 
     for (const int key_i : hair_keys.index_range()) {
       const float3 &key_pos_cu = positions_cu[points[key_i]];
-      const float3 key_pos_su = transforms.curves_to_surface * key_pos_cu;
-      const float3 key_pos_ha = surface_to_hair_mat * key_pos_su;
+      const float3 key_pos_su = math::transform_point(transforms.curves_to_surface, key_pos_cu);
+      const float3 key_pos_ha = math::transform_point(surface_to_hair_mat, key_pos_su);
 
       HairKey &key = hair_keys[key_i];
       copy_v3_v3(key.co, key_pos_ha);
@@ -457,8 +458,8 @@ static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &p
   bke::CurvesGeometry curves(points_num, curves_num);
   curves.offsets_for_write().copy_from(curve_offsets);
 
-  const float4x4 object_to_world_mat = object.object_to_world;
-  const float4x4 world_to_object_mat = object_to_world_mat.inverted();
+  const float4x4 object_to_world_mat(object.object_to_world);
+  const float4x4 world_to_object_mat = math::invert(object_to_world_mat);
 
   MutableSpan<float3> positions = curves.positions_for_write();
   const OffsetIndices points_by_curve = curves.points_by_curve();
@@ -474,7 +475,7 @@ static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &p
         const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
         for (const int key_i : keys.index_range()) {
           const float3 key_pos_wo = keys[key_i].co;
-          positions[points[key_i]] = world_to_object_mat * key_pos_wo;
+          positions[points[key_i]] = math::transform_point(world_to_object_mat, key_pos_wo);
         }
       }
     });
@@ -521,7 +522,7 @@ static int curves_convert_from_particle_system_exec(bContext *C, wmOperator * /*
   Object *ob_new = BKE_object_add(&bmain, &scene, &view_layer, OB_CURVES, psys_eval->name);
   Curves *curves_id = static_cast<Curves *>(ob_new->data);
   BKE_object_apply_mat4(ob_new, ob_from_orig->object_to_world, true, false);
-  bke::CurvesGeometry::wrap(curves_id->geometry) = particles_to_curves(*ob_from_eval, *psys_eval);
+  curves_id->geometry.wrap() = particles_to_curves(*ob_from_eval, *psys_eval);
 
   DEG_relations_tag_update(&bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, nullptr);
@@ -562,7 +563,7 @@ static void snap_curves_to_surface_exec_object(Object &curves_ob,
                                                bool *r_missing_uvs)
 {
   Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
-  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  CurvesGeometry &curves = curves_id.geometry.wrap();
 
   const Mesh &surface_mesh = *static_cast<const Mesh *>(surface_ob.data);
   const Span<float3> surface_positions = surface_mesh.vert_positions();
@@ -593,8 +594,8 @@ static void snap_curves_to_surface_exec_object(Object &curves_ob,
           const IndexRange points = points_by_curve[curve_i];
           const int first_point_i = points.first();
           const float3 old_first_point_pos_cu = positions_cu[first_point_i];
-          const float3 old_first_point_pos_su = transforms.curves_to_surface *
-                                                old_first_point_pos_cu;
+          const float3 old_first_point_pos_su = math::transform_point(transforms.curves_to_surface,
+                                                                      old_first_point_pos_cu);
 
           BVHTreeNearest nearest;
           nearest.index = -1;
@@ -610,8 +611,8 @@ static void snap_curves_to_surface_exec_object(Object &curves_ob,
           }
 
           const float3 new_first_point_pos_su = nearest.co;
-          const float3 new_first_point_pos_cu = transforms.surface_to_curves *
-                                                new_first_point_pos_su;
+          const float3 new_first_point_pos_cu = math::transform_point(transforms.surface_to_curves,
+                                                                      new_first_point_pos_su);
           const float3 pos_diff_cu = new_first_point_pos_cu - old_first_point_pos_cu;
 
           for (float3 &pos_cu : positions_cu.slice(points)) {
@@ -668,8 +669,8 @@ static void snap_curves_to_surface_exec_object(Object &curves_ob,
 
           float3 new_first_point_pos_su;
           interp_v3_v3v3v3(new_first_point_pos_su, p0_su, p1_su, p2_su, bary_coords);
-          const float3 new_first_point_pos_cu = transforms.surface_to_curves *
-                                                new_first_point_pos_su;
+          const float3 new_first_point_pos_cu = math::transform_point(transforms.surface_to_curves,
+                                                                      new_first_point_pos_su);
 
           const float3 pos_diff_cu = new_first_point_pos_cu - old_first_point_pos_cu;
           for (float3 &pos_cu : positions_cu.slice(points)) {
@@ -774,7 +775,7 @@ static int curves_set_selection_domain_exec(bContext *C, wmOperator *op)
 
     curves_id->selection_domain = domain;
 
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    CurvesGeometry &curves = curves_id->geometry.wrap();
     bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
     if (curves.points_num() == 0) {
       continue;
@@ -830,7 +831,7 @@ static void CURVES_OT_set_selection_domain(wmOperatorType *ot)
 static bool has_anything_selected(const Span<Curves *> curves_ids)
 {
   return std::any_of(curves_ids.begin(), curves_ids.end(), [](const Curves *curves_id) {
-    return has_anything_selected(CurvesGeometry::wrap(curves_id->geometry));
+    return has_anything_selected(curves_id->geometry.wrap());
   });
 }
 
@@ -846,9 +847,7 @@ static int select_all_exec(bContext *C, wmOperator *op)
 
   for (Curves *curves_id : unique_curves) {
     /* (De)select all the curves. */
-    select_all(CurvesGeometry::wrap(curves_id->geometry),
-               eAttrDomain(curves_id->selection_domain),
-               action);
+    select_all(curves_id->geometry.wrap(), eAttrDomain(curves_id->selection_domain), action);
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
      * attribute for now. */
@@ -881,7 +880,7 @@ static int select_random_exec(bContext *C, wmOperator *op)
   const float probability = RNA_float_get(op->ptr, "probability");
 
   for (Curves *curves_id : unique_curves) {
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    CurvesGeometry &curves = curves_id->geometry.wrap();
     select_random(curves, eAttrDomain(curves_id->selection_domain), uint32_t(seed), probability);
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
@@ -952,7 +951,7 @@ static int select_end_exec(bContext *C, wmOperator *op)
   const int amount = RNA_int_get(op->ptr, "amount");
 
   for (Curves *curves_id : unique_curves) {
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    CurvesGeometry &curves = curves_id->geometry.wrap();
     select_ends(curves, eAttrDomain(curves_id->selection_domain), amount, end_points);
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic

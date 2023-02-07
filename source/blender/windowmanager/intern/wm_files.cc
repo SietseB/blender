@@ -8,9 +8,7 @@
  * (including relevant operators).
  */
 
-/* placed up here because of crappy
- * winsock stuff.
- */
+/* Placed up here because of crappy WINSOCK stuff. */
 #include <errno.h>
 #include <fcntl.h> /* for open flags (O_BINARY, O_RDONLY). */
 #include <stddef.h>
@@ -209,6 +207,8 @@ static void wm_window_match_init(bContext *C, ListBase *wmlist)
 
   BLI_listbase_clear(&G_MAIN->wm);
   if (G_MAIN->name_map != nullptr) {
+    /* NOTE: UI IDs are assumed to be only local data-blocks, so no need to call
+     * #BKE_main_namemap_clear here. */
     BKE_main_namemap_destroy(&G_MAIN->name_map);
   }
 
@@ -377,7 +377,7 @@ static void wm_window_match_replace_by_file_wm(bContext *C,
    * to avoid clearing the wrong wm. */
   wm_window_clear_drawable(oldwm);
 
-  /* only first wm in list has ghostwins */
+  /* Only first `wm` in list has GHOST-windows. */
   LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
     LISTBASE_FOREACH (wmWindow *, oldwin, &oldwm->windows) {
       if (oldwin->winid == win->winid) {
@@ -482,7 +482,7 @@ static void wm_init_userdef(Main *bmain)
     SET_FLAG_FROM_TEST(G.f, (U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0, G_FLAG_SCRIPT_AUTOEXEC);
   }
 
-  MEM_CacheLimiter_set_maximum((size_t(U.memcachelimit)) * 1024 * 1024);
+  MEM_CacheLimiter_set_maximum(size_t(U.memcachelimit) * 1024 * 1024);
   BKE_sound_init(bmain);
 
   /* Update the temporary directory from the preferences or fallback to the system default. */
@@ -1443,7 +1443,7 @@ void wm_history_file_read(void)
 
   wm_history_files_free();
 
-  /* read list of recent opened files from recent-files.txt to memory */
+  /* Read list of recent opened files from #BLENDER_HISTORY_FILE to memory. */
   for (l = lines, num = 0; l && (num < U.recent_files); l = l->next) {
     const char *line = static_cast<const char *>(l->link);
     /* don't check if files exist, causes slow startup for remote/external drives */
@@ -1526,7 +1526,7 @@ static void wm_history_file_update(void)
   }
 
   recent = static_cast<RecentFile *>(G.recent_files.first);
-  /* refresh recent-files.txt of recent opened files, when current file was changed */
+  /* Refresh #BLENDER_HISTORY_FILE of recent opened files, when current file was changed. */
   if (!(recent) || (BLI_path_cmp(recent->filepath, blendfile_path) != 0)) {
 
     recent = wm_file_history_find(blendfile_path);
@@ -1547,7 +1547,7 @@ static void wm_history_file_update(void)
     /* add current file to the beginning of list */
     BLI_addhead(&(G.recent_files), recent);
 
-    /* write current file to recent-files.txt */
+    /* Write current file to #BLENDER_HISTORY_FILE. */
     wm_history_file_write();
 
     /* also update most recent files on System */
@@ -2053,7 +2053,7 @@ void wm_autosave_delete(void)
     char str[FILE_MAX];
     BLI_path_join(str, sizeof(str), BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
-    /* if global undo; remove tempsave, otherwise rename */
+    /* For global undo; remove temporarily saved file, otherwise rename. */
     if (U.uiflag & USER_GLOBALUNDO) {
       BLI_delete(filepath, false, false);
     }

@@ -1812,7 +1812,7 @@ void wm_test_opengl_deprecation_warning(bContext *C)
     return;
   }
 
-  /* Have we already shown a message during this Blender session. bgl calls are done in a draw
+  /* Have we already shown a message during this Blender session. `bgl` calls are done in a draw
    * handler that will run many times. */
   if (message_shown) {
     return;
