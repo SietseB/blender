@@ -209,6 +209,11 @@ class DATA_PT_gpencil_layer_texture(LayerDataButtonsPanel, GreasePencilLayerText
     bl_parent_id = 'DATA_PT_gpencil_layers'
     bl_options = {'DEFAULT_CLOSED'}
 
+    @classmethod
+    def poll(cls, context):
+        gpencil = context.gpencil
+        return gpencil and gpencil.layers.active and gpencil.watercolor
+
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):
     bl_label = "Masks"
