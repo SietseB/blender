@@ -777,7 +777,7 @@ static int gpencil_frame_clean_fill_exec(bContext *C, wmOperator *op)
               MEM_freeN(gps->dvert);
             }
             if (&gps->morphs) {
-              BKE_gpencil_free_stroke_morphs(&gps->morphs);
+              BKE_gpencil_free_stroke_morphs(gps);
             }
             MEM_SAFE_FREE(gps->triangles);
             BLI_freelinkN(&gpf->strokes, gps);
@@ -857,7 +857,7 @@ static int gpencil_frame_clean_loose_exec(bContext *C, wmOperator *op)
               MEM_freeN(gps->dvert);
             }
             if (&gps->morphs) {
-              BKE_gpencil_free_stroke_morphs(&gps->morphs);
+              BKE_gpencil_free_stroke_morphs(gps);
             }
             MEM_SAFE_FREE(gps->triangles);
             BLI_freelinkN(&gpf->strokes, gps);

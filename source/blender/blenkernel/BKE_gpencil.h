@@ -75,7 +75,7 @@ struct bGPdata;
 void BKE_gpencil_free_point_weights(struct MDeformVert *dvert);
 void BKE_gpencil_free_stroke_weights(struct bGPDstroke *gps);
 void BKE_gpencil_free_stroke_editcurve(struct bGPDstroke *gps);
-void BKE_gpencil_free_stroke_morphs(struct ListBase *list);
+void BKE_gpencil_free_stroke_morphs(struct bGPDstroke *gps);
 /** Free stroke, doesn't unlink from any #ListBase. */
 void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
 /** Free strokes belonging to a gp-frame. */
@@ -92,6 +92,7 @@ void BKE_gpencil_free_data(struct bGPdata *gpd, bool free_all);
  */
 void BKE_gpencil_eval_delete(struct bGPdata *gpd_eval);
 void BKE_gpencil_free_layer_masks(struct bGPDlayer *gpl);
+void BKE_gpencil_free_layer_morphs(struct bGPDlayer *gpl);
 /**
  * Tag data-block for depsgraph update.
  * Wrapper to avoid include Depsgraph tag functions in other modules.
@@ -453,6 +454,11 @@ void BKE_gpencil_layer_mask_cleanup(struct bGPdata *gpd, struct bGPDlayer *gpl);
  * Clean any invalid mask layer for all layers.
  */
 void BKE_gpencil_layer_mask_cleanup_all_layers(struct bGPdata *gpd);
+
+/**
+ * Make a copy of the morphs of a given gpencil layer.
+ */
+void BKE_gpencil_layer_morph_copy(const struct bGPDlayer *gpl_src, struct bGPDlayer *gpl_dst);
 
 /**
  * Sort grease pencil frames.

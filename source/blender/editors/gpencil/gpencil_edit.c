@@ -1431,7 +1431,7 @@ void ED_gpencil_strokes_copybuf_free(void)
       MEM_freeN(gps->dvert);
     }
     if (&gps->morphs) {
-      BKE_gpencil_free_stroke_morphs(&gps->morphs);
+      BKE_gpencil_free_stroke_morphs(gps);
     }
 
     MEM_SAFE_FREE(gps->triangles);
@@ -5139,6 +5139,8 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
                 BKE_gpencil_layer_copy_settings(gpl, gpl_dst);
                 /* Copy masks. */
                 BKE_gpencil_layer_mask_copy(gpl, gpl_dst);
+                /* Copy morphs. */
+                BKE_gpencil_layer_morph_copy(gpl, gpl_dst);
               }
 
               /* add frame if not created before */

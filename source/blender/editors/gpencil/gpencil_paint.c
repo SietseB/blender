@@ -1489,7 +1489,7 @@ static void gpencil_free_stroke(bGPdata *gpd, bGPDframe *gpf, bGPDstroke *gps)
   }
 
   if (&gps->morphs) {
-    BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    BKE_gpencil_free_stroke_morphs(gps);
   }
 
   BLI_freelinkN(&gpf->strokes, gps);

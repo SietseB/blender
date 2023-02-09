@@ -141,6 +141,43 @@ bool is_stroke_affected_by_modifier(Object *ob,
   return true;
 }
 
+bool is_layer_affected_by_modifier(Object *ob,
+                                   char *mlayername,
+                                   const int gpl_passindex,
+                                   bGPDlayer *gpl,
+                                   const bool inv1,
+                                   const bool inv2)
+{
+  /* omit if filter by layer */
+  if (mlayername[0] != '\0') {
+    if (inv1 == false) {
+      if (!STREQ(mlayername, gpl->info)) {
+        return false;
+      }
+    }
+    else {
+      if (STREQ(mlayername, gpl->info)) {
+        return false;
+      }
+    }
+  }
+  /* verify layer pass */
+  if (gpl_passindex > 0) {
+    if (inv2 == false) {
+      if (gpl->pass_index != gpl_passindex) {
+        return false;
+      }
+    }
+    else {
+      if (gpl->pass_index == gpl_passindex) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 float get_modifier_point_weight(MDeformVert *dvert, bool inverse, int def_nr)
 {
   float weight = 1.0f;

@@ -218,10 +218,19 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
     BKE_gpencil_morph_target_active_set(gpd, gpmt->prev);
   }
 
-  /* Delete morph target data from all strokes and
-   * lower the indexes higher than the morph target index
+  /* Delete morph target data from all strokes and layers
+   * and lower the indexes higher than the morph target index
    * to be removed. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH_MUTABLE (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->morph_target_nr == index) {
+        BLI_freelinkN(&gpl->morphs, gplm);
+      }
+      else if (gplm->morph_target_nr > index) {
+        gplm->morph_target_nr--;
+      }
+    }
+
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         LISTBASE_FOREACH_MUTABLE (bGPDsmorph *, gpsm, &gps->morphs) {
@@ -372,10 +381,12 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 
   /* Match the stored base GP object with the morphed one. */
   int uneq_layers = 0, uneq_frames = 0, uneq_strokes = 0;
+  bool is_morphed;
   tGPDmorph *tgpm = op->customdata;
   bGPDlayer *gpl_base = tgpm->gpd_base->layers.first;
   bGPDlayer *gpl_morph = tgpm->gpd_morph->layers.first;
 
+  /* Iterate all layers. */
   for (; gpl_morph; gpl_morph = gpl_morph->next) {
     /* Skip newly created layers. */
     if (gpl_morph->runtime.morph_index == 0) {
@@ -391,6 +402,53 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
       break;
     }
 
+    /* Remove existing layer morph for active morph target. */
+    bGPDlmorph *gplm = gpl_morph->morphs.first;
+    for (; gplm; gplm = gplm->next) {
+      if (gplm->morph_target_nr == tgpm->active_index) {
+        BLI_freelinkN(&gpl_morph->morphs, gplm);
+        break;
+      }
+    }
+
+    /* Get delta in layer transformations. */
+    is_morphed = false;
+    gplm = MEM_callocN(sizeof(bGPDlmorph), "bGPDlmorph");
+    sub_v3_v3v3(gplm->location, gpl_morph->location, gpl_base->location);
+    sub_v3_v3v3(gplm->rotation, gpl_morph->rotation, gpl_base->rotation);
+    sub_v3_v3v3(gplm->scale, gpl_morph->scale, gpl_base->scale);
+    gplm->opacity = gpl_morph->opacity - gpl_base->opacity;
+
+    /* Revert to base values, since the morph was applied during edit. */
+    copy_v3_v3(gpl_morph->location, gpl_base->location);
+    copy_v3_v3(gpl_morph->rotation, gpl_base->rotation);
+    copy_v3_v3(gpl_morph->scale, gpl_base->scale);
+    gpl_morph->opacity = gpl_base->opacity;
+
+    /* Check morph on non-zero. */
+    if (fabs(gplm->opacity) > EPSILON) {
+      is_morphed = true;
+    }
+    else {
+      for (int i = 0; i < 3; i++) {
+        if ((fabs(gplm->location[i]) > EPSILON) || (fabs(gplm->rotation[i]) > EPSILON) ||
+            (fabs(gplm->scale[i]) > EPSILON)) {
+          is_morphed = true;
+          break;
+        }
+      }
+    }
+    /* Don't store a zero morph. */
+    if (!is_morphed) {
+      MEM_freeN(gplm);
+    }
+    else {
+      /* Add morph to layer. */
+      gplm->morph_target_nr = tgpm->active_index;
+      BLI_addtail(&gpl_morph->morphs, gplm);
+    }
+
+    /* Iterate all frames and strokes. */
     bGPDframe *gpf_base = gpl_base->frames.first;
     bGPDframe *gpf_morph = gpl_morph->frames.first;
     for (; gpf_morph; gpf_morph = gpf_morph->next) {
@@ -416,7 +474,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
           uneq_strokes++;
           continue;
         }
-        /* Find match base stroke. */
+        /* Find matching base stroke. */
         while (gps_base && (gps_base->runtime.morph_index < gps_morph->runtime.morph_index)) {
           gps_base = gps_base->next;
         }
@@ -446,7 +504,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
         }
 
         /* Store the delta's between stroke points. */
-        bool is_morphed = false;
+        is_morphed = false;
         gpsm = MEM_callocN(sizeof(bGPDsmorph), "bGPDsmorph");
         gpsm->point_deltas = MEM_callocN(sizeof(bGPDspoint_delta) * gps_morph->totpoints,
                                          "bGPDsmorph point deltas");
@@ -499,13 +557,13 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
         }
 
         /* When there is no difference between morph and base stroke,
-         * we don't store delta data. */
+         * don't store the morph. */
         if (!is_morphed) {
           MEM_freeN(gpsm->point_deltas);
           MEM_freeN(gpsm);
         }
         else {
-          /* Add morph deltas to stroke. */
+          /* Add morph to stroke. */
           gpsm->morph_target_nr = tgpm->active_index;
           gpsm->tot_point_deltas = gps_morph->totpoints;
           BLI_addtail(&gps_morph->morphs, gpsm);
@@ -536,12 +594,26 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 #undef EPSILON
 }
 
+static void gpencil_morph_target_apply_to_layer(bGPDlayer *gpl, bGPDlmorph *gplm, float factor)
+{
+  LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+    for (int i = 0; i < 3; i++) {
+      gpl->location[i] += gplm->location[i] * factor;
+      gpl->rotation[i] += gplm->rotation[i] * factor;
+      gpl->scale[i] += gplm->scale[i] * factor;
+    }
+    gpl->opacity += gplm->opacity * factor;
+    clamp_f(gpl->opacity, 0.0f, 1.0f);
+  }
+  loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
+  invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
+}
+
 static void gpencil_morph_target_apply_to_stroke(bGPDstroke *gps, bGPDsmorph *gpsm, float factor)
 {
   bGPDspoint *pt1;
-  float vecb[3], vecm[3];
+  float vecb[3], vecm[3], color_delta[3];
   float mat[3][3];
-  float color_delta[3];
 
   for (int i = 0; i < gps->totpoints; i++) {
     bGPDspoint *pt = &gps->points[i];
@@ -634,18 +706,29 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
     bGPDlayer *gpl_base = MEM_callocN(sizeof(bGPDlayer), "bGPDlayer");
     gpl->runtime.morph_index = layer_index;
     gpl_base->runtime.morph_index = layer_index++;
+    copy_v3_v3(gpl_base->location, gpl->location);
+    copy_v3_v3(gpl_base->rotation, gpl->rotation);
+    copy_v3_v3(gpl_base->scale, gpl->scale);
+    gpl_base->opacity = gpl->opacity;
     BLI_addtail(&gpd_base->layers, gpl_base);
+
+    /* Apply active morph target to GP object in viewport. */
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->morph_target_nr == tgpm->active_index) {
+        gpencil_morph_target_apply_to_layer(gpl, gplm, 1.0f);
+      }
+    }
+
     BLI_listbase_clear(&gpl_base->frames);
     frame_index = 1;
-
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       bGPDframe *gpf_base = MEM_callocN(sizeof(bGPDframe), "bGPDframe");
       gpf->runtime.morph_index = frame_index;
       gpf_base->runtime.morph_index = frame_index++;
       BLI_addtail(&gpl_base->frames, gpf_base);
+
       BLI_listbase_clear(&gpf_base->strokes);
       stroke_index = 1;
-
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         bGPDstroke *gps_base = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
         gps->runtime.morph_index = stroke_index;
@@ -777,8 +860,17 @@ static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
   int index_dst = BLI_findindex(&gpd->morph_targets, gpmt);
   gpmt->value = value_src;
 
-  /* Copy stroke morph data. */
+  /* Copy layer and stroke morph data. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->morph_target_nr == index_src) {
+        bGPDlmorph *gplm_dst = MEM_dupallocN(gplm);
+        gplm_dst->prev = gplm->next = NULL;
+        gplm_dst->morph_target_nr = index_dst;
+        BLI_addtail(&gpl->morphs, gplm_dst);
+      }
+    }
+
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
@@ -832,9 +924,11 @@ static int gpencil_morph_target_remove_all_exec(bContext *C, wmOperator *op)
 
   /* Remove all morph data from strokes. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    BKE_gpencil_free_layer_morphs(gpl);
+
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        BKE_gpencil_free_stroke_morphs(&gps->morphs);
+        BKE_gpencil_free_stroke_morphs(gps);
       }
     }
   }

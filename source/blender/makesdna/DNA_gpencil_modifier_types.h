@@ -15,7 +15,6 @@ extern "C" {
 
 struct LatticeDeformData;
 struct ShrinkwrapTreeData;
-struct MorphTargetsData;
 
 /* WARNING ALERT! TYPEDEF VALUES ARE WRITTEN IN FILES! SO DO NOT CHANGE!
  * (ONLY ADD NEW ITEMS AT THE END)
@@ -1330,6 +1329,7 @@ typedef struct MorphTargetsGpencilModifierData {
   int flag;
   /** Morph strength. */
   float factor;
+  /** Factor lookup table for morph targets by index. */
   float mt_factor[128];
 } MorphTargetsGpencilModifierData;
 

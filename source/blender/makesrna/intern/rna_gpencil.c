@@ -2326,6 +2326,33 @@ static void rna_def_gpencil_layer_mask(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 }
 
+static void rna_def_gpencil_layer_morph(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GPencilLayerMorph", NULL);
+  RNA_def_struct_sdna(srna, "bGPDlmorph");
+  RNA_def_struct_ui_text(
+      srna, "Layer Morph", "A layer transform morph relative to the base layer");
+
+  /* Morph target index */
+  prop = RNA_def_property(srna, "morph_target", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
+}
+
+static void rna_def_gpencil_layer_morphs_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+
+  RNA_def_property_srna(cprop, "GPencilLayerMorphs");
+  srna = RNA_def_struct(brna, "GPencilLayerMorphs", NULL);
+  RNA_def_struct_sdna(srna, "bGPDlayer");
+  RNA_def_struct_ui_text(srna, "Layer Morphs", "Collection of grease pencil layer morphs");
+}
+
 static void rna_def_gpencil_layer(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -2360,6 +2387,13 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "GPencilLayerMask");
   RNA_def_property_ui_text(prop, "Masks", "List of Masking Layers");
   rna_def_gpencil_layers_mask_api(brna, prop);
+
+  /* Morphs */
+  prop = RNA_def_property(srna, "morphs", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "morphs", NULL);
+  RNA_def_property_struct_type(prop, "GPencilLayerMorph");
+  RNA_def_property_ui_text(prop, "Morphs", "");
+  rna_def_gpencil_layer_morphs_api(brna, prop);
 
   /* Active Frame */
   prop = RNA_def_property(srna, "active_frame", PROP_POINTER, PROP_NONE);
@@ -3638,6 +3672,7 @@ void RNA_def_gpencil(BlenderRNA *brna)
   rna_def_gpencil_mvert_group(brna);
 
   rna_def_gpencil_morph_target(brna);
+  rna_def_gpencil_layer_morph(brna);
   rna_def_gpencil_stroke_morph(brna);
   rna_def_gpencil_point_morph_delta(brna);
 }

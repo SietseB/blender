@@ -170,6 +170,8 @@ static void greasepencil_blend_write(BlendWriter *writer, ID *id, const void *id
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Write mask list. */
     BLO_write_struct_list(writer, bGPDlayer_Mask, &gpl->mask_layers);
+    /* Write morphs list. */
+    BLO_write_struct_list(writer, bGPDlmorph, &gpl->morphs);
     /* write this layer's frames to file */
     BLO_write_struct_list(writer, bGPDframe, &gpl->frames);
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
@@ -252,6 +254,9 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
 
     /* Relink masks. */
     BLO_read_list(reader, &gpl->mask_layers);
+
+    /* Relink morphs. */
+    BLO_read_list(reader, &gpl->morphs);
 
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       /* Relink strokes (and their points). */
@@ -425,19 +430,19 @@ void BKE_gpencil_free_stroke_editcurve(bGPDstroke *gps)
   gps->editcurve = NULL;
 }
 
-void BKE_gpencil_free_stroke_morphs(ListBase *list)
+void BKE_gpencil_free_stroke_morphs(bGPDstroke *gps)
 {
   bGPDsmorph *gpsm_next = NULL;
 
-  if (list == NULL) {
+  if (gps == NULL) {
     return;
   }
 
-  for (bGPDsmorph *gpsm = list->first; gpsm; gpsm = gpsm_next) {
+  for (bGPDsmorph *gpsm = gps->morphs.first; gpsm; gpsm = gpsm_next) {
     gpsm_next = gpsm->next;
 
     MEM_freeN(gpsm->point_deltas);
-    BLI_freelinkN(list, gpsm);
+    BLI_freelinkN(&gps->morphs, gpsm);
   }
 }
 
@@ -461,7 +466,7 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
     BKE_gpencil_free_stroke_editcurve(gps);
   }
   if (&gps->morphs != NULL) {
-    BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    BKE_gpencil_free_stroke_morphs(gps);
   }
 
   MEM_freeN(gps);
@@ -509,6 +514,17 @@ void BKE_gpencil_free_layer_masks(bGPDlayer *gpl)
     BLI_freelinkN(&gpl->mask_layers, mask);
   }
 }
+
+void BKE_gpencil_free_layer_morphs(bGPDlayer *gpl)
+{
+  /* Free morphs. */
+  bGPDlmorph *morph_next = NULL;
+  for (bGPDlmorph *morph = gpl->morphs.first; morph; morph = morph_next) {
+    morph_next = morph->next;
+    BLI_freelinkN(&gpl->morphs, morph);
+  }
+}
+
 void BKE_gpencil_free_layers(ListBase *list)
 {
   bGPDlayer *gpl_next;
@@ -527,6 +543,9 @@ void BKE_gpencil_free_layers(ListBase *list)
 
     /* Free masks. */
     BKE_gpencil_free_layer_masks(gpl);
+
+    /* Free morphs. */
+    BKE_gpencil_free_layer_morphs(gpl);
 
     BLI_freelinkN(list, gpl);
   }
@@ -1067,6 +1086,9 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src,
   /* Copy masks. */
   BKE_gpencil_layer_mask_copy(gpl_src, gpl_dst);
 
+  /* Copy morphs. */
+  BKE_gpencil_layer_morph_copy(gpl_src, gpl_dst);
+
   /* copy frames */
   BLI_listbase_clear(&gpl_dst->frames);
   if (dup_frames) {
@@ -1335,7 +1357,7 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
     MEM_freeN(gps->dvert);
   }
   if (&gps->morphs) {
-    BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    BKE_gpencil_free_stroke_morphs(gps);
   }
   MEM_freeN(gps->triangles);
   BLI_freelinkN(&gpf->strokes, gps);
@@ -1585,7 +1607,6 @@ bGPDlayer_Mask *BKE_gpencil_layer_mask_named_get(bGPDlayer *gpl, const char *nam
 
 bGPDlayer_Mask *BKE_gpencil_layer_mask_add(bGPDlayer *gpl, const char *name)
 {
-
   bGPDlayer_Mask *mask = MEM_callocN(sizeof(bGPDlayer_Mask), "bGPDlayer_Mask");
   BLI_addtail(&gpl->mask_layers, mask);
   BLI_strncpy(mask->name, name, sizeof(mask->name));
@@ -1677,6 +1698,16 @@ void BKE_gpencil_layer_mask_cleanup_all_layers(bGPdata *gpd)
 {
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     BKE_gpencil_layer_mask_cleanup(gpd, gpl);
+  }
+}
+
+void BKE_gpencil_layer_morph_copy(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)
+{
+  BLI_listbase_clear(&gpl_dst->morphs);
+  LISTBASE_FOREACH (bGPDlmorph *, morph_src, &gpl_src->morphs) {
+    bGPDlmorph *morph_dst = MEM_dupallocN(morph_src);
+    morph_dst->prev = morph_dst->next = NULL;
+    BLI_addtail(&gpl_dst->morphs, morph_dst);
   }
 }
 
@@ -1811,6 +1842,9 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 
   /* Free Masks. */
   BKE_gpencil_free_layer_masks(gpl);
+
+  /* Free morphs. */
+  BKE_gpencil_free_layer_morphs(gpl);
 
   /* Remove any reference to that layer in masking lists. */
   BKE_gpencil_layer_mask_remove_ref(gpd, gpl->info);

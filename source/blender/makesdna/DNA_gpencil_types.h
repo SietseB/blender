@@ -532,6 +532,23 @@ typedef enum ebGPDlayer_Mask_Flag {
   GP_MASK_INVERT = (1 << 1),
 } ebGPDlayer_Mask_Flag;
 
+/* Morph target data for GP layers. */
+typedef struct bGPDlmorph {
+  DNA_DEFINE_CXX_METHODS(bGPDlmorph)
+
+  struct bGPDlmorph *next, *prev;
+
+  /** Morph target index. */
+  int morph_target_nr;
+  /** Transform delta's. */
+  float location[3];
+  float rotation[3];
+  float scale[3];
+  /** Opacity delta. */
+  float opacity;
+  char _pad0[4];
+} bGPDlmorph;
+
 /* Runtime temp data for bGPDlayer */
 typedef struct bGPDlayer_Runtime {
   DNA_DEFINE_CXX_METHODS(bGPDlayer_Runtime)
@@ -622,6 +639,9 @@ typedef struct bGPDlayer {
   /** Current Mask index (noted base 1). */
   int act_mask;
   char _pad2[4];
+
+  /** Morphs (bGPDlmorph). */
+  ListBase morphs;
 
   /** Layer transforms. */
   float location[3], rotation[3], scale[3];

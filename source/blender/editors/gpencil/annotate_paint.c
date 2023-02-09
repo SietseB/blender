@@ -1065,7 +1065,7 @@ static void annotation_free_stroke(bGPDframe *gpf, bGPDstroke *gps)
   }
 
   if (&gps->morphs) {
-    BKE_gpencil_free_stroke_morphs(&gps->morphs);
+    BKE_gpencil_free_stroke_morphs(gps);
   }
 
   BLI_freelinkN(&gpf->strokes, gps);

@@ -20,6 +20,7 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 
 #include "BKE_colortools.h"
@@ -32,6 +33,7 @@
 #include "BKE_screen.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -41,11 +43,6 @@
 #include "MOD_gpencil_modifiertypes.h"
 #include "MOD_gpencil_ui_common.h"
 #include "MOD_gpencil_util.h"
-
-typedef struct MorphTargetsData {
-  Object *ob;
-  float factor[GPENCIL_MORPH_TARGETS_MAX];
-} MorphTargetsData;
 
 static void initData(GpencilModifierData *md)
 {
@@ -67,95 +64,144 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
 }
 
 /* Change stroke points by active morph targets. */
-static void deformStroke(GpencilModifierData *md,
-                         Depsgraph *UNUSED(depsgraph),
-                         Object *ob,
-                         bGPDlayer *gpl,
-                         bGPDframe *UNUSED(gpf),
-                         bGPDstroke *gps)
+static void morph_strokes(GpencilModifierData *md, Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 {
   MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-
-  if (!is_stroke_affected_by_modifier(ob,
-                                      mmd->layername,
-                                      mmd->material,
-                                      mmd->pass_index,
-                                      mmd->layer_pass,
-                                      1,
-                                      gpl,
-                                      gps,
-                                      mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,
-                                      mmd->flag & GP_MORPHTARGETS_INVERT_PASS,
-                                      mmd->flag & GP_MORPHTARGETS_INVERT_LAYERPASS,
-                                      mmd->flag & GP_MORPHTARGETS_INVERT_MATERIAL)) {
-    return;
-  }
 
   /* Vertex group filter. */
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
   bool vg_is_inverted = (mmd->flag & GP_MORPHTARGETS_INVERT_VGROUP) != 0;
 
-  /* Iterate all morphs in stroke. */
-  for (bGPDsmorph *gpsm = gps->morphs.first; gpsm; gpsm = gpsm->next) {
-    /* Get morph target factor. */
-    float factor = mmd->mt_factor[gpsm->morph_target_nr];
-
-    /* Skip morphs with factor 0. */
-    if (factor == 0.0f) {
+  for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+    if (!is_stroke_affected_by_modifier(ob,
+                                        mmd->layername,
+                                        mmd->material,
+                                        mmd->pass_index,
+                                        mmd->layer_pass,
+                                        1,
+                                        gpl,
+                                        gps,
+                                        mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,
+                                        mmd->flag & GP_MORPHTARGETS_INVERT_PASS,
+                                        mmd->flag & GP_MORPHTARGETS_INVERT_LAYERPASS,
+                                        mmd->flag & GP_MORPHTARGETS_INVERT_MATERIAL)) {
       continue;
     }
 
-    /* Skip morphs with unequal number of points. */
-    if (gps->totpoints != gpsm->tot_point_deltas) {
-      continue;
-    }
+    /* Iterate all morphs in stroke. */
+    for (bGPDsmorph *gpsm = gps->morphs.first; gpsm; gpsm = gpsm->next) {
+      /* Get morph target factor. */
+      float factor = mmd->mt_factor[gpsm->morph_target_nr];
 
-    /* Apply morph to stroke. */
-    bGPDspoint *pt1;
-    float vecb[3], vecm[3];
-    float mat[3][3];
-
-    for (int i = 0; i < gps->totpoints; i++) {
-      /* Verify point is part of vertex group. */
-      MDeformVert *dvert = gps->dvert != NULL ? &gps->dvert[i] : NULL;
-      float weight = get_modifier_point_weight(dvert, vg_is_inverted, def_nr);
-      if (weight <= 0.0f) {
+      /* Skip morphs with factor 0. */
+      if (factor == 0.0f) {
         continue;
       }
-      factor *= weight;
 
-      bGPDspoint *pt = &gps->points[i];
-      bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-      float color_delta[3];
-
-      /* Convert quaternion rotation to point delta. */
-      if (pd->distance > 0.0f) {
-        quat_to_mat3(mat, pd->rot_quat);
-        if (i < (gps->totpoints - 1)) {
-          pt1 = &gps->points[i + 1];
-          sub_v3_v3v3(vecb, &pt1->x, &pt->x);
-          mul_m3_v3(mat, vecb);
-          normalize_v3(vecb);
-        }
-        else if (gps->totpoints == 1) {
-          zero_v3(vecb);
-          vecb[0] = 1.0f;
-          mul_m3_v3(mat, vecb);
-          normalize_v3(vecb);
-        }
-        mul_v3_v3fl(vecm, vecb, pd->distance * factor);
-        add_v3_v3(&pt->x, vecm);
+      /* Skip morphs with unequal number of points. */
+      if (gps->totpoints != gpsm->tot_point_deltas) {
+        continue;
       }
 
-      pt->pressure += pd->pressure * factor;
-      clamp_f(pt->pressure, 0.0f, FLT_MAX);
-      pt->strength += pd->strength * factor;
-      clamp_f(pt->strength, 0.0f, 1.0f);
-      copy_v3_v3(color_delta, pd->vert_color);
-      mul_v3_fl(color_delta, factor);
-      add_v3_v3(pt->vert_color, color_delta);
-      clamp_v3(pt->vert_color, 0.0f, 1.0f);
+      /* Apply morph to stroke. */
+      bGPDspoint *pt1;
+      float vecb[3], vecm[3], color_delta[3];
+      float mat[3][3];
+
+      for (int i = 0; i < gps->totpoints; i++) {
+        /* Verify point is part of vertex group. */
+        MDeformVert *dvert = gps->dvert != NULL ? &gps->dvert[i] : NULL;
+        float weight = get_modifier_point_weight(dvert, vg_is_inverted, def_nr);
+        if (weight <= 0.0f) {
+          continue;
+        }
+        factor *= weight;
+
+        bGPDspoint *pt = &gps->points[i];
+        bGPDspoint_delta *pd = &gpsm->point_deltas[i];
+
+        /* Convert quaternion rotation to point delta. */
+        if (pd->distance > 0.0f) {
+          quat_to_mat3(mat, pd->rot_quat);
+          if (i < (gps->totpoints - 1)) {
+            pt1 = &gps->points[i + 1];
+            sub_v3_v3v3(vecb, &pt1->x, &pt->x);
+            mul_m3_v3(mat, vecb);
+            normalize_v3(vecb);
+          }
+          else if (gps->totpoints == 1) {
+            zero_v3(vecb);
+            vecb[0] = 1.0f;
+            mul_m3_v3(mat, vecb);
+            normalize_v3(vecb);
+          }
+          mul_v3_v3fl(vecm, vecb, pd->distance * factor);
+          add_v3_v3(&pt->x, vecm);
+        }
+
+        pt->pressure += pd->pressure * factor;
+        clamp_f(pt->pressure, 0.0f, FLT_MAX);
+        pt->strength += pd->strength * factor;
+        clamp_f(pt->strength, 0.0f, 1.0f);
+        copy_v3_v3(color_delta, pd->vert_color);
+        mul_v3_fl(color_delta, factor);
+        add_v3_v3(pt->vert_color, color_delta);
+        clamp_v3(pt->vert_color, 0.0f, 1.0f);
+      }
     }
+  }
+}
+
+static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *scene, Object *ob)
+{
+  MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
+  bGPdata *gpd = ob->data;
+
+  /* Create lookup table for morph target values by index. */
+  int i = 0;
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
+    mmd->mt_factor[i] = (gpmt->flag & GP_MORPH_TARGET_MUTE) != 0 ? 0.0f :
+                                                                   gpmt->value * mmd->factor;
+    i++;
+  }
+
+  /* Morph all layers. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    /* Layer filter. */
+    if (!is_layer_affected_by_modifier(ob,
+                                       mmd->layername,
+                                       mmd->layer_pass,
+                                       gpl,
+                                       mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,
+                                       mmd->flag & GP_MORPHTARGETS_INVERT_LAYERPASS)) {
+      continue;
+    }
+
+    /* Get frame. */
+    bGPDframe *gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
+    if (gpf == NULL) {
+      continue;
+    }
+
+    /* Apply delta layer transformation. */
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      float factor = mmd->mt_factor[gplm->morph_target_nr];
+      if (factor == 0.0f) {
+        continue;
+      }
+      for (i = 0; i < 3; i++) {
+        gpl->location[i] += gplm->location[i] * factor;
+        gpl->rotation[i] += gplm->rotation[i] * factor;
+        gpl->scale[i] += gplm->scale[i] * factor;
+      }
+      gpl->opacity += gplm->opacity * factor;
+      clamp_f(gpl->opacity, 0.0f, 1.0f);
+    }
+    loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
+    invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
+
+    /* Morph all strokes in frame. */
+    morph_strokes(md, ob, gpl, gpf);
   }
 }
 
@@ -164,8 +210,15 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  BKE_gpencil_cache_data_init(depsgraph, ob);
-  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
+  Scene *scene = DEG_get_evaluated_scene(depsgraph);
+  morph_object(md, depsgraph, scene, ob);
+}
+
+/* Generic "generateStrokes" callback */
+static void generateStrokes(GpencilModifierData *md, Depsgraph *depsgraph, Object *ob)
+{
+  Scene *scene = DEG_get_evaluated_scene(depsgraph);
+  morph_object(md, depsgraph, scene, ob);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -211,8 +264,8 @@ GpencilModifierTypeInfo modifierType_Gpencil_MorphTargets = {
 
     /*copyData*/ copyData,
 
-    /*deformStroke*/ deformStroke,
-    /*generateStrokes*/ NULL,
+    /*deformStroke*/ NULL,
+    /*generateStrokes*/ generateStrokes,
     /*bakeModifier*/ bakeModifier,
     /*remapTime*/ NULL,
 
