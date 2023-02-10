@@ -170,8 +170,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
 
   /* notifiers */
   if (gpd) {
-    DEG_id_tag_update(&gpd->id,
-                      ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
   }
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
@@ -334,7 +333,8 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
     }
 
     /* Update GP object. */
-    DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+    DEG_id_tag_update(&tgpm->gpd_morph->id,
+                      ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
     WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 
     /* Remove viewport draw handler. */
