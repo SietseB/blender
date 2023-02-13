@@ -670,6 +670,7 @@ void GPENCIL_OT_morph_target_add(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_edit(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_edit_finish(struct wmOperatorType *ot);
+void GPENCIL_OT_morph_target_move(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_duplicate(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_remove_all(struct wmOperatorType *ot);
 void GPENCIL_OT_morph_target_apply_all(struct wmOperatorType *ot);

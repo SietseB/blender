@@ -61,6 +61,7 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
   BKE_gpencil_modifier_copydata_generic(md, target);
 
   tgmd->factor = gmd->factor;
+  tgmd->is_edited = gmd->is_edited;
 }
 
 /* Change stroke points by active morph targets. */
@@ -130,12 +131,16 @@ static void morph_strokes(GpencilModifierData *md, Object *ob, bGPDlayer *gpl, b
             normalize_v3(vecb);
           }
           else if (gps->totpoints == 1) {
-            zero_v3(vecb);
             vecb[0] = 1.0f;
+            vecb[1] = 0.0f;
+            vecb[2] = 0.0f;
             mul_m3_v3(mat, vecb);
             normalize_v3(vecb);
           }
-          mul_v3_v3fl(vecm, vecb, pd->distance * factor);
+          mul_v3_v3fl(vecm, vecb, pd->distance * fabs(factor));
+          if (factor < 0.0f) {
+            negate_v3(vecm);
+          }
           add_v3_v3(&pt->x, vecm);
         }
 
@@ -160,8 +165,12 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
   /* Create lookup table for morph target values by index. */
   int i = 0;
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
-    mmd->mt_factor[i] = (gpmt->flag & GP_MORPH_TARGET_MUTE) != 0 ? 0.0f :
-                                                                   gpmt->value * mmd->factor;
+    if ((i == mmd->is_edited) || ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
+      mmd->mt_factor[i] = 0.0f;
+    }
+    else {
+      mmd->mt_factor[i] = gpmt->value * mmd->factor;
+    }
     i++;
   }
 

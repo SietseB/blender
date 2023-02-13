@@ -655,10 +655,6 @@ class GPENCIL_UL_layer(UIList):
 
 
 class GPENCIL_UL_morph_target(UIList):
-    # Morph targets are always sorted on name
-    def __init__(self):
-        self.use_filter_sort_alpha = True
-
     def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             gpmt = item
@@ -686,7 +682,7 @@ class GPENCIL_UL_morph_target(UIList):
             flt_flags = [self.bitflag_filter_item] * len(morph_targets)
 
         # Sort by name
-        _sort = [(index, mt.name) for index, mt in enumerate(morph_targets)]
+        _sort = [(index, mt.ui_index) for index, mt in enumerate(morph_targets)]
         flt_order = helper_funcs.sort_items_helper(_sort, lambda el: el[1])
 
         return flt_flags, flt_order

@@ -1329,6 +1329,9 @@ typedef struct MorphTargetsGpencilModifierData {
   int flag;
   /** Morph strength. */
   float factor;
+  /** Index of morph target that is currently edited. */
+  int is_edited;
+  char _pad0[4];
   /** Factor lookup table for morph targets by index. */
   float mt_factor[128];
 } MorphTargetsGpencilModifierData;

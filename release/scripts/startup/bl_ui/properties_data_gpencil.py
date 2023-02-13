@@ -412,7 +412,7 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         gpmt = gpd.morph_targets.active
 
         row = layout.row()
-        mt_rows = 5
+        mt_rows = 6
 
         col = row.column()
         col.template_list("GPENCIL_UL_morph_target", "", gpd, "morph_targets", gpd.morph_targets,
@@ -422,6 +422,11 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         sub = col.column(align=True)
         sub.operator("gpencil.morph_target_add", icon='ADD', text="")
         sub.operator("gpencil.morph_target_remove", icon='REMOVE', text="")
+
+        if gpmt:
+            col.separator()
+            col.operator("gpencil.morph_target_move", icon='TRIA_UP', text="").direction = 'UP'
+            col.operator("gpencil.morph_target_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
         sub.separator()
         sub.menu("DATA_MT_morph_targets_context_menu", icon='DOWNARROW_HLT', text="")

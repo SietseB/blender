@@ -1813,8 +1813,9 @@ static void rna_def_gpencil_point_morph_delta(BlenderRNA *brna)
   prop = RNA_def_property(srna, "rot_quat", PROP_FLOAT, PROP_XYZ);
   RNA_def_property_float_sdna(prop, NULL, "rot_quat");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Point Rotation Delta", "");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(
+      prop, "Point Rotation Delta", "A quaternion defining the rotation of the morphed point");
 
   prop = RNA_def_property(srna, "distance", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "distance");
@@ -3121,6 +3122,12 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Range Max", "Maximum for slider");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
+
+  prop = RNA_def_property(srna, "ui_index", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "ui_index");
+  RNA_def_property_range(prop, 0, INT_MAX);
+  RNA_def_property_ui_text(prop, "Sort Index", "Sort index of the morph targets in lists");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_MORPH_TARGET_MUTE);
