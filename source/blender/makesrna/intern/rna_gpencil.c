@@ -21,6 +21,8 @@
 
 #include "BLT_translation.h"
 
+#include "ED_gpencil.h"
+
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
@@ -1424,6 +1426,11 @@ static void rna_MorphTarget_update_minmax(Main *bmain, Scene *scene, PointerRNA 
   }
   CLAMP(data->value, data->range_min, data->range_max);
   rna_GPencil_update(bmain, scene, ptr);
+}
+
+static bool rna_morph_target_in_edit_mode_get(PointerRNA *UNUSED(ptr))
+{
+  return ED_gpencil_morph_target_in_edit_mode();
 }
 
 #else
@@ -3123,10 +3130,13 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
 
-  prop = RNA_def_property(srna, "ui_index", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, NULL, "ui_index");
+  prop = RNA_def_property(srna, "order_nr", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "order_nr");
   RNA_def_property_range(prop, 0, INT_MAX);
-  RNA_def_property_ui_text(prop, "Sort Index", "Sort index of the morph targets in lists");
+  RNA_def_property_ui_text(
+      prop,
+      "Order Index",
+      "Defining the order of the morph target in lists and when applied in the modifier");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
@@ -3478,6 +3488,21 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "GPencilMorphTarget");
   RNA_def_property_ui_text(prop, "Morph Targets", "");
   rna_def_gpencil_morph_targets_api(brna, prop);
+
+  prop = RNA_def_property(srna, "show_base_of_morph_target", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_MORPH_TARGET_SHOW_BASE);
+  RNA_def_property_boolean_default(prop, true);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop,
+      "Show Base in Edit Mode",
+      "When editing a morph target, show the base drawing in onion skin style");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "in_morph_edit_mode", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_morph_target_in_edit_mode_get", NULL);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Morph Edit Mode", "A morph target is currently be edited");
 
   /* Ondine watercolor additions */
   /* watercolor GP object */

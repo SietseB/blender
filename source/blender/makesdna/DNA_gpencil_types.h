@@ -823,16 +823,16 @@ typedef struct bGPDmorph_target {
   float value;
   float range_min;
   float range_max;
-  int ui_index;
+  int order_nr;
   short flag;
   char _pad0[6];
 } bGPDmorph_target;
 
 /* bGPDlayer->flag */
 typedef enum eGPDmorph_target_Flag {
-  /* Morhp target is active */
+  /* Morhp target is active. */
   GP_MORPH_TARGET_ACTIVE = (1 << 0),
-  /* Morph target is muted */
+  /* Morph target is muted. */
   GP_MORPH_TARGET_MUTE = (1 << 1),
 } eGPDmorph_target_Flag;
 
@@ -1012,6 +1012,9 @@ typedef enum eGPdata_Flag {
   GP_DATA_CURVE_EDIT_MODE = (1 << 21),
   /* Use adaptive curve resolution */
   GP_DATA_CURVE_ADAPTIVE_RESOLUTION = (1 << 22),
+
+  /* Show base drawing when editing morph target. */
+  GP_DATA_MORPH_TARGET_SHOW_BASE = (1 << 23),
 } eGPdata_Flag;
 
 /* gpd->onion_flag */

@@ -93,6 +93,9 @@ typedef struct tGPDmorph {
   bool active_was_muted;
 } tGPDmorph;
 
+/* State: is a morph target being edited? */
+bool in_edit_mode = false;
+
 /* ************************************************ */
 /* Morph Target Operators */
 
@@ -145,16 +148,16 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
       gpmt->range_min = gpmt_act->range_min;
       gpmt->range_max = gpmt_act->range_max;
 
-      /* Increase ui sort index of morph targets after active one. */
+      /* Increase order index of morph targets after active one. */
       LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-        if (gpmt_sort->ui_index > gpmt_act->ui_index) {
-          gpmt_sort->ui_index++;
+        if (gpmt_sort->order_nr > gpmt_act->order_nr) {
+          gpmt_sort->order_nr++;
         }
       }
-      gpmt->ui_index = gpmt_act->ui_index + 1;
+      gpmt->order_nr = gpmt_act->order_nr + 1;
     }
     else {
-      gpmt->ui_index = BLI_listbase_count(&gpd->morph_targets) - 1;
+      gpmt->order_nr = BLI_listbase_count(&gpd->morph_targets) - 1;
     }
 
     /* Auto-name. */
@@ -251,10 +254,10 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   }
 
   /* Lower ui indexes. */
-  int ui_index = gpmt->ui_index;
+  int order_nr = gpmt->order_nr;
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->ui_index > ui_index) {
-      gpmt_sort->ui_index--;
+    if (gpmt_sort->order_nr > order_nr) {
+      gpmt_sort->order_nr--;
     }
   }
 
@@ -270,11 +273,11 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
 
   /* Set new active morph target. */
   int count = BLI_listbase_count(&gpd->morph_targets);
-  if (ui_index == count) {
-    ui_index--;
+  if (order_nr == count) {
+    order_nr--;
   }
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->ui_index == ui_index) {
+    if (gpmt_sort->order_nr == order_nr) {
       BKE_gpencil_morph_target_active_set(gpd, gpmt_sort);
       break;
     }
@@ -335,19 +338,19 @@ static int gpencil_morph_target_move_exec(bContext *C, wmOperator *op)
   bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
 
   int dir = RNA_enum_get(op->ptr, "direction");
-  int new_index = gpmt->ui_index + dir;
+  int new_index = gpmt->order_nr + dir;
   if ((new_index < 0) || (new_index >= BLI_listbase_count(&gpd->morph_targets))) {
     return OPERATOR_CANCELLED;
   }
 
   /* Swap ui order index with neighbour. */
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->ui_index == new_index) {
-      gpmt_sort->ui_index -= dir;
+    if (gpmt_sort->order_nr == new_index) {
+      gpmt_sort->order_nr -= dir;
       break;
     }
   }
-  gpmt->ui_index = new_index;
+  gpmt->order_nr = new_index;
 
   /* Notifiers. */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -386,9 +389,13 @@ void GPENCIL_OT_morph_target_move(wmOperatorType *ot)
 }
 
 /* ******************* Edit Morph Target ************************ */
+bool ED_gpencil_morph_target_in_edit_mode()
+{
+  return in_edit_mode;
+}
+
 static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
 {
-  ToolSettings *ts = CTX_data_tool_settings(C);
   tGPDmorph *tgpm = op->customdata;
 
   /* Clean up temp GP data. */
@@ -405,15 +412,6 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
     }
     MEM_freeN(tgpm->gpd_base);
 
-    /* Clear currently edited index in modifiers. */
-    LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
-      if (md->type != eGpencilModifierType_MorphTargets) {
-        continue;
-      }
-      MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-      mmd->is_edited = -1;
-    }
-
     /* Update GP object. */
     DEG_id_tag_update(&tgpm->gpd_morph->id,
                       ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
@@ -424,11 +422,19 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
       ED_region_draw_cb_exit(tgpm->region->type, tgpm->draw_handle);
     }
 
+    /* Clear edit state of morph target. */
+    LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
+      if (md->type == eGpencilModifierType_MorphTargets) {
+        MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
+        mmd->is_edited = -1;
+      }
+    }
+
     MEM_freeN(tgpm);
   }
 
   /* Clear 'in morph edit mode' flag. */
-  ts->gpencil_flags &= ~GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+  in_edit_mode = false;
 
   op->customdata = NULL;
 }
@@ -765,7 +771,6 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   /* Get context attributes. */
   Object *ob = CTX_data_active_object(C);
   bGPdata *gpd = CTX_data_gpencil_data(C);
-  ToolSettings *ts = CTX_data_tool_settings(C);
 
   /* Get active morph target. */
   bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
@@ -854,17 +859,15 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
     }
   }
 
-  /* Set currently edited index in modifiers. */
-  LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
-    if (md->type != eGpencilModifierType_MorphTargets) {
-      continue;
-    }
-    MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-    mmd->is_edited = tgpm->active_index;
-  }
-
   /* Set 'in morph edit mode' flag. */
-  ts->gpencil_flags |= GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
+  in_edit_mode = true;
+
+  LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
+    if (md->type == eGpencilModifierType_MorphTargets) {
+      MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
+      mmd->is_edited = tgpm->active_index;
+    }
+  }
 
   /* Add draw handler to viewport for colored rectangle (marking 'edit mode'). */
   tgpm->draw_handle = ED_region_draw_cb_activate(
@@ -875,9 +878,8 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
 
 static int gpencil_morph_target_edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  /* Operator ends when 'in_morph_edit_mode' flag is disabled (by the Finish Edit operator). */
-  ToolSettings *ts = CTX_data_tool_settings(C);
-  if ((ts->gpencil_flags & GP_TOOL_FLAG_IN_MORPH_EDIT_MODE) == 0) {
+  /* Operator ends when 'in morph edit mode' flag is disabled (by the Finish Edit operator). */
+  if (!in_edit_mode) {
     gpencil_morph_target_edit_get_deltas(C, op);
     return OPERATOR_FINISHED;
   }
@@ -892,6 +894,9 @@ static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
   /* Initialize temp GP data. */
   gpencil_morph_target_edit_init(C, op);
 
+  /* Push undo for edit morph target. */
+  ED_undo_push_op(C, op);
+
   /* Update GP object with morph target activated. */
   tgpm = op->customdata;
   DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -899,9 +904,6 @@ static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
 
   /* Add a modal handler for this operator. */
   WM_event_add_modal_handler(C, op);
-
-  /* Push undo for edit morph target. */
-  ED_undo_push(C, "Edit Grease Pencil Morph Target");
 
   return OPERATOR_RUNNING_MODAL;
 }
@@ -912,8 +914,7 @@ bool gpencil_morph_target_edit_poll(bContext *C)
     return false;
   }
 
-  ToolSettings *ts = CTX_data_tool_settings(C);
-  return (ts->gpencil_flags & GP_TOOL_FLAG_IN_MORPH_EDIT_MODE) == 0;
+  return !in_edit_mode;
 }
 
 void GPENCIL_OT_morph_target_edit(wmOperatorType *ot)
@@ -935,16 +936,13 @@ void GPENCIL_OT_morph_target_edit(wmOperatorType *ot)
 /* ******************* Finish Edit Morph Target ************************ */
 static int gpencil_morph_target_edit_finish_exec(bContext *C, wmOperator *op)
 {
-  ToolSettings *ts = CTX_data_tool_settings(C);
-  ts->gpencil_flags &= ~GP_TOOL_FLAG_IN_MORPH_EDIT_MODE;
-
+  in_edit_mode = false;
   return OPERATOR_FINISHED;
 }
 
 bool gpencil_morph_target_edit_finish_poll(bContext *C)
 {
-  ToolSettings *ts = CTX_data_tool_settings(C);
-  return (ts->gpencil_flags & GP_TOOL_FLAG_IN_MORPH_EDIT_MODE) != 0;
+  return in_edit_mode;
 }
 
 void GPENCIL_OT_morph_target_edit_finish(wmOperatorType *ot)

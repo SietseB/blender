@@ -434,10 +434,10 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
         if gpmt:
             row = layout.row()
             sub = row.column()
-            sub.active = not context.tool_settings.in_gpencil_morph_edit_mode
+            sub.active = not gpd.in_morph_edit_mode
             sub.operator("gpencil.morph_target_edit", text="Edit")
             sub = row.column()
-            sub.active = context.tool_settings.in_gpencil_morph_edit_mode
+            sub.active = gpd.in_morph_edit_mode
             sub.operator("gpencil.morph_target_edit_finish", text="Finish Edit", depress=sub.active)
 
             if sub.active:
@@ -452,6 +452,11 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
             col = layout.column(align=True)
             col.prop(gpmt, "slider_min", text="Range Min")
             col.prop(gpmt, "slider_max", text="Max")
+
+            layout.separator()
+            col = layout.column()
+            col.prop(gpd, "show_base_of_morph_target")
+
 
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):
