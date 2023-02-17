@@ -453,11 +453,6 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
             col.prop(gpmt, "slider_min", text="Range Min")
             col.prop(gpmt, "slider_max", text="Max")
 
-            layout.separator()
-            col = layout.column()
-            col.prop(gpd, "show_base_of_morph_target")
-
-
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):
     bl_label = "Strokes"

@@ -3489,16 +3489,6 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Morph Targets", "");
   rna_def_gpencil_morph_targets_api(brna, prop);
 
-  prop = RNA_def_property(srna, "show_base_of_morph_target", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_MORPH_TARGET_SHOW_BASE);
-  RNA_def_property_boolean_default(prop, true);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop,
-                           "Show Base in Edit Mode",
-                           "When editing a morph target, show the base drawing in onion skin "
-                           "style. This will create a temporary copy of the Grease Pencil object");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
   prop = RNA_def_property(srna, "in_morph_edit_mode", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_funcs(prop, "rna_morph_target_in_edit_mode_get", NULL);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);

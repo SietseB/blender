@@ -90,8 +90,6 @@ typedef struct tGPDmorph {
   bGPDmorph_target *active_gpmt;
   /** Active morph target index. */
   int active_index;
-  /** Copy of active gp object, to show the base drawing in onion style. */
-  struct Object *ob_base;
 } tGPDmorph;
 
 /* State: is a morph target being edited? */

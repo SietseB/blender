@@ -824,9 +824,6 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 
   gpd->zdepth_offset = 0.150f;
 
-  /* Show base when editing morph target by default. */
-  gpd->flag |= GP_DATA_MORPH_TARGET_SHOW_BASE;
-
   /* grid settings */
   ARRAY_SET_ITEMS(gpd->grid.color, 0.5f, 0.5f, 0.5f); /* Color */
   ARRAY_SET_ITEMS(gpd->grid.scale, 1.0f, 1.0f);       /* Scale */

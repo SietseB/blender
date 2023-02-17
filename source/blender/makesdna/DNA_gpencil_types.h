@@ -1012,9 +1012,6 @@ typedef enum eGPdata_Flag {
   GP_DATA_CURVE_EDIT_MODE = (1 << 21),
   /* Use adaptive curve resolution */
   GP_DATA_CURVE_ADAPTIVE_RESOLUTION = (1 << 22),
-
-  /* Show base drawing when editing morph target. */
-  GP_DATA_MORPH_TARGET_SHOW_BASE = (1 << 23),
 } eGPdata_Flag;
 
 /* gpd->onion_flag */
