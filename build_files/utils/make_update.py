@@ -170,7 +170,7 @@ def git_update_skip(args: argparse.Namespace, check_remote_exists: bool = True) 
         return "rebase or merge in progress, complete it first"
 
     # Abort if uncommitted changes.
-    changes = check_output([args.git_command, 'status', '--porcelain', '--untracked-files=no'])
+    changes = check_output([args.git_command, 'status', '--porcelain', '--untracked-files=no', '--ignore-submodules'])
     if len(changes) != 0:
         return "you have unstaged changes"
 
@@ -202,8 +202,8 @@ def submodules_update(
         sys.exit(1)
 
     # Update submodules to appropriate given branch,
-    # falling back to master if none is given and/or found in a sub-repository.
-    branch_fallback = "master"
+    # falling back to main if none is given and/or found in a sub-repository.
+    branch_fallback = "main"
     if not branch:
         branch = branch_fallback
 
@@ -256,14 +256,15 @@ if __name__ == "__main__":
     blender_skip_msg = ""
     submodules_skip_msg = ""
 
-    # Test if we are building a specific release version.
-    branch = make_utils.git_branch(args.git_command)
-    if branch == 'HEAD':
-        sys.stderr.write('Blender git repository is in detached HEAD state, must be in a branch\n')
-        sys.exit(1)
-
-    tag = make_utils.git_tag(args.git_command)
-    release_version = make_utils.git_branch_release_version(branch, tag)
+    blender_version = make_utils. parse_blender_version()
+    if blender_version.cycle != 'alpha':
+        major = blender_version.version // 100
+        minor = blender_version.version % 100
+        branch = f"blender-v{major}.{minor}-release"
+        release_version = f"{major}.{minor}"
+    else:
+        branch = 'main'
+        release_version = None
 
     if not args.no_libraries:
         svn_update(args, release_version)
