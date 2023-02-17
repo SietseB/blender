@@ -1260,11 +1260,6 @@ static void mesh_add_edges(Mesh *mesh, int len)
 
   mesh->totedge = totedge;
 
-  MutableSpan<MEdge> edges = mesh->edges_for_write();
-  for (MEdge &edge : edges.take_back(len)) {
-    edge.flag = ME_EDGEDRAW;
-  }
-
   bke::MutableAttributeAccessor attributes = mesh->attributes_for_write();
   bke::SpanAttributeWriter<bool> select_edge = attributes.lookup_or_add_for_write_span<bool>(
       ".select_edge", ATTR_DOMAIN_EDGE);
@@ -1539,8 +1534,13 @@ void ED_mesh_split_faces(Mesh *mesh)
   const Span<MPoly> polys = mesh->polys();
   const Span<MLoop> loops = mesh->loops();
   const float split_angle = (mesh->flag & ME_AUTOSMOOTH) != 0 ? mesh->smoothresh : float(M_PI);
+  const bke::AttributeAccessor attributes = mesh->attributes();
+  const VArray<bool> mesh_sharp_edges = attributes.lookup_or_default<bool>(
+      "sharp_edge", ATTR_DOMAIN_EDGE, false);
 
-  Array<bool> sharp_edges(mesh->totedge, false);
+  Array<bool> sharp_edges(mesh->totedge);
+  mesh_sharp_edges.materialize(sharp_edges);
+
   BKE_edges_sharp_from_angle_set(mesh->totedge,
                                  loops.data(),
                                  loops.size(),

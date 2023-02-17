@@ -157,6 +157,19 @@ bool curves_poll(bContext *C)
   return curves_poll_impl(C, false, false, false);
 }
 
+static bool editable_curves_point_domain_poll(bContext *C)
+{
+  if (!curves::editable_curves_poll(C)) {
+    return false;
+  }
+  const Curves *curves_id = static_cast<const Curves *>(CTX_data_active_object(C)->data);
+  if (curves_id->selection_domain != ATTR_DOMAIN_POINT) {
+    CTX_wm_operator_poll_msg_set(C, "Only available in point selection mode");
+    return false;
+  }
+  return true;
+}
+
 using bke::CurvesGeometry;
 
 namespace convert_to_particle_system {
@@ -780,21 +793,19 @@ static int curves_set_selection_domain_exec(bContext *C, wmOperator *op)
     if (curves.points_num() == 0) {
       continue;
     }
-    const GVArray src = attributes.lookup(".selection", domain);
-    if (src.is_empty()) {
-      continue;
-    }
 
-    const CPPType &type = src.type();
-    void *dst = MEM_malloc_arrayN(attributes.domain_size(domain), type.size(), __func__);
-    src.materialize(dst);
+    if (const GVArray src = attributes.lookup(".selection", domain)) {
+      const CPPType &type = src.type();
+      void *dst = MEM_malloc_arrayN(attributes.domain_size(domain), type.size(), __func__);
+      src.materialize(dst);
 
-    attributes.remove(".selection");
-    if (!attributes.add(".selection",
-                        domain,
-                        bke::cpp_type_to_custom_data_type(type),
-                        bke::AttributeInitMoveArray(dst))) {
-      MEM_freeN(dst);
+      attributes.remove(".selection");
+      if (!attributes.add(".selection",
+                          domain,
+                          bke::cpp_type_to_custom_data_type(type),
+                          bke::AttributeInitMoveArray(dst))) {
+        MEM_freeN(dst);
+      }
     }
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
@@ -931,19 +942,6 @@ static void CURVES_OT_select_random(wmOperatorType *ot)
                 1.0f);
 }
 
-static bool select_end_poll(bContext *C)
-{
-  if (!curves::editable_curves_poll(C)) {
-    return false;
-  }
-  const Curves *curves_id = static_cast<const Curves *>(CTX_data_active_object(C)->data);
-  if (curves_id->selection_domain != ATTR_DOMAIN_POINT) {
-    CTX_wm_operator_poll_msg_set(C, "Only available in point selection mode");
-    return false;
-  }
-  return true;
-}
-
 static int select_end_exec(bContext *C, wmOperator *op)
 {
   VectorSet<Curves *> unique_curves = curves::get_unique_editable_curves(*C);
@@ -952,7 +950,7 @@ static int select_end_exec(bContext *C, wmOperator *op)
 
   for (Curves *curves_id : unique_curves) {
     CurvesGeometry &curves = curves_id->geometry.wrap();
-    select_ends(curves, eAttrDomain(curves_id->selection_domain), amount, end_points);
+    select_ends(curves, amount, end_points);
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
      * attribute for now. */
@@ -970,7 +968,7 @@ static void CURVES_OT_select_end(wmOperatorType *ot)
   ot->description = "Select end points of curves";
 
   ot->exec = select_end_exec;
-  ot->poll = select_end_poll;
+  ot->poll = editable_curves_point_domain_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
@@ -981,6 +979,87 @@ static void CURVES_OT_select_end(wmOperatorType *ot)
                   "Select points at the end of the curve as opposed to the beginning");
   RNA_def_int(
       ot->srna, "amount", 1, 0, INT32_MAX, "Amount", "Number of points to select", 0, INT32_MAX);
+}
+
+static int select_linked_exec(bContext *C, wmOperator * /*op*/)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = curves_id->geometry.wrap();
+    select_linked(curves);
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void CURVES_OT_select_linked(wmOperatorType *ot)
+{
+  ot->name = "Select Linked";
+  ot->idname = __func__;
+  ot->description = "Select all points in curves with any point selection";
+
+  ot->exec = select_linked_exec;
+  ot->poll = editable_curves_point_domain_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int select_more_exec(bContext *C, wmOperator * /*op*/)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = curves_id->geometry.wrap();
+    select_adjacent(curves, false);
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void CURVES_OT_select_more(wmOperatorType *ot)
+{
+  ot->name = "Select More";
+  ot->idname = __func__;
+  ot->description = "Grow the selection by one point";
+
+  ot->exec = select_more_exec;
+  ot->poll = editable_curves_point_domain_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int select_less_exec(bContext *C, wmOperator * /*op*/)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = curves_id->geometry.wrap();
+    select_adjacent(curves, true);
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void CURVES_OT_select_less(wmOperatorType *ot)
+{
+  ot->name = "Select Less";
+  ot->idname = __func__;
+  ot->description = "Shrink the selection by one point";
+
+  ot->exec = select_less_exec;
+  ot->poll = editable_curves_point_domain_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 namespace surface_set {
@@ -1066,6 +1145,35 @@ static void CURVES_OT_surface_set(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+namespace curves_delete {
+
+static int delete_exec(bContext *C, wmOperator * /*op*/)
+{
+  for (Curves *curves_id : get_unique_editable_curves(*C)) {
+    bke::CurvesGeometry &curves = curves_id->geometry.wrap();
+    if (remove_selection(curves, eAttrDomain(curves_id->selection_domain))) {
+      DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+      WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+    }
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+}  // namespace curves_delete
+
+static void CURVES_OT_delete(wmOperatorType *ot)
+{
+  ot->name = "Delete";
+  ot->idname = __func__;
+  ot->description = "Remove selected control points or curves";
+
+  ot->exec = curves_delete::delete_exec;
+  ot->poll = editable_curves_in_edit_mode_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
 }  // namespace blender::ed::curves
 
 void ED_operatortypes_curves()
@@ -1078,7 +1186,11 @@ void ED_operatortypes_curves()
   WM_operatortype_append(CURVES_OT_select_all);
   WM_operatortype_append(CURVES_OT_select_random);
   WM_operatortype_append(CURVES_OT_select_end);
+  WM_operatortype_append(CURVES_OT_select_linked);
+  WM_operatortype_append(CURVES_OT_select_more);
+  WM_operatortype_append(CURVES_OT_select_less);
   WM_operatortype_append(CURVES_OT_surface_set);
+  WM_operatortype_append(CURVES_OT_delete);
 }
 
 void ED_keymap_curves(wmKeyConfig *keyconf)

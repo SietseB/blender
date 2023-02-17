@@ -4108,12 +4108,11 @@ void GPENCIL_OT_reproject(wmOperatorType *ot)
   ot->prop = RNA_def_enum(
       ot->srna, "type", reproject_type, GP_REPROJECT_VIEW, "Projection Type", "");
 
-  prop = RNA_def_boolean(
-      ot->srna,
-      "keep_original",
-      0,
-      "Keep Original",
-      "Keep original strokes and create a copy before reprojecting instead of reproject them");
+  prop = RNA_def_boolean(ot->srna,
+                         "keep_original",
+                         0,
+                         "Keep Original",
+                         "Keep original strokes and create a copy before reprojecting");
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MOVIECLIP);
 
   RNA_def_float(ot->srna, "offset", 0.0f, 0.0f, 10.0f, "Surface Offset", "", 0.0f, 10.0f);
@@ -4820,7 +4819,7 @@ void GPENCIL_OT_stroke_simplify(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Simplify Stroke";
   ot->idname = "GPENCIL_OT_stroke_simplify";
-  ot->description = "Simplify selected stroked reducing number of points";
+  ot->description = "Simplify selected strokes, reducing number of points";
 
   /* api callbacks */
   ot->exec = gpencil_stroke_simplify_exec;
@@ -4881,7 +4880,7 @@ void GPENCIL_OT_stroke_simplify_fixed(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Simplify Fixed Stroke";
   ot->idname = "GPENCIL_OT_stroke_simplify_fixed";
-  ot->description = "Simplify selected stroked reducing number of points using fixed algorithm";
+  ot->description = "Simplify selected strokes, reducing number of points using fixed algorithm";
 
   /* api callbacks */
   ot->exec = gpencil_stroke_simplify_fixed_exec;
