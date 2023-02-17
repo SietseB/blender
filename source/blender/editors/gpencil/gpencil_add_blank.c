@@ -33,7 +33,10 @@ typedef struct ColorTemplate {
 } ColorTemplate;
 
 /* Add color an ensure duplications (matched by name) */
-static int gpencil_stroke_material(Main *bmain, Object *ob, const ColorTemplate *pct)
+static int gpencil_stroke_material(Main *bmain,
+                                   Object *ob,
+                                   const ColorTemplate *pct,
+                                   const bool fill)
 {
   int index;
   Material *ma = BKE_gpencil_object_material_ensure_by_name(bmain, ob, DATA_(pct->name), &index);
@@ -44,6 +47,11 @@ static int gpencil_stroke_material(Main *bmain, Object *ob, const ColorTemplate 
   copy_v4_v4(ma->gp_style->fill_rgba, pct->fill);
   srgb_to_linearrgb_v4(ma->gp_style->fill_rgba, ma->gp_style->fill_rgba);
 
+  if (fill) {
+    ma->gp_style->flag &= ~GP_MATERIAL_STROKE_SHOW;
+    ma->gp_style->flag |= GP_MATERIAL_FILL_SHOW;
+  }
+
   return index;
 }
 
@@ -53,10 +61,15 @@ static int gpencil_stroke_material(Main *bmain, Object *ob, const ColorTemplate 
 /* ***************************************************************** */
 /* Color Data */
 
-static const ColorTemplate gp_stroke_material_black = {
-    N_("Black"),
+static const ColorTemplate gp_stroke_material_stroke = {
+    N_("Solid Stroke"),
+    {0.5f, 0.5f, 0.5f, 1.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
-    {0.0f, 0.0f, 0.0f, 0.0f},
+};
+static const ColorTemplate gp_stroke_material_fill = {
+    N_("Solid Fill"),
+    {0.0f, 0.0f, 0.0f, 1.0f},
+    {0.5f, 0.5f, 0.5f, 1.0f},
 };
 
 /* ***************************************************************** */
@@ -69,10 +82,11 @@ void ED_gpencil_create_blank(bContext *C, Object *ob, float UNUSED(mat[4][4]))
   bGPdata *gpd = (bGPdata *)ob->data;
 
   /* create colors */
-  int color_black = gpencil_stroke_material(bmain, ob, &gp_stroke_material_black);
+  int color_stroke = gpencil_stroke_material(bmain, ob, &gp_stroke_material_stroke, false);
+  gpencil_stroke_material(bmain, ob, &gp_stroke_material_fill, true);
 
   /* set first color as active and in brushes */
-  ob->actcol = color_black + 1;
+  ob->actcol = color_stroke + 1;
 
   /* layers */
   bGPDlayer *layer = BKE_gpencil_layer_addnew(gpd, "GP_Layer", true, false);

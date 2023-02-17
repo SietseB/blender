@@ -1,3 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+/** \file
+ * \ingroup edgpencil
+ */
+
 #pragma once
 
 #ifdef __cplusplus
@@ -10,7 +16,6 @@ void gpencil_ondine_render_set_zdepth(Object *ob);
 void gpencil_ondine_set_render_data(Object *ob);
 void gpencil_ondine_set_zdepth(Object *ob);
 bool gpencil_ondine_render_init(bContext *C);
-
 
 #ifdef __cplusplus
 }
