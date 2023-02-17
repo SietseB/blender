@@ -69,16 +69,17 @@
 
 /* Temporary morph operation data `op->customdata`. */
 typedef struct tGPDmorph {
-  /** current active gp object */
+  /** Current active gp object. */
   struct Object *ob;
-  /** area where painting originated */
+  /** Area where painting originated. */
   struct ScrArea *area;
-  /** region where painting originated */
+  /** Region where painting originated. */
   struct ARegion *region;
-  /** 3D viewport draw handler */
+  /** 3D viewport draw handler. */
   void *draw_handle;
   /** Height of tool header region in viewport. */
   int header_height;
+  /** Width of the N-panel. */
   int npanel_width;
 
   /** Base GP data-block. */
@@ -89,8 +90,8 @@ typedef struct tGPDmorph {
   bGPDmorph_target *active_gpmt;
   /** Active morph target index. */
   int active_index;
-  /** Morph target was muted before editing. */
-  bool active_was_muted;
+  /** Copy of active gp object, to show the base drawing in onion style. */
+  struct Object *ob_base;
 } tGPDmorph;
 
 /* State: is a morph target being edited? */
@@ -398,8 +399,22 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
 {
   tGPDmorph *tgpm = op->customdata;
 
-  /* Clean up temp GP data. */
+  /* Clean up temp data. */
   if (tgpm) {
+    /* Remove viewport draw handler. */
+    if (tgpm->draw_handle) {
+      ED_region_draw_cb_exit(tgpm->region->type, tgpm->draw_handle);
+    }
+
+    /* Clear edit state of morph target in modifiers. */
+    LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
+      if (md->type == eGpencilModifierType_MorphTargets) {
+        MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
+        mmd->index_edited = -1;
+      }
+    }
+
+    /* Remove base GP objects. */
     LISTBASE_FOREACH_MUTABLE (bGPDlayer *, gpl, &tgpm->gpd_base->layers) {
       LISTBASE_FOREACH_MUTABLE (bGPDframe *, gpf, &gpl->frames) {
         LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
@@ -412,23 +427,10 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
     }
     MEM_freeN(tgpm->gpd_base);
 
-    /* Update GP object. */
+    /* Update morphed GP object. */
     DEG_id_tag_update(&tgpm->gpd_morph->id,
                       ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
     WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
-
-    /* Remove viewport draw handler. */
-    if (tgpm->draw_handle) {
-      ED_region_draw_cb_exit(tgpm->region->type, tgpm->draw_handle);
-    }
-
-    /* Clear edit state of morph target. */
-    LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
-      if (md->type == eGpencilModifierType_MorphTargets) {
-        MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-        mmd->is_edited = -1;
-      }
-    }
 
     MEM_freeN(tgpm);
   }
@@ -766,7 +768,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   int layer_index, frame_index, stroke_index;
 
   tGPDmorph *tgpm = MEM_callocN(sizeof(tGPDmorph), "GPencil Morph Target Edit Data");
-  bGPdata *gpd_base = MEM_callocN(sizeof(bGPdata), "Gpencil Morph Target base gGPdata");
+  bGPdata *gpd_base = MEM_callocN(sizeof(bGPdata), "Gpencil Morph Target Base");
 
   /* Get context attributes. */
   Object *ob = CTX_data_active_object(C);
@@ -810,17 +812,17 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   tgpm->gpd_morph = gpd;
   tgpm->ob = ob;
 
-  /* Copy layers, frames, strokes of base GP object. */
+  /* Store layers, frames, strokes of base GP object. */
   layer_index = 1;
   BLI_listbase_clear(&gpd_base->layers);
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     bGPDlayer *gpl_base = MEM_callocN(sizeof(bGPDlayer), "bGPDlayer");
-    gpl->runtime.morph_index = layer_index;
-    gpl_base->runtime.morph_index = layer_index++;
     copy_v3_v3(gpl_base->location, gpl->location);
     copy_v3_v3(gpl_base->rotation, gpl->rotation);
     copy_v3_v3(gpl_base->scale, gpl->scale);
     gpl_base->opacity = gpl->opacity;
+    gpl->runtime.morph_index = layer_index;
+    gpl_base->runtime.morph_index = layer_index++;
     BLI_addtail(&gpd_base->layers, gpl_base);
 
     /* Apply active morph target to GP object in viewport. */
@@ -862,10 +864,11 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   /* Set 'in morph edit mode' flag. */
   in_edit_mode = true;
 
+  /* Mark the edited morph target in the modifiers. */
   LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
     if (md->type == eGpencilModifierType_MorphTargets) {
       MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-      mmd->is_edited = tgpm->active_index;
+      mmd->index_edited = tgpm->active_index;
     }
   }
 

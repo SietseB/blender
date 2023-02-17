@@ -1330,8 +1330,8 @@ typedef struct MorphTargetsGpencilModifierData {
   /** Morph strength. */
   float factor;
   /** Index of currently edited morph target. */
-  int is_edited;
-  char _pad0[4];
+  int index_edited;
+  char _pad[4];
 } MorphTargetsGpencilModifierData;
 
 typedef enum eMorphTargetsGpencil_Flag {

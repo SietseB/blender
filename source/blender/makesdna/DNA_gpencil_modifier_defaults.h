@@ -421,7 +421,7 @@
     .pass_index = 0, \
     .flag = 0, \
     .factor = 1.0f, \
-    .is_edited = -1, \
+    .index_edited = -1, \
   }
 
 

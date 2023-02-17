@@ -78,7 +78,8 @@ static void morph_strokes(GpencilModifierData *md,
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
   bool vg_is_inverted = (mmd->flag & GP_MORPHTARGETS_INVERT_VGROUP) != 0;
 
-  for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+  /* Morph all strokes in frame. */
+  LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
     if (!is_stroke_affected_by_modifier(ob,
                                         mmd->layername,
                                         mmd->material,
@@ -184,7 +185,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
   int i = 0;
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
     /* Don't apply morph when muted or currently edited. */
-    if ((i == mmd->is_edited) || ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
+    if ((i == mmd->index_edited) || ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
       mt_factor[i] = 0.0f;
     }
     else {
