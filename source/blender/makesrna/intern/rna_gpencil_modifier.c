@@ -349,6 +349,7 @@ static StructRNA *rna_GpencilModifier_refine(struct PointerRNA *ptr)
       return &RNA_MorphTargetsGpencilModifier;
       /* Default */
     case eGpencilModifierType_None:
+    case eGpencilModifierType_None1: /* Placeholder. */
     case NUM_GREASEPENCIL_MODIFIER_TYPES:
       return &RNA_GpencilModifier;
   }

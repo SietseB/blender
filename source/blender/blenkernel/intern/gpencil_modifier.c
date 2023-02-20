@@ -433,7 +433,7 @@ bool BKE_gpencil_modifier_depends_ontime(GpencilModifierData *md)
 const GpencilModifierTypeInfo *BKE_gpencil_modifier_get_info(GpencilModifierType type)
 {
   /* type unsigned, no need to check < 0 */
-  if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 &&
+  if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 && modifier_gpencil_types[type] != NULL &&
       modifier_gpencil_types[type]->name[0] != '\0') {
     return modifier_gpencil_types[type];
   }
@@ -556,7 +556,7 @@ void BKE_gpencil_modifiers_foreach_ID_link(Object *ob, GreasePencilIDWalkFunc wa
   for (; md; md = md->next) {
     const GpencilModifierTypeInfo *mti = BKE_gpencil_modifier_get_info(md->type);
 
-    if (mti->foreachIDLink) {
+    if (mti && mti->foreachIDLink) {
       mti->foreachIDLink(md, ob, walk, userData);
     }
   }
@@ -571,7 +571,7 @@ void BKE_gpencil_modifiers_foreach_tex_link(Object *ob,
   for (; md; md = md->next) {
     const GpencilModifierTypeInfo *mti = BKE_gpencil_modifier_get_info(md->type);
 
-    if (mti->foreachTexLink) {
+    if (mti && mti->foreachTexLink) {
       mti->foreachTexLink(md, ob, walk, userData);
     }
   }

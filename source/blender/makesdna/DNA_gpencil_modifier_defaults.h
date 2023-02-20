@@ -424,6 +424,4 @@
     .index_edited = -1, \
   }
 
-
-
 /* clang-format off */

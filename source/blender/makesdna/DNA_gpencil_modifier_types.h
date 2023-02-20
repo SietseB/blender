@@ -48,7 +48,8 @@ typedef enum GpencilModifierType {
   eGpencilModifierType_Shrinkwrap = 24,
   eGpencilModifierType_Envelope = 25,
   eGpencilModifierType_Outline = 26,
-  eGpencilModifierType_MorphTargets = 27,
+  eGpencilModifierType_None1 = 27, /* Placeholder for Surface Deform modifier. */
+  eGpencilModifierType_MorphTargets = 28,
   /* Keep last. */
   NUM_GREASEPENCIL_MODIFIER_TYPES,
 } GpencilModifierType;
