@@ -869,6 +869,22 @@ class GreasePencilLayerMasksPanel:
             sub.operator("gpencil.layer_mask_move", icon='TRIA_UP', text="").type = 'UP'
             sub.operator("gpencil.layer_mask_move", icon='TRIA_DOWN', text="").type = 'DOWN'
 
+            # Test for layers above current one (not supported in Ondine)
+            if gpd.watercolor:
+                layers = []
+                for layer in gpd.layers:
+                    if layer.info == gpl.info:
+                        break
+                    layers.append(layer.info)
+                warning = False
+                for ml in gpl.mask_layers:
+                    if ml.name not in layers:
+                        warning = True
+                        break
+                if warning:
+                    row = layout.row()
+                    row.label(text="Only underlying layers can be used as mask.", icon='ERROR')
+
 
 class GreasePencilLayerRelationsPanel:
 
