@@ -15,9 +15,12 @@
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
+#include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_scene.h"
 #include "BKE_screen.h"
 
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
@@ -27,6 +30,9 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_prototypes.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "ED_gpencil.h"
 #include "ED_view3d.h"
@@ -91,7 +97,10 @@ void GpencilOndine::init(bContext *C)
 
 bool GpencilOndine::prepare_camera_params(bContext *C)
 {
-  Object *cam_ob = scene_->camera;
+  /* Get camera. */
+  Scene *scene = DEG_get_evaluated_scene(depsgraph_);
+  BKE_scene_camera_switch_update(scene);
+  Object *cam_ob = scene->camera;
   float vec_z[3] = {0.0f, 0.0f, -1.0f};
 
   /* Calculate camera matrix. */
@@ -147,6 +156,33 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
   }
   else {
     return false;
+  }
+}
+
+void GpencilOndine::set_unique_stroke_seeds(bContext *C)
+{
+  Main *bmain = CTX_data_main(C);
+  LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+    if (ob->type != OB_GPENCIL) {
+      continue;
+    }
+    bGPdata *gpd = (bGPdata *)ob->data;
+    if ((gpd->ondine_flag & GP_ONDINE_WATERCOLOR) == 0) {
+      continue;
+    }
+
+    LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+      LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+        GSet *seeds = BLI_gset_int_new("gps_seeds");
+        LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+          while (BLI_gset_haskey(seeds, POINTER_FROM_INT(gps->seed))) {
+            gps->seed = rand() * 4096 + rand();
+          }
+          BLI_gset_add(seeds, POINTER_FROM_INT(gps->seed));
+        }
+        BLI_gset_free(seeds, NULL);
+      }
+    }
   }
 }
 
@@ -430,4 +466,9 @@ bool gpencil_ondine_render_init(bContext *C)
 {
   blender::ondine_render->init(C);
   return blender::ondine_render->prepare_camera_params(C);
+}
+
+void gpencil_ondine_set_unique_stroke_seeds(bContext *C)
+{
+  blender::ondine_render->set_unique_stroke_seeds(C);
 }

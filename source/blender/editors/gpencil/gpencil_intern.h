@@ -683,6 +683,7 @@ void GPENCIL_OT_generate_weights(struct wmOperatorType *ot);
 
 /* Ondine watercolor additions */
 void GPENCIL_OT_ondine_render_init(struct wmOperatorType *ot);
+void GPENCIL_OT_ondine_set_unique_stroke_seeds(struct wmOperatorType *ot);
 
 /* ****************************************************** */
 /* Stroke Iteration Utilities */

@@ -21,6 +21,7 @@ class GpencilOndine {
   float stroke_point_radius_get(
       bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, const int p_index, const float thickness);
   float2 gpencil_3D_point_to_2D(const float3 co);
+  void set_unique_stroke_seeds(bContext *C);
 
  protected:
   bool invert_axis_[2];
