@@ -789,6 +789,7 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
 
                 layout.separator()
                 col = layout.column()
+                col.prop(gpl, "gouache_style")
                 col.prop(gpl, "mix_with_underlying")
                 col.prop(gpl, "limit_to_underlying")
                 col.prop(gpl, "clear_underlying")

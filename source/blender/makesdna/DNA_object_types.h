@@ -814,8 +814,7 @@ typedef enum ObjectModifierFlag {
 typedef enum eGP_OndineFlag {
   GP_ONDINE_WATERCOLOR = (1 << 0),
   GP_ONDINE_CLEAR_BG = (1 << 1),
-  GP_ONDINE_GOUACHE_STYLE_FOR_OBJECT = (1 << 2),
-  GP_ONDINE_GOUACHE_STYLE_WITHIN_OBJECT = (1 << 3),
+  GP_ONDINE_GOUACHE_STYLE = (1 << 2),
   GP_ONDINE_SMOOTH_RANDOMIZE_STEPS = (1 << 4),
 } eGP_OndineFlag;
 

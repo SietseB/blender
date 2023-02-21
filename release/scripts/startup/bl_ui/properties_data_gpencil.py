@@ -178,6 +178,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
                 layout.separator()
                 col = layout.column()
+                col.prop(gpl, "gouache_style")
                 col.prop(gpl, "mix_with_underlying")
                 col.prop(gpl, "limit_to_underlying")
                 col.prop(gpl, "clear_underlying")
