@@ -141,6 +141,8 @@ typedef struct bGPDsmorph {
   int morph_target_nr;
   /** Number of delta's in array. */
   int tot_point_deltas;
+  /** Delta of fill vertex color. */
+  float fill_color_delta[4];
 } bGPDsmorph;
 
 /* ***************************************** */

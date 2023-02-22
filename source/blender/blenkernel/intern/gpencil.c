@@ -441,7 +441,9 @@ void BKE_gpencil_free_stroke_morphs(bGPDstroke *gps)
   for (bGPDsmorph *gpsm = gps->morphs.first; gpsm; gpsm = gpsm_next) {
     gpsm_next = gpsm->next;
 
-    MEM_freeN(gpsm->point_deltas);
+    if (gpsm->point_deltas != NULL) {
+      MEM_freeN(gpsm->point_deltas);
+    }
     BLI_freelinkN(&gps->morphs, gpsm);
   }
 }
@@ -992,7 +994,10 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
       LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps_src->morphs) {
         bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm);
         gpsm_dst->prev = gpsm_dst->next = NULL;
-        gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+        gpsm_dst->point_deltas = NULL;
+        if (gpsm->point_deltas != NULL) {
+          gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+        }
         BLI_addtail(&gps_dst->morphs, gpsm_dst);
       }
     }

@@ -1882,6 +1882,14 @@ static void rna_def_gpencil_stroke_morph(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
+
+  /* Fill vertex color delta */
+  prop = RNA_def_property(srna, "fill_color_delta", PROP_FLOAT, PROP_COLOR);
+  RNA_def_property_float_sdna(prop, NULL, "fill_color_delta");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Fill Color Delta", "");
 }
 
 static void rna_def_gpencil_stroke_morphs_api(BlenderRNA *brna, PropertyRNA *cprop)

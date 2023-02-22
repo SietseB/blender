@@ -121,8 +121,17 @@ static void morph_strokes(GpencilModifierData *md,
 
       /* Apply morph to stroke. */
       bGPDspoint *pt1;
-      float vecb[3], vecm[3], color_delta[3];
+      float vecb[3], vecm[3], color_delta[4];
       float mat[3][3];
+
+      copy_v4_v4(color_delta, gpsm->fill_color_delta);
+      mul_v4_fl(color_delta, factor);
+      add_v4_v4(gps->vert_color_fill, color_delta);
+      clamp_v4(gps->vert_color_fill, 0.0f, 1.0f);
+
+      if (gpsm->point_deltas == NULL) {
+        continue;
+      }
 
       for (int i = 0; i < gps->totpoints; i++) {
         /* Verify point is part of vertex group. */
@@ -163,10 +172,10 @@ static void morph_strokes(GpencilModifierData *md,
         clamp_f(pt->pressure, 0.0f, FLT_MAX);
         pt->strength += pd->strength * factor;
         clamp_f(pt->strength, 0.0f, 1.0f);
-        copy_v3_v3(color_delta, pd->vert_color);
-        mul_v3_fl(color_delta, factor);
-        add_v3_v3(pt->vert_color, color_delta);
-        clamp_v3(pt->vert_color, 0.0f, 1.0f);
+        copy_v4_v4(color_delta, pd->vert_color);
+        mul_v4_fl(color_delta, factor);
+        add_v4_v4(pt->vert_color, color_delta);
+        clamp_v4(pt->vert_color, 0.0f, 1.0f);
       }
     }
   }
