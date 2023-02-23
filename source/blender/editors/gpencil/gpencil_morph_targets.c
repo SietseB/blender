@@ -728,8 +728,8 @@ static void gpencil_morph_target_apply_to_layer(bGPDlayer *gpl, bGPDlmorph *gplm
       gpl->scale[i] += gplm->scale[i] * factor;
     }
     gpl->opacity += gplm->opacity * factor;
-    clamp_f(gpl->opacity, 0.0f, 1.0f);
   }
+  gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
   loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
   invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
 }

@@ -27,6 +27,7 @@
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_lib_query.h"
 #include "BKE_modifier.h"
@@ -66,6 +67,7 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
 /* Change stroke points by active morph targets. */
 static void morph_strokes(GpencilModifierData *md,
                           Object *ob,
+                          bGPdata *gpd,
                           bGPDlayer *gpl,
                           bGPDframe *gpf,
                           float *mt_factor,
@@ -79,7 +81,8 @@ static void morph_strokes(GpencilModifierData *md,
   bool vg_is_inverted = (mmd->flag & GP_MORPHTARGETS_INVERT_VGROUP) != 0;
 
   /* Morph all strokes in frame. */
-  LISTBASE_FOREACH_MUTABLE (bGPDstroke *, gps, &gpf->strokes) {
+  LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+    bool morphed = false;
     if (!is_stroke_affected_by_modifier(ob,
                                         mmd->layername,
                                         mmd->material,
@@ -123,6 +126,7 @@ static void morph_strokes(GpencilModifierData *md,
       bGPDspoint *pt1;
       float vecb[3], vecm[3], color_delta[4];
       float mat[3][3];
+      morphed = true;
 
       copy_v4_v4(color_delta, gpsm->fill_color_delta);
       mul_v4_fl(color_delta, factor);
@@ -178,6 +182,11 @@ static void morph_strokes(GpencilModifierData *md,
         clamp_v4(pt->vert_color, 0.0f, 1.0f);
       }
     }
+
+    if (morphed) {
+      /* Calc geometry data. */
+      BKE_gpencil_stroke_geometry_update(gpd, gps);
+    }
   }
 }
 
@@ -228,27 +237,36 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
       gplm_ordered[mt_order[gplm->morph_target_nr]] = gplm;
       count++;
     }
+    if (count > 0) {
+      /* Init original transform data, otherwise we get 'morph on morph on morph'. */
+      bGPDlayer *gpl_orig = (gpl->runtime.gpl_orig) ? gpl->runtime.gpl_orig : gpl;
+      copy_v3_v3(gpl->location, gpl_orig->location);
+      copy_v3_v3(gpl->rotation, gpl_orig->rotation);
+      copy_v3_v3(gpl->scale, gpl_orig->scale);
+      gpl->opacity = gpl_orig->opacity;
 
-    /* Apply delta layer transformation. */
-    for (int mi = 0; mi < count; mi++) {
-      bGPDlmorph *gplm = gplm_ordered[mi];
-      float factor = mt_factor[gplm->morph_target_nr];
-      if (factor == 0.0f) {
-        continue;
+      /* Apply delta layer transformation. */
+      for (int mi = 0; mi < count; mi++) {
+        bGPDlmorph *gplm = gplm_ordered[mi];
+        float factor = mt_factor[gplm->morph_target_nr];
+        if (factor == 0.0f) {
+          continue;
+        }
+
+        for (i = 0; i < 3; i++) {
+          gpl->location[i] += gplm->location[i] * factor;
+          gpl->rotation[i] += gplm->rotation[i] * factor;
+          gpl->scale[i] += gplm->scale[i] * factor;
+        }
+        gpl->opacity += gplm->opacity * factor;
       }
-      for (i = 0; i < 3; i++) {
-        gpl->location[i] += gplm->location[i] * factor;
-        gpl->rotation[i] += gplm->rotation[i] * factor;
-        gpl->scale[i] += gplm->scale[i] * factor;
-      }
-      gpl->opacity += gplm->opacity * factor;
-      clamp_f(gpl->opacity, 0.0f, 1.0f);
+      gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
+      loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
+      invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
     }
-    loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
-    invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
 
     /* Morph all strokes in frame. */
-    morph_strokes(md, ob, gpl, gpf, mt_factor, mt_order);
+    morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_order);
   }
 }
 
