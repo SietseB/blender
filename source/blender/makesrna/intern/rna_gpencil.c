@@ -1817,7 +1817,7 @@ static void rna_def_gpencil_point_morph_delta(BlenderRNA *brna)
   RNA_def_struct_ui_text(
       srna, "Point Morph", "A deformed stroke point relative to the base stroke point");
 
-  prop = RNA_def_property(srna, "rot_quat", PROP_FLOAT, PROP_XYZ);
+  prop = RNA_def_property(srna, "rot_quat", PROP_FLOAT, PROP_QUATERNION);
   RNA_def_property_float_sdna(prop, NULL, "rot_quat");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_array(prop, 4);
@@ -2357,6 +2357,37 @@ static void rna_def_gpencil_layer_morph(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
+
+  /* Location */
+  prop = RNA_def_property(srna, "location", PROP_FLOAT, PROP_XYZ);
+  RNA_def_property_float_sdna(prop, NULL, "location");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(
+      prop, "Location Delta", "Location of the morphed layer relative to the base layer");
+
+  /* Rotation */
+  prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_float_sdna(prop, NULL, "rotation");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(
+      prop, "Rotation Delta", "Rotation of the morphed layer relative to the base layer");
+
+  /* Scale */
+  prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_SCALE_LINEAR);
+  RNA_def_property_float_sdna(prop, NULL, "scale");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(
+      prop, "Scale Delta", "Scale of the morphed layer relative to the base layer");
+
+  /* Opacity */
+  prop = RNA_def_property(srna, "opacity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "opacity");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop, "Opacity Delta", "Opacity of the morphed layer relative to the base layer");
 }
 
 static void rna_def_gpencil_layer_morphs_api(BlenderRNA *brna, PropertyRNA *cprop)
