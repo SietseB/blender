@@ -721,14 +721,12 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 
 static void gpencil_morph_target_apply_to_layer(bGPDlayer *gpl, bGPDlmorph *gplm, float factor)
 {
-  LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
-    for (int i = 0; i < 3; i++) {
-      gpl->location[i] += gplm->location[i] * factor;
-      gpl->rotation[i] += gplm->rotation[i] * factor;
-      gpl->scale[i] += gplm->scale[i] * factor;
-    }
-    gpl->opacity += gplm->opacity * factor;
+  for (int i = 0; i < 3; i++) {
+    gpl->location[i] += gplm->location[i] * factor;
+    gpl->rotation[i] += gplm->rotation[i] * factor;
+    gpl->scale[i] += gplm->scale[i] * factor;
   }
+  gpl->opacity += gplm->opacity * factor;
   gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
   loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
   invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
@@ -898,8 +896,10 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   }
 
   /* Add draw handler to viewport for colored rectangle (marking 'edit mode'). */
-  tgpm->draw_handle = ED_region_draw_cb_activate(
-      tgpm->region->type, gpencil_morph_target_edit_draw, tgpm, REGION_DRAW_POST_PIXEL);
+  if (tgpm->region != NULL) {
+    tgpm->draw_handle = ED_region_draw_cb_activate(
+        tgpm->region->type, gpencil_morph_target_edit_draw, tgpm, REGION_DRAW_POST_PIXEL);
+  }
 
   op->customdata = tgpm;
 }
