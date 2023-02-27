@@ -40,7 +40,7 @@ void VKShaderInterface::init(const shader::ShaderCreateInfo &info)
         break;
     }
   }
-  /* Make sure that the image slots don't overlap with the sampler slots.*/
+  /* Make sure that the image slots don't overlap with the sampler slots. */
   image_offset_++;
 
   int32_t input_tot_len = ubo_len_ + uniform_len_ + ssbo_len_;
@@ -85,7 +85,21 @@ void VKShaderInterface::init(const shader::ShaderCreateInfo &info)
 
   sort_inputs();
 
-  /* Determine the descriptor set locations after the inputs have been sorted.*/
+  /* Builtin Uniforms */
+  for (int32_t u_int = 0; u_int < GPU_NUM_UNIFORMS; u_int++) {
+    GPUUniformBuiltin u = static_cast<GPUUniformBuiltin>(u_int);
+    const ShaderInput *uni = this->uniform_get(builtin_uniform_name(u));
+    builtins_[u] = (uni != nullptr) ? uni->location : -1;
+  }
+
+  /* Builtin Uniforms Blocks */
+  for (int32_t u_int = 0; u_int < GPU_NUM_UNIFORM_BLOCKS; u_int++) {
+    GPUUniformBlockBuiltin u = static_cast<GPUUniformBlockBuiltin>(u_int);
+    const ShaderInput *block = this->ubo_get(builtin_uniform_block_name(u));
+    builtin_blocks_[u] = (block != nullptr) ? block->binding : -1;
+  }
+
+  /* Determine the descriptor set locations after the inputs have been sorted. */
   descriptor_set_locations_ = Array<VKDescriptorSet::Location>(input_tot_len);
   uint32_t descriptor_set_location = 0;
   for (ShaderCreateInfo::Resource &res : all_resources) {

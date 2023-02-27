@@ -9,6 +9,7 @@
 #include "vk_index_buffer.hh"
 #include "vk_storage_buffer.hh"
 #include "vk_texture.hh"
+#include "vk_uniform_buffer.hh"
 #include "vk_vertex_buffer.hh"
 
 #include "BLI_assert.h"
@@ -17,7 +18,7 @@ namespace blender::gpu {
 VKDescriptorSet::~VKDescriptorSet()
 {
   if (vk_descriptor_set_ != VK_NULL_HANDLE) {
-    /* Handle should be given back to the pool.*/
+    /* Handle should be given back to the pool. */
     VKContext &context = *VKContext::get();
     context.descriptor_pools_get().free(*this);
     BLI_assert(vk_descriptor_set_ == VK_NULL_HANDLE);
@@ -44,6 +45,14 @@ void VKDescriptorSet::bind_as_ssbo(VKVertexBuffer &buffer, const Location locati
   binding.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   binding.vk_buffer = buffer.vk_handle();
   binding.buffer_size = buffer.size_used_get();
+}
+
+void VKDescriptorSet::bind(VKUniformBuffer &buffer, const Location location)
+{
+  Binding &binding = ensure_location(location);
+  binding.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  binding.vk_buffer = buffer.vk_handle();
+  binding.buffer_size = buffer.size_in_bytes();
 }
 
 void VKDescriptorSet::bind_as_ssbo(VKIndexBuffer &buffer, const Location location)
