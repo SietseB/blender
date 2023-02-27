@@ -22,9 +22,8 @@ class GPENCIL_PT_MorphTargetsNPanel(bpy.types.Panel):
         layout.use_property_split = True
         gpd = context.object.data
         
-        mt_list = [mt for mt in gpd.morph_targets]
         col = layout.column(align=True)
-        for mt in sorted(mt_list, key=lambda el: el.order_nr):
+        for mt in gpd.morph_targets:
             sub = col.split(factor=0.9, align=True)
             sub.prop(mt, "value", text=mt.name)
             row = sub.row(align=True)

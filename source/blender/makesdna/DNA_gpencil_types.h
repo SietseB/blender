@@ -827,9 +827,8 @@ typedef struct bGPDmorph_target {
   float value;
   float range_min;
   float range_max;
-  int order_nr;
   short flag;
-  char _pad0[6];
+  char _pad0[2];
 } bGPDmorph_target;
 
 /* bGPDlayer->flag */

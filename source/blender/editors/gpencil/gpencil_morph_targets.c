@@ -99,6 +99,27 @@ bool in_edit_mode = false;
 /* Morph Target Operators */
 
 /* ******************* Add New Morph Target ************************ */
+static void gpencil_morph_target_increase_number(bGPdata *gpd, const int index)
+{
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->morph_target_nr >= index) {
+        gplm->morph_target_nr++;
+      }
+    }
+
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          if (gpsm->morph_target_nr >= index) {
+            gpsm->morph_target_nr++;
+          }
+        }
+      }
+    }
+  }
+}
+
 static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
 {
   bGPdata *gpd = NULL;
@@ -107,8 +128,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
   if ((ob != NULL) && (ob->type == OB_GPENCIL)) {
     /* Check maximum number of morph targets. */
     gpd = (bGPdata *)ob->data;
-    int count = BLI_listbase_count_at_most(&gpd->morph_targets, GPENCIL_MORPH_TARGETS_MAX);
-    if (count >= GPENCIL_MORPH_TARGETS_MAX) {
+    if (BLI_listbase_count(&gpd->morph_targets) >= GPENCIL_MORPH_TARGETS_MAX) {
       BKE_reportf(op->reports,
                   RPT_ERROR,
                   "Maximum number of morph targets reached (%d)",
@@ -130,16 +150,21 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     }
 
     /* Create morph target and set default values. */
+    bGPDmorph_target *gpmt_act = BKE_gpencil_morph_target_active_get(gpd);
     bGPDmorph_target *gpmt = NULL;
     gpmt = MEM_callocN(sizeof(bGPDmorph_target), "bGPDmorph_target");
-    BLI_addtail(&gpd->morph_targets, gpmt);
+    if (gpmt_act != NULL) {
+      BLI_insertlinkafter(&gpd->morph_targets, gpmt_act, gpmt);
+    }
+    else {
+      BLI_addtail(&gpd->morph_targets, gpmt);
+    }
 
     gpmt->range_min = 0.0f;
     gpmt->range_max = 1.0f;
     gpmt->value = 0.0f;
 
     /* Copy values of currently active morph target. */
-    bGPDmorph_target *gpmt_act = BKE_gpencil_morph_target_active_get(gpd);
     if (gpmt_act != NULL) {
       if (!name_given) {
         strcpy(name, gpmt_act->name);
@@ -147,16 +172,11 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
       gpmt->range_min = gpmt_act->range_min;
       gpmt->range_max = gpmt_act->range_max;
 
-      /* Increase order index of morph targets after active one. */
-      LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-        if (gpmt_sort->order_nr > gpmt_act->order_nr) {
-          gpmt_sort->order_nr++;
-        }
+      /* Renumber morph target index of layer and stroke morphs. */
+      if (gpmt->next != NULL) {
+        int index = BLI_findindex(&gpd->morph_targets, gpmt);
+        gpencil_morph_target_increase_number(gpd, index);
       }
-      gpmt->order_nr = gpmt_act->order_nr + 1;
-    }
-    else {
-      gpmt->order_nr = BLI_listbase_count(&gpd->morph_targets) - 1;
     }
 
     /* Auto-name. */
@@ -254,14 +274,6 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
     }
   }
 
-  /* Lower ui indexes. */
-  int order_nr = gpmt->order_nr;
-  LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->order_nr > order_nr) {
-      gpmt_sort->order_nr--;
-    }
-  }
-
   /* Update anim data. */
   char name_esc[sizeof(gpmt->name) * 2];
   char rna_path[sizeof(gpmt->name) * 2 + 32];
@@ -269,23 +281,19 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   BLI_snprintf(rna_path, sizeof(rna_path), "morph_targets[\"%s\"]", name_esc);
   BKE_animdata_fix_paths_remove(&gpd->id, rna_path);
 
+  /* Set new active morph target. */
+  if (gpmt->next != NULL) {
+    BKE_gpencil_morph_target_active_set(gpd, gpmt->next);
+  }
+  else if (gpmt->prev != NULL) {
+    BKE_gpencil_morph_target_active_set(gpd, gpmt->prev);
+  }
+
   /* Delete morph target. */
   BLI_freelinkN(&gpd->morph_targets, gpmt);
 
-  /* Set new active morph target. */
-  int count = BLI_listbase_count(&gpd->morph_targets);
-  if (order_nr == count) {
-    order_nr--;
-  }
-  LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->order_nr == order_nr) {
-      BKE_gpencil_morph_target_active_set(gpd, gpmt_sort);
-      break;
-    }
-  }
-
   /* When no morph targets left, remove all morph target modifiers automatically. */
-  if (BLI_listbase_count(&gpd->morph_targets) == 0) {
+  if (gpd->morph_targets.first == NULL) {
     Object *ob = CTX_data_active_object(C);
     Main *bmain = CTX_data_main(C);
 
@@ -339,19 +347,39 @@ static int gpencil_morph_target_move_exec(bContext *C, wmOperator *op)
   bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
 
   int dir = RNA_enum_get(op->ptr, "direction");
-  int new_index = gpmt->order_nr + dir;
+  int old_index = BLI_findindex(&gpd->morph_targets, gpmt);
+  int new_index = old_index + dir;
   if ((new_index < 0) || (new_index >= BLI_listbase_count(&gpd->morph_targets))) {
     return OPERATOR_CANCELLED;
   }
 
-  /* Swap ui order index with neighbour. */
-  LISTBASE_FOREACH (bGPDmorph_target *, gpmt_sort, &gpd->morph_targets) {
-    if (gpmt_sort->order_nr == new_index) {
-      gpmt_sort->order_nr -= dir;
-      break;
+  /* Move morph target in list. */
+  BLI_listbase_link_move(&gpd->morph_targets, gpmt, dir);
+
+  /* Swap morph target indexes of layer and stroke morphs. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->morph_target_nr == old_index) {
+        gplm->morph_target_nr = new_index;
+      }
+      else if (gplm->morph_target_nr == new_index) {
+        gplm->morph_target_nr = old_index;
+      }
+    }
+
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
+          if (gpsm->morph_target_nr == old_index) {
+            gpsm->morph_target_nr = new_index;
+          }
+          else if (gpsm->morph_target_nr == new_index) {
+            gpsm->morph_target_nr = old_index;
+          }
+        }
+      }
     }
   }
-  gpmt->order_nr = new_index;
 
   /* Notifiers. */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -444,6 +472,7 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
 static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *region, void *arg)
 {
   tGPDmorph *tgpm = (tGPDmorph *)arg;
+
   /* Draw only in the region set by the operator. */
   if (region != tgpm->region) {
     return;

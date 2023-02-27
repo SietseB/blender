@@ -71,7 +71,6 @@ static void morph_strokes(GpencilModifierData *md,
                           bGPDlayer *gpl,
                           bGPDframe *gpf,
                           float *mt_factor,
-                          int *mt_order,
                           const int mt_count)
 {
   bGPDsmorph *gpsm_ordered[GPENCIL_MORPH_TARGETS_MAX];
@@ -104,7 +103,7 @@ static void morph_strokes(GpencilModifierData *md,
       gpsm_ordered[i] = NULL;
     }
     LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
-      gpsm_ordered[mt_order[gpsm->morph_target_nr]] = gpsm;
+      gpsm_ordered[gpsm->morph_target_nr] = gpsm;
     }
 
     /* Iterate all ordered morphs in stroke. */
@@ -198,7 +197,6 @@ static void morph_strokes(GpencilModifierData *md,
 static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   float mt_factor[GPENCIL_MORPH_TARGETS_MAX];
-  int mt_order[GPENCIL_MORPH_TARGETS_MAX];
   bGPDlmorph *gplm_ordered[GPENCIL_MORPH_TARGETS_MAX];
 
   MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
@@ -214,7 +212,6 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     else {
       mt_factor[mt_count] = gpmt->value * mmd->factor;
     }
-    mt_order[mt_count] = gpmt->order_nr;
     mt_count++;
   }
 
@@ -241,7 +238,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
       gplm_ordered[i] = NULL;
     }
     LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
-      gplm_ordered[mt_order[gplm->morph_target_nr]] = gplm;
+      gplm_ordered[gplm->morph_target_nr] = gplm;
     }
 
     /* Apply layer morphs. */
@@ -277,7 +274,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     }
 
     /* Morph all strokes in frame. */
-    morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_order, mt_count);
+    morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_count);
   }
 }
 

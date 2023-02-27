@@ -1880,7 +1880,7 @@ static void rna_def_gpencil_stroke_morph(BlenderRNA *brna)
   /* Morph target index */
   prop = RNA_def_property(srna, "morph_target", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
 
   /* Fill vertex color delta */
@@ -2355,7 +2355,7 @@ static void rna_def_gpencil_layer_morph(BlenderRNA *brna)
   /* Morph target index */
   prop = RNA_def_property(srna, "morph_target", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "morph_target_nr");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Morph Target Index", "Index of the morph target");
 
   /* Location */
@@ -3176,15 +3176,6 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Range Max", "Maximum for slider");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
-
-  prop = RNA_def_property(srna, "order_nr", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, NULL, "order_nr");
-  RNA_def_property_range(prop, 0, INT_MAX);
-  RNA_def_property_ui_text(
-      prop,
-      "Order Index",
-      "Defining the order of the morph target in lists and when applied in the modifier");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_MORPH_TARGET_MUTE);

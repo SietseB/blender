@@ -681,10 +681,6 @@ class GPENCIL_UL_morph_target(UIList):
         if not flt_flags:
             flt_flags = [self.bitflag_filter_item] * len(morph_targets)
 
-        # Sort by name
-        _sort = [(index, mt.order_nr) for index, mt in enumerate(morph_targets)]
-        flt_order = helper_funcs.sort_items_helper(_sort, lambda el: el[1])
-
         return flt_flags, flt_order
 
 
