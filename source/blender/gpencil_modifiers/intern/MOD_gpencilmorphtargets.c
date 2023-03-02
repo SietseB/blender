@@ -45,13 +45,6 @@
 #include "MOD_gpencil_ui_common.h"
 #include "MOD_gpencil_util.h"
 
-typedef struct tLayer {
-  struct tLayer *next, *prev;
-  bGPDlayer gpl;
-  int order;
-  bool applied;
-} tLayer;
-
 static void initData(GpencilModifierData *md)
 {
   MorphTargetsGpencilModifierData *gpmd = (MorphTargetsGpencilModifierData *)md;
@@ -224,22 +217,63 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     return;
   }
 
-  /* Create temporary list for layers ordered by morphs. */
-  ListBase ordered_layers = {NULL, NULL};
-  bool morphed_layer_order = false;
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    tLayer *tl = MEM_mallocN(sizeof(tLayer), "Morph Target tLayer");
-    tl->prev = tl->next = NULL;
-    tl->gpl = *gpl;
-    tl->order = 0;
-    tl->applied = false;
-    BLI_addtail(&ordered_layers, tl);
+  /* Apply layer order morphs. */
+  bGPDlayer *gpl_next;
+  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl_next) {
+    gpl_next = gpl->next;
+    if (BLI_listbase_is_empty(&gpl->morphs)) {
+      continue;
+    }
+
+    /* Layer filter. */
+    if (!is_layer_affected_by_modifier(ob,
+                                       mmd->layername,
+                                       mmd->layer_pass,
+                                       gpl,
+                                       mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,
+                                       mmd->flag & GP_MORPHTARGETS_INVERT_LAYERPASS)) {
+      continue;
+    }
+
+    /* Create lookup table of morphs in layer. */
+    for (int i = 0; i < mt_count; i++) {
+      gplm_lookup[i] = NULL;
+    }
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      gplm_lookup[gplm->morph_target_nr] = gplm;
+    }
+
+    /* Get order morphs. */
+    for (int mi = 0; mi < mt_count; mi++) {
+      bGPDlmorph *gplm = gplm_lookup[mi];
+      if (gplm == NULL) {
+        continue;
+      }
+
+      /* Apply layer order morph when factor >= 0.5 (flipping point). */
+      float factor = mt_factor[gplm->morph_target_nr];
+      if (factor < 0.5f) {
+        continue;
+      }
+
+      if ((gplm->order_applied == 0) && (gplm->order != 0)) {
+        if (!BLI_listbase_link_move(&gpd->layers, gpl, gplm->order)) {
+          BLI_remlink(&gpd->layers, gpl);
+          if (gplm->order < 0) {
+            BLI_addhead(&gpd->layers, gpl);
+          }
+          else {
+            BLI_addtail(&gpd->layers, gpl);
+          }
+        }
+        gplm->order_applied = 1;
+        gpd->runtime.morph_target_flag |= GP_MORPH_TARGET_MORPHED_LAYER_ORDER;
+      }
+    }
   }
 
   /* Morph all layers. */
-  bGPDlayer *gpl = gpd->layers.first;
-  tLayer *tl = ordered_layers.first;
-  for (; gpl; gpl = gpl->next, tl = tl->next) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Layer filter. */
     if (!is_layer_affected_by_modifier(ob,
                                        mmd->layername,
@@ -282,17 +316,6 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
         continue;
       }
 
-      /* Process layer order delta. */
-      if ((gplm->order_applied == 0) && (gplm->order != 0)) {
-        morphed_layer_order = true;
-        gplm->order_applied = 1;
-
-        /* Apply layer order morph only when factor >= 0.5 (flipping point). */
-        if (factor >= 0.5f) {
-          tl->order += gplm->order;
-        }
-      }
-
       /* Apply delta transformation and opacity. */
       for (int i = 0; i < 3; i++) {
         gpl->location[i] += gplm->location[i] * factor;
@@ -308,35 +331,6 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     /* Morph all strokes in frame. */
     morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_count);
   }
-
-  /* Order morphed layers. */
-  if (morphed_layer_order) {
-    tLayer *tl_next;
-    for (tLayer *tl = ordered_layers.first; tl; tl = tl_next) {
-      tl_next = tl->next;
-      if ((tl->order != 0) && (!tl->applied)) {
-        if (!BLI_listbase_link_move(&ordered_layers, tl, tl->order)) {
-          BLI_remlink(&ordered_layers, tl);
-          if (tl->order < 0) {
-            BLI_addhead(&ordered_layers, tl);
-          }
-          else {
-            BLI_addtail(&ordered_layers, tl);
-          }
-        }
-        tl->applied = true;
-      }
-    }
-
-    /* Assign order to layer list. */
-    bGPDlayer *gpl = gpd->layers.first;
-    tLayer *tl = ordered_layers.first;
-    for (; gpl; gpl = gpl->next, tl = tl->next) {
-      gpl->runtime.gpl_ordered = &tl->gpl;
-    }
-  }
-
-  BLI_freelistN(&ordered_layers);
 }
 
 static void bakeModifier(struct Main *UNUSED(bmain),

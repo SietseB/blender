@@ -2451,15 +2451,6 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Morphs", "List of layer morphs");
   rna_def_gpencil_layer_morphs_api(brna, prop);
 
-  /* Ordered Layer (by morph) */
-  prop = RNA_def_property(srna, "ordered_layer", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, NULL, "runtime.gpl_ordered");
-  RNA_def_property_struct_type(prop, "GPencilLayer");
-  RNA_def_property_ui_text(
-      prop,
-      "Ordered Layer",
-      "Reference to ordered layer, when a layer morph changed the list order");
-
   /* Active Frame */
   prop = RNA_def_property(srna, "active_frame", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "actframe");

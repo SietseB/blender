@@ -564,9 +564,6 @@ typedef struct bGPDlayer_Runtime {
   /** Morph index for syncing morph target and base. */
   int morph_index;
 
-  /** Reference to ordered layer, when a layer morph changed the list order. */
-  struct bGPDlayer *gpl_ordered;
-
   /** Original layer (used to dereference evaluated data) */
   struct bGPDlayer *gpl_orig;
 } bGPDlayer_Runtime;
@@ -799,6 +796,10 @@ typedef struct bGPdata_Runtime {
 
   /* Ondine render runtimes */
   float render_zdepth;
+
+  /** Morph targets flag. */
+  short morph_target_flag;
+  char _pad2[6];
 
   /** Number of control-points for stroke. */
   int tot_cp_points;
@@ -1055,6 +1056,10 @@ typedef enum eGP_DrawMode {
   GP_DRAWMODE_2D = 0,
   GP_DRAWMODE_3D = 1,
 } eGP_DrawMode;
+
+typedef enum eGPD_MorphTargetFlag {
+  GP_MORPH_TARGET_MORPHED_LAYER_ORDER = (1 << 0),
+} eGPD_MorphTargetFlag;
 
 /* ***************************************** */
 /* Mode Checking Macros */

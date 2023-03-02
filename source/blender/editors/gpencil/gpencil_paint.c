@@ -1391,8 +1391,16 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
   }
 
   gpencil_update_cache(p->gpd);
-  BKE_gpencil_tag_full_update(
-      p->gpd, gpl, GPENCIL_MULTIEDIT_SESSIONS_ON(p->gpd) ? NULL : p->gpf, NULL);
+
+  /* When the layer order is changed by a morph target, update the entire GP object. */
+  bGPdata *gpd_eval = (bGPdata *)p->ob_eval->data;
+  if ((gpd_eval->runtime.morph_target_flag & GP_MORPH_TARGET_MORPHED_LAYER_ORDER) != 0) {
+    BKE_gpencil_tag_full_update(p->gpd, NULL, NULL, NULL);
+  }
+  else {
+    BKE_gpencil_tag_full_update(
+        p->gpd, gpl, GPENCIL_MULTIEDIT_SESSIONS_ON(p->gpd) ? NULL : p->gpf, NULL);
+  }
 }
 
 /* --- 'Eraser' for 'Paint' Tool ------ */
