@@ -2388,6 +2388,15 @@ static void rna_def_gpencil_layer_morph(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Opacity Delta", "Opacity of the morphed layer relative to the base layer");
+
+  /* Order */
+  prop = RNA_def_property(srna, "order", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "order");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop,
+      "Order Delta",
+      "Order of the morphed layer relative to the index of the base layer in the layers list");
 }
 
 static void rna_def_gpencil_layer_morphs_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -2439,8 +2448,17 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   prop = RNA_def_property(srna, "morphs", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_collection_sdna(prop, NULL, "morphs", NULL);
   RNA_def_property_struct_type(prop, "GPencilLayerMorph");
-  RNA_def_property_ui_text(prop, "Morphs", "");
+  RNA_def_property_ui_text(prop, "Morphs", "List of layer morphs");
   rna_def_gpencil_layer_morphs_api(brna, prop);
+
+  /* Ordered Layer (by morph) */
+  prop = RNA_def_property(srna, "ordered_layer", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, NULL, "runtime.gpl_ordered");
+  RNA_def_property_struct_type(prop, "GPencilLayer");
+  RNA_def_property_ui_text(
+      prop,
+      "Ordered Layer",
+      "Reference to ordered layer, when a layer morph changed the list order");
 
   /* Active Frame */
   prop = RNA_def_property(srna, "active_frame", PROP_POINTER, PROP_NONE);
@@ -3537,7 +3555,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "watercolor", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_WATERCOLOR);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Watercolor", "Watercolor grease pencil objecct");
+  RNA_def_property_ui_text(prop, "Watercolor", "Watercolor Grease Pencil object");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* clear background */

@@ -45,6 +45,13 @@
 #include "MOD_gpencil_ui_common.h"
 #include "MOD_gpencil_util.h"
 
+typedef struct tLayer {
+  struct tLayer *next, *prev;
+  bGPDlayer gpl;
+  int order;
+  bool applied;
+} tLayer;
+
 static void initData(GpencilModifierData *md)
 {
   MorphTargetsGpencilModifierData *gpmd = (MorphTargetsGpencilModifierData *)md;
@@ -73,7 +80,7 @@ static void morph_strokes(GpencilModifierData *md,
                           float *mt_factor,
                           const int mt_count)
 {
-  bGPDsmorph *gpsm_ordered[GPENCIL_MORPH_TARGETS_MAX];
+  bGPDsmorph *gpsm_lookup[GPENCIL_MORPH_TARGETS_MAX];
   MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
 
   /* Vertex group filter. */
@@ -98,17 +105,17 @@ static void morph_strokes(GpencilModifierData *md,
       continue;
     }
 
-    /* Create array of sorted morphs in stroke. */
+    /* Create lookup table of morphs in stroke. */
     for (int i = 0; i < mt_count; i++) {
-      gpsm_ordered[i] = NULL;
+      gpsm_lookup[i] = NULL;
     }
     LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
-      gpsm_ordered[gpsm->morph_target_nr] = gpsm;
+      gpsm_lookup[gpsm->morph_target_nr] = gpsm;
     }
 
-    /* Iterate all ordered morphs in stroke. */
+    /* Iterate all morphs in stroke. */
     for (int mi = 0; mi < mt_count; mi++) {
-      bGPDsmorph *gpsm = gpsm_ordered[mi];
+      bGPDsmorph *gpsm = gpsm_lookup[mi];
       if (gpsm == NULL) {
         continue;
       }
@@ -197,8 +204,7 @@ static void morph_strokes(GpencilModifierData *md,
 static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   float mt_factor[GPENCIL_MORPH_TARGETS_MAX];
-  bGPDlmorph *gplm_ordered[GPENCIL_MORPH_TARGETS_MAX];
-
+  bGPDlmorph *gplm_lookup[GPENCIL_MORPH_TARGETS_MAX];
   MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
   bGPdata *gpd = ob->data;
 
@@ -214,9 +220,26 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     }
     mt_count++;
   }
+  if (mt_count == 0) {
+    return;
+  }
+
+  /* Create temporary list for layers ordered by morphs. */
+  ListBase ordered_layers = {NULL, NULL};
+  bool morphed_layer_order = false;
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    tLayer *tl = MEM_mallocN(sizeof(tLayer), "Morph Target tLayer");
+    tl->prev = tl->next = NULL;
+    tl->gpl = *gpl;
+    tl->order = 0;
+    tl->applied = false;
+    BLI_addtail(&ordered_layers, tl);
+  }
 
   /* Morph all layers. */
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+  bGPDlayer *gpl = gpd->layers.first;
+  tLayer *tl = ordered_layers.first;
+  for (; gpl; gpl = gpl->next, tl = tl->next) {
     /* Layer filter. */
     if (!is_layer_affected_by_modifier(ob,
                                        mmd->layername,
@@ -233,49 +256,87 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
       continue;
     }
 
-    /* Create array of sorted morphs in layer. */
+    /* Create lookup table of morphs in layer. */
     for (int i = 0; i < mt_count; i++) {
-      gplm_ordered[i] = NULL;
+      gplm_lookup[i] = NULL;
     }
     LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
-      gplm_ordered[gplm->morph_target_nr] = gplm;
+      gplm_lookup[gplm->morph_target_nr] = gplm;
     }
+
+    /* Init original transform data, otherwise we get 'morph on morph on morph'. */
+    bGPDlayer *gpl_orig = (gpl->runtime.gpl_orig) ? gpl->runtime.gpl_orig : gpl;
+    copy_v3_v3(gpl->location, gpl_orig->location);
+    copy_v3_v3(gpl->rotation, gpl_orig->rotation);
+    copy_v3_v3(gpl->scale, gpl_orig->scale);
+    gpl->opacity = gpl_orig->opacity;
 
     /* Apply layer morphs. */
-    if (mt_count > 0) {
-      /* Init original transform data, otherwise we get 'morph on morph on morph'. */
-      bGPDlayer *gpl_orig = (gpl->runtime.gpl_orig) ? gpl->runtime.gpl_orig : gpl;
-      copy_v3_v3(gpl->location, gpl_orig->location);
-      copy_v3_v3(gpl->rotation, gpl_orig->rotation);
-      copy_v3_v3(gpl->scale, gpl_orig->scale);
-      gpl->opacity = gpl_orig->opacity;
-
-      /* Apply delta layer transformations. */
-      for (int mi = 0; mi < mt_count; mi++) {
-        bGPDlmorph *gplm = gplm_ordered[mi];
-        if (gplm == NULL) {
-          continue;
-        }
-        float factor = mt_factor[gplm->morph_target_nr];
-        if (factor == 0.0f) {
-          continue;
-        }
-
-        for (int i = 0; i < 3; i++) {
-          gpl->location[i] += gplm->location[i] * factor;
-          gpl->rotation[i] += gplm->rotation[i] * factor;
-          gpl->scale[i] += gplm->scale[i] * factor;
-        }
-        gpl->opacity += gplm->opacity * factor;
+    for (int mi = 0; mi < mt_count; mi++) {
+      bGPDlmorph *gplm = gplm_lookup[mi];
+      if (gplm == NULL) {
+        continue;
       }
-      gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
-      loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
-      invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
+      float factor = mt_factor[gplm->morph_target_nr];
+      if (factor == 0.0f) {
+        continue;
+      }
+
+      /* Process layer order delta. */
+      if ((gplm->order_applied == 0) && (gplm->order != 0)) {
+        morphed_layer_order = true;
+        gplm->order_applied = 1;
+
+        /* Apply layer order morph only when factor >= 0.5 (flipping point). */
+        if (factor >= 0.5f) {
+          tl->order += gplm->order;
+        }
+      }
+
+      /* Apply delta transformation and opacity. */
+      for (int i = 0; i < 3; i++) {
+        gpl->location[i] += gplm->location[i] * factor;
+        gpl->rotation[i] += gplm->rotation[i] * factor;
+        gpl->scale[i] += gplm->scale[i] * factor;
+      }
+      gpl->opacity += gplm->opacity * factor;
     }
+    gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
+    loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
+    invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
 
     /* Morph all strokes in frame. */
     morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_count);
   }
+
+  /* Order morphed layers. */
+  if (morphed_layer_order) {
+    tLayer *tl_next;
+    for (tLayer *tl = ordered_layers.first; tl; tl = tl_next) {
+      tl_next = tl->next;
+      if ((tl->order != 0) && (!tl->applied)) {
+        if (!BLI_listbase_link_move(&ordered_layers, tl, tl->order)) {
+          BLI_remlink(&ordered_layers, tl);
+          if (tl->order < 0) {
+            BLI_addhead(&ordered_layers, tl);
+          }
+          else {
+            BLI_addtail(&ordered_layers, tl);
+          }
+        }
+        tl->applied = true;
+      }
+    }
+
+    /* Assign order to layer list. */
+    bGPDlayer *gpl = gpd->layers.first;
+    tLayer *tl = ordered_layers.first;
+    for (; gpl; gpl = gpl->next, tl = tl->next) {
+      gpl->runtime.gpl_ordered = &tl->gpl;
+    }
+  }
+
+  BLI_freelistN(&ordered_layers);
 }
 
 static void bakeModifier(struct Main *UNUSED(bmain),

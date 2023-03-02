@@ -548,7 +548,10 @@ typedef struct bGPDlmorph {
   float scale[3];
   /** Opacity delta. */
   float opacity;
-  char _pad0[4];
+  /** Order delta. */
+  short order;
+  /** 1 = Order delta is applied (only set in evaluated lmorphs). */
+  short order_applied;
 } bGPDlmorph;
 
 /* Runtime temp data for bGPDlayer */
@@ -560,6 +563,9 @@ typedef struct bGPDlayer_Runtime {
 
   /** Morph index for syncing morph target and base. */
   int morph_index;
+
+  /** Reference to ordered layer, when a layer morph changed the list order. */
+  struct bGPDlayer *gpl_ordered;
 
   /** Original layer (used to dereference evaluated data) */
   struct bGPDlayer *gpl_orig;

@@ -2634,7 +2634,10 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
   const bool onion_loop = (gpd->onion_flag & GP_ONION_LOOP) != 0;
   const short onion_keytype = gpd->onion_keytype;
 
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl_base, &gpd->layers) {
+    /* Get layer, possibly reordered by layer morph. */
+    bGPDlayer *gpl = (gpl_base->runtime.gpl_ordered) ? gpl_base->runtime.gpl_ordered : gpl_base;
+
     /* Reset by layer. */
     bool is_before_first = false;
 
