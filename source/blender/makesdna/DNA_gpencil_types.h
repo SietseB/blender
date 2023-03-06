@@ -836,6 +836,10 @@ typedef struct bGPDmorph_target {
   float range_max;
   short flag;
   char _pad0[2];
+
+  /* Flipping point condition when layer order morph is applied. */
+  int layer_order_compare;
+  float layer_order_value;
 } bGPDmorph_target;
 
 /* bGPDlayer->flag */
@@ -1057,9 +1061,17 @@ typedef enum eGP_DrawMode {
   GP_DRAWMODE_3D = 1,
 } eGP_DrawMode;
 
+/* gpd->runtime.morph_target_flag */
 typedef enum eGPD_MorphTargetFlag {
+  /* GP object has morphed layer order. */
   GP_MORPH_TARGET_MORPHED_LAYER_ORDER = (1 << 0),
 } eGPD_MorphTargetFlag;
+
+/* Comparison operator for flipping point of layer order morph.*/
+typedef enum eGPD_MorphLayerOrderCompare {
+  GP_MORPH_TARGET_COMPARE_GREATER_THAN = 0,
+  GP_MORPH_TARGET_COMPARE_LESS_THAN = 1,
+} eGPD_MorphLayerOrderCompare;
 
 /* ***************************************** */
 /* Mode Checking Macros */

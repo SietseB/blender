@@ -454,6 +454,12 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
             col.prop(gpmt, "slider_min", text="Range Min")
             col.prop(gpmt, "slider_max", text="Max")
 
+            if gpmt.morphed_layer_order:
+                layout.separator()
+                row = layout.row()
+                row.prop(gpmt, "layer_order_compare")
+                row.prop(gpmt, "layer_order_value", text="", slider=True)
+
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):
     bl_label = "Strokes"

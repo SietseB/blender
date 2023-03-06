@@ -243,19 +243,24 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
       gplm_lookup[gplm->morph_target_nr] = gplm;
     }
 
-    /* Get order morphs. */
-    for (int mi = 0; mi < mt_count; mi++) {
+    /* Get layer order morphs. */
+    bGPDmorph_target *gpmt = gpd->morph_targets.first;
+    for (int mi = 0; mi < mt_count; mi++, gpmt = gpmt->next) {
       bGPDlmorph *gplm = gplm_lookup[mi];
       if (gplm == NULL) {
         continue;
       }
 
-      /* Apply layer order morph when factor >= 0.5 (flipping point). */
+      /* Check flipping point of layer order morph. */
       float factor = mt_factor[gplm->morph_target_nr];
-      if (factor < 0.5f) {
+      if (((gpmt->layer_order_compare == GP_MORPH_TARGET_COMPARE_GREATER_THAN) &&
+           (factor <= gpmt->layer_order_value)) ||
+          ((gpmt->layer_order_compare == GP_MORPH_TARGET_COMPARE_LESS_THAN) &&
+           (factor >= gpmt->layer_order_value))) {
         continue;
       }
 
+      /* Compare condition is met, apply layer order morph. */
       if ((gplm->order_applied == 0) && (gplm->order != 0)) {
         if (!BLI_listbase_link_move(&gpd->layers, gpl, gplm->order)) {
           BLI_remlink(&gpd->layers, gpl);

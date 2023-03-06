@@ -164,6 +164,8 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpmt->range_min = 0.0f;
     gpmt->range_max = 1.0f;
     gpmt->value = 0.0f;
+    gpmt->layer_order_compare = GP_MORPH_TARGET_COMPARE_GREATER_THAN;
+    gpmt->layer_order_value = 0.5f;
 
     /* Copy values of currently active morph target. */
     if (gpmt_act != NULL) {
@@ -172,6 +174,8 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
       }
       gpmt->range_min = gpmt_act->range_min;
       gpmt->range_max = gpmt_act->range_max;
+      gpmt->layer_order_compare = gpmt_act->layer_order_compare;
+      gpmt->layer_order_value = gpmt->layer_order_value;
 
       /* Renumber morph target index of layer and stroke morphs. */
       if (gpmt->next != NULL) {

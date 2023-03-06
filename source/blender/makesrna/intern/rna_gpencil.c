@@ -145,6 +145,12 @@ static const EnumPropertyItem rna_enum_gpencil_caps_modes_items[] = {
     {GP_STROKE_CAP_FLAT, "FLAT", 0, "Flat", ""},
     {0, NULL, 0, NULL, NULL},
 };
+
+static const EnumPropertyItem rna_enum_gpencil_morph_layer_order_compare_items[] = {
+    {GP_MORPH_TARGET_COMPARE_GREATER_THAN, "GREATER", 0, "Greater Than", ""},
+    {GP_MORPH_TARGET_COMPARE_LESS_THAN, "LESS", 0, "Less Than", ""},
+    {0, NULL, 0, NULL, NULL},
+};
 #endif
 
 #ifdef RNA_RUNTIME
@@ -1375,6 +1381,13 @@ static void rna_MorphTarget_value_range(
   *max = data->range_max;
 }
 
+static void rna_MorphTarget_layer_order_value_set(PointerRNA *ptr, float value)
+{
+  bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
+  CLAMP(value, data->range_min, data->range_max);
+  data->layer_order_value = value;
+}
+
 /* epsilon for how close one end of morph target range can get to the other */
 #  define MORPHTARGET_SLIDER_TOL 0.001f
 
@@ -1425,12 +1438,30 @@ static void rna_MorphTarget_update_minmax(Main *bmain, Scene *scene, PointerRNA 
     return;
   }
   CLAMP(data->value, data->range_min, data->range_max);
+  CLAMP(data->layer_order_value, data->range_min, data->range_max);
   rna_GPencil_update(bmain, scene, ptr);
 }
 
 static bool rna_morph_target_in_edit_mode_get(PointerRNA *UNUSED(ptr))
 {
   return ED_gpencil_morph_target_in_edit_mode();
+}
+
+static bool rna_GPencil_morph_changes_layer_order_get(PointerRNA *ptr)
+{
+  bGPDmorph_target *gpmt = (bGPDmorph_target *)ptr->data;
+  bGPdata *gpd = (bGPdata *)ptr->owner_id;
+  int index = BLI_findindex(&gpd->morph_targets, gpmt);
+
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if ((gplm->morph_target_nr == index) && (gplm->order != 0)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 #else
@@ -3152,13 +3183,14 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_struct_path_func(srna, "rna_GPencilMorphTarget_path");
   RNA_def_struct_ui_icon(srna, ICON_SHAPEKEY_DATA);
 
-  /* Name */
+  /* Name. */
   prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
   RNA_def_property_ui_text(prop, "Name", "Morph target name");
   RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GPencilMorphTarget_name_set");
   RNA_def_struct_name_property(srna, prop);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
 
+  /* Value. */
   prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "value");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
@@ -3168,6 +3200,7 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Value", "Value of the morph target");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* Value range minimum. */
   prop = RNA_def_property(srna, "slider_min", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "range_min");
   RNA_def_property_float_funcs(
@@ -3177,6 +3210,7 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
 
+  /* Value range maximum. */
   prop = RNA_def_property(srna, "slider_max", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "range_max");
   RNA_def_property_float_funcs(
@@ -3186,12 +3220,39 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_MorphTarget_update_minmax");
 
+  /* Mute. */
   prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_MORPH_TARGET_MUTE);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Mute", "Toggle this morph target");
   RNA_def_property_ui_icon(prop, ICON_CHECKBOX_HLT, -1);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
+
+  /* Flipping point of layer order morph. */
+  prop = RNA_def_property(srna, "layer_order_compare", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "layer_order_compare");
+  RNA_def_property_enum_items(prop, rna_enum_gpencil_morph_layer_order_compare_items);
+  RNA_def_property_ui_text(prop,
+                           "Flip Layer Order When",
+                           "Comparison operator for the flipping point of a layer order morph");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "layer_order_value", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "layer_order_value");
+  RNA_def_property_float_funcs(
+      prop, NULL, "rna_MorphTarget_layer_order_value_set", "rna_MorphTarget_value_range");
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
+  RNA_def_property_ui_text(
+      prop, "Flip Order Value", "Value for the flipping point of a layer order morph");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  prop = RNA_def_property(srna, "morphed_layer_order", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_GPencil_morph_changes_layer_order_get", NULL);
+  RNA_def_property_ui_text(
+      prop, "Morphed Layer Order", "True when the morph target changes the layer order");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
 static void rna_def_gpencil_morph_targets_api(BlenderRNA *brna, PropertyRNA *cprop)
