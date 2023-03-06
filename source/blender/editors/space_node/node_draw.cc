@@ -181,6 +181,23 @@ void ED_node_tag_update_id(ID *id)
 
 namespace blender::ed::space_node {
 
+static const char *node_socket_get_translation_context(const bNodeSocket &socket)
+{
+  /* The node is not explicitly defined. */
+  if (socket.runtime->declaration == nullptr) {
+    return nullptr;
+  }
+
+  blender::StringRefNull translation_context = socket.runtime->declaration->translation_context;
+
+  /* Default context. */
+  if (translation_context.is_empty()) {
+    return nullptr;
+  }
+
+  return translation_context.data();
+}
+
 static void node_socket_add_tooltip_in_node_editor(const bNodeTree &ntree,
                                                    const bNodeSocket &sock,
                                                    uiLayout &layout);
@@ -380,8 +397,14 @@ static void node_update_basis(const bContext &C,
     /* Align output buttons to the right. */
     uiLayout *row = uiLayoutRow(layout, true);
     uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_RIGHT);
+
     const char *socket_label = nodeSocketLabel(socket);
-    socket->typeinfo->draw((bContext *)&C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    const char *socket_translation_context = node_socket_get_translation_context(*socket);
+    socket->typeinfo->draw((bContext *)&C,
+                           row,
+                           &sockptr,
+                           &nodeptr,
+                           CTX_IFACE_(socket_translation_context, socket_label));
 
     node_socket_add_tooltip_in_node_editor(ntree, *socket, *row);
 
@@ -514,7 +537,12 @@ static void node_update_basis(const bContext &C,
     uiLayout *row = uiLayoutRow(layout, true);
 
     const char *socket_label = nodeSocketLabel(socket);
-    socket->typeinfo->draw((bContext *)&C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    const char *socket_translation_context = node_socket_get_translation_context(*socket);
+    socket->typeinfo->draw((bContext *)&C,
+                           row,
+                           &sockptr,
+                           &nodeptr,
+                           CTX_IFACE_(socket_translation_context, socket_label));
 
     node_socket_add_tooltip_in_node_editor(ntree, *socket, *row);
 
@@ -2845,7 +2873,7 @@ static void frame_node_draw_label(TreeDrawContext &tree_draw_ctx,
     const Text *text = (const Text *)node.id;
     const int line_height_max = BLF_height_max(fontid);
     const float line_spacing = (line_height_max * aspect);
-    const float line_width = (BLI_rctf_size_x(&rct) - margin) / aspect;
+    const float line_width = (BLI_rctf_size_x(&rct) - 2 * margin) / aspect;
 
     /* 'x' doesn't need aspect correction. */
     x = rct.xmin + margin;
@@ -2854,12 +2882,7 @@ static void frame_node_draw_label(TreeDrawContext &tree_draw_ctx,
     int y_min = y + ((margin * 2) - (y - rct.ymin));
 
     BLF_enable(fontid, BLF_CLIPPING | BLF_WORD_WRAP);
-    BLF_clipping(fontid,
-                 rct.xmin,
-                 /* Round to avoid clipping half-way through a line. */
-                 y - (floorf(((y - rct.ymin) - (margin * 2)) / line_spacing) * line_spacing),
-                 rct.xmin + line_width,
-                 rct.ymax);
+    BLF_clipping(fontid, rct.xmin, rct.ymin + margin, rct.xmax, rct.ymax);
 
     BLF_wordwrap(fontid, line_width);
 
