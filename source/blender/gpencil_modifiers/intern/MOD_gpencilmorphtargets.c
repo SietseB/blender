@@ -217,13 +217,25 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     return;
   }
 
+  /* Get direction for applying layer order morphs. */
+  bool apply_forward = false;
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+      if (gplm->order_applied != 0) {
+        apply_forward = true;
+        break;
+      }
+    }
+    if (apply_forward) {
+      break;
+    }
+  }
+
   /* Apply layer order morphs. */
-  bGPDlayer *gpl_next;
-  int layer_count = BLI_listbase_count(&gpd->layers);
-  int layer_index = -1;
-  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl_next) {
-    gpl_next = gpl->next;
-    layer_index++;
+  bGPDlayer *gpl_sibl;
+  bGPDlayer *gpl = (apply_forward) ? gpd->layers.first : gpd->layers.last;
+  for (; gpl; gpl = gpl_sibl) {
+    gpl_sibl = (apply_forward) ? gpl->next : gpl->prev;
 
     if (BLI_listbase_is_empty(&gpl->morphs)) {
       continue;
@@ -251,7 +263,8 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     bGPDmorph_target *gpmt = gpd->morph_targets.first;
     for (int mi = 0; mi < mt_count; mi++, gpmt = gpmt->next) {
       bGPDlmorph *gplm = gplm_lookup[mi];
-      if ((gplm == NULL) || (gplm->order == 0) || ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
+      if ((gplm == NULL) || (gplm->order == 0) || (mi == mmd->index_edited) ||
+          ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
         continue;
       }
 
@@ -274,18 +287,18 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
         dir = -1;
         order_delta = -1 * gplm->order_applied;
       }
-      if (dir != 0) {
-        /* Clamp delta order at head and tail of layer list. */
-        int new_index = layer_index + order_delta;
-        if (new_index < 0) {
-          order_delta -= new_index;
-        }
-        else if (new_index >= layer_count) {
-          order_delta -= (new_index - layer_count + 1);
-        }
 
-        /* Move layer. */
-        BLI_listbase_link_move(&gpd->layers, gpl, order_delta);
+      /* Move layer. */
+      if (dir != 0) {
+        if (!BLI_listbase_link_move(&gpd->layers, gpl, order_delta)) {
+          BLI_remlink(&gpd->layers, gpl);
+          if (order_delta < 0) {
+            BLI_addhead(&gpd->layers, gpl);
+          }
+          else {
+            BLI_addtail(&gpd->layers, gpl);
+          }
+        }
 
         gplm->order_applied = (dir == -1) ? 0 : order_delta;
         gpd->runtime.morph_target_flag |= GP_MORPH_TARGET_MORPHED_LAYER_ORDER;

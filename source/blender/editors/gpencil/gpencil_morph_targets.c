@@ -527,29 +527,19 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
   int uneq_layers = 0, uneq_frames = 0, uneq_strokes = 0;
   bool is_morphed;
   tGPDmorph *tgpm = op->customdata;
-  bGPDlayer *gpl_morph = tgpm->gpd_morph->layers.first;
 
-  /* Create hash table of base layers. */
-  GHash *base_layers = BLI_ghash_int_new_ex(__func__, 64);
-  LISTBASE_FOREACH (bGPDlayer *, gpl_base, &tgpm->gpd_base->layers) {
-    BLI_ghash_insert(base_layers, POINTER_FROM_INT(gpl_base->runtime.morph_index), gpl_base);
+  /* Create hash table of morph layers. */
+  GHash *morph_layers = BLI_ghash_int_new_ex(__func__, 64);
+  LISTBASE_FOREACH (bGPDlayer *, gpl_morph, &tgpm->gpd_morph->layers) {
+    BLI_ghash_insert(morph_layers, POINTER_FROM_INT(gpl_morph->runtime.morph_index), gpl_morph);
   }
 
-  /* Iterate all layers in morphed GP object. */
-  int gpl_morph_index = 0;
-  for (; gpl_morph; gpl_morph = gpl_morph->next) {
-    gpl_morph_index++;
-
-    /* Skip newly created layers. */
-    if (gpl_morph->runtime.morph_index == 0) {
-      uneq_layers++;
-      continue;
-    }
-
-    /* Find matching base layer. */
-    bGPDlayer *gpl_base = BLI_ghash_lookup(base_layers,
-                                           POINTER_FROM_INT(gpl_morph->runtime.morph_index));
-    if (gpl_base == NULL) {
+  /* Iterate all layers in base GP object. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl_base, &tgpm->gpd_base->layers) {
+    /* Find matching morph layer. */
+    bGPDlayer *gpl_morph = BLI_ghash_lookup(morph_layers,
+                                            POINTER_FROM_INT(gpl_base->runtime.morph_index));
+    if (gpl_morph == NULL) {
       uneq_layers++;
       continue;
     }
@@ -563,20 +553,29 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
       }
     }
 
-    /* Get delta in layer transformation, opacity and order. */
+    /* Get delta in layer transformation and opacity. */
     is_morphed = false;
     gplm = MEM_callocN(sizeof(bGPDlmorph), "bGPDlmorph");
     sub_v3_v3v3(gplm->location, gpl_morph->location, gpl_base->location);
     sub_v3_v3v3(gplm->rotation, gpl_morph->rotation, gpl_base->rotation);
     sub_v3_v3v3(gplm->scale, gpl_morph->scale, gpl_base->scale);
     gplm->opacity = gpl_morph->opacity - gpl_base->opacity;
-    gplm->order = gpl_morph_index - gpl_base->runtime.morph_index;
 
     /* Revert to base values, since the morph was applied during edit. */
     copy_v3_v3(gpl_morph->location, gpl_base->location);
     copy_v3_v3(gpl_morph->rotation, gpl_base->rotation);
     copy_v3_v3(gpl_morph->scale, gpl_base->scale);
     gpl_morph->opacity = gpl_base->opacity;
+
+    /* Get delta in layer order. */
+    int gpl_morph_index = BLI_findindex(&tgpm->gpd_morph->layers, gpl_morph) + 1;
+    gplm->order = gpl_morph_index - gpl_base->runtime.morph_index;
+
+    /* Revert morph to base order. */
+    if (gplm->order != 0) {
+      BLI_listbase_move_index(
+          &tgpm->gpd_morph->layers, gpl_morph_index - 1, gpl_base->runtime.morph_index - 1);
+    }
 
     /* Check morph on non-zero. */
     if ((gplm->order != 0) || (fabs(gplm->opacity) > EPSILON)) {
@@ -741,33 +740,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
   }
 
   /* Free hash memory. */
-  BLI_ghash_free(base_layers, NULL, NULL);
-
-  /* Restore original layer order. */
-  bGPDlayer *gpl_next;
-  for (bGPDlayer *gpl = tgpm->gpd_morph->layers.first; gpl; gpl = gpl_next) {
-    gpl_next = gpl->next;
-    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
-      if ((gplm->morph_target_nr == tgpm->active_index) && (gplm->order_applied == 0) &&
-          (gplm->order != 0)) {
-        if (!BLI_listbase_link_move(&tgpm->gpd_morph->layers, gpl, -gplm->order)) {
-          BLI_remlink(&tgpm->gpd_morph->layers, gpl);
-          if (gplm->order > 0) {
-            BLI_addhead(&tgpm->gpd_morph->layers, gpl);
-          }
-          else {
-            BLI_addtail(&tgpm->gpd_morph->layers, gpl);
-          }
-        }
-        gplm->order_applied = 1;
-      }
-    }
-  }
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &tgpm->gpd_morph->layers) {
-    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
-      gplm->order_applied = 0;
-    }
-  }
+  BLI_ghash_free(morph_layers, NULL, NULL);
 
   /* Show a warning when there is a mismatch between base and morph. */
   if ((uneq_layers > 0) || (uneq_frames > 0) || (uneq_strokes > 0)) {
@@ -958,9 +931,9 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   }
 
   /* Apply layer order morph. */
-  bGPDlayer *gpl_next;
-  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl_next) {
-    gpl_next = gpl->next;
+  bGPDlayer *gpl_prev;
+  for (bGPDlayer *gpl = gpd->layers.last; gpl; gpl = gpl_prev) {
+    gpl_prev = gpl->prev;
     LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
       if ((gplm->morph_target_nr == tgpm->active_index) && (gplm->order_applied == 0) &&
           (gplm->order != 0)) {
