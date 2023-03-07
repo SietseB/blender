@@ -456,9 +456,9 @@ class DATA_PT_gpencil_morph_targets(DataButtonsPanel, Panel):
 
             if gpmt.morphed_layer_order:
                 layout.separator()
-                row = layout.row()
-                row.prop(gpmt, "layer_order_compare")
-                row.prop(gpmt, "layer_order_value", text="", slider=True)
+                col = layout.column(align=True)
+                col.prop(gpmt, "layer_order_compare")
+                col.prop(gpmt, "layer_order_value", text=" ", slider=True)
 
 
 class DATA_PT_gpencil_strokes(DataButtonsPanel, Panel):

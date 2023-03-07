@@ -550,7 +550,7 @@ typedef struct bGPDlmorph {
   float opacity;
   /** Order delta. */
   short order;
-  /** 1 = Order delta is applied (only set in evaluated lmorphs). */
+  /** Applied order delta in evaluated lmorphs. */
   short order_applied;
 } bGPDlmorph;
 

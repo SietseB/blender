@@ -3233,9 +3233,8 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "layer_order_compare");
   RNA_def_property_enum_items(prop, rna_enum_gpencil_morph_layer_order_compare_items);
   RNA_def_property_ui_text(prop,
-                           "Flip Layer Order When",
+                           "Morph Layer Order If",
                            "Comparison operator for the flipping point of a layer order morph");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "layer_order_value", PROP_FLOAT, PROP_NONE);
@@ -3245,7 +3244,6 @@ static void rna_def_gpencil_morph_target(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
   RNA_def_property_ui_text(
       prop, "Flip Order Value", "Value for the flipping point of a layer order morph");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "morphed_layer_order", PROP_BOOLEAN, PROP_NONE);
