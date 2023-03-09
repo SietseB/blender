@@ -163,7 +163,7 @@ void GpencilOndine::set_unique_stroke_seeds(bContext *C)
 {
   Main *bmain = CTX_data_main(C);
   LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
-    if (ob->type != OB_GPENCIL) {
+    if (ob->type != OB_GPENCIL_LEGACY) {
       continue;
     }
     bGPdata *gpd = (bGPdata *)ob->data;
@@ -246,7 +246,7 @@ void GpencilOndine::set_stroke_colors(Object *ob,
 void GpencilOndine::set_zdepth(Object *object)
 {
   /* Grease pencil object? */
-  if (object->type != OB_GPENCIL) {
+  if (object->type != OB_GPENCIL_LEGACY) {
     return;
   }
 
@@ -265,7 +265,7 @@ void GpencilOndine::set_render_data(Object *object)
   float cam_plane[4];
 
   /* Grease pencil object? */
-  if (object->type != OB_GPENCIL) {
+  if (object->type != OB_GPENCIL_LEGACY) {
     return;
   }
 

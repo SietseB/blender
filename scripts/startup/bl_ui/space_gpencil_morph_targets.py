@@ -25,7 +25,7 @@ class GPENCIL_PT_MorphTargetsNPanel(bpy.types.Panel):
         col = layout.column(align=True)
         for mt in gpd.morph_targets:
             sub = col.split(factor=0.9, align=True)
-            sub.prop(mt, "value", text=mt.name)
+            sub.prop(mt, "value", text=mt.name, slider=True)
             row = sub.row(align=True)
             row.use_property_decorate = False
             row.emboss = 'NONE'

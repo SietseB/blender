@@ -126,7 +126,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
   bGPdata *gpd = NULL;
 
   Object *ob = CTX_data_active_object(C);
-  if ((ob != NULL) && (ob->type == OB_GPENCIL)) {
+  if ((ob != NULL) && (ob->type == OB_GPENCIL_LEGACY)) {
     /* Check maximum number of morph targets. */
     gpd = (bGPdata *)ob->data;
     if (BLI_listbase_count(&gpd->morph_targets) >= GPENCIL_MORPH_TARGETS_MAX) {
@@ -321,7 +321,7 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
 bool gpencil_morph_target_active_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+  if ((ob == NULL) || (ob->type != OB_GPENCIL_LEGACY)) {
     return false;
   }
   bGPdata *gpd = (bGPdata *)ob->data;
@@ -1067,7 +1067,7 @@ static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
   /* Get source. */
   bGPdata *gpd = NULL;
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+  if ((ob == NULL) || (ob->type != OB_GPENCIL_LEGACY)) {
     return OPERATOR_CANCELLED;
   }
   gpd = (bGPdata *)ob->data;
