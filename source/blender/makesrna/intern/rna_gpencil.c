@@ -490,7 +490,7 @@ static PointerRNA rna_GPencil_active_layer_get(PointerRNA *ptr)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
 
-  if (GS(gpd->id.name) == ID_GD) { /* why would this ever be not GD */
+  if (GS(gpd->id.name) == ID_GD_LEGACY) { /* why would this ever be not GD */
     bGPDlayer *gl;
 
     for (gl = gpd->layers.first; gl; gl = gl->next) {
@@ -522,7 +522,7 @@ static void rna_GPencil_active_layer_set(PointerRNA *ptr,
     return;
   }
 
-  if (GS(gpd->id.name) == ID_GD) { /* why would this ever be not GD */
+  if (GS(gpd->id.name) == ID_GD_LEGACY) { /* why would this ever be not GD */
     bGPDlayer *gl;
 
     for (gl = gpd->layers.first; gl; gl = gl->next) {

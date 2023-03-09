@@ -3957,49 +3957,48 @@ void uv_parametrizer_edge_set_seam(ParamHandle *phandle, ParamKey *vkeys)
 }
 
 void uv_parametrizer_construct_end(ParamHandle *phandle,
-                                   bool fill,
+                                   bool fill_holes,
                                    bool topology_from_uvs,
-                                   int *count_fail)
+                                   int *r_count_failed)
 {
-  PChart *chart = phandle->construction_chart;
   int i, j;
-  PEdge *outer;
 
   param_assert(phandle->state == PHANDLE_STATE_ALLOCATED);
 
   phandle->ncharts = p_connect_pairs(phandle, topology_from_uvs);
-  phandle->charts = p_split_charts(phandle, chart, phandle->ncharts);
+  phandle->charts = p_split_charts(phandle, phandle->construction_chart, phandle->ncharts);
 
   MEM_freeN(phandle->construction_chart);
   phandle->construction_chart = nullptr;
 
   phash_delete(phandle->hash_verts);
+  phandle->hash_verts = nullptr;
   phash_delete(phandle->hash_edges);
+  phandle->hash_edges = nullptr;
   phash_delete(phandle->hash_faces);
-  phandle->hash_verts = phandle->hash_edges = phandle->hash_faces = nullptr;
+  phandle->hash_faces = nullptr;
 
   for (i = j = 0; i < phandle->ncharts; i++) {
-    PVert *v;
-    chart = phandle->charts[i];
+    PChart *chart = phandle->charts[i];
 
+    PEdge *outer;
     p_chart_boundaries(chart, &outer);
 
     if (!topology_from_uvs && chart->nboundaries == 0) {
       MEM_freeN(chart);
-      if (count_fail != nullptr) {
-        *count_fail += 1;
+      if (r_count_failed) {
+        *r_count_failed += 1;
       }
       continue;
     }
 
-    phandle->charts[j] = chart;
-    j++;
+    phandle->charts[j++] = chart;
 
-    if (fill && (chart->nboundaries > 1)) {
+    if (fill_holes && chart->nboundaries > 1) {
       p_chart_fill_boundaries(phandle, chart, outer);
     }
 
-    for (v = chart->verts; v; v = v->nextlink) {
+    for (PVert *v = chart->verts; v; v = v->nextlink) {
       p_vert_load_pin_select_uvs(phandle, v);
     }
   }
@@ -4198,10 +4197,8 @@ void uv_parametrizer_pack(ParamHandle *handle, float margin, bool do_rotate, boo
   for (int64_t i : pack_island_vector.index_range()) {
     BoxPack *box = box_array + i;
     PackIsland *pack_island = pack_island_vector[box->index];
-    pack_island->bounds_rect.xmin = box->x;
-    pack_island->bounds_rect.ymin = box->y;
-    pack_island->bounds_rect.xmax = box->x + box->w;
-    pack_island->bounds_rect.ymax = box->y + box->h;
+    pack_island->bounds_rect.xmin = box->x - pack_island->bounds_rect.xmin;
+    pack_island->bounds_rect.ymin = box->y - pack_island->bounds_rect.ymin;
   }
 
   unpacked = 0;
@@ -4214,17 +4211,13 @@ void uv_parametrizer_pack(ParamHandle *handle, float margin, bool do_rotate, boo
     }
     PackIsland *pack_island = pack_island_vector[i - unpacked];
 
-    float minv[2];
-    float maxv[2];
-    p_chart_uv_bbox(chart, minv, maxv);
-
     /* TODO: Replace with #mul_v2_m2_add_v2v2 here soon. */
     float m[2];
     float b[2];
     m[0] = scale[0];
     m[1] = scale[1];
-    b[0] = pack_island->bounds_rect.xmin - minv[0];
-    b[1] = pack_island->bounds_rect.ymin - minv[1];
+    b[0] = pack_island->bounds_rect.xmin;
+    b[1] = pack_island->bounds_rect.ymin;
     for (PVert *v = chart->verts; v; v = v->nextlink) {
       /* Unusual accumulate-and-multiply here (will) reduce round-off error. */
       v->uv[0] = m[0] * (v->uv[0] + b[0]);
