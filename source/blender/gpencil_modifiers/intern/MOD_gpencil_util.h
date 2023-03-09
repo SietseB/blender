@@ -36,7 +36,7 @@ bool is_stroke_affected_by_modifier(struct Object *ob,
  * Verify if valid layer and pass index.
  */
 bool is_layer_affected_by_modifier(
-    struct Object *ob, char *mlayername, int gpl_passindex, bGPDlayer *gpl, bool inv1, bool inv2);
+    char *mlayername, int gpl_passindex, bGPDlayer *gpl, bool inv1, bool inv2);
 
 /**
  * Verify if valid vertex group *and return weight.

@@ -141,12 +141,8 @@ bool is_stroke_affected_by_modifier(Object *ob,
   return true;
 }
 
-bool is_layer_affected_by_modifier(Object *ob,
-                                   char *mlayername,
-                                   const int gpl_passindex,
-                                   bGPDlayer *gpl,
-                                   const bool inv1,
-                                   const bool inv2)
+bool is_layer_affected_by_modifier(
+    char *mlayername, const int gpl_passindex, bGPDlayer *gpl, const bool inv1, const bool inv2)
 {
   /* omit if filter by layer */
   if (mlayername[0] != '\0') {

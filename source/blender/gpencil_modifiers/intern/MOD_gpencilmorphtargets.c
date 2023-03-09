@@ -233,19 +233,18 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
 
   /* Apply layer order morphs. */
   bGPDlayer *gpl_sibl;
-  bGPDlayer *gpl = (apply_forward) ? gpd->layers.first : gpd->layers.last;
-  for (; gpl; gpl = gpl_sibl) {
-    gpl_sibl = (apply_forward) ? gpl->next : gpl->prev;
+  bGPDlayer *gpl_order = (apply_forward) ? gpd->layers.first : gpd->layers.last;
+  for (; gpl_order; gpl_order = gpl_sibl) {
+    gpl_sibl = (apply_forward) ? gpl_order->next : gpl_order->prev;
 
-    if (BLI_listbase_is_empty(&gpl->morphs)) {
+    if (BLI_listbase_is_empty(&gpl_order->morphs)) {
       continue;
     }
 
     /* Layer filter. */
-    if (!is_layer_affected_by_modifier(ob,
-                                       mmd->layername,
+    if (!is_layer_affected_by_modifier(mmd->layername,
                                        mmd->layer_pass,
-                                       gpl,
+                                       gpl_order,
                                        mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,
                                        mmd->flag & GP_MORPHTARGETS_INVERT_LAYERPASS)) {
       continue;
@@ -255,7 +254,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     for (int i = 0; i < mt_count; i++) {
       gplm_lookup[i] = NULL;
     }
-    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
+    LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl_order->morphs) {
       gplm_lookup[gplm->morph_target_nr] = gplm;
     }
 
@@ -290,13 +289,13 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
 
       /* Move layer. */
       if (dir != 0) {
-        if (!BLI_listbase_link_move(&gpd->layers, gpl, order_delta)) {
-          BLI_remlink(&gpd->layers, gpl);
+        if (!BLI_listbase_link_move(&gpd->layers, gpl_order, order_delta)) {
+          BLI_remlink(&gpd->layers, gpl_order);
           if (order_delta < 0) {
-            BLI_addhead(&gpd->layers, gpl);
+            BLI_addhead(&gpd->layers, gpl_order);
           }
           else {
-            BLI_addtail(&gpd->layers, gpl);
+            BLI_addtail(&gpd->layers, gpl_order);
           }
         }
 
@@ -309,8 +308,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
   /* Morph all layers (transform and opacity). */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Layer filter. */
-    if (!is_layer_affected_by_modifier(ob,
-                                       mmd->layername,
+    if (!is_layer_affected_by_modifier(mmd->layername,
                                        mmd->layer_pass,
                                        gpl,
                                        mmd->flag & GP_MORPHTARGETS_INVERT_LAYER,

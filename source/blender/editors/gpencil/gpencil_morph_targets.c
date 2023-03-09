@@ -423,7 +423,7 @@ void GPENCIL_OT_morph_target_move(wmOperatorType *ot)
 }
 
 /* ******************* Edit Morph Target ************************ */
-bool ED_gpencil_morph_target_in_edit_mode()
+bool ED_gpencil_morph_target_in_edit_mode(void)
 {
   return in_edit_mode;
 }
@@ -474,7 +474,7 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
   op->customdata = NULL;
 }
 
-static void gpencil_morph_target_edit_draw(const bContext *C, ARegion *region, void *arg)
+static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *region, void *arg)
 {
   tGPDmorph *tgpm = (tGPDmorph *)arg;
 
@@ -976,7 +976,9 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   op->customdata = tgpm;
 }
 
-static int gpencil_morph_target_edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
+static int gpencil_morph_target_edit_modal(bContext *C,
+                                           wmOperator *op,
+                                           const wmEvent *UNUSED(event))
 {
   /* Operator ends when 'in morph edit mode' flag is disabled (by the Finish Edit operator). */
   if (!in_edit_mode) {
@@ -1034,13 +1036,13 @@ void GPENCIL_OT_morph_target_edit(wmOperatorType *ot)
 }
 
 /* ******************* Finish Edit Morph Target ************************ */
-static int gpencil_morph_target_edit_finish_exec(bContext *C, wmOperator *op)
+static int gpencil_morph_target_edit_finish_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
   in_edit_mode = false;
   return OPERATOR_FINISHED;
 }
 
-bool gpencil_morph_target_edit_finish_poll(bContext *C)
+bool gpencil_morph_target_edit_finish_poll(bContext *UNUSED(C))
 {
   return in_edit_mode;
 }

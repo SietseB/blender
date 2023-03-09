@@ -653,7 +653,7 @@ float ED_gpencil_radial_control_scale(struct bContext *C,
 /**
  * Check if a morph target is currently edited.
  */
-bool ED_gpencil_morph_target_in_edit_mode();
+bool ED_gpencil_morph_target_in_edit_mode(void);
 
 #ifdef __cplusplus
 }
