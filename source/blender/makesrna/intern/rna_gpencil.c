@@ -2840,6 +2840,16 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       prop, "Gouache Style", "Allow lighter colors of this layer to paint over darker colors");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* scale pigment flow */
+  prop = RNA_def_property(srna, "scale_pigment_flow", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_LAYER_ONDINE_SCALE_PIGMENT_FLOW);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop,
+      "Scale Pigment Flow",
+      "When true, the amount of pigment flow depends on the stroke thickness/fill area");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* stroke wetness */
   prop = RNA_def_property(srna, "stroke_wetness", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "stroke_wetness");

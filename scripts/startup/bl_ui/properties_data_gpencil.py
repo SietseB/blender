@@ -152,11 +152,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
 
         # Layer main properties
-        row = layout.row()
-        col = layout.column(align=True)
-
         if gpl:
-            layout = self.layout
             layout.use_property_split = True
             layout.use_property_decorate = True
             col = layout.column(align=True)
@@ -165,44 +161,50 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col = layout.row(align=True)
                 col.prop(gpl, "blend_mode", text="Blend")
 
-            col = layout.row(align=True)
-            col.prop(gpl, "opacity", text="Opacity", slider=True)
-
             if not gpd.watercolor:
+                col = layout.row(align=True)
+                col.prop(gpl, "opacity", text="Opacity", slider=True)
                 col = layout.row(align=True)
                 col.prop(gpl, "use_lights")
 
             if gpd.watercolor:
-                layout.use_property_split = True
+                layout.use_property_split = False
                 no_texture_image = not(gpl.use_texture and gpl.texture_image is not None)
-
-                layout.separator()
-                col = layout.column()
-                col.prop(gpl, "gouache_style")
+                
+                row = layout.row()
+                col = row.column()
+                col.scale_x = 0.78
+                col.label(text="")
+                col = row.column()
+                col.prop(gpl, "clear_underlying")
                 col.prop(gpl, "mix_with_underlying")
                 col.prop(gpl, "limit_to_underlying")
-                col.prop(gpl, "clear_underlying")
-                col = layout.column()
-                col.separator(factor=-0.9)
-                col.enabled = no_texture_image
+                col = row.column()
+                col.prop(gpl, "gouache_style")
+                col = col.column()
+                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.prop(gpl, "scale_pigment_flow")
                 col.prop(gpl, "is_wetted")
                 
+                layout.use_property_split = True
                 layout.separator()
+                col = layout.column()
+                col.prop(gpl, "opacity", text="Opacity", slider=True)
                 col = layout.column()
                 col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
                 col.prop(gpl, "stroke_wetness", slider=True)
                 col = layout.column()
-                col.separator(factor=-0.9)
+                col.separator(factor=-1.4)
                 col.enabled = no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
                 col = layout.column(align=True)
                 col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
-                col.prop(gpl, "stroke_darkened_edge_width", slider=True)
-                col.prop(gpl, "layer_darkened_edge_width", slider=True)
-                col.prop(gpl, "darkened_edge_width_var", slider=True)
-                col.prop(gpl, "darkened_edge_intensity", slider=True)
+                col.prop(gpl, "stroke_darkened_edge_width", slider=True, text="Stroke Edge")
+                col.prop(gpl, "layer_darkened_edge_width", slider=True, text="Layer Edge")
+                col.prop(gpl, "darkened_edge_width_var", slider=True, text="Variation")
+                col.prop(gpl, "darkened_edge_intensity", slider=True, text="Intensity")
 
 
 class DATA_PT_gpencil_layer_texture(LayerDataButtonsPanel, GreasePencilLayerTexturePanel, Panel):

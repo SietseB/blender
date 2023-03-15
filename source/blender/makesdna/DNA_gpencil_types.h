@@ -732,6 +732,8 @@ typedef enum eGPDlayer_OndineFlag {
   GP_LAYER_ONDINE_STROKE_TEXTURE_MIRROR_ANGLE = (1 << 5),
   /* gouache style */
   GP_LAYER_ONDINE_GOUACHE_STYLE = (1 << 6),
+  /* scaled pigment flow, depending on stroke thickness */
+  GP_LAYER_ONDINE_SCALE_PIGMENT_FLOW = (1 << 7),
 } eGPDlayer_OndineFlag;
 
 /** #bGPDlayer.onion_flag */
