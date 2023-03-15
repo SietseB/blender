@@ -143,7 +143,7 @@ static void convert_stroke(GpencilModifierData *md,
 
   /* Sample stroke. */
   if (mmd->sample_length > 0.0f) {
-    BKE_gpencil_stroke_sample(gpd, gps_perimeter, mmd->sample_length, false, 0);
+    BKE_gpencil_stroke_sample(gpd, gps_perimeter, mmd->sample_length, false, 0, false);
   }
   /* Set stroke thickness. */
   gps_perimeter->thickness = mmd->thickness;
@@ -170,7 +170,8 @@ static void convert_stroke(GpencilModifierData *md,
 
   if (orig_idx > 0) {
     BKE_gpencil_stroke_start_set(gps_perimeter, orig_idx);
-    BKE_gpencil_stroke_geometry_update(gpd, gps_perimeter);
+    /* Mark stroke for geometry update. */
+    gps_perimeter->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
   }
 
   /* Add perimeter stroke to frame. */

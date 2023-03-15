@@ -67,7 +67,6 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
 /* Change stroke points by active morph targets. */
 static void morph_strokes(GpencilModifierData *md,
                           Object *ob,
-                          bGPdata *gpd,
                           bGPDlayer *gpl,
                           bGPDframe *gpf,
                           float *mt_factor,
@@ -188,8 +187,8 @@ static void morph_strokes(GpencilModifierData *md,
     }
 
     if (morphed) {
-      /* Calc geometry data. */
-      BKE_gpencil_stroke_geometry_update(gpd, gps);
+      /* Mark stroke for geometry update. */
+      gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
     }
   }
 }
@@ -361,7 +360,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
 
     /* Morph all strokes in frame. */
-    morph_strokes(md, ob, gpd, gpl, gpf, mt_factor, mt_count);
+    morph_strokes(md, ob, gpl, gpf, mt_factor, mt_count);
   }
 }
 

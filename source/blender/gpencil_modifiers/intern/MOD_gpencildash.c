@@ -190,8 +190,10 @@ static bool stroke_dash(const bGPDstroke *gps,
   return true;
 }
 
-static void apply_dash_for_frame(
-    Object *ob, bGPDlayer *gpl, bGPdata *gpd, bGPDframe *gpf, DashGpencilModifierData *dmd)
+static void apply_dash_for_frame(Object *ob,
+                                 bGPDlayer *gpl,
+                                 bGPDframe *gpf,
+                                 DashGpencilModifierData *dmd)
 {
   if (dmd->segments_len == 0) {
     return;
@@ -221,7 +223,8 @@ static void apply_dash_for_frame(
   bGPDstroke *gps_dash;
   while ((gps_dash = BLI_pophead(&result))) {
     BLI_addtail(&gpf->strokes, gps_dash);
-    BKE_gpencil_stroke_geometry_update(gpd, gps_dash);
+    /* Mark stroke for geometry update. */
+    gps_dash->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
   }
 }
 
@@ -234,7 +237,7 @@ static void bakeModifier(Main *UNUSED(bmain),
 
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      apply_dash_for_frame(ob, gpl, gpd, gpf, (DashGpencilModifierData *)md);
+      apply_dash_for_frame(ob, gpl, gpf, (DashGpencilModifierData *)md);
     }
   }
 }
@@ -264,7 +267,7 @@ static void generateStrokes(GpencilModifierData *md, Depsgraph *depsgraph, Objec
     if (gpf == NULL) {
       continue;
     }
-    apply_dash_for_frame(ob, gpl, gpd, gpf, (DashGpencilModifierData *)md);
+    apply_dash_for_frame(ob, gpl, gpf, (DashGpencilModifierData *)md);
   }
 }
 

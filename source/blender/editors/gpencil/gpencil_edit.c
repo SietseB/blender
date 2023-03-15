@@ -4311,7 +4311,7 @@ static int gpencil_stroke_outline_exec(bContext *C, wmOperator *op)
 
           /* Sample stroke. */
           if (length > 0.0f) {
-            BKE_gpencil_stroke_sample(gpd, gps_perimeter, length, false, 0);
+            BKE_gpencil_stroke_sample(gpd, gps_perimeter, length, false, 0, true);
           }
           /* Set stroke thickness. */
           gps_perimeter->thickness = thickness;
@@ -4800,7 +4800,7 @@ static int gpencil_stroke_simplify_exec(bContext *C, wmOperator *op)
     GP_EDITABLE_STROKES_BEGIN (gpstroke_iter, C, gpl, gps) {
       if (gps->flag & GP_STROKE_SELECT) {
         /* simplify stroke using Ramer-Douglas-Peucker algorithm */
-        BKE_gpencil_stroke_simplify_adaptive(gpd, gps, factor);
+        BKE_gpencil_stroke_simplify_adaptive(gpd, gps, factor, true);
         changed = true;
       }
     }
@@ -4861,7 +4861,7 @@ static int gpencil_stroke_simplify_fixed_exec(bContext *C, wmOperator *op)
       if (gps->flag & GP_STROKE_SELECT) {
         changed |= true;
         for (int i = 0; i < steps; i++) {
-          BKE_gpencil_stroke_simplify_fixed(gpd, gps);
+          BKE_gpencil_stroke_simplify_fixed(gpd, gps, true);
         }
       }
     }
@@ -4915,7 +4915,7 @@ static int gpencil_stroke_sample_exec(bContext *C, wmOperator *op)
   /* Go through each editable + selected stroke */
   GP_EDITABLE_STROKES_BEGIN (gpstroke_iter, C, gpl, gps) {
     if (gps->flag & GP_STROKE_SELECT) {
-      BKE_gpencil_stroke_sample(gpd, gps, length, true, sharp_threshold);
+      BKE_gpencil_stroke_sample(gpd, gps, length, true, sharp_threshold, true);
     }
   }
   GP_EDITABLE_STROKES_END(gpstroke_iter);
@@ -5864,7 +5864,7 @@ static int gpencil_merge_by_distance_exec(bContext *C, wmOperator *op)
     /* Go through each editable selected stroke */
     GP_EDITABLE_STROKES_BEGIN (gpstroke_iter, C, gpl, gps) {
       if (gps->flag & GP_STROKE_SELECT) {
-        BKE_gpencil_stroke_merge_distance(gpd, gpf_, gps, threshold, unselected);
+        BKE_gpencil_stroke_merge_distance(gpd, gpf_, gps, threshold, unselected, true);
       }
     }
     GP_EDITABLE_STROKES_END(gpstroke_iter);

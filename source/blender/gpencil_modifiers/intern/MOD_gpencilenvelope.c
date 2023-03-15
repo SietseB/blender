@@ -337,8 +337,7 @@ static void deformStroke(GpencilModifierData *md,
                         pixfactor);
 }
 
-static void add_stroke(Object *ob,
-                       bGPDstroke *gps,
+static void add_stroke(bGPDstroke *gps,
                        const int point_index,
                        const int connection_index,
                        const int size2,
@@ -349,7 +348,6 @@ static void add_stroke(Object *ob,
                        ListBase *results)
 {
   const int size = size1 + size2;
-  bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, size, gps->thickness);
   gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
 
@@ -369,12 +367,11 @@ static void add_stroke(Object *ob,
 
   BLI_addtail(results, gps_dst);
 
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps_dst);
+  /* Mark stroke for geometry update. */
+  gps_dst->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
-static void add_stroke_cyclic(Object *ob,
-                              bGPDstroke *gps,
+static void add_stroke_cyclic(bGPDstroke *gps,
                               const int point_index,
                               const int connection_index,
                               const int size,
@@ -383,7 +380,6 @@ static void add_stroke_cyclic(Object *ob,
                               const float strength,
                               ListBase *results)
 {
-  bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, size * 2, gps->thickness);
   gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
 
@@ -420,12 +416,11 @@ static void add_stroke_cyclic(Object *ob,
 
   BLI_addtail(results, gps_dst);
 
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps_dst);
+  /* Mark stroke for geometry update. */
+  gps_dst->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
-static void add_stroke_simple(Object *ob,
-                              bGPDstroke *gps,
+static void add_stroke_simple(bGPDstroke *gps,
                               const int point_index,
                               const int connection_index,
                               const int mat_nr,
@@ -433,7 +428,6 @@ static void add_stroke_simple(Object *ob,
                               const float strength,
                               ListBase *results)
 {
-  bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, 2, gps->thickness);
   gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
 
@@ -461,8 +455,8 @@ static void add_stroke_simple(Object *ob,
 
   BLI_addtail(results, gps_dst);
 
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps_dst);
+  /* Mark stroke for geometry update. */
+  gps_dst->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
 static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
@@ -491,8 +485,7 @@ static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gp
       if (gps->flag & GP_STROKE_CYCLIC) {
         for (int i = 0; i < gps->totpoints; i++) {
           const int connection_index = (i + mmd->spread - skip) % gps->totpoints;
-          add_stroke_cyclic(ob,
-                            gps,
+          add_stroke_cyclic(gps,
                             i,
                             connection_index,
                             2 + skip,
@@ -511,8 +504,7 @@ static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gp
                                    min_ii(point_index + 1, gps->totpoints - point_index));
           const int size2 = min_ii(
               2 + skip, min_ii(connection_index + 1, gps->totpoints - connection_index));
-          add_stroke(ob,
-                     gps,
+          add_stroke(gps,
                      point_index,
                      connection_index + 1 - size2,
                      size1,
@@ -533,15 +525,14 @@ static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gp
         for (int i = 0; i < gps->totpoints; i++) {
           const int connection_index = (i + 1 + mmd->spread) % gps->totpoints;
           add_stroke_simple(
-              ob, gps, i, connection_index, mat_nr, mmd->thickness, mmd->strength, &duplicates);
+              gps, i, connection_index, mat_nr, mmd->thickness, mmd->strength, &duplicates);
           i += mmd->skip;
         }
       }
       else {
         for (int i = -mmd->spread; i < gps->totpoints - 1; i++) {
           const int connection_index = min_ii(i + 1 + mmd->spread, gps->totpoints - 1);
-          add_stroke_simple(ob,
-                            gps,
+          add_stroke_simple(gps,
                             max_ii(0, i),
                             connection_index,
                             mat_nr,

@@ -111,8 +111,7 @@ static void gpf_clear_all_strokes(bGPDframe *gpf)
  *
  * NOTE: This won't be called if all points are present/removed
  */
-static void reduce_stroke_points(bGPdata *gpd,
-                                 bGPDframe *gpf,
+static void reduce_stroke_points(bGPDframe *gpf,
                                  bGPDstroke *gps,
                                  const int points_num,
                                  const eBuildGpencil_Transition transition)
@@ -181,8 +180,8 @@ static void reduce_stroke_points(bGPdata *gpd,
   gps->dvert = new_dvert;
   gps->totpoints = points_num;
 
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  /* Mark stroke for geometry update. */
+  gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
 static void fade_stroke_points(bGPDstroke *gps,
@@ -561,12 +560,12 @@ static void build_sequential(Object *ob,
       else if (first_visible > cell->start_idx) {
         /* Starts partway through this stroke */
         int points_num = cell->end_idx - first_visible;
-        reduce_stroke_points(gpd, gpf, cell->gps, points_num, mmd->transition);
+        reduce_stroke_points(gpf, cell->gps, points_num, mmd->transition);
       }
       else {
         /* Ends partway through this stroke */
         int points_num = last_visible - cell->start_idx;
-        reduce_stroke_points(gpd, gpf, cell->gps, points_num, mmd->transition);
+        reduce_stroke_points(gpf, cell->gps, points_num, mmd->transition);
       }
     }
   }
@@ -582,7 +581,6 @@ static void build_sequential(Object *ob,
 
 /* Concurrent - Show multiple strokes at once */
 static void build_concurrent(BuildGpencilModifierData *mmd,
-                             bGPdata *gpd,
                              bGPDframe *gpf,
                              const int target_def_nr,
                              float fac)
@@ -691,7 +689,7 @@ static void build_concurrent(BuildGpencilModifierData *mmd,
                          mmd->fade_opacity_strength);
       if (points_num < gps->totpoints) {
         /* Remove some points */
-        reduce_stroke_points(gpd, gpf, gps, points_num, mmd->transition);
+        reduce_stroke_points(gpf, gps, points_num, mmd->transition);
       }
     }
   }
@@ -850,7 +848,7 @@ static void generate_geometry(GpencilModifierData *md,
       break;
 
     case GP_BUILD_MODE_CONCURRENT:
-      build_concurrent(mmd, gpd, gpf, target_def_nr, fac);
+      build_concurrent(mmd, gpf, target_def_nr, fac);
       break;
 
     default:

@@ -292,9 +292,12 @@ typedef struct bGPDstroke_Runtime {
   /** Curve Handles offset in the IBO where this handle starts. */
   int curve_start;
 
+  /** Runtime flag. */
+  short flag;
+  char _pad[2];
+
   /** Morph index for syncing morph target and base. */
   int morph_index;
-  char _pad0[4];
 
   /** Ondine runtime render calculations */
   float render_fill_color[3];
@@ -313,6 +316,12 @@ typedef struct bGPDstroke_Runtime {
   struct bGPDstroke *gps_orig;
   void *_pad2;
 } bGPDstroke_Runtime;
+
+/** #bGPDstroke.runtimeflag */
+typedef enum eGPDstroke_RuntimeFlag {
+  /* Stroke needs geometry update. */
+  GP_STROKE_UPDATE_GEOMETRY = (1 << 0),
+} eGPDstroke_RuntimeFlag;
 
 /* Grease-Pencil Annotations - 'Stroke'
  * -> A stroke represents a (simplified version) of the curve

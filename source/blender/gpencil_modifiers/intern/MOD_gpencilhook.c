@@ -211,7 +211,6 @@ static void deformStroke(GpencilModifierData *md,
                                       mmd->flag & GP_HOOK_INVERT_MATERIAL)) {
     return;
   }
-  bGPdata *gpd = ob->data;
 
   /* init struct */
   tData.curfalloff = mmd->curfalloff;
@@ -256,8 +255,9 @@ static void deformStroke(GpencilModifierData *md,
     }
     gpencil_hook_co_apply(&tData, weight, pt);
   }
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+
+  /* Mark stroke for geometry update. */
+  gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
 /* FIXME: Ideally we be doing this on a copy of the main depsgraph

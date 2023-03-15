@@ -615,6 +615,43 @@ bGPDframe *BKE_gpencil_frame_retime_get(Depsgraph *depsgraph,
   return gpf;
 }
 
+static void gpencil_modifier_clear_flag_geo_update(Depsgraph *depsgraph, Scene *scene, Object *ob)
+{
+  bGPdata *gpd = (bGPdata *)ob->data;
+
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      bGPDframe *gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
+      if (gpf == NULL) {
+        continue;
+      }
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        gps->runtime.flag &= ~GP_STROKE_UPDATE_GEOMETRY;
+      }
+    }
+  }
+}
+
+void BKE_gpencil_modifier_update_stroke_geometry(Depsgraph *depsgraph, Scene *scene, Object *ob)
+{
+  bGPdata *gpd = (bGPdata *)ob->data;
+
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      bGPDframe *gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
+      if (gpf == NULL) {
+        continue;
+      }
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        if ((gps->runtime.flag & GP_STROKE_UPDATE_GEOMETRY) != 0) {
+          BKE_gpencil_stroke_geometry_update(gpd, gps);
+          gps->runtime.flag &= ~GP_STROKE_UPDATE_GEOMETRY;
+        }
+      }
+    }
+  }
+}
+
 static void gpencil_assign_object_eval(Object *object)
 {
   BLI_assert(object->id.tag & LIB_TAG_COPIED_ON_WRITE);
@@ -789,6 +826,9 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   /* Init general modifiers data. */
   BKE_gpencil_cache_data_init(depsgraph, ob);
 
+  /* Clear 'update geometry' flag on all strokes. */
+  gpencil_modifier_clear_flag_geo_update(depsgraph, scene, ob);
+
   const bool time_remap = BKE_gpencil_has_time_modifiers(ob);
   bool is_first_lineart = true;
   GpencilLineartLimitInfo info = BKE_gpencil_get_lineart_modifier_limits(ob);
@@ -829,6 +869,9 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
       }
     }
   }
+
+  /* Update geometry of affected/generated strokes. */
+  BKE_gpencil_modifier_update_stroke_geometry(depsgraph, scene, ob);
 
   /* Clear any cache data. */
   BKE_gpencil_cache_data_clear(ob);

@@ -69,7 +69,6 @@ static void deformStroke(GpencilModifierData *md,
                          bGPDframe *UNUSED(gpf),
                          bGPDstroke *gps)
 {
-  bGPdata *gpd = ob->data;
   ShrinkwrapGpencilModifierData *mmd = (ShrinkwrapGpencilModifierData *)md;
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
 
@@ -114,8 +113,8 @@ static void deformStroke(GpencilModifierData *md,
   BKE_gpencil_stroke_smooth(
       gps, mmd->smooth_factor, mmd->smooth_step, true, false, false, false, true, NULL);
 
-  /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  /* Mark stroke for geometry update. */
+  gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
 static void bakeModifier(Main *UNUSED(bmain),

@@ -449,7 +449,8 @@ bool BKE_gpencil_stroke_sample(bGPdata *gpd,
                                bGPDstroke *gps,
                                const float dist,
                                const bool select,
-                               const float sharp_threshold)
+                               const float sharp_threshold,
+                               const bool update_geometry)
 {
   bGPDspoint *pt = gps->points;
   bGPDspoint *pt1 = nullptr;
@@ -569,7 +570,9 @@ bool BKE_gpencil_stroke_sample(bGPdata *gpd,
   gps->totpoints = i;
 
   /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  if (update_geometry) {
+    BKE_gpencil_stroke_geometry_update(gpd, gps);
+  }
 
   return true;
 }
@@ -2045,7 +2048,10 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 /** \name Stroke Simplify
  * \{ */
 
-void BKE_gpencil_stroke_simplify_adaptive(bGPdata *gpd, bGPDstroke *gps, float epsilon)
+void BKE_gpencil_stroke_simplify_adaptive(bGPdata *gpd,
+                                          bGPDstroke *gps,
+                                          float epsilon,
+                                          const bool update_geometry)
 {
   bGPDspoint *old_points = (bGPDspoint *)MEM_dupallocN(gps->points);
   int totpoints = gps->totpoints;
@@ -2142,14 +2148,16 @@ void BKE_gpencil_stroke_simplify_adaptive(bGPdata *gpd, bGPDstroke *gps, float e
   gps->totpoints = j;
 
   /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  if (update_geometry) {
+    BKE_gpencil_stroke_geometry_update(gpd, gps);
+  }
 
   MEM_SAFE_FREE(old_points);
   MEM_SAFE_FREE(old_dvert);
   MEM_SAFE_FREE(marked);
 }
 
-void BKE_gpencil_stroke_simplify_fixed(bGPdata *gpd, bGPDstroke *gps)
+void BKE_gpencil_stroke_simplify_fixed(bGPdata *gpd, bGPDstroke *gps, const bool update_geometry)
 {
   if (gps->totpoints < 4) {
     return;
@@ -2203,13 +2211,16 @@ void BKE_gpencil_stroke_simplify_fixed(bGPdata *gpd, bGPDstroke *gps)
 
   gps->totpoints = j;
   /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  if (update_geometry) {
+    BKE_gpencil_stroke_geometry_update(gpd, gps);
+  }
 
   MEM_SAFE_FREE(old_points);
   MEM_SAFE_FREE(old_dvert);
 }
 
-void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int type)
+void BKE_gpencil_stroke_subdivide(
+    bGPdata *gpd, bGPDstroke *gps, int level, int type, const bool update_geometry)
 {
   bGPDspoint *temp_points;
   MDeformVert *temp_dverts = nullptr;
@@ -2321,7 +2332,9 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
   }
 
   /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  if (update_geometry) {
+    BKE_gpencil_stroke_geometry_update(gpd, gps);
+  }
 }
 
 /** \} */
@@ -2334,7 +2347,8 @@ void BKE_gpencil_stroke_merge_distance(bGPdata *gpd,
                                        bGPDframe *gpf,
                                        bGPDstroke *gps,
                                        const float threshold,
-                                       const bool use_unselected)
+                                       const bool use_unselected,
+                                       const bool update_geometry)
 {
   bGPDspoint *pt = nullptr;
   bGPDspoint *pt_next = nullptr;
@@ -2400,7 +2414,9 @@ void BKE_gpencil_stroke_merge_distance(bGPdata *gpd,
   }
 
   /* Calc geometry data. */
-  BKE_gpencil_stroke_geometry_update(gpd, gps);
+  if (update_geometry) {
+    BKE_gpencil_stroke_geometry_update(gpd, gps);
+  }
 }
 
 struct GpEdge {
@@ -2813,7 +2829,7 @@ bool BKE_gpencil_convert_mesh(Main *bmain,
       }
       /* If has only 3 points subdivide. */
       if (poly.totloop == 3) {
-        BKE_gpencil_stroke_subdivide(gpd, gps_fill, 1, GP_SUBDIV_SIMPLE);
+        BKE_gpencil_stroke_subdivide(gpd, gps_fill, 1, GP_SUBDIV_SIMPLE, false);
       }
 
       BKE_gpencil_stroke_geometry_update(gpd, gps_fill);

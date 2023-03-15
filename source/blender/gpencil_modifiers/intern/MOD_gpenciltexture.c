@@ -63,7 +63,6 @@ static void deformStroke(GpencilModifierData *md,
 {
   TextureGpencilModifierData *mmd = (TextureGpencilModifierData *)md;
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
-  bGPdata *gpd = ob->data;
 
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
@@ -84,7 +83,8 @@ static void deformStroke(GpencilModifierData *md,
     gps->uv_translation[0] += mmd->fill_offset[0];
     gps->uv_translation[1] += mmd->fill_offset[1];
     gps->uv_scale *= mmd->fill_scale;
-    BKE_gpencil_stroke_geometry_update(gpd, gps);
+    /* Mark stroke for geometry update. */
+    gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
   }
 
   if (ELEM(mmd->mode, STROKE, STROKE_AND_FILL)) {

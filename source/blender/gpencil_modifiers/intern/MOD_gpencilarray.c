@@ -219,6 +219,9 @@ static void generate_geometry(GpencilModifierData *md,
 
     float rand_offset = BLI_hash_int_01(seed);
 
+    /* Before duplicating them, update geometry of strokes affected by other modifiers. */
+    BKE_gpencil_modifier_update_stroke_geometry(depsgraph, scene, ob);
+
     for (int x = 0; x < mmd->count; x++) {
       /* original strokes are at index = 0 */
       if (x == 0) {

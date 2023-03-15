@@ -75,29 +75,40 @@ static void deformStroke(GpencilModifierData *md,
     return;
   }
   bGPdata *gpd = ob->data;
+  bool changed = false;
+
   /* Select simplification mode. */
   switch (mmd->mode) {
     case GP_SIMPLIFY_FIXED: {
       for (int i = 0; i < mmd->step; i++) {
-        BKE_gpencil_stroke_simplify_fixed(gpd, gps);
+        BKE_gpencil_stroke_simplify_fixed(gpd, gps, false);
       }
+      changed = true;
       break;
     }
     case GP_SIMPLIFY_ADAPTIVE: {
       /* simplify stroke using Ramer-Douglas-Peucker algorithm */
-      BKE_gpencil_stroke_simplify_adaptive(gpd, gps, mmd->factor);
+      BKE_gpencil_stroke_simplify_adaptive(gpd, gps, mmd->factor, false);
+      changed = true;
       break;
     }
     case GP_SIMPLIFY_SAMPLE: {
-      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false, mmd->sharp_threshold);
+      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false, mmd->sharp_threshold, false);
+      changed = true;
       break;
     }
     case GP_SIMPLIFY_MERGE: {
-      BKE_gpencil_stroke_merge_distance(gpd, gpf, gps, mmd->distance, true);
+      BKE_gpencil_stroke_merge_distance(gpd, gpf, gps, mmd->distance, true, false);
+      changed = true;
       break;
     }
     default:
       break;
+  }
+
+  if (changed) {
+    /* Mark stroke for geometry update. */
+    gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
   }
 }
 

@@ -106,12 +106,8 @@ static bool gpencil_modify_stroke(bGPDstroke *gps,
   return changed;
 }
 
-static void applyLength(GpencilModifierData *md,
-                        Depsgraph *depsgraph,
-                        bGPdata *gpd,
-                        bGPDframe *gpf,
-                        bGPDstroke *gps,
-                        Object *ob)
+static void applyLength(
+    GpencilModifierData *md, Depsgraph *depsgraph, bGPDframe *gpf, bGPDstroke *gps, Object *ob)
 {
   bool changed = false;
   LengthGpencilModifierData *lmd = (LengthGpencilModifierData *)md;
@@ -201,7 +197,8 @@ static void applyLength(GpencilModifierData *md,
                                    lmd->flag & GP_LENGTH_INVERT_CURVATURE);
 
   if (changed) {
-    BKE_gpencil_stroke_geometry_update(gpd, gps);
+    /* Mark stroke for geometry update. */
+    gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
   }
 }
 
@@ -212,7 +209,6 @@ static void deformStroke(GpencilModifierData *md,
                          bGPDframe *gpf,
                          bGPDstroke *gps)
 {
-  bGPdata *gpd = ob->data;
   LengthGpencilModifierData *lmd = (LengthGpencilModifierData *)md;
   if (!is_stroke_affected_by_modifier(ob,
                                       lmd->layername,
@@ -232,7 +228,7 @@ static void deformStroke(GpencilModifierData *md,
     /* Don't affect cyclic strokes as they have no start/end. */
     return;
   }
-  applyLength(md, depsgraph, gpd, gpf, gps, ob);
+  applyLength(md, depsgraph, gpf, gps, ob);
 }
 
 static void bakeModifier(Main *UNUSED(bmain),

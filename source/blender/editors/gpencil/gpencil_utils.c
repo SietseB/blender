@@ -3274,7 +3274,7 @@ bGPDstroke *ED_gpencil_stroke_join_and_trim(
 
   pt = &gps_final->points[totpoint];
   pt->flag |= GP_SPOINT_SELECT;
-  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps_final, 0.01f, false);
+  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps_final, 0.01f, false, true);
 
   /* Unselect all points. */
   for (int i = 0; i < gps_final->totpoints; i++) {

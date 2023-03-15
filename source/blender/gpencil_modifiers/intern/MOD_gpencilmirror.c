@@ -105,7 +105,6 @@ static void generate_geometry(
     GpencilModifierData *md, Object *ob, bGPDlayer *gpl, bGPDframe *gpf, const bool update)
 {
   MirrorGpencilModifierData *mmd = (MirrorGpencilModifierData *)md;
-  bGPdata *gpd = ob->data;
   bGPDstroke *gps, *gps_new = NULL;
   int tot_strokes;
   int i;
@@ -134,7 +133,8 @@ static void generate_geometry(
 
           update_position(ob, mmd, gps_new, xi);
           if (update) {
-            BKE_gpencil_stroke_geometry_update(gpd, gps_new);
+            /* Mark stroke for geometry update. */
+            gps_new->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
           }
           BLI_addtail(&gpf->strokes, gps_new);
         }

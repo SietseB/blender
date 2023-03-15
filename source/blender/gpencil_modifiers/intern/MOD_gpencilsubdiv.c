@@ -78,7 +78,10 @@ static void deformStroke(GpencilModifierData *md,
   /* For strokes with less than 3 points, only the Simple Subdivision makes sense. */
   short type = gps->totpoints < 3 ? GP_SUBDIV_SIMPLE : mmd->type;
 
-  BKE_gpencil_stroke_subdivide(gpd, gps, mmd->level, type);
+  BKE_gpencil_stroke_subdivide(gpd, gps, mmd->level, type, false);
+
+  /* Mark stroke for geometry update. */
+  gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 }
 
 static void bakeModifier(struct Main *UNUSED(bmain),
