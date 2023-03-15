@@ -17,7 +17,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BKE_deform.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_particle.h"
 
 #include "MOD_modifiertypes.h"
@@ -384,8 +384,8 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
 
   float *result_edge_bweight = nullptr;
   if (do_bevel_convex) {
-    result_edge_bweight = static_cast<float *>(CustomData_add_layer(
-        &result->edata, CD_BWEIGHT, CD_SET_DEFAULT, nullptr, result->totedge));
+    result_edge_bweight = static_cast<float *>(
+        CustomData_add_layer(&result->edata, CD_BWEIGHT, CD_SET_DEFAULT, result->totedge));
   }
 
   /* Initializes: (`i_end`, `do_shell_align`, `vert_index`). */
@@ -715,7 +715,7 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
     }
 
     for (const int64_t i : blender::IndexRange(polys_num)) {
-      /* #BKE_mesh_calc_poly_angles logic is inlined here */
+      /* #bke::mesh::poly_angles_calc logic is inlined here */
       float nor_prev[3];
       float nor_next[3];
 
@@ -1037,7 +1037,7 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
     float *result_edge_crease = nullptr;
     if (crease_rim || crease_outer || crease_inner) {
       result_edge_crease = (float *)CustomData_add_layer(
-          &result->edata, CD_CREASE, CD_SET_DEFAULT, nullptr, result->totedge);
+          &result->edata, CD_CREASE, CD_SET_DEFAULT, result->totedge);
     }
 
     /* add faces & edges */

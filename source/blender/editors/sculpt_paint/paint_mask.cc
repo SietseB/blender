@@ -28,7 +28,7 @@
 #include "BKE_ccg.h"
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_multires.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
@@ -1711,7 +1711,11 @@ static int sculpt_trim_gesture_box_invoke(bContext *C, wmOperator *op, const wmE
 
 static int sculpt_trim_gesture_lasso_exec(bContext *C, wmOperator *op)
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *object = CTX_data_active_object(C);
+
+  BKE_sculpt_update_object_for_edit(depsgraph, object, false, true, false);
+
   SculptSession *ss = object->sculpt;
   if (BKE_pbvh_type(ss->pbvh) != PBVH_FACES) {
     /* Not supported in Multires and Dyntopo. */

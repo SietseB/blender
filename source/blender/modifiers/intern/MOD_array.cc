@@ -31,7 +31,7 @@
 #include "BKE_displist.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
-#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
 #include "BKE_modifier.h"
 #include "BKE_object_deform.h"
 #include "BKE_screen.h"
@@ -372,8 +372,12 @@ static void mesh_merge_transform(Mesh *result,
 
 static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
                                    const ModifierEvalContext *ctx,
-                                   const Mesh *mesh)
+                                   Mesh *mesh)
 {
+  if (mesh->totvert == 0) {
+    return mesh;
+  }
+
   MEdge *edge;
   MLoop *ml;
   int i, j, c, count;
