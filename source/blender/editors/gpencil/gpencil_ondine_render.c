@@ -26,7 +26,7 @@ void gpencil_ondine_render_set_zdepth(Object *ob)
 }
 
 /* Init Ondine watercolor rendering for current frame */
-static int gpencil_ondine_set_unique_stroke_seeds_exec(bContext *C, wmOperator *op)
+static int gpencil_ondine_set_unique_stroke_seeds_exec(bContext *C, wmOperator *UNUSED(op))
 {
   gpencil_ondine_set_unique_stroke_seeds(C);
   return OPERATOR_FINISHED;
@@ -45,7 +45,7 @@ void GPENCIL_OT_ondine_set_unique_stroke_seeds(wmOperatorType *ot)
 }
 
 /* Init Ondine watercolor rendering for current frame */
-static int gpencil_ondine_render_init_exec(bContext *C, wmOperator *op)
+static int gpencil_ondine_render_init_exec(bContext *C, wmOperator *UNUSED(op))
 {
   bool success = gpencil_ondine_render_init(C);
   if (!success) {

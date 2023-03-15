@@ -6,15 +6,15 @@
  * Operators for Ondine watercolor Grease Pencil.
  */
 
-#include "DNA_gpencil_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_material_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"
 
 #include "BKE_camera.h"
 #include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_gpencil_geom.h"
+#include "BKE_gpencil_geom_legacy.h"
+#include "BKE_gpencil_legacy.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_scene.h"
@@ -198,8 +198,10 @@ float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
   return r_co;
 }
 
-float GpencilOndine::stroke_point_radius_get(
-    bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, const int p_index, const float thickness)
+float GpencilOndine::stroke_point_radius_get(bGPdata *gpd,
+                                             bGPDstroke *gps,
+                                             const int p_index,
+                                             const float thickness)
 {
   float defaultpixsize = 1000.0f / gpd->pixfactor;
   float stroke_radius = (thickness / defaultpixsize) / 2.0f;
@@ -221,8 +223,7 @@ float GpencilOndine::stroke_point_radius_get(
   return MAX2(radius, 1.0f);
 }
 
-void GpencilOndine::set_stroke_colors(Object *ob,
-                                      bGPDlayer *gpl,
+void GpencilOndine::set_stroke_colors(bGPDlayer *gpl,
                                       bGPDstroke *gps,
                                       MaterialGPencilStyle *gp_style)
 {
@@ -318,7 +319,7 @@ void GpencilOndine::set_render_data(Object *object)
       }
 
       /* Set stroke and fill color, in linear sRGB */
-      this->set_stroke_colors(object, gpl, gps, gp_style);
+      this->set_stroke_colors(gpl, gps, gp_style);
 
       /* Calculate distance to camera */
       gps->runtime.render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
@@ -388,10 +389,10 @@ void GpencilOndine::set_render_data(Object *object)
         thickness *= mat4_to_scale(object->object_to_world);
         CLAMP_MIN(thickness, 1.0f);
         float max_stroke_width = this->stroke_point_radius_get(
-                                     gpd, gpl, gps, min_dist_point_index, thickness) *
+                                     gpd, gps, min_dist_point_index, thickness) *
                                  2.0f;
         float min_stroke_width = this->stroke_point_radius_get(
-                                     gpd, gpl, gps, max_dist_point_index, thickness) *
+                                     gpd, gps, max_dist_point_index, thickness) *
                                  2.0f;
         gps->runtime.render_stroke_width = max_stroke_width;
 
