@@ -2912,12 +2912,14 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
         bGPdata *gpd_src = ob_iter->data;
 
         /* Apply all GP modifiers before */
+        BKE_gpencil_stroke_init_update_geometry(depsgraph, scene, ob_src, true);
         LISTBASE_FOREACH (GpencilModifierData *, md, &ob_iter->greasepencil_modifiers) {
           const GpencilModifierTypeInfo *mti = BKE_gpencil_modifier_get_info(md->type);
           if (mti->bakeModifier) {
             mti->bakeModifier(bmain, depsgraph, md, ob_iter);
           }
         }
+        BKE_gpencil_stroke_update_geometry_of_modifiers(depsgraph, scene, ob_src, true);
 
         /* copy vertex groups to the base one's */
         int old_idx = 0;

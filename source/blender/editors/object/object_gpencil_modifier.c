@@ -228,6 +228,7 @@ static bool gpencil_modifier_apply_obdata(
     ReportList *reports, Main *bmain, Depsgraph *depsgraph, Object *ob, GpencilModifierData *md)
 {
   const GpencilModifierTypeInfo *mti = BKE_gpencil_modifier_get_info(md->type);
+  Scene *scene = DEG_get_evaluated_scene(depsgraph);
 
   if (mti->isDisabled && mti->isDisabled(md, 0)) {
     BKE_report(reports, RPT_ERROR, "Modifier is disabled, skipping apply");
@@ -242,7 +243,9 @@ static bool gpencil_modifier_apply_obdata(
       BKE_report(reports, RPT_ERROR, "Not implemented");
       return false;
     }
+    BKE_gpencil_stroke_init_update_geometry(depsgraph, scene, ob, true);
     mti->bakeModifier(bmain, depsgraph, md, ob);
+    BKE_gpencil_stroke_update_geometry_of_modifiers(depsgraph, scene, ob, true);
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   }
   else {
