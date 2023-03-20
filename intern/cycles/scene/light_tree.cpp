@@ -205,46 +205,43 @@ LightTree::LightTree(vector<LightTreePrimitive> &prims,
   }
 
   max_lights_in_leaf_ = max_lights_in_leaf;
-  int num_prims = prims.size();
-  int num_local_lights = num_prims - num_distant_lights;
-  /* The amount of nodes is estimated to be twice the amount of primitives */
-  nodes_.reserve(2 * num_prims);
+  const int num_prims = prims.size();
+  const int num_local_lights = num_prims - num_distant_lights;
 
-  nodes_.emplace_back();                             /* root node */
-  recursive_build(0, num_local_lights, prims, 0, 1); /* build tree */
-  nodes_[0].make_interior(nodes_.size());
+  root = create_node(BoundBox::empty, OrientationBounds::empty, 0.0f, 0);
+  /* All local lights are grouped to the left child as an inner node. */
+  recursive_build(left, root.get(), 0, num_local_lights, &prims, 0, 1);
+  task_pool.wait_work();
 
-  /* All distant lights are grouped to one node (right child of the root node) */
   OrientationBounds bcone = OrientationBounds::empty;
   float energy_total = 0.0;
+  /* All distant lights are grouped to the right child as a leaf node. */
   for (int i = num_local_lights; i < num_prims; i++) {
     const LightTreePrimitive &prim = prims.at(i);
     bcone = merge(bcone, prim.bcone);
     energy_total += prim.energy;
   }
-  nodes_.emplace_back(BoundBox::empty, bcone, energy_total, 1);
-  nodes_.back().make_leaf(num_local_lights, num_distant_lights);
 
-  nodes_.shrink_to_fit();
+  root->children[right] = create_node(BoundBox::empty, bcone, energy_total, 1);
+  root->children[right]->make_leaf(num_local_lights, num_distant_lights);
 }
 
-const vector<LightTreeNode> &LightTree::get_nodes() const
-{
-  return nodes_;
-}
-
-int LightTree::recursive_build(
-    int start, int end, vector<LightTreePrimitive> &prims, uint bit_trail, int depth)
+void LightTree::recursive_build(const Child child,
+                                LightTreeNode *parent,
+                                const int start,
+                                const int end,
+                                vector<LightTreePrimitive> *prims,
+                                const uint bit_trail,
+                                const int depth)
 {
   BoundBox bbox = BoundBox::empty;
   OrientationBounds bcone = OrientationBounds::empty;
   BoundBox centroid_bounds = BoundBox::empty;
-  float energy_total = 0.0;
-  int num_prims = end - start;
-  int current_index = nodes_.size();
+  float energy_total = 0.0f;
+  const int num_prims = end - start;
 
   for (int i = start; i < end; i++) {
-    const LightTreePrimitive &prim = prims.at(i);
+    const LightTreePrimitive &prim = (*prims)[i];
     bbox.grow(prim.bbox);
     bcone = merge(bcone, prim.bcone);
     centroid_bounds.grow(prim.centroid);
@@ -252,16 +249,17 @@ int LightTree::recursive_build(
     energy_total += prim.energy;
   }
 
-  nodes_.emplace_back(bbox, bcone, energy_total, bit_trail);
+  parent->children[child] = create_node(bbox, bcone, energy_total, bit_trail);
+  LightTreeNode *current_node = parent->children[child].get();
 
-  bool try_splitting = num_prims > 1 && len(centroid_bounds.size()) > 0.0f;
+  const bool try_splitting = num_prims > 1 && len(centroid_bounds.size()) > 0.0f;
   int split_dim = -1, split_bucket = 0, num_left_prims = 0;
   bool should_split = false;
   if (try_splitting) {
     /* Find the best place to split the primitives into 2 nodes.
      * If the best split cost is no better than making a leaf node, make a leaf instead. */
-    float min_cost = min_split_saoh(
-        centroid_bounds, start, end, bbox, bcone, split_dim, split_bucket, num_left_prims, prims);
+    const float min_cost = min_split_saoh(
+        centroid_bounds, start, end, bbox, bcone, split_dim, split_bucket, num_left_prims, *prims);
     should_split = num_prims > max_lights_in_leaf_ || min_cost < energy_total;
   }
   if (should_split) {
@@ -271,9 +269,9 @@ int LightTree::recursive_build(
       /* Partition the primitives between start and end based on the split dimension and bucket
        * calculated by `split_saoh` */
       middle = start + num_left_prims;
-      std::nth_element(prims.begin() + start,
-                       prims.begin() + middle,
-                       prims.begin() + end,
+      std::nth_element(prims->begin() + start,
+                       prims->begin() + middle,
+                       prims->begin() + end,
                        [split_dim](const LightTreePrimitive &l, const LightTreePrimitive &r) {
                          return l.centroid[split_dim] < r.centroid[split_dim];
                        });
@@ -283,20 +281,36 @@ int LightTree::recursive_build(
       middle = (start + end) / 2;
     }
 
-    [[maybe_unused]] int left_index = recursive_build(start, middle, prims, bit_trail, depth + 1);
-    int right_index = recursive_build(middle, end, prims, bit_trail | (1u << depth), depth + 1);
-    assert(left_index == current_index + 1);
-    nodes_[current_index].make_interior(right_index);
+    /* Recursively build the left branch. */
+    if (middle - start > MIN_PRIMS_PER_THREAD) {
+      task_pool.push([=] {
+        recursive_build(left, current_node, start, middle, prims, bit_trail, depth + 1);
+      });
+    }
+    else {
+      recursive_build(left, current_node, start, middle, prims, bit_trail, depth + 1);
+    }
+
+    /* Recursively build the right branch. */
+    if (end - middle > MIN_PRIMS_PER_THREAD) {
+      task_pool.push([=] {
+        recursive_build(
+            right, current_node, middle, end, prims, bit_trail | (1u << depth), depth + 1);
+      });
+    }
+    else {
+      recursive_build(
+          right, current_node, middle, end, prims, bit_trail | (1u << depth), depth + 1);
+    }
   }
   else {
-    nodes_[current_index].make_leaf(start, num_prims);
+    current_node->make_leaf(start, num_prims);
   }
-  return current_index;
 }
 
 float LightTree::min_split_saoh(const BoundBox &centroid_bbox,
-                                int start,
-                                int end,
+                                const int start,
+                                const int end,
                                 const BoundBox &bbox,
                                 const OrientationBounds &bcone,
                                 int &split_dim,
@@ -329,7 +343,7 @@ float LightTree::min_split_saoh(const BoundBox &centroid_bbox,
     const float inv_extent = 1 / (centroid_bbox.size()[dim]);
 
     /* Fill in buckets with primitives. */
-    vector<LightTreeBucketInfo> buckets(LightTreeBucketInfo::num_buckets);
+    std::array<LightTreeBucketInfo, LightTreeBucketInfo::num_buckets> buckets;
     for (int i = start; i < end; i++) {
       const LightTreePrimitive &prim = prims[i];
 
@@ -348,7 +362,7 @@ float LightTree::min_split_saoh(const BoundBox &centroid_bbox,
     }
 
     /* Calculate the cost of splitting at each point between partitions. */
-    vector<float> bucket_costs(LightTreeBucketInfo::num_buckets - 1);
+    std::array<float, LightTreeBucketInfo::num_buckets - 1> bucket_costs;
     float energy_L, energy_R;
     BoundBox bbox_L, bbox_R;
     OrientationBounds bcone_L, bcone_R;
@@ -379,9 +393,10 @@ float LightTree::min_split_saoh(const BoundBox &centroid_bbox,
       /* Calculate the cost of splitting using the heuristic as described in the paper. */
       const float area_L = has_area ? bbox_L.area() : len(bbox_L.size());
       const float area_R = has_area ? bbox_R.area() : len(bbox_R.size());
-      float left = (bbox_L.valid()) ? energy_L * area_L * bcone_L.calculate_measure() : 0.0f;
-      float right = (bbox_R.valid()) ? energy_R * area_R * bcone_R.calculate_measure() : 0.0f;
-      float regularization = max_extent * inv_extent;
+      const float left = (bbox_L.valid()) ? energy_L * area_L * bcone_L.calculate_measure() : 0.0f;
+      const float right = (bbox_R.valid()) ? energy_R * area_R * bcone_R.calculate_measure() :
+                                             0.0f;
+      const float regularization = max_extent * inv_extent;
       bucket_costs[split] = regularization * (left + right) * inv_total_cost;
 
       if (bucket_costs[split] < min_cost) {

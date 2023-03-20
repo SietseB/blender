@@ -2523,7 +2523,7 @@ static void gpencil_generate_edgeloops(Object *ob,
   const Span<float3> vert_positions = me->vert_positions();
   const Span<MEdge> edges = me->edges();
   const Span<MDeformVert> dverts = me->deform_verts();
-  const float(*vert_normals)[3] = BKE_mesh_vert_normals_ensure(me);
+  const blender::Span<blender::float3> vert_normals = me->vert_normals();
   const bke::AttributeAccessor attributes = me->attributes();
   const VArray<bool> uv_seams = attributes.lookup_or_default<bool>(
       ".uv_seam", ATTR_DOMAIN_EDGE, false);
@@ -2734,7 +2734,7 @@ bool BKE_gpencil_convert_mesh(Main *bmain,
   const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
   const Span<float3> positions = me_eval->vert_positions();
   const Span<MPoly> polys = me_eval->polys();
-  const Span<MLoop> loops = me_eval->loops();
+  const Span<int> corner_verts = me_eval->corner_verts();
   int polys_len = me_eval->totpoly;
   char element_name[200];
 
@@ -2806,10 +2806,10 @@ bool BKE_gpencil_convert_mesh(Main *bmain,
 
       /* Add points to strokes. */
       for (int j = 0; j < poly.totloop; j++) {
-        const MLoop *ml = &loops[poly.loopstart + j];
+        const int vert = corner_verts[poly.loopstart + j];
 
         bGPDspoint *pt = &gps_fill->points[j];
-        copy_v3_v3(&pt->x, positions[ml->v]);
+        copy_v3_v3(&pt->x, positions[vert]);
         mul_m4_v3(matrix, &pt->x);
         pt->pressure = 1.0f;
         pt->strength = 1.0f;
@@ -2817,7 +2817,7 @@ bool BKE_gpencil_convert_mesh(Main *bmain,
         /* Copy vertex groups from mesh. Assuming they already exist in the same order. */
         if (use_vgroups && !dverts.is_empty()) {
           MDeformVert *dv = &gps_fill->dvert[j];
-          const MDeformVert *src_dv = &dverts[ml->v];
+          const MDeformVert *src_dv = &dverts[vert];
           dv->totweight = src_dv->totweight;
           dv->dw = (MDeformWeight *)MEM_callocN(sizeof(MDeformWeight) * dv->totweight,
                                                 "gp_fill_dverts_dw");

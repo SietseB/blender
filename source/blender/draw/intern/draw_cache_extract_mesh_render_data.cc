@@ -225,7 +225,7 @@ static void mesh_render_data_polys_sorted_build(MeshRenderData *mr, MeshBufferCa
     int i;
     BM_ITER_MESH_INDEX (f, &iter, mr->bm, BM_FACES_OF_MESH, i) {
       if (!BM_elem_flag_test(f, BM_ELEM_HIDDEN)) {
-        const int mat = min_ii(f->mat_nr, mat_last);
+        const int mat = clamp_i(f->mat_nr, 0, mat_last);
         tri_first_index[i] = mat_tri_offs[mat];
         mat_tri_offs[mat] += f->len - 2;
       }
@@ -238,7 +238,7 @@ static void mesh_render_data_polys_sorted_build(MeshRenderData *mr, MeshBufferCa
     for (int i = 0; i < mr->poly_len; i++) {
       if (!(mr->use_hide && mr->hide_poly && mr->hide_poly[i])) {
         const MPoly &poly = mr->polys[i];
-        const int mat = min_ii(mr->material_indices ? mr->material_indices[i] : 0, mat_last);
+        const int mat = mr->material_indices ? clamp_i(mr->material_indices[i], 0, mat_last) : 0;
         tri_first_index[i] = mat_tri_offs[mat];
         mat_tri_offs[mat] += poly.totloop - 2;
       }
@@ -263,7 +263,7 @@ static void mesh_render_data_mat_tri_len_bm_range_fn(void *__restrict userdata,
   BMesh *bm = mr->bm;
   BMFace *efa = BM_face_at_index(bm, iter);
   if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-    int mat = min_ii(efa->mat_nr, mr->mat_len - 1);
+    int mat = clamp_i(efa->mat_nr, 0, mr->mat_len - 1);
     mat_tri_len[mat] += efa->len - 2;
   }
 }
@@ -277,7 +277,9 @@ static void mesh_render_data_mat_tri_len_mesh_range_fn(void *__restrict userdata
 
   const MPoly &poly = mr->polys[iter];
   if (!(mr->use_hide && mr->hide_poly && mr->hide_poly[iter])) {
-    int mat = min_ii(mr->material_indices ? mr->material_indices[iter] : 0, mr->mat_len - 1);
+    const int mat = mr->material_indices ?
+                        clamp_i(mr->material_indices[iter], 0, mr->mat_len - 1) :
+                        0;
     mat_tri_len[mat] += poly.totloop - 2;
   }
 }
@@ -363,7 +365,7 @@ void mesh_render_data_update_normals(MeshRenderData *mr, const eMRDataType data_
       mr->poly_normals = mr->me->poly_normals();
     }
     if (((data_flag & MR_DATA_LOOP_NOR) && is_auto_smooth) || (data_flag & MR_DATA_TAN_LOOP_NOR)) {
-      mr->loop_normals.reinitialize(mr->loops.size());
+      mr->loop_normals.reinitialize(mr->corner_verts.size());
       short(*clnors)[2] = static_cast<short(*)[2]>(
           CustomData_get_layer_for_write(&mr->me->ldata, CD_CUSTOMLOOPNORMAL, mr->me->totloop));
       const bool *sharp_edges = static_cast<const bool *>(
@@ -371,7 +373,8 @@ void mesh_render_data_update_normals(MeshRenderData *mr, const eMRDataType data_
       blender::bke::mesh::normals_calc_loop(mr->vert_positions,
                                             mr->edges,
                                             mr->polys,
-                                            mr->loops,
+                                            mr->corner_verts,
+                                            mr->corner_edges,
                                             {},
                                             mr->vert_normals,
                                             mr->poly_normals,
@@ -546,7 +549,8 @@ MeshRenderData *mesh_render_data_create(Object *object,
     mr->vert_positions = mr->me->vert_positions();
     mr->edges = mr->me->edges();
     mr->polys = mr->me->polys();
-    mr->loops = mr->me->loops();
+    mr->corner_verts = mr->me->corner_verts();
+    mr->corner_edges = mr->me->corner_edges();
 
     mr->v_origindex = static_cast<const int *>(CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX));
     mr->e_origindex = static_cast<const int *>(CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX));

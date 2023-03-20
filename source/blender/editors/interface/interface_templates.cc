@@ -39,6 +39,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_action.h"
+#include "BKE_blendfile.h"
 #include "BKE_colorband.h"
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
@@ -78,8 +79,6 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-
-#include "BLO_readfile.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
@@ -5688,7 +5687,7 @@ void uiTemplateColorPicker(uiLayout *layout,
                                                  "",
                                                  WHEEL_SIZE + 6,
                                                  0,
-                                                 14 * UI_DPI_FAC,
+                                                 14 * UI_SCALE_FAC,
                                                  WHEEL_SIZE,
                                                  ptr,
                                                  prop,
@@ -5709,7 +5708,7 @@ void uiTemplateColorPicker(uiLayout *layout,
                                                  0,
                                                  4,
                                                  WHEEL_SIZE,
-                                                 18 * UI_DPI_FAC,
+                                                 18 * UI_SCALE_FAC,
                                                  ptr,
                                                  prop,
                                                  -1,
@@ -5729,7 +5728,7 @@ void uiTemplateColorPicker(uiLayout *layout,
                                                  0,
                                                  4,
                                                  WHEEL_SIZE,
-                                                 18 * UI_DPI_FAC,
+                                                 18 * UI_SCALE_FAC,
                                                  ptr,
                                                  prop,
                                                  -1,
@@ -5749,7 +5748,7 @@ void uiTemplateColorPicker(uiLayout *layout,
                                                  0,
                                                  4,
                                                  WHEEL_SIZE,
-                                                 18 * UI_DPI_FAC,
+                                                 18 * UI_SCALE_FAC,
                                                  ptr,
                                                  prop,
                                                  -1,
@@ -5771,7 +5770,7 @@ void uiTemplateColorPicker(uiLayout *layout,
                                                  "",
                                                  WHEEL_SIZE + 6,
                                                  0,
-                                                 14 * UI_DPI_FAC,
+                                                 14 * UI_SCALE_FAC,
                                                  WHEEL_SIZE,
                                                  ptr,
                                                  prop,
@@ -6398,7 +6397,7 @@ void uiTemplateReportsBanner(uiLayout *layout, bContext *C)
   UI_fontstyle_set(&style->widgetlabel);
   int width = BLF_width(style->widgetlabel.uifont_id, report->message, report->len);
   width = min_ii(int(rti->widthfac * width), width);
-  width = max_ii(width, 10 * UI_DPI_FAC);
+  width = max_ii(width, 10 * UI_SCALE_FAC);
 
   UI_block_align_begin(block);
 
@@ -6409,7 +6408,7 @@ void uiTemplateReportsBanner(uiLayout *layout, bContext *C)
                  "",
                  0,
                  0,
-                 UI_UNIT_X + (6 * UI_DPI_FAC),
+                 UI_UNIT_X + (6 * UI_SCALE_FAC),
                  UI_UNIT_Y,
                  nullptr,
                  0.0f,
@@ -6425,7 +6424,7 @@ void uiTemplateReportsBanner(uiLayout *layout, bContext *C)
                  UI_BTYPE_ROUNDBOX,
                  0,
                  "",
-                 UI_UNIT_X + (6 * UI_DPI_FAC),
+                 UI_UNIT_X + (6 * UI_SCALE_FAC),
                  0,
                  UI_UNIT_X + width,
                  UI_UNIT_Y,
@@ -6449,7 +6448,7 @@ void uiTemplateReportsBanner(uiLayout *layout, bContext *C)
                       "SCREEN_OT_info_log_show",
                       WM_OP_INVOKE_REGION_WIN,
                       UI_icon_from_report_type(report->type),
-                      (3 * UI_DPI_FAC),
+                      (3 * UI_SCALE_FAC),
                       0,
                       UI_UNIT_X,
                       UI_UNIT_Y,
@@ -7036,7 +7035,7 @@ int uiTemplateRecentFiles(uiLayout *layout, int rows)
     uiItemFullO(layout,
                 "WM_OT_open_mainfile",
                 filename,
-                BLO_has_bfile_extension(filename) ? ICON_FILE_BLEND : ICON_FILE_BACKUP,
+                BKE_blendfile_extension_check(filename) ? ICON_FILE_BLEND : ICON_FILE_BACKUP,
                 nullptr,
                 WM_OP_INVOKE_DEFAULT,
                 0,
