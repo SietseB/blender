@@ -2217,6 +2217,9 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
         case GP_BRUSH_ICON_GPBRUSH_WEIGHT:
           br->id.icon_id = ICON_GPBRUSH_WEIGHT;
           break;
+        case GP_BRUSH_ICON_GPBRUSH_BLUR:
+          br->id.icon_id = ICON_BRUSH_BLUR;
+          break;
         default:
           br->id.icon_id = ICON_GPBRUSH_PEN;
           break;

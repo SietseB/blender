@@ -132,7 +132,13 @@ static eGPBrush_Presets gpencil_get_brush_preset_from_tool(bToolRef *tool,
       break;
     }
     case CTX_MODE_WEIGHT_GPENCIL: {
-      return GP_BRUSH_PRESET_DRAW_WEIGHT;
+      if (STREQ(tool->runtime->data_block, "DRAW")) {
+        return GP_BRUSH_PRESET_DRAW_WEIGHT;
+      }
+      if (STREQ(tool->runtime->data_block, "BLUR")) {
+        return GP_BRUSH_PRESET_BLUR_WEIGHT;
+      }
+      break;
     }
     case CTX_MODE_VERTEX_GPENCIL: {
       if (STREQ(tool->runtime->data_block, "DRAW")) {

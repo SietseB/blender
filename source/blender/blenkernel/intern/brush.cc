@@ -1294,6 +1294,19 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
 
       break;
     }
+    case GP_BRUSH_PRESET_BLUR_WEIGHT: {
+      brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
+      brush->gpencil_weight_tool = GPWEIGHT_TOOL_BLUR;
+
+      brush->size = 25.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
+
+      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
+      brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
+
+      break;
+    }
     default:
       break;
   }
@@ -1580,6 +1593,12 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
     BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_DRAW_WEIGHT);
   }
   deft_weight = brush; /* save default brush. */
+
+  /* Vertex Blur brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Blur Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  if ((reset) || (r_new)) {
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_BLUR_WEIGHT);
+  }
 
   /* Set default brush. */
   if (reset || brush_prev == nullptr) {

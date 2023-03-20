@@ -51,6 +51,7 @@ typedef enum eGPBrush_Presets {
 
   /* Weight Paint 300-399. */
   GP_BRUSH_PRESET_DRAW_WEIGHT = 300,
+  GP_BRUSH_PRESET_BLUR_WEIGHT = 301,
 } eGPBrush_Presets;
 
 /* BrushGpencilSettings->flag */
@@ -193,6 +194,7 @@ typedef enum eGP_BrushIcons {
   GP_BRUSH_ICON_GPBRUSH_PINCH = 26,
   GP_BRUSH_ICON_GPBRUSH_CLONE = 27,
   GP_BRUSH_ICON_GPBRUSH_WEIGHT = 28,
+  GP_BRUSH_ICON_GPBRUSH_BLUR = 29,
 } eGP_BrushIcons;
 
 typedef enum eBrushCurvePreset {
@@ -613,6 +615,7 @@ typedef enum eBrushGPSculptTool {
 /* BrushGpencilSettings->brush type */
 typedef enum eBrushGPWeightTool {
   GPWEIGHT_TOOL_DRAW = 0,
+  GPWEIGHT_TOOL_BLUR = 1,
 } eBrushGPWeightTool;
 
 /* direction that the brush displaces along */

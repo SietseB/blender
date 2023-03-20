@@ -74,6 +74,8 @@ typedef struct tGP_Selected {
   int pc[2];
   /** Color */
   float color[4];
+  /** Weight */
+  float weight;
 } tGP_Selected;
 
 /* Context for brush operators */
@@ -97,6 +99,9 @@ typedef struct tGP_BrushWeightpaintData {
 
   /* Start of new paint */
   bool first;
+
+  /* Inverse brush weight, when ctrl is pressed. */
+  bool inverse_brush;
 
   /* Is multi-frame editing enabled, and are we using falloff for that? */
   bool is_multiframe;
@@ -128,6 +133,8 @@ typedef struct tGP_BrushWeightpaintData {
   int pbuffer_used;
   /** Number of total elements available in cache. */
   int pbuffer_size;
+  /** Average weight of elements in cache (used for blur). */
+  float pbuffer_avg_weight;
 } tGP_BrushWeightpaintData;
 
 /* Ensure the buffer to hold temp selected point size is enough to save all points selected. */
@@ -167,6 +174,47 @@ static tGP_Selected *gpencil_select_buffer_ensure(tGP_Selected *buffer_array,
   }
 
   return buffer_array;
+}
+
+/* Ensure a vertex group for the weight paint brush. */
+static void gpencil_vertex_group_ensure(tGP_BrushWeightpaintData *gso)
+{
+  if (gso->vrgroup == -1) {
+    if (gso->object) {
+      Object *ob_armature = BKE_modifiers_is_deformed_by_armature(gso->object);
+      if (ob_armature != NULL) {
+        Bone *actbone = ((bArmature *)ob_armature->data)->act_bone;
+        if (actbone != NULL) {
+          bPoseChannel *pchan = BKE_pose_channel_find_name(ob_armature->pose, actbone->name);
+          if (pchan != NULL) {
+            bDeformGroup *dg = BKE_object_defgroup_find_name(gso->object, pchan->name);
+            if (dg == NULL) {
+              dg = BKE_object_defgroup_add_name(gso->object, pchan->name);
+            }
+          }
+        }
+      }
+      else {
+        BKE_object_defgroup_add(gso->object);
+      }
+      DEG_relations_tag_update(gso->bmain);
+      gso->vrgroup = 0;
+    }
+  }
+}
+
+static void gpencil_select_buffer_avg_weight_set(tGP_BrushWeightpaintData *gso)
+{
+  if (gso->pbuffer_used == 0) {
+    gso->pbuffer_avg_weight = 0.0f;
+    return;
+  }
+  float sum = 0;
+  for (int i = 0; i < gso->pbuffer_used; i++) {
+    tGP_Selected *selected = &gso->pbuffer[i];
+    sum += selected->weight;
+  }
+  gso->pbuffer_avg_weight = sum / gso->pbuffer_used;
 }
 
 /* Brush Operations ------------------------------- */
@@ -222,44 +270,17 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
                              const int radius,
                              const int co[2])
 {
-  /* create dvert */
-  BKE_gpencil_dvert_ensure(gps);
-
   MDeformVert *dvert = gps->dvert + pt_index;
   float inf;
 
   /* Compute strength of effect */
   inf = brush_influence_calc(gso, radius, co);
 
-  /* need a vertex group */
-  if (gso->vrgroup == -1) {
-    if (gso->object) {
-      Object *ob_armature = BKE_modifiers_is_deformed_by_armature(gso->object);
-      if (ob_armature != NULL) {
-        Bone *actbone = ((bArmature *)ob_armature->data)->act_bone;
-        if (actbone != NULL) {
-          bPoseChannel *pchan = BKE_pose_channel_find_name(ob_armature->pose, actbone->name);
-          if (pchan != NULL) {
-            bDeformGroup *dg = BKE_object_defgroup_find_name(gso->object, pchan->name);
-            if (dg == NULL) {
-              dg = BKE_object_defgroup_add_name(gso->object, pchan->name);
-            }
-          }
-        }
-      }
-      else {
-        BKE_object_defgroup_add(gso->object);
-      }
-      DEG_relations_tag_update(gso->bmain);
-      gso->vrgroup = 0;
-    }
+  /* Inverse brush when ctrl is pressed. */
+  if (gso->inverse_brush) {
+    inf = -inf;
   }
-  else {
-    bDeformGroup *defgroup = BLI_findlink(&gso->gpd->vertex_group_names, gso->vrgroup);
-    if (defgroup->flag & DG_LOCK_WEIGHT) {
-      return false;
-    }
-  }
+
   /* Get current weight and blend. */
   MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
   if (dw) {
@@ -273,7 +294,8 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
 /* Header Info */
 static void gpencil_weightpaint_brush_header_set(bContext *C)
 {
-  ED_workspace_status_text(C, TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit"));
+  ED_workspace_status_text(
+      C, TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
 }
 
 /* ************************************************ */
@@ -374,11 +396,23 @@ static void gpencil_save_selected_point(tGP_BrushWeightpaintData *gso,
   gso->pbuffer = gpencil_select_buffer_ensure(
       gso->pbuffer, &gso->pbuffer_size, &gso->pbuffer_used, false);
 
+  /* Copy point data. */
   selected = &gso->pbuffer[gso->pbuffer_used];
   selected->gps = gps;
   selected->pt_index = index;
   copy_v2_v2_int(selected->pc, pc);
   copy_v4_v4(selected->color, pt->vert_color);
+
+  /* Ensure vertex group and dvert. */
+  gpencil_vertex_group_ensure(gso);
+  BKE_gpencil_dvert_ensure(gps);
+
+  /* Get current weight. */
+  MDeformVert *dvert = gps->dvert + index;
+  MDeformWeight *dw = BKE_defvert_find_index(dvert, gso->vrgroup);
+  if (dw) {
+    selected->weight = dw->weight;
+  }
 
   gso->pbuffer_used++;
 }
@@ -539,15 +573,24 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
     gpencil_weightpaint_select_stroke(gso, gps, diff_mat, bound_mat);
   }
 
+  bDeformGroup *defgroup = BLI_findlink(&gso->gpd->vertex_group_names, gso->vrgroup);
+  if (defgroup->flag & DG_LOCK_WEIGHT) {
+    return false;
+  }
+
   /*---------------------------------------------------------------------
    * Second step: Apply effect.
    *--------------------------------------------------------------------- */
+  /* For blur, get average weight of affected points. */
+  gpencil_select_buffer_avg_weight_set(gso);
+
   bool changed = false;
   for (i = 0; i < gso->pbuffer_used; i++) {
     changed = true;
     selected = &gso->pbuffer[i];
 
     switch (tool) {
+      case GPWEIGHT_TOOL_BLUR:
       case GPWEIGHT_TOOL_DRAW: {
         brush_draw_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
         changed |= true;
@@ -558,6 +601,7 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
         break;
     }
   }
+
   /* Clear the selected array, but keep the memory allocation. */
   gso->pbuffer = gpencil_select_buffer_ensure(
       gso->pbuffer, &gso->pbuffer_size, &gso->pbuffer_used, true);
@@ -649,6 +693,7 @@ static void gpencil_weightpaint_brush_apply(bContext *C, wmOperator *op, Pointer
   gso->mval[1] = mouse[1] = (int)(mousef[1]);
 
   gso->pressure = RNA_float_get(itemptr, "pressure");
+  gso->inverse_brush = RNA_boolean_get(itemptr, "pen_flip");
 
   /* Store coordinates as reference, if operator just started running */
   if (gso->first) {
@@ -888,7 +933,33 @@ void GPENCIL_OT_weight_paint(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Stroke Weight Paint";
   ot->idname = "GPENCIL_OT_weight_paint";
-  ot->description = "Paint stroke points with a color";
+  ot->description = "Draw weight on stroke points";
+
+  /* api callbacks */
+  ot->exec = gpencil_weightpaint_brush_exec;
+  ot->invoke = gpencil_weightpaint_brush_invoke;
+  ot->modal = gpencil_weightpaint_brush_modal;
+  ot->cancel = gpencil_weightpaint_brush_exit;
+  ot->poll = gpencil_weightpaint_brush_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+
+  /* properties */
+  PropertyRNA *prop;
+  prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+  prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
+void GPENCIL_OT_weight_blur(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Stroke Weight Blur";
+  ot->idname = "GPENCIL_OT_weight_blur";
+  ot->description = "Blur weight of stroke points";
 
   /* api callbacks */
   ot->exec = gpencil_weightpaint_brush_exec;

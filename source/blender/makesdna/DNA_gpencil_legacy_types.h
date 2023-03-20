@@ -381,7 +381,7 @@ typedef struct bGPDstroke {
   char _pad4[4];
 
   /** Vertex weight data. */
-  struct MDeformVert *dvert;
+  struct MDefor mVert *dvert;
   void *_pad3;
 
   /** Vertex Color for Fill (one for all stroke, A=mix factor). */

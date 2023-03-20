@@ -292,6 +292,12 @@ static bool gpencil_stroke_weightmode_draw_poll(bContext *C)
   return gpencil_stroke_weightmode_poll_with_tool(C, GPWEIGHT_TOOL_DRAW);
 }
 
+/* Poll callback for weight paint (Blur) */
+static bool gpencil_stroke_weightmode_blur_poll(bContext *C)
+{
+  return gpencil_stroke_weightmode_poll_with_tool(C, GPWEIGHT_TOOL_BLUR);
+}
+
 /* Stroke Editing Keymap - Only when editmode is enabled */
 static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 {
@@ -460,6 +466,12 @@ static void ed_keymap_gpencil_weightpainting_draw(wmKeyConfig *keyconf)
   wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Draw)", 0, 0);
   keymap->poll = gpencil_stroke_weightmode_draw_poll;
 }
+/* keys for weight with a blur brush */
+static void ed_keymap_gpencil_weightpainting_blur(wmKeyConfig *keyconf)
+{
+  wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Blur)", 0, 0);
+  keymap->poll = gpencil_stroke_weightmode_blur_poll;
+}
 
 /* ==================== */
 
@@ -485,6 +497,7 @@ void ED_keymap_gpencil(wmKeyConfig *keyconf)
   ed_keymap_gpencil_sculptpainting_clone(keyconf);
   ed_keymap_gpencil_weightpainting(keyconf);
   ed_keymap_gpencil_weightpainting_draw(keyconf);
+  ed_keymap_gpencil_weightpainting_blur(keyconf);
   ed_keymap_gpencil_vertexpainting(keyconf);
   ed_keymap_gpencil_vertexpainting_draw(keyconf);
   ed_keymap_gpencil_vertexpainting_blur(keyconf);
@@ -564,6 +577,7 @@ void ED_operatortypes_gpencil(void)
 
   WM_operatortype_append(GPENCIL_OT_sculpt_paint);
   WM_operatortype_append(GPENCIL_OT_weight_paint);
+  WM_operatortype_append(GPENCIL_OT_weight_blur);
 
   /* Edit stroke editcurve */
 

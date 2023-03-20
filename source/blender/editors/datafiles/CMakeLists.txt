@@ -807,6 +807,7 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.gpencil.primitive_line
   ops.gpencil.primitive_polyline
   ops.gpencil.radius
+  ops.gpencil.sculpt_blur
   ops.gpencil.sculpt_clone
   ops.gpencil.sculpt_grab
   ops.gpencil.sculpt_pinch
