@@ -1420,8 +1420,9 @@ def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=Fals
     row = layout.row(align=True)
     row.prop(brush, "strength", slider=True)
     row.prop(brush, "use_pressure_strength", text="")
-
-    layout.prop(brush, "weight", slider=True)
+    
+    if brush.gpencil_weight_tool in {'WEIGHT'}:
+        layout.prop(brush, "weight", slider=True)
 
 
 def brush_basic_gpencil_vertex_settings(layout, _context, brush, *, compact=False):

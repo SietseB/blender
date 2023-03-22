@@ -3088,12 +3088,13 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
   Object *obedit = CTX_data_edit_object(C);
   Object *obact = CTX_data_active_object(C);
 
-  if (obact && obact->type == OB_GPENCIL_LEGACY && GPENCIL_ANY_MODE((bGPdata *)obact->data)) {
-    /* Prevent acting on Grease Pencil (when not in object mode), it implements its own selection
-     * operator in other modes. We might still fall trough to here (because that operator uses
-     * OPERATOR_PASS_THROUGH to make tweak work) but if we don't stop here code below assumes we
-     * are in object mode it might falsely toggle object selection. Alternatively, this could be
-     * put in the poll function instead. */
+  if (obact && obact->type == OB_GPENCIL_LEGACY &&
+      GPENCIL_NON_WEIGHT_MODE((bGPdata *)obact->data)) {
+    /* Prevent acting on Grease Pencil (when not in object mode or weight paint mode),
+     * it implements its own selection operator in other modes. We might still fall trough
+     * to here (because that operator uses OPERATOR_PASS_THROUGH to make tweak work)
+     * but if we don't stop here code below assumes we are in object mode it might falsely
+     * toggle object selection. Alternatively, this could be put in the poll function instead. */
     return OPERATOR_PASS_THROUGH | OPERATOR_CANCELLED;
   }
 
@@ -3664,8 +3665,7 @@ static bool do_mesh_box_select(ViewContext *vc,
   }
   if (ts->selectmode & SCE_SELECT_EDGE) {
     /* Does both use_zbuf and non-use_zbuf versions (need screen cos for both) */
-    struct BoxSelectUserData_ForMeshEdge cb_data {
-    };
+    struct BoxSelectUserData_ForMeshEdge cb_data {};
     cb_data.data = &data;
     cb_data.esel = use_zbuf ? esel : nullptr;
     cb_data.backbuf_offset = use_zbuf ? DRW_select_buffer_context_offset_for_object_elem(

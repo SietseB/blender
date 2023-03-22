@@ -7647,7 +7647,8 @@ class VIEW3D_PT_gpencil_weight_context_menu(Panel):
 
         layout.prop(brush, "size", slider=True)
         layout.prop(brush, "strength")
-        layout.prop(brush, "weight")
+        if brush.gpencil_weight_tool in {'WEIGHT'}:
+            layout.prop(brush, "weight")
 
         # Layers
         draw_gpencil_layer_active(context, layout)

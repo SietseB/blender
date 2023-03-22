@@ -1298,7 +1298,7 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
       brush->gpencil_weight_tool = GPWEIGHT_TOOL_BLUR;
 
-      brush->size = 25.0f;
+      brush->size = 50.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
 
       brush->gpencil_settings->draw_strength = 1.0f;

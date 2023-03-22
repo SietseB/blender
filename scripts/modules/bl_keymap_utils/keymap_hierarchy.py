@@ -204,6 +204,7 @@ _km_hierarchy = [
         ('Grease Pencil Stroke Sculpt (Clone)', 'EMPTY', 'WINDOW', []),
         ('Grease Pencil Stroke Weight Mode', 'EMPTY', 'WINDOW', []),
         ('Grease Pencil Stroke Weight (Draw)', 'EMPTY', 'WINDOW', []),
+        ('Grease Pencil Stroke Weight (Blur)', 'EMPTY', 'WINDOW', []),
         ('Grease Pencil Stroke Vertex Mode', 'EMPTY', 'WINDOW', []),
         ('Grease Pencil Stroke Vertex (Draw)', 'EMPTY', 'WINDOW', []),
         ('Grease Pencil Stroke Vertex (Blur)', 'EMPTY', 'WINDOW', []),

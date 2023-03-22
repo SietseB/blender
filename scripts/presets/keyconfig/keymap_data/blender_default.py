@@ -4235,8 +4235,10 @@ def km_grease_pencil_stroke_weight_blur(_params):
     )
 
     items.extend([
-        # Blur
-        ("gpencil.weight_blur", {"type": 'LEFTMOUSE', "value": 'PRESS'},
+        # Draw
+        ("gpencil.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'},
+         {"properties": [("wait_for_input", False)]}),
+        ("gpencil.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
          {"properties": [("wait_for_input", False)]}),
     ])
 

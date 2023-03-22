@@ -215,6 +215,7 @@ static void gpencil_select_buffer_avg_weight_set(tGP_BrushWeightpaintData *gso)
     sum += selected->weight;
   }
   gso->pbuffer_avg_weight = sum / gso->pbuffer_used;
+  CLAMP(gso->pbuffer_avg_weight, 0.0f, 1.0f);
 }
 
 /* Brush Operations ------------------------------- */
@@ -271,10 +272,9 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
                              const int co[2])
 {
   MDeformVert *dvert = gps->dvert + pt_index;
-  float inf;
 
-  /* Compute strength of effect */
-  inf = brush_influence_calc(gso, radius, co);
+  /* Compute strength of effect. */
+  float inf = brush_influence_calc(gso, radius, co);
 
   /* Inverse brush when ctrl is pressed. */
   if (gso->inverse_brush) {
@@ -290,12 +290,43 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
   return true;
 }
 
+/* Blur Brush */
+static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
+                             bGPDstroke *gps,
+                             int pt_index,
+                             const int radius,
+                             const int co[2])
+{
+  MDeformVert *dvert = gps->dvert + pt_index;
+
+  /* Compute strength of effect. */
+  float inf = brush_influence_calc(gso, radius, co);
+
+  /* Get current weight. */
+  MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
+  if (dw) {
+    /* Blur weight with average weight under the brush
+     * or erase weight when ctrl is pressed. */
+    float new_weight = (gso->inverse_brush) ? 0.0f : gso->pbuffer_avg_weight;
+    dw->weight = interpf(new_weight, dw->weight, inf);
+    CLAMP(dw->weight, 0.0f, 1.0f);
+  }
+  return true;
+}
+
 /* ************************************************ */
 /* Header Info */
-static void gpencil_weightpaint_brush_header_set(bContext *C)
+static void gpencil_weightpaint_brush_header_set(bContext *C, tGP_BrushWeightpaintData *gso)
 {
-  ED_workspace_status_text(
-      C, TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
+  if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_DRAW) {
+    ED_workspace_status_text(
+        C,
+        TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
+  }
+  if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR) {
+    ED_workspace_status_text(
+        C, TIP_("GPencil Weight BLUR: LMB to blur | RMB/Escape to Exit | Ctrl to Erase Weight"));
+  }
 }
 
 /* ************************************************ */
@@ -358,7 +389,7 @@ static bool gpencil_weightpaint_brush_init(bContext *C, wmOperator *op)
   gpencil_point_conversion_init(C, &gso->gsc);
 
   /* Update header. */
-  gpencil_weightpaint_brush_header_set(C);
+  gpencil_weightpaint_brush_header_set(C, gso);
 
   return true;
 }
@@ -586,14 +617,17 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
 
   bool changed = false;
   for (i = 0; i < gso->pbuffer_used; i++) {
-    changed = true;
     selected = &gso->pbuffer[i];
 
     switch (tool) {
-      case GPWEIGHT_TOOL_BLUR:
       case GPWEIGHT_TOOL_DRAW: {
         brush_draw_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
-        changed |= true;
+        changed = true;
+        break;
+      }
+      case GPWEIGHT_TOOL_BLUR: {
+        brush_blur_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
+        changed = true;
         break;
       }
       default:
@@ -934,32 +968,6 @@ void GPENCIL_OT_weight_paint(wmOperatorType *ot)
   ot->name = "Stroke Weight Paint";
   ot->idname = "GPENCIL_OT_weight_paint";
   ot->description = "Draw weight on stroke points";
-
-  /* api callbacks */
-  ot->exec = gpencil_weightpaint_brush_exec;
-  ot->invoke = gpencil_weightpaint_brush_invoke;
-  ot->modal = gpencil_weightpaint_brush_modal;
-  ot->cancel = gpencil_weightpaint_brush_exit;
-  ot->poll = gpencil_weightpaint_brush_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
-
-  /* properties */
-  PropertyRNA *prop;
-  prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-
-  prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-}
-
-void GPENCIL_OT_weight_blur(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Stroke Weight Blur";
-  ot->idname = "GPENCIL_OT_weight_blur";
-  ot->description = "Blur weight of stroke points";
 
   /* api callbacks */
   ot->exec = gpencil_weightpaint_brush_exec;
