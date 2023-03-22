@@ -190,11 +190,11 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 layout.separator()
                 col = layout.column()
                 col.prop(gpl, "opacity", text="Opacity", slider=True)
-                col = layout.column()
+                sub = layout.grid_flow(columns=1, align=True)
+                col = sub.column()
                 col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
                 col.prop(gpl, "stroke_wetness", slider=True)
-                col = layout.column()
-                col.separator(factor=-1.4)
+                col = sub.column()
                 col.enabled = no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 

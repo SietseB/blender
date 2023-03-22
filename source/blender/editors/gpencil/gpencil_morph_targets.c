@@ -484,7 +484,7 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   }
 
   /* Draw rectangle outline. */
-  float half_line_w = 3.0f * UI_DPI_FAC;
+  float half_line_w = 3.0f * UI_SCALE_FAC;
   rcti *rect = &region->winrct;
   float color[4];
   UI_GetThemeColor4fv(TH_SELECT_ACTIVE, color);
@@ -503,7 +503,7 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   /* Draw text. */
   const int font_id = BLF_default();
   const uiStyle *style = UI_style_get();
-  BLF_size(font_id, style->widget.points * UI_DPI_FAC);
+  BLF_size(font_id, style->widget.points * UI_SCALE_FAC);
   BLF_color4fv(font_id, color);
   BLF_enable(font_id, BLF_SHADOW);
   BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 0.7f});
@@ -512,7 +512,7 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   char text[64] = "Editing Morph Target";
   float x = (rect->xmax - rect->xmin - tgpm->npanel_width) * 0.5f -
             BLF_width(font_id, text, strlen(text)) * 0.5f;
-  float y = rect->ymax - rect->ymin - tgpm->header_height - style->widget.points * UI_DPI_FAC -
+  float y = rect->ymax - rect->ymin - tgpm->header_height - style->widget.points * UI_SCALE_FAC -
             half_line_w * 3;
   BLF_position(font_id, x, y, 0);
   BLF_draw(font_id, text, strlen(text));
@@ -866,10 +866,10 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
         tgpm->region = region;
       }
       if (region->alignment == RGN_ALIGN_TOP && region->regiontype == RGN_TYPE_TOOL_HEADER) {
-        tgpm->header_height += (int)(region->sizey * UI_DPI_FAC + 0.5f);
+        tgpm->header_height += (int)(region->sizey * UI_SCALE_FAC + 0.5f);
       }
       if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
-        tgpm->npanel_width = region->visible ? 20 * UI_DPI_FAC : 0;
+        tgpm->npanel_width = region->visible ? 20 * UI_SCALE_FAC : 0;
       }
     }
   }

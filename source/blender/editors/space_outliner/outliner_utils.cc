@@ -348,6 +348,9 @@ float outliner_right_columns_width(const SpaceOutliner *space_outliner)
       if (space_outliner->show_restrict_flags & SO_RESTRICT_RENDER) {
         num_columns++;
       }
+      if (space_outliner->show_restrict_flags & SO_RESTRICT_ONDINE_RENDER) {
+        num_columns++;
+      }
       break;
   }
   return (num_columns * UI_UNIT_X + V2D_SCROLL_WIDTH);

@@ -5042,9 +5042,6 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 
 static int userpref_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
   int sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_SCALE_FAC;
   int sizey = 520 * UI_SCALE_FAC;
 
@@ -5117,10 +5114,6 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 
 static int drivers_editor_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
-
   int sizex = 900 * UI_SCALE_FAC;
   int sizey = 580 * UI_SCALE_FAC;
 
@@ -5191,15 +5184,13 @@ static void SCREEN_OT_drivers_editor_show(struct wmOperatorType *ot)
 
 static int info_log_show_exec(bContext *C, wmOperator *op)
 {
-  wmWindow *win_cur = CTX_wm_window(C);
-  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
-  const wmEvent *event = win_cur->eventstate;
   int sizex = 900 * UI_SCALE_FAC;
   int sizey = 580 * UI_SCALE_FAC;
 
   /* changes context! */
   if (WM_window_open_temp(
-          C, IFACE_("Blender Info Log"), &U.info_winstate, sizex, sizey, SPACE_INFO, false) != NULL) {
+          C, IFACE_("Blender Info Log"), &U.info_winstate, sizex, sizey, SPACE_INFO, false) !=
+      NULL) {
     return OPERATOR_FINISHED;
   }
   BKE_report(op->reports, RPT_ERROR, "Failed to open window!");

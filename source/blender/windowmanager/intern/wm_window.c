@@ -408,10 +408,10 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
     /* Get DPI and scale from parent window, if there is one. */
     WM_window_set_dpi(win->parent ? win->parent : win);
     float f = GHOST_GetNativePixelSize(win->ghostwin);
-    float sizex = (float)win->sizex * f / UI_DPI_FAC;
-    float sizey = (float)win->sizey * f / UI_DPI_FAC;
-    float posx = (float)win->posx * f / UI_DPI_FAC;
-    float posy = (float)win->posy * f / UI_DPI_FAC;
+    float sizex = (float)win->sizex * f / UI_SCALE_FAC;
+    float sizey = (float)win->sizey * f / UI_SCALE_FAC;
+    float posx = (float)win->posx * f / UI_SCALE_FAC;
+    float posy = (float)win->posy * f / UI_SCALE_FAC;
 
     if (sizex != win->savestate->sizex || sizey != win->savestate->sizey ||
         posx != win->savestate->posx || posy != win->savestate->posy) {
@@ -1032,17 +1032,17 @@ struct wmWindow *WM_window_open_temp(struct bContext *C,
   WM_window_set_dpi(CTX_wm_window(C));
 
   if (state && state->sizex != 0.0f) {
-    posx = (int)(state->posx * UI_DPI_FAC);
-    posy = (int)(state->posy * UI_DPI_FAC);
-    sizex = (int)(state->sizex * UI_DPI_FAC);
-    sizey = (int)(state->sizey * UI_DPI_FAC);
+    posx = (int)(state->posx * UI_SCALE_FAC);
+    posy = (int)(state->posy * UI_SCALE_FAC);
+    sizex = (int)(state->sizex * UI_SCALE_FAC);
+    sizey = (int)(state->sizey * UI_SCALE_FAC);
     align = WIN_ALIGN_ABSOLUTE;
   }
   else {
     posx = 0;
     posy = 0;
-    sizex = def_sizex * UI_DPI_FAC;
-    sizey = def_sizey * UI_DPI_FAC;
+    sizex = def_sizex * UI_SCALE_FAC;
+    sizey = def_sizey * UI_SCALE_FAC;
     align = WIN_ALIGN_LOCATION_CENTER;
   }
 
