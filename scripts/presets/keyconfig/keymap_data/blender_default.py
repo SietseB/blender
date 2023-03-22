@@ -4240,6 +4240,8 @@ def km_grease_pencil_stroke_weight_blur(_params):
          {"properties": [("wait_for_input", False)]}),
         ("gpencil.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
          {"properties": [("wait_for_input", False)]}),
+        ("gpencil.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True, "shift": True},
+         {"properties": [("wait_for_input", False)]}),
     ])
 
     return keymap

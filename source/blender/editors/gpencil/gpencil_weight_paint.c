@@ -100,8 +100,11 @@ typedef struct tGP_BrushWeightpaintData {
   /* Start of new paint */
   bool first;
 
-  /* Inverse brush weight, when ctrl is pressed. */
+  /* Inverse brush, when ctrl is pressed. */
   bool inverse_brush;
+
+  /* Target weight, when ctrl(-shift) is pressed. */
+  float target_weight;
 
   /* Is multi-frame editing enabled, and are we using falloff for that? */
   bool is_multiframe;
@@ -306,8 +309,8 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
   MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
   if (dw) {
     /* Blur weight with average weight under the brush
-     * or erase weight when ctrl is pressed. */
-    float new_weight = (gso->inverse_brush) ? 0.0f : gso->pbuffer_avg_weight;
+     * or erase/add weight when ctrl(-shift) is pressed. */
+    float new_weight = (gso->inverse_brush) ? gso->target_weight : gso->pbuffer_avg_weight;
     dw->weight = interpf(new_weight, dw->weight, inf);
     CLAMP(dw->weight, 0.0f, 1.0f);
   }
@@ -324,8 +327,9 @@ static void gpencil_weightpaint_brush_header_set(bContext *C, tGP_BrushWeightpai
         TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
   }
   if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR) {
-    ED_workspace_status_text(
-        C, TIP_("GPencil Weight BLUR: LMB to blur | RMB/Escape to Exit | Ctrl to Erase Weight"));
+    ED_workspace_status_text(C,
+                             TIP_("GPencil Weight BLUR: LMB to blur | RMB/Escape to Exit | "
+                                  "Ctrl to Erase Weight | Ctrl-Shift to Add Weight"));
   }
 }
 
@@ -785,6 +789,11 @@ static void gpencil_weightpaint_brush_apply_event(bContext *C,
   float pressure = event->tablet.pressure;
   CLAMP(pressure, 0.0f, 1.0f);
   RNA_float_set(&itemptr, "pressure", pressure);
+
+  /* Handle ctrl(-shift) for blur brush (erase/add weight). */
+  if (event->modifier & KM_CTRL) {
+    gso->target_weight = (event->modifier & KM_SHIFT) ? 1.0f : 0.0f;
+  }
 
   /* apply */
   gpencil_weightpaint_brush_apply(C, op, &itemptr);
