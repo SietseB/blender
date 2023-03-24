@@ -1414,7 +1414,7 @@ def brush_basic_gpencil_sculpt_settings(layout, _context, brush, *, compact=Fals
         layout.use_property_split = use_property_split_prev
 
 
-def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=False):
+def brush_basic_gpencil_weight_settings(layout, context, brush, *, compact=False):
     layout.prop(brush, "size", slider=True)
 
     row = layout.row(align=True)

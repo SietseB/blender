@@ -9,6 +9,8 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_ghash.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 
 #include "BLT_translation.h"
@@ -16,6 +18,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_gpencil_legacy_types.h"
+#include "DNA_gpencil_modifier_types.h"
 
 #include "BKE_action.h"
 #include "BKE_brush.h"
@@ -103,12 +106,12 @@ typedef struct tGP_BrushWeightpaintData {
   /* Inverse brush, when ctrl is pressed. */
   bool inverse_brush;
 
-  /* Target weight, when ctrl(-shift) is pressed. */
-  float target_weight;
-
   /* Is multi-frame editing enabled, and are we using falloff for that? */
   bool is_multiframe;
   bool use_multiframe_falloff;
+
+  /* Auto-normalize weights of bone-deformed vertices? */
+  bool auto_normalize;
 
   /* active vertex group */
   int vrgroup;
@@ -138,6 +141,15 @@ typedef struct tGP_BrushWeightpaintData {
   int pbuffer_size;
   /** Average weight of elements in cache (used for blur). */
   float pbuffer_avg_weight;
+
+  /* Temp data for auto-normalize weights used by deforming bones. */
+  /** Boolean array of locked vertex groups. */
+  bool *vgroup_locked;
+  /** Boolean array of vertex groups deformed by bones. */
+  bool *vgroup_bone_deformed;
+  /** Number of vertex groups in object. */
+  int vgroup_tot;
+
 } tGP_BrushWeightpaintData;
 
 /* Ensure the buffer to hold temp selected point size is enough to save all points selected. */
@@ -221,6 +233,221 @@ static void gpencil_select_buffer_avg_weight_set(tGP_BrushWeightpaintData *gso)
   CLAMP(gso->pbuffer_avg_weight, 0.0f, 1.0f);
 }
 
+/* Get boolean array of vertex groups deformed by GP armature modifiers.
+ * GP equivalent of `BKE_object_defgroup_validmap_get`.
+ */
+bool *gpencil_vgroup_bone_deformed_map_get(Object *ob, const int defbase_tot)
+{
+  bDeformGroup *dg;
+  bool *vgroup_bone_deformed;
+  GHash *gh;
+  int i;
+  const ListBase *defbase = BKE_object_defgroup_list(ob);
+
+  if (BLI_listbase_is_empty(defbase)) {
+    return NULL;
+  }
+
+  /* Add all vertex group names to a hash table. */
+  gh = BLI_ghash_str_new_ex(__func__, defbase_tot);
+  for (dg = defbase->first; dg; dg = dg->next) {
+    BLI_ghash_insert(gh, dg->name, NULL);
+  }
+  BLI_assert(BLI_ghash_len(gh) == defbase_tot);
+
+  /* Now loop through the armature modifiers and identify deform bones. */
+  LISTBASE_FOREACH (GpencilModifierData *, md, &ob->greasepencil_modifiers) {
+    if (md->type != eGpencilModifierType_Armature) {
+      continue;
+    }
+
+    ArmatureGpencilModifierData *amd = (ArmatureGpencilModifierData *)md;
+
+    if (amd->object && amd->object->pose) {
+      bPose *pose = amd->object->pose;
+      bPoseChannel *chan;
+
+      for (chan = pose->chanbase.first; chan; chan = chan->next) {
+        void **val_p;
+        if (chan->bone->flag & BONE_NO_DEFORM) {
+          continue;
+        }
+
+        val_p = BLI_ghash_lookup_p(gh, chan->name);
+        if (val_p) {
+          *val_p = POINTER_FROM_INT(1);
+        }
+      }
+    }
+  }
+
+  /* Mark vertex groups with reference in the bone hash table. */
+  vgroup_bone_deformed = MEM_mallocN(sizeof(*vgroup_bone_deformed) * defbase_tot,
+                                     "wpaint bone deformed map");
+  for (dg = defbase->first, i = 0; dg; dg = dg->next, i++) {
+    vgroup_bone_deformed[i] = (BLI_ghash_lookup(gh, dg->name) != NULL);
+  }
+
+  BLI_assert(i == BLI_ghash_len(gh));
+
+  BLI_ghash_free(gh, NULL, NULL);
+
+  return vgroup_bone_deformed;
+}
+
+/* ************************************************ */
+/* Auto-normalize Operations
+ * This section defines the functions for auto-normalizing the sum of weights to 1.0
+ * for points in vertex groups deformed by bones.
+ * The logic is copied from `editors/sculpt_paint/paint_vertex.cc`. */
+
+/**
+ * Normalize weights of a stroke point deformed by bones.
+ */
+static void do_weight_paint_normalize_all(MDeformVert *dvert,
+                                          const int defbase_tot,
+                                          const bool *vgroup_bone_deformed)
+{
+  float sum = 0.0f, fac;
+  uint i, tot = 0;
+  MDeformWeight *dw;
+
+  for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+      tot++;
+      sum += dw->weight;
+    }
+  }
+
+  if ((tot == 0) || (sum == 1.0f)) {
+    return;
+  }
+
+  if (sum != 0.0f) {
+    fac = 1.0f / sum;
+
+    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+      if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+        dw->weight *= fac;
+      }
+    }
+  }
+  else {
+    fac = 1.0f / tot;
+
+    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+      if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+        dw->weight = fac;
+      }
+    }
+  }
+}
+
+/**
+ * A version of #do_weight_paint_normalize_all that only changes unlocked weights.
+ */
+static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
+                                                   const int defbase_tot,
+                                                   const bool *vgroup_bone_deformed,
+                                                   const bool *vgroup_locked,
+                                                   const bool lock_active_vgroup,
+                                                   const int active_vgroup)
+{
+  float sum = 0.0f, fac;
+  float sum_unlock = 0.0f;
+  float sum_lock = 0.0f;
+  uint i, tot = 0;
+  MDeformWeight *dw;
+
+  if (vgroup_locked == NULL) {
+    do_weight_paint_normalize_all(dvert, defbase_tot, vgroup_bone_deformed);
+    return true;
+  }
+
+  for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+      sum += dw->weight;
+
+      if (vgroup_locked[dw->def_nr] || (lock_active_vgroup && active_vgroup == dw->def_nr)) {
+        sum_lock += dw->weight;
+      }
+      else {
+        tot++;
+        sum_unlock += dw->weight;
+      }
+    }
+  }
+
+  if (sum == 1.0f) {
+    return true;
+  }
+
+  if (tot == 0) {
+    return false;
+  }
+
+  if (sum_lock >= 1.0f - VERTEX_WEIGHT_LOCK_EPSILON) {
+    /* locked groups make it impossible to fully normalize,
+     * zero out what we can and return false */
+    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+      if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+        if ((vgroup_locked[dw->def_nr] == false) &&
+            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+          dw->weight = 0.0f;
+        }
+      }
+    }
+
+    return (sum_lock == 1.0f);
+  }
+  if (sum_unlock != 0.0f) {
+    fac = (1.0f - sum_lock) / sum_unlock;
+
+    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+      if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+        if ((vgroup_locked[dw->def_nr] == false) &&
+            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+          dw->weight *= fac;
+          CLAMP(dw->weight, 0.0f, 1.0f);
+        }
+      }
+    }
+  }
+  else {
+    fac = (1.0f - sum_lock) / tot;
+    CLAMP(fac, 0.0f, 1.0f);
+
+    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+      if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
+        if ((vgroup_locked[dw->def_nr] == false) &&
+            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+          dw->weight = fac;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * A version of #do_weight_paint_normalize_all that only changes unlocked weights
+ * and does a second pass without the active vertex group locked when the first pass fails.
+ */
+static void do_weight_paint_normalize_all_try_active_locked(MDeformVert *dvert,
+                                                            tGP_BrushWeightpaintData *gso)
+{
+  /* First pass with both active and explicitly locked vertex groups restricted from change. */
+  bool succes = do_weight_paint_normalize_all_unlocked(
+      dvert, gso->vgroup_tot, gso->vgroup_bone_deformed, gso->vgroup_locked, true, gso->vrgroup);
+
+  if (!succes) {
+    /* Second pass with active vertex group unlocked. */
+    do_weight_paint_normalize_all_unlocked(
+        dvert, gso->vgroup_tot, gso->vgroup_bone_deformed, gso->vgroup_locked, false, -1);
+  }
+}
+
 /* Brush Operations ------------------------------- */
 
 /* Compute strength of effect. */
@@ -290,6 +517,12 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
     dw->weight = interpf(gso->brush->weight, dw->weight, inf);
     CLAMP(dw->weight, 0.0f, 1.0f);
   }
+
+  /* Perform auto-normalize. */
+  if (gso->auto_normalize) {
+    do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+  }
+
   return true;
 }
 
@@ -308,12 +541,16 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
   /* Get current weight. */
   MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
   if (dw) {
-    /* Blur weight with average weight under the brush
-     * or erase/add weight when ctrl(-shift) is pressed. */
-    float new_weight = (gso->inverse_brush) ? gso->target_weight : gso->pbuffer_avg_weight;
-    dw->weight = interpf(new_weight, dw->weight, inf);
+    /* Blur weight with average weight under the brush. */
+    dw->weight = interpf(gso->pbuffer_avg_weight, dw->weight, inf);
     CLAMP(dw->weight, 0.0f, 1.0f);
   }
+
+  /* Perform auto-normalize. */
+  if (gso->auto_normalize) {
+    do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+  }
+
   return true;
 }
 
@@ -327,9 +564,7 @@ static void gpencil_weightpaint_brush_header_set(bContext *C, tGP_BrushWeightpai
         TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
   }
   if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR) {
-    ED_workspace_status_text(C,
-                             TIP_("GPencil Weight BLUR: LMB to blur | RMB/Escape to Exit | "
-                                  "Ctrl to Erase Weight | Ctrl-Shift to Add Weight"));
+    ED_workspace_status_text(C, TIP_("GPencil Weight Blur: LMB to blur | RMB/Escape to Exit | "));
   }
 }
 
@@ -389,6 +624,24 @@ static bool gpencil_weightpaint_brush_init(bContext *C, wmOperator *op)
     BKE_curvemapping_init(ts->gp_sculpt.cur_falloff);
   }
 
+  /* Setup auto-normalize. */
+  gso->auto_normalize = (ts->auto_normalize && gso->vrgroup != -1);
+  if (gso->auto_normalize) {
+    gso->vgroup_tot = BLI_listbase_count(&gso->gpd->vertex_group_names);
+    /* Get boolean array of vertex groups deformed by bones. */
+    gso->vgroup_bone_deformed = gpencil_vgroup_bone_deformed_map_get(ob, gso->vgroup_tot);
+    if (gso->vgroup_bone_deformed != NULL) {
+      /* Get boolean array of locked vertext groups. */
+      gso->vgroup_locked = BKE_object_defgroup_lock_flags_get(ob, gso->vgroup_tot);
+      if (gso->vgroup_locked == NULL) {
+        gso->vgroup_locked = (bool *)MEM_callocN(sizeof(bool) * gso->vgroup_tot, __func__);
+      }
+    }
+    else {
+      gso->auto_normalize = false;
+    }
+  }
+
   /* Setup space conversions. */
   gpencil_point_conversion_init(C, &gso->gsc);
 
@@ -406,6 +659,8 @@ static void gpencil_weightpaint_brush_exit(bContext *C, wmOperator *op)
   ED_workspace_status_text(C, NULL);
 
   /* Free operator data */
+  MEM_SAFE_FREE(gso->vgroup_bone_deformed);
+  MEM_SAFE_FREE(gso->vgroup_locked);
   MEM_SAFE_FREE(gso->pbuffer);
   MEM_SAFE_FREE(gso);
   op->customdata = NULL;
@@ -617,7 +872,9 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
    * Second step: Apply effect.
    *--------------------------------------------------------------------- */
   /* For blur, get average weight of affected points. */
-  gpencil_select_buffer_avg_weight_set(gso);
+  if (tool == GPWEIGHT_TOOL_BLUR) {
+    gpencil_select_buffer_avg_weight_set(gso);
+  }
 
   bool changed = false;
   for (i = 0; i < gso->pbuffer_used; i++) {
@@ -789,11 +1046,6 @@ static void gpencil_weightpaint_brush_apply_event(bContext *C,
   float pressure = event->tablet.pressure;
   CLAMP(pressure, 0.0f, 1.0f);
   RNA_float_set(&itemptr, "pressure", pressure);
-
-  /* Handle ctrl(-shift) for blur brush (erase/add weight). */
-  if (event->modifier & KM_CTRL) {
-    gso->target_weight = (event->modifier & KM_SHIFT) ? 1.0f : 0.0f;
-  }
 
   /* apply */
   gpencil_weightpaint_brush_apply(C, op, &itemptr);

@@ -2061,6 +2061,23 @@ class VIEW3D_PT_tools_grease_pencil_brush_weight_falloff(GreasePencilBrushFallof
         return (brush and brush.curve)
 
 
+class VIEW3D_PT_tools_grease_pencil_weight_options(Panel, View3DPanel):
+    bl_context = ".greasepencil_weight"
+    bl_parent_id = 'VIEW3D_PT_tools_grease_pencil_weight_paint_settings'
+    bl_category = "Tool"
+    bl_label = "Options"
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        tool_settings = context.scene.tool_settings
+        
+        col = layout.column()
+        col.prop(tool_settings, "use_auto_normalize", text="Auto Normalize")
+
+
 # Grease Pencil vertex painting tools
 class GreasePencilVertexPanel:
     bl_context = ".greasepencil_vertex"
@@ -2437,6 +2454,7 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_sculpt_appearance,
     VIEW3D_PT_tools_grease_pencil_weight_paint_select,
     VIEW3D_PT_tools_grease_pencil_weight_paint_settings,
+    VIEW3D_PT_tools_grease_pencil_weight_options,
     VIEW3D_PT_tools_grease_pencil_weight_appearance,
     VIEW3D_PT_tools_grease_pencil_vertex_paint_select,
     VIEW3D_PT_tools_grease_pencil_vertex_paint_settings,

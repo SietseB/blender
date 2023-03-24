@@ -418,6 +418,8 @@ class _draw_tool_settings_context_mode:
             brush_basic_gpencil_weight_settings,
         )
         brush_basic_gpencil_weight_settings(layout, context, brush, compact=True)
+        
+        layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")
 
         return True
 
