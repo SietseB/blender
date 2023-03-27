@@ -1307,6 +1307,32 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
 
       break;
     }
+    case GP_BRUSH_PRESET_AVERAGE_WEIGHT: {
+      brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
+      brush->gpencil_weight_tool = GPWEIGHT_TOOL_AVERAGE;
+
+      brush->size = 50.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
+
+      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
+      brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
+
+      break;
+    }
+    case GP_BRUSH_PRESET_SMEAR_WEIGHT: {
+      brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
+      brush->gpencil_weight_tool = GPWEIGHT_TOOL_SMEAR;
+
+      brush->size = 50.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
+
+      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
+      brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
+
+      break;
+    }
     default:
       break;
   }
@@ -1598,6 +1624,18 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
   brush = gpencil_brush_ensure(bmain, ts, "Blur Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
     BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_BLUR_WEIGHT);
+  }
+
+  /* Vertex Average brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Average Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  if ((reset) || (r_new)) {
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_AVERAGE_WEIGHT);
+  }
+
+  /* Vertex Smear brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Smear Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  if ((reset) || (r_new)) {
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_SMEAR_WEIGHT);
   }
 
   /* Set default brush. */

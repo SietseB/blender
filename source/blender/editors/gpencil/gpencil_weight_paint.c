@@ -10,6 +10,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_ghash.h"
+#include "BLI_kdtree.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 
@@ -53,6 +54,9 @@
 /* ************************************************ */
 /* General Brush Editing Context */
 #define GP_SELECT_BUFFER_CHUNK 256
+#define GP_FIND_NEAREST_BUFFER_CHUNK 1024
+#define GP_FIND_NEAREST_EPSILON 1e-6f
+#define GP_STROKE_HASH_BITSHIFT 16
 
 /* Grid of Colors for Smear. */
 typedef struct tGP_Grid {
@@ -73,11 +77,11 @@ typedef struct tGP_Selected {
   bGPDstroke *gps;
   /** Point index in points array. */
   int pt_index;
-  /** Position */
+  /** Position. */
   int pc[2];
-  /** Color */
+  /** Color. */
   float color[4];
-  /** Weight */
+  /** Weight. */
   float weight;
 } tGP_Selected;
 
@@ -139,8 +143,21 @@ typedef struct tGP_BrushWeightpaintData {
   int pbuffer_used;
   /** Number of total elements available in cache. */
   int pbuffer_size;
-  /** Average weight of elements in cache (used for blur). */
+  /** Average weight of elements in cache (used for average tool). */
   float pbuffer_avg_weight;
+
+  /* Temp data for find-nearest-points, used by blur and smear tool. */
+  bool use_find_nearest;
+  /** Buffer of stroke points during one mouse swipe. */
+  tGP_Selected *fn_pbuffer;
+  /** Hash table of added points (to avoid duplicate entries). */
+  GSet *fn_added;
+  /** KDtree for finding nearest points. */
+  KDTree_2d *fn_kdtree;
+  /** Number of points used in find-nearest set. */
+  uint fn_used;
+  /** Number of points available in find-nearest set. */
+  uint fn_size;
 
   /* Temp data for auto-normalize weights used by deforming bones. */
   /** Boolean array of locked vertex groups. */
@@ -153,42 +170,61 @@ typedef struct tGP_BrushWeightpaintData {
 } tGP_BrushWeightpaintData;
 
 /* Ensure the buffer to hold temp selected point size is enough to save all points selected. */
-static tGP_Selected *gpencil_select_buffer_ensure(tGP_Selected *buffer_array,
-                                                  int *buffer_size,
-                                                  int *buffer_used,
-                                                  const bool clear)
+static void gpencil_select_buffer_ensure(tGP_BrushWeightpaintData *gso, const bool clear)
 {
-  tGP_Selected *p = NULL;
-
   /* By default a buffer is created with one block with a predefined number of free slots,
    * if the size is not enough, the cache is reallocated adding a new block of free slots.
    * This is done in order to keep cache small and improve speed. */
-  if (*buffer_used + 1 > *buffer_size) {
-    if ((*buffer_size == 0) || (buffer_array == NULL)) {
-      p = MEM_callocN(sizeof(struct tGP_Selected) * GP_SELECT_BUFFER_CHUNK, __func__);
-      *buffer_size = GP_SELECT_BUFFER_CHUNK;
+  if ((gso->pbuffer_used + 1) > gso->pbuffer_size) {
+    if ((gso->pbuffer_size == 0) || (gso->pbuffer == NULL)) {
+      gso->pbuffer = MEM_callocN(sizeof(struct tGP_Selected) * GP_SELECT_BUFFER_CHUNK, __func__);
+      gso->pbuffer_size = GP_SELECT_BUFFER_CHUNK;
     }
     else {
-      *buffer_size += GP_SELECT_BUFFER_CHUNK;
-      p = MEM_recallocN(buffer_array, sizeof(struct tGP_Selected) * *buffer_size);
+      gso->pbuffer_size += GP_SELECT_BUFFER_CHUNK;
+      gso->pbuffer = MEM_recallocN(gso->pbuffer, sizeof(struct tGP_Selected) * gso->pbuffer_size);
     }
-
-    if (p == NULL) {
-      *buffer_size = *buffer_used = 0;
-    }
-
-    buffer_array = p;
   }
 
-  /* clear old data */
+  /* Clear old data. */
   if (clear) {
-    *buffer_used = 0;
-    if (buffer_array != NULL) {
-      memset(buffer_array, 0, sizeof(tGP_Selected) * *buffer_size);
+    gso->pbuffer_used = 0;
+    if (gso->pbuffer != NULL) {
+      memset(gso->pbuffer, 0, sizeof(tGP_Selected) * gso->pbuffer_size);
     }
   }
 
-  return buffer_array;
+  /* Create or enlarge buffer for find-nearest-points. */
+  if (gso->use_find_nearest && ((gso->fn_used + 1) > gso->fn_size)) {
+    gso->fn_size += GP_FIND_NEAREST_BUFFER_CHUNK;
+
+    /* Stroke point buffer. */
+    if (gso->fn_pbuffer == NULL) {
+      gso->fn_pbuffer = MEM_callocN(sizeof(struct tGP_Selected) * gso->fn_size, __func__);
+    }
+    else {
+      gso->fn_pbuffer = MEM_recallocN(gso->fn_pbuffer, sizeof(struct tGP_Selected) * gso->fn_size);
+    }
+    /* Stroke point hash table (for duplicate checking.) */
+    if (gso->fn_added == NULL) {
+      gso->fn_added = BLI_gset_int_new("GP weight paint find nearest");
+    }
+    /* KDtree of stroke points. */
+    bool do_tree_rebuild = false;
+    if (gso->fn_kdtree != NULL) {
+      BLI_kdtree_2d_free(gso->fn_kdtree);
+      do_tree_rebuild = true;
+    }
+    gso->fn_kdtree = BLI_kdtree_2d_new(gso->fn_size);
+
+    if (do_tree_rebuild) {
+      for (int i = 0; i < gso->fn_used; i++) {
+        float pc_f[2];
+        copy_v2_fl2(pc_f, (float)gso->fn_pbuffer[i].pc[0], (float)gso->fn_pbuffer[i].pc[1]);
+        BLI_kdtree_2d_insert(gso->fn_kdtree, i, pc_f);
+      }
+    }
+  }
 }
 
 /* Ensure a vertex group for the weight paint brush. */
@@ -516,14 +552,46 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
   if (dw) {
     dw->weight = interpf(gso->brush->weight, dw->weight, inf);
     CLAMP(dw->weight, 0.0f, 1.0f);
+
+    /* Perform auto-normalize. */
+    if (gso->auto_normalize) {
+      do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+    }
+
+    return true;
   }
 
-  /* Perform auto-normalize. */
-  if (gso->auto_normalize) {
-    do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+  return false;
+}
+
+/* Average Brush */
+static bool brush_average_apply(tGP_BrushWeightpaintData *gso,
+                                bGPDstroke *gps,
+                                int pt_index,
+                                const int radius,
+                                const int co[2])
+{
+  MDeformVert *dvert = gps->dvert + pt_index;
+
+  /* Compute strength of effect. */
+  float inf = brush_influence_calc(gso, radius, co);
+
+  /* Get current weight. */
+  MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
+  if (dw) {
+    /* Blend weight with average weight under the brush. */
+    dw->weight = interpf(gso->pbuffer_avg_weight, dw->weight, inf);
+    CLAMP(dw->weight, 0.0f, 1.0f);
+
+    /* Perform auto-normalize. */
+    if (gso->auto_normalize) {
+      do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+    }
+
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 /* Blur Brush */
@@ -541,17 +609,36 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
   /* Get current weight. */
   MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
   if (dw) {
-    /* Blur weight with average weight under the brush. */
-    dw->weight = interpf(gso->pbuffer_avg_weight, dw->weight, inf);
+    /* Find nearest points. */
+    KDTreeNearest_2d nearest[5];
+    float pc_f[2], blur_weight = 0.0f;
+    copy_v2_fl2(pc_f, (float)co[0], (float)co[1]);
+    const int tot = BLI_kdtree_2d_find_nearest_n(gso->fn_kdtree, pc_f, nearest, 5);
+    int count = 0;
+    for (int i = 0; i < tot; i++) {
+      if (nearest[i].dist > GP_FIND_NEAREST_EPSILON) {
+        blur_weight += gso->fn_pbuffer[nearest[i].index].weight;
+        count++;
+      }
+    }
+    if (count == 0) {
+      return false;
+    }
+    blur_weight /= count;
+
+    /* Blend weight with blurred weight. */
+    dw->weight = interpf(blur_weight, dw->weight, inf);
     CLAMP(dw->weight, 0.0f, 1.0f);
+
+    /* Perform auto-normalize. */
+    if (gso->auto_normalize) {
+      do_weight_paint_normalize_all_try_active_locked(dvert, gso);
+    }
+
+    return true;
   }
 
-  /* Perform auto-normalize. */
-  if (gso->auto_normalize) {
-    do_weight_paint_normalize_all_try_active_locked(dvert, gso);
-  }
-
-  return true;
+  return false;
 }
 
 /* ************************************************ */
@@ -563,8 +650,9 @@ static void gpencil_weightpaint_brush_header_set(bContext *C, tGP_BrushWeightpai
         C,
         TIP_("GPencil Weight Paint: LMB to paint | RMB/Escape to Exit | Ctrl to Invert Action"));
   }
-  if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR) {
-    ED_workspace_status_text(C, TIP_("GPencil Weight Blur: LMB to blur | RMB/Escape to Exit | "));
+  if (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_AVERAGE) {
+    ED_workspace_status_text(
+        C, TIP_("GPencil Weight Average: LMB to set average | RMB/Escape to Exit | "));
   }
 }
 
@@ -598,6 +686,14 @@ static bool gpencil_weightpaint_brush_init(bContext *C, wmOperator *op)
   gso->pbuffer = NULL;
   gso->pbuffer_size = 0;
   gso->pbuffer_used = 0;
+
+  gso->fn_pbuffer = NULL;
+  gso->fn_added = NULL;
+  gso->fn_kdtree = NULL;
+  gso->fn_used = 0;
+  gso->fn_size = 0;
+  gso->use_find_nearest = ((gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR) ||
+                           (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_SMEAR));
 
   gso->gpd = ED_gpencil_data_get_active(C);
   gso->scene = scene;
@@ -661,6 +757,13 @@ static void gpencil_weightpaint_brush_exit(bContext *C, wmOperator *op)
   /* Free operator data */
   MEM_SAFE_FREE(gso->vgroup_bone_deformed);
   MEM_SAFE_FREE(gso->vgroup_locked);
+  if (gso->fn_kdtree != NULL) {
+    BLI_kdtree_2d_free(gso->fn_kdtree);
+  }
+  if (gso->fn_added != NULL) {
+    BLI_gset_free(gso->fn_added, NULL);
+  }
+  MEM_SAFE_FREE(gso->fn_pbuffer);
   MEM_SAFE_FREE(gso->pbuffer);
   MEM_SAFE_FREE(gso);
   op->customdata = NULL;
@@ -676,48 +779,80 @@ static bool gpencil_weightpaint_brush_poll(bContext *C)
 /* Helper to save the points selected by the brush. */
 static void gpencil_save_selected_point(tGP_BrushWeightpaintData *gso,
                                         bGPDstroke *gps,
-                                        int index,
-                                        int pc[2])
+                                        const int gps_index,
+                                        const int index,
+                                        const int pc[2],
+                                        const bool within_brush)
 {
   tGP_Selected *selected;
   bGPDspoint *pt = &gps->points[index];
 
   /* Ensure the array to save the list of selected points is big enough. */
-  gso->pbuffer = gpencil_select_buffer_ensure(
-      gso->pbuffer, &gso->pbuffer_size, &gso->pbuffer_used, false);
+  gpencil_select_buffer_ensure(gso, false);
 
   /* Copy point data. */
-  selected = &gso->pbuffer[gso->pbuffer_used];
-  selected->gps = gps;
-  selected->pt_index = index;
-  copy_v2_v2_int(selected->pc, pc);
-  copy_v4_v4(selected->color, pt->vert_color);
+  if (within_brush) {
+    selected = &gso->pbuffer[gso->pbuffer_used];
+    selected->gps = gps;
+    selected->pt_index = index;
+    copy_v2_v2_int(selected->pc, pc);
+    copy_v4_v4(selected->color, pt->vert_color);
+    gso->pbuffer_used++;
+  }
 
   /* Ensure vertex group and dvert. */
   gpencil_vertex_group_ensure(gso);
   BKE_gpencil_dvert_ensure(gps);
 
-  /* Get current weight. */
+  /* Copy current weight. */
   MDeformVert *dvert = gps->dvert + index;
   MDeformWeight *dw = BKE_defvert_find_index(dvert, gso->vrgroup);
-  if (dw) {
+  if (within_brush && (dw != NULL)) {
     selected->weight = dw->weight;
   }
 
-  gso->pbuffer_used++;
+  /* Store point for finding nearest points (blur, smear). */
+  if (gso->use_find_nearest) {
+    /* Create hash key, assuming there are no more than 65536 strokes in a frame
+     * and 65536 points in a stroke. */
+    const int point_hash = (gps_index << GP_STROKE_HASH_BITSHIFT) + index;
+
+    /* Prevent duplicate points in buffer. */
+    if (!BLI_gset_haskey(gso->fn_added, POINTER_FROM_INT(point_hash))) {
+      /* Add stroke point to find-nearest buffer. */
+      selected = &gso->fn_pbuffer[gso->fn_used];
+      copy_v2_v2_int(selected->pc, pc);
+      selected->weight = (dw == NULL) ? 0.0f : dw->weight;
+
+      BLI_gset_insert(gso->fn_added, POINTER_FROM_INT(point_hash));
+
+      float pc_f[2];
+      copy_v2_fl2(pc_f, (float)pc[0], (float)pc[1]);
+      BLI_kdtree_2d_insert(gso->fn_kdtree, gso->fn_used, pc_f);
+
+      gso->fn_used++;
+    }
+  }
 }
 
 /* Select points in this stroke and add to an array to be used later. */
 static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
                                               bGPDstroke *gps,
+                                              const int gps_index,
                                               const float diff_mat[4][4],
                                               const float bound_mat[4][4])
 {
   GP_SpaceConversion *gsc = &gso->gsc;
   rcti *rect = &gso->brush_rect;
   Brush *brush = gso->brush;
-  const int radius = (brush->flag & GP_BRUSH_USE_PRESSURE) ? gso->brush->size * gso->pressure :
+  /* For the blur tool, look a bit wider than the brush itself,
+   * because we need the weight of surrounding points to perform the blur. */
+  const bool no_widening = (gso->brush->gpencil_weight_tool != GPWEIGHT_TOOL_BLUR);
+  int radius_brush = (brush->flag & GP_BRUSH_USE_PRESSURE) ? gso->brush->size * gso->pressure :
                                                              gso->brush->size;
+  int radius_wide = (no_widening) ? radius_brush : radius_brush * 1.3f;
+  bool within_brush;
+
   bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
   bGPDspoint *pt_active = NULL;
 
@@ -729,8 +864,8 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
   int index;
   bool include_last = false;
 
-  /* Check if the stroke collide with brush. */
-  if (!ED_gpencil_stroke_check_collision(gsc, gps, gso->mval, radius, bound_mat)) {
+  /* Check if the stroke collides with brush. */
+  if (!ED_gpencil_stroke_check_collision(gsc, gps, gso->mval, radius_wide, bound_mat)) {
     return;
   }
 
@@ -746,10 +881,12 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
       /* only check if point is inside */
       int mval_i[2];
       round_v2i_v2fl(mval_i, gso->mval);
-      if (len_v2v2_int(mval_i, pc1) <= radius) {
+      int mlen = len_v2v2_int(mval_i, pc1);
+      if (mlen <= radius_wide) {
         /* apply operation to this point */
         if (pt_active != NULL) {
-          gpencil_save_selected_point(gso, gps_active, 0, pc1);
+          within_brush = (no_widening) ? true : (mlen <= radius_brush);
+          gpencil_save_selected_point(gso, gps_active, gps_index, 0, pc1, within_brush);
         }
       }
     }
@@ -777,14 +914,18 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
          * brush region  (either within stroke painted, or on its lines)
          * - this assumes that line-width is irrelevant.
          */
-        if (gpencil_stroke_inside_circle(gso->mval, radius, pc1[0], pc1[1], pc2[0], pc2[1])) {
+        if (gpencil_stroke_inside_circle(gso->mval, radius_wide, pc1[0], pc1[1], pc2[0], pc2[1])) {
+          within_brush = (no_widening) ?
+                             true :
+                             (gpencil_stroke_inside_circle(
+                                 gso->mval, radius_brush, pc1[0], pc1[1], pc2[0], pc2[1]));
 
           /* To each point individually... */
           pt = &gps->points[i];
           pt_active = pt->runtime.pt_orig;
           if (pt_active != NULL) {
             index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
-            gpencil_save_selected_point(gso, gps_active, index, pc1);
+            gpencil_save_selected_point(gso, gps_active, gps_index, index, pc1, within_brush);
           }
 
           /* Only do the second point if this is the last segment,
@@ -800,7 +941,7 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
             pt_active = pt->runtime.pt_orig;
             if (pt_active != NULL) {
               index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i + 1;
-              gpencil_save_selected_point(gso, gps_active, index, pc2);
+              gpencil_save_selected_point(gso, gps_active, gps_index, index, pc2, within_brush);
               include_last = false;
             }
           }
@@ -818,8 +959,7 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
           pt_active = pt->runtime.pt_orig;
           if (pt_active != NULL) {
             index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
-            gpencil_save_selected_point(gso, gps_active, index, pc1);
-
+            gpencil_save_selected_point(gso, gps_active, gps_index, index, pc1, true);
             include_last = false;
           }
         }
@@ -849,7 +989,10 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
    * all selected points before apply the effect, because it could be
    * required to do some step. Now is not used, but the operator is ready.
    *--------------------------------------------------------------------- */
+  int gps_index = -1;
   LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+    gps_index++;
+
     /* Skip strokes that are invalid for current view. */
     if (ED_gpencil_stroke_can_use(C, gps) == false) {
       continue;
@@ -860,7 +1003,7 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
     }
 
     /* Check points below the brush. */
-    gpencil_weightpaint_select_stroke(gso, gps, diff_mat, bound_mat);
+    gpencil_weightpaint_select_stroke(gso, gps, gps_index, diff_mat, bound_mat);
   }
 
   bDeformGroup *defgroup = BLI_findlink(&gso->gpd->vertex_group_names, gso->vrgroup);
@@ -869,26 +1012,36 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
   }
 
   /*---------------------------------------------------------------------
-   * Second step: Apply effect.
+   * Second step: Calculations on selected points.
    *--------------------------------------------------------------------- */
-  /* For blur, get average weight of affected points. */
-  if (tool == GPWEIGHT_TOOL_BLUR) {
+  /* For average tool, get average weight of affected points. */
+  if (tool == GPWEIGHT_TOOL_AVERAGE) {
     gpencil_select_buffer_avg_weight_set(gso);
   }
+  /* Balance find-nearest KDtree. */
+  if (gso->use_find_nearest) {
+    BLI_kdtree_2d_balance(gso->fn_kdtree);
+  }
 
+  /*---------------------------------------------------------------------
+   * Third step: Apply effect.
+   *--------------------------------------------------------------------- */
   bool changed = false;
   for (i = 0; i < gso->pbuffer_used; i++) {
     selected = &gso->pbuffer[i];
 
     switch (tool) {
       case GPWEIGHT_TOOL_DRAW: {
-        brush_draw_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
-        changed = true;
+        changed |= brush_draw_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
+        break;
+      }
+      case GPWEIGHT_TOOL_AVERAGE: {
+        changed |= brush_average_apply(
+            gso, selected->gps, selected->pt_index, radius, selected->pc);
         break;
       }
       case GPWEIGHT_TOOL_BLUR: {
-        brush_blur_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
-        changed = true;
+        changed |= brush_blur_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
         break;
       }
       default:
@@ -898,8 +1051,7 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
   }
 
   /* Clear the selected array, but keep the memory allocation. */
-  gso->pbuffer = gpencil_select_buffer_ensure(
-      gso->pbuffer, &gso->pbuffer_size, &gso->pbuffer_used, true);
+  gpencil_select_buffer_ensure(gso, true);
 
   return changed;
 }

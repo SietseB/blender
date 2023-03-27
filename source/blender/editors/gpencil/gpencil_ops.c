@@ -298,6 +298,18 @@ static bool gpencil_stroke_weightmode_blur_poll(bContext *C)
   return gpencil_stroke_weightmode_poll_with_tool(C, GPWEIGHT_TOOL_BLUR);
 }
 
+/* Poll callback for weight paint (Average) */
+static bool gpencil_stroke_weightmode_average_poll(bContext *C)
+{
+  return gpencil_stroke_weightmode_poll_with_tool(C, GPWEIGHT_TOOL_AVERAGE);
+}
+
+/* Poll callback for weight paint (Smear) */
+static bool gpencil_stroke_weightmode_smear_poll(bContext *C)
+{
+  return gpencil_stroke_weightmode_poll_with_tool(C, GPWEIGHT_TOOL_SMEAR);
+}
+
 /* Stroke Editing Keymap - Only when editmode is enabled */
 static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 {
