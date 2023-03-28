@@ -252,18 +252,14 @@ const EnumPropertyItem rna_enum_brush_gpencil_sculpt_types_items[] = {
     {0, NULL, 0, NULL, NULL}};
 
 const EnumPropertyItem rna_enum_brush_gpencil_weight_types_items[] = {
-    {GPWEIGHT_TOOL_DRAW,
-     "WEIGHT",
-     ICON_GPBRUSH_WEIGHT,
-     "Weight",
-     "Weight Paint for Vertex Groups"},
-    {GPWEIGHT_TOOL_BLUR, "BLUR", ICON_BRUSH_BLUR, "Blur", "Weight Blur for Vertex Groups"},
+    {GPWEIGHT_TOOL_DRAW, "WEIGHT", ICON_GPBRUSH_WEIGHT, "Weight", "Paint weight of vertex groups"},
+    {GPWEIGHT_TOOL_BLUR, "BLUR", ICON_BRUSH_BLUR, "Blur", "Blur weight of vertex groups"},
     {GPWEIGHT_TOOL_AVERAGE,
      "AVERAGE",
      ICON_BRUSH_BLUR,
      "Average",
-     "Weight Average for Vertex Groups"},
-    {GPWEIGHT_TOOL_SMEAR, "SMEAR", ICON_BRUSH_SMEAR, "Smear", "Weight Smear for Vertex Groups"},
+     "Average weight of vertex groups"},
+    {GPWEIGHT_TOOL_SMEAR, "SMEAR", ICON_BRUSH_SMEAR, "Smear", "Smear weight of vertex groups"},
     {0, NULL, 0, NULL, NULL},
 };
 

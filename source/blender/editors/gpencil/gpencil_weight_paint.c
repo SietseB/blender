@@ -220,7 +220,7 @@ static void gpencil_select_buffer_ensure(tGP_BrushWeightpaintData *gso, const bo
     if (do_tree_rebuild) {
       for (int i = 0; i < gso->fn_used; i++) {
         float pc_f[2];
-        copy_v2_fl2(pc_f, (float)gso->fn_pbuffer[i].pc[0], (float)gso->fn_pbuffer[i].pc[1]);
+        copy_v2fl_v2i(pc_f, gso->fn_pbuffer[i].pc);
         BLI_kdtree_2d_insert(gso->fn_kdtree, i, pc_f);
       }
     }
@@ -612,7 +612,7 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
     /* Find nearest points. */
     KDTreeNearest_2d nearest[5];
     float pc_f[2], blur_weight = 0.0f;
-    copy_v2_fl2(pc_f, (float)co[0], (float)co[1]);
+    copy_v2fl_v2i(pc_f, co);
     const int tot = BLI_kdtree_2d_find_nearest_n(gso->fn_kdtree, pc_f, nearest, 5);
     int count = 0;
     for (int i = 0; i < tot; i++) {
@@ -847,11 +847,11 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
   Brush *brush = gso->brush;
   /* For the blur tool, look a bit wider than the brush itself,
    * because we need the weight of surrounding points to perform the blur. */
-  const bool no_widening = (gso->brush->gpencil_weight_tool != GPWEIGHT_TOOL_BLUR);
+  const bool widen_brush = (gso->brush->gpencil_weight_tool == GPWEIGHT_TOOL_BLUR);
   int radius_brush = (brush->flag & GP_BRUSH_USE_PRESSURE) ? gso->brush->size * gso->pressure :
                                                              gso->brush->size;
-  int radius_wide = (no_widening) ? radius_brush : radius_brush * 1.3f;
-  bool within_brush;
+  int radius_wide = (widen_brush) ? radius_brush * 1.3f : radius_brush;
+  bool within_brush = !widen_brush;
 
   bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
   bGPDspoint *pt_active = NULL;
@@ -885,7 +885,9 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
       if (mlen <= radius_wide) {
         /* apply operation to this point */
         if (pt_active != NULL) {
-          within_brush = (no_widening) ? true : (mlen <= radius_brush);
+          if (widen_brush) {
+            within_brush = (mlen <= radius_brush);
+          }
           gpencil_save_selected_point(gso, gps_active, gps_index, 0, pc1, within_brush);
         }
       }
@@ -915,10 +917,10 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
          * - this assumes that line-width is irrelevant.
          */
         if (gpencil_stroke_inside_circle(gso->mval, radius_wide, pc1[0], pc1[1], pc2[0], pc2[1])) {
-          within_brush = (no_widening) ?
-                             true :
-                             (gpencil_stroke_inside_circle(
-                                 gso->mval, radius_brush, pc1[0], pc1[1], pc2[0], pc2[1]));
+          if (widen_brush) {
+            within_brush = (gpencil_stroke_inside_circle(
+                gso->mval, radius_brush, pc1[0], pc1[1], pc2[0], pc2[1]));
+          }
 
           /* To each point individually... */
           pt = &gps->points[i];
@@ -1111,12 +1113,10 @@ static bool gpencil_weightpaint_brush_apply_to_layers(bContext *C, tGP_BrushWeig
       }
     }
     else {
-      if (gpl->actframe != NULL) {
-        /* Apply to active frame's strokes */
-        gso->mf_falloff = 1.0f;
-        changed |= gpencil_weightpaint_brush_do_frame(
-            C, gso, gpl, gpl->actframe, diff_mat, bound_mat);
-      }
+      /* Apply to active frame's strokes */
+      gso->mf_falloff = 1.0f;
+      changed |= gpencil_weightpaint_brush_do_frame(
+          C, gso, gpl, gpl->actframe, diff_mat, bound_mat);
     }
   }
 
@@ -1399,4 +1399,143 @@ void GPENCIL_OT_weight_paint(wmOperatorType *ot)
 
   prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
+/* -------------------------------------------------------------------- */
+/*  Weight Sample Operator */
+static int gpencil_weight_sample_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+  /* Get mouse position. */
+  int mouse[2];
+  mouse[0] = event->mval[0] + 1;
+  mouse[1] = event->mval[1] + 1;
+  float mouse_f[2];
+  copy_v2fl_v2i(mouse_f, mouse);
+
+  /* Get active GP object. */
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  Object *ob = CTX_data_active_object(C);
+  bGPdata *gpd = ED_gpencil_data_get_active(C);
+
+  if ((ob == NULL) || (gpd == NULL)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Get active vertex group. */
+  int vgroup = gpd->vertex_group_active_index - 1;
+  bDeformGroup *defgroup = BLI_findlink(&gpd->vertex_group_names, vgroup);
+  if (!defgroup) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Init space conversion. */
+  GP_SpaceConversion gsc = {NULL};
+  gpencil_point_conversion_init(C, &gsc);
+
+  /* Get evaluated GP object. */
+  Object *ob_eval = (Object *)DEG_get_evaluated_id(depsgraph, &ob->id);
+  bGPdata *gpd_eval = (bGPdata *)ob_eval->data;
+
+  /* Get brush radius. */
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  Brush *brush = ts->gp_weightpaint->paint.brush;
+  const int radius = brush->size;
+
+  /* Init closest points. */
+  float closest_dist[2] = {FLT_MAX, FLT_MAX};
+  float closest_weight[2] = {0.0f, 0.0f};
+  int closest_count = 0;
+  int pc[2] = {0};
+
+  /* Inspect all layers. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd_eval->layers) {
+    /* If no active frame, don't do anything. */
+    if (gpl->actframe == NULL) {
+      continue;
+    }
+
+    /* Calculate transform matrix. */
+    float diff_mat[4][4], bound_mat[4][4];
+    BKE_gpencil_layer_transform_matrix_get(depsgraph, ob, gpl, diff_mat);
+    copy_m4_m4(bound_mat, diff_mat);
+    mul_m4_m4m4(diff_mat, diff_mat, gpl->layer_invmat);
+
+    /* Inspect all strokes in active frame. */
+    LISTBASE_FOREACH (bGPDstroke *, gps, &gpl->actframe->strokes) {
+      /* Look for strokes that collide with the brush. */
+      if (!ED_gpencil_stroke_check_collision(&gsc, gps, mouse_f, radius, bound_mat)) {
+        continue;
+      }
+      if (gps->dvert == NULL) {
+        continue;
+      }
+
+      /* Look for two closest points. */
+      for (int i = 0; i < gps->totpoints; i++) {
+        bGPDspoint *pt = gps->points + i;
+        bGPDspoint npt;
+
+        gpencil_point_to_world_space(pt, diff_mat, &npt);
+        gpencil_point_to_xy(&gsc, gps, &npt, &pc[0], &pc[1]);
+
+        float dist = len_v2v2_int(pc, mouse);
+
+        if ((dist < closest_dist[0]) || (dist < closest_dist[1])) {
+          /* Get weight. */
+          MDeformVert *dvert = gps->dvert + i;
+          MDeformWeight *dw = BKE_defvert_find_index(dvert, vgroup);
+          if (dw == NULL) {
+            continue;
+          }
+          if (dist < closest_dist[0]) {
+            closest_dist[1] = closest_dist[0];
+            closest_weight[1] = closest_weight[0];
+            closest_dist[0] = dist;
+            closest_weight[0] = dw->weight;
+            closest_count++;
+          }
+          else if (dist < closest_dist[1]) {
+            closest_dist[1] = dist;
+            closest_weight[1] = dw->weight;
+            closest_count++;
+          }
+        }
+      }
+    }
+  }
+
+  /* Set brush weight, based on points found.*/
+  if (closest_count > 0) {
+    if (closest_count == 1) {
+      brush->weight = closest_weight[0];
+    }
+    else {
+      CLAMP_MIN(closest_dist[1], 1e-6f);
+      float dist_sum = closest_dist[0] + closest_dist[1];
+      brush->weight = (1.0f - closest_dist[0] / dist_sum) * closest_weight[0] +
+                      (1.0f - closest_dist[1] / dist_sum) * closest_weight[1];
+    }
+
+    /* Update tool settings. */
+    WM_main_add_notifier(NC_BRUSH | NA_EDITED, NULL);
+
+    return OPERATOR_FINISHED;
+  }
+
+  return OPERATOR_CANCELLED;
+}
+
+void GPENCIL_OT_weight_sample(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Weight Paint Sample Weight";
+  ot->idname = "GPENCIL_OT_weight_sample";
+  ot->description = "Use the mouse to sample a weight in the 3D view";
+
+  /* api callbacks */
+  ot->invoke = gpencil_weight_sample_invoke;
+  ot->poll = gpencil_weightpaint_brush_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_UNDO;
 }
