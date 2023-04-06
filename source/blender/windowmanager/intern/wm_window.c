@@ -1054,7 +1054,11 @@ struct wmWindow *WM_window_open_temp(struct bContext *C,
   return win;
 }
 
-/* ****************** Operators ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Operators
+ * \{ */
 
 int wm_window_close_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1119,7 +1123,11 @@ int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
   return OPERATOR_FINISHED;
 }
 
-/* ************ events *************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Events
+ * \{ */
 
 void wm_cursor_position_from_ghost_client_coords(wmWindow *win, int *x, int *y)
 {
@@ -1740,9 +1748,10 @@ void wm_ghost_init(bContext *C)
   GHOST_UseWindowFocus(wm_init_state.window_focus);
 }
 
-/* TODO move this to wm_init_exit.cc. */
 void wm_ghost_init_background(void)
 {
+  /* TODO: move this to `wm_init_exit.cc`. */
+
   if (g_system) {
     return;
   }
@@ -1882,14 +1891,19 @@ eWM_CapabilitiesFlag WM_capabilities_flag(void)
   if (flag != -1) {
     return flag;
   }
-
   flag = 0;
-  if (GHOST_SupportsCursorWarp()) {
+
+  const GHOST_TCapabilityFlag ghost_flag = GHOST_GetCapabilities();
+  if (ghost_flag & GHOST_kCapabilityCursorWarp) {
     flag |= WM_CAPABILITY_CURSOR_WARP;
   }
-  if (GHOST_SupportsWindowPosition()) {
+  if (ghost_flag & GHOST_kCapabilityWindowPosition) {
     flag |= WM_CAPABILITY_WINDOW_POSITION;
   }
+  if (ghost_flag & GHOST_kCapabilityPrimaryClipboard) {
+    flag |= WM_CAPABILITY_PRIMARY_CLIPBOARD;
+  }
+
   return flag;
 }
 

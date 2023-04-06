@@ -34,7 +34,6 @@ struct MDisps;
 struct MEdge;
 struct MFace;
 struct MLoopTri;
-struct MPoly;
 struct Main;
 struct MemArena;
 struct Mesh;
@@ -72,6 +71,11 @@ void BKE_mesh_tag_topology_changed(struct Mesh *mesh);
  */
 void BKE_mesh_tag_edges_split(struct Mesh *mesh);
 
+/**
+ * Call when face vertex order has changed but positions and faces haven't changed
+ */
+void BKE_mesh_tag_face_winding_changed(struct Mesh *mesh);
+
 /* *** mesh.c *** */
 
 struct BMesh *BKE_mesh_to_bmesh_ex(const struct Mesh *me,
@@ -105,26 +109,6 @@ void BKE_mesh_ensure_default_orig_index_customdata(struct Mesh *mesh);
 void BKE_mesh_ensure_default_orig_index_customdata_no_check(struct Mesh *mesh);
 
 /**
- * Find the index of the loop in 'poly' which references vertex,
- * returns -1 if not found
- */
-int poly_find_loop_from_vert(const struct MPoly *poly, const int *poly_verts, int vert);
-/**
- * Fill \a r_adj with the loop indices in \a poly adjacent to the
- * vertex. Returns the index of the loop matching vertex, or -1 if the
- * vertex is not in \a poly
- */
-int poly_get_adj_loops_from_vert(const struct MPoly *poly,
-                                 const int *corner_verts,
-                                 int vert,
-                                 int r_adj[2]);
-
-/**
- * Return the index of the edge vert that is not equal to \a v. If
- * neither edge vertex is equal to \a v, returns -1.
- */
-int BKE_mesh_edge_other_vert(const struct MEdge *e, int v);
-/**
  * Sets each output array element to the edge index if it is a real edge, or -1.
  */
 void BKE_mesh_looptri_get_real_edges(const struct MEdge *edges,
@@ -156,6 +140,9 @@ void BKE_mesh_copy_parameters_for_eval(struct Mesh *me_dst, const struct Mesh *m
  */
 void BKE_mesh_copy_parameters(struct Mesh *me_dst, const struct Mesh *me_src);
 void BKE_mesh_ensure_skin_customdata(struct Mesh *me);
+
+/** Add poly offsets to describe faces to a new mesh. */
+void BKE_mesh_poly_offsets_ensure_alloc(struct Mesh *mesh);
 
 struct Mesh *BKE_mesh_new_nomain(int verts_len, int edges_len, int loops_len, int polys_len);
 struct Mesh *BKE_mesh_new_nomain_from_template(
@@ -313,7 +300,7 @@ void BKE_mesh_vert_coords_apply(struct Mesh *mesh, const float (*vert_coords)[3]
  * Calculate tessellation into #MLoopTri which exist only for this purpose.
  */
 void BKE_mesh_recalc_looptri(const int *corner_verts,
-                             const struct MPoly *polys,
+                             const int *poly_offsets,
                              const float (*vert_positions)[3],
                              int totvert,
                              int totloop,
@@ -349,28 +336,9 @@ const float (*BKE_mesh_poly_normals_ensure(const struct Mesh *mesh))[3];
 float (*BKE_mesh_vert_normals_for_write(struct Mesh *mesh))[3];
 
 /**
- * Retrieve write access to the cached polygon normals, ensuring that they are allocated but *not*
- * that they are calculated. The provided polygon normals should be the same as if they were
- * calculated automatically.
- *
- * \note In order to clear the dirty flag, this function should be followed by a call to
- * #BKE_mesh_poly_normals_clear_dirty. This is separate so that normals are still tagged dirty
- * while they are being assigned.
- *
- * \warning The memory returned by this function is not initialized if it was not previously
- * allocated.
- */
-float (*BKE_mesh_poly_normals_for_write(struct Mesh *mesh))[3];
-
-/**
  * Mark the mesh's vertex normals non-dirty, for when they are calculated or assigned manually.
  */
 void BKE_mesh_vert_normals_clear_dirty(struct Mesh *mesh);
-
-/**
- * Mark the mesh's poly normals non-dirty, for when they are calculated or assigned manually.
- */
-void BKE_mesh_poly_normals_clear_dirty(struct Mesh *mesh);
 
 /**
  * Return true if the mesh vertex normals either are not stored or are dirty.
@@ -599,24 +567,27 @@ void BKE_mesh_mdisp_flip(struct MDisps *md, bool use_loop_mdisp_flip);
  * \param mloop: the full loops array.
  * \param ldata: the loops custom data.
  */
-void BKE_mesh_polygon_flip_ex(const struct MPoly *poly,
+void BKE_mesh_polygon_flip_ex(int poly_offset,
+                              int poly_size,
                               int *corner_verts,
                               int *corner_edges,
                               struct CustomData *ldata,
                               float (*lnors)[3],
                               struct MDisps *mdisp,
                               bool use_loop_mdisp_flip);
-void BKE_mesh_polygon_flip(const struct MPoly *poly,
+void BKE_mesh_polygon_flip(int poly_offset,
+                           int poly_size,
                            int *corner_verts,
                            int *corner_edges,
                            struct CustomData *ldata,
                            int totloop);
+
 /**
  * Flip (invert winding of) all polygons (used to inverse their normals).
  *
  * \note Invalidates tessellation, caller must handle that.
  */
-void BKE_mesh_polys_flip(const struct MPoly *polys,
+void BKE_mesh_polys_flip(const int *poly_offsets,
                          int *corner_verts,
                          int *corner_edges,
                          struct CustomData *ldata,
@@ -653,7 +624,7 @@ void BKE_mesh_flush_select_from_verts(struct Mesh *me);
  * \param vert_cos_org: reference for the output location.
  * \param vert_cos_new: resulting coords.
  */
-void BKE_mesh_calc_relative_deform(const struct MPoly *polys,
+void BKE_mesh_calc_relative_deform(const int *poly_offsets,
                                    int totpoly,
                                    const int *corner_verts,
                                    int totvert,
@@ -708,7 +679,7 @@ bool BKE_mesh_validate_arrays(struct Mesh *me,
                               int *corner_verts,
                               int *corner_edges,
                               unsigned int totloop,
-                              struct MPoly *polys,
+                              int *poly_offsets,
                               unsigned int totpoly,
                               struct MDeformVert *dverts, /* assume totvert length */
                               bool do_verbose,
@@ -814,13 +785,13 @@ BLI_INLINE MEdge *BKE_mesh_edges_for_write(Mesh *mesh)
   return (MEdge *)CustomData_get_layer_for_write(&mesh->edata, CD_MEDGE, mesh->totedge);
 }
 
-BLI_INLINE const MPoly *BKE_mesh_polys(const Mesh *mesh)
+BLI_INLINE const int *BKE_mesh_poly_offsets(const Mesh *mesh)
 {
-  return (const MPoly *)CustomData_get_layer(&mesh->pdata, CD_MPOLY);
+  return mesh->poly_offset_indices;
 }
-BLI_INLINE MPoly *BKE_mesh_polys_for_write(Mesh *mesh)
+BLI_INLINE int *BKE_mesh_poly_offsets_for_write(Mesh *mesh)
 {
-  return (MPoly *)CustomData_get_layer_for_write(&mesh->pdata, CD_MPOLY, mesh->totpoly);
+  return mesh->poly_offset_indices;
 }
 
 BLI_INLINE const int *BKE_mesh_corner_verts(const Mesh *mesh)

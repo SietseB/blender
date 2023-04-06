@@ -103,7 +103,7 @@
 #include "ED_view3d_offscreen.h"
 
 #include "GHOST_C-api.h"
-#include "GHOST_Path-api.h"
+#include "GHOST_Path-api.hh"
 
 #include "GPU_context.h"
 
@@ -1112,7 +1112,7 @@ void wm_homefile_read_ex(bContext *C,
   const bool use_userdef = params_homefile->use_userdef;
   bool use_factory_settings = params_homefile->use_factory_settings;
   /* Currently this only impacts preferences as it doesn't make much sense to keep the default
-   * startup open in the case the app-template doesn't happen to define it's own startup.
+   * startup open in the case the app-template doesn't happen to define its own startup.
    * Unlike preferences where we might want to only reset the app-template part of the preferences
    * so as not to reset the preferences for all other Blender instances, see: #96427. */
   const bool use_factory_settings_app_template_only =
@@ -1604,7 +1604,7 @@ static void wm_history_file_update(void)
  *
  *   - An image is saved to the thumbnail cache, sized at #PREVIEW_RENDER_LARGE_HEIGHT.
  *
- *   - A smaller thumbnail is stored in the `.blend` file it's self, sized at #BLEN_THUMB_SIZE.
+ *   - A smaller thumbnail is stored in the `.blend` file itself, sized at #BLEN_THUMB_SIZE.
  *     The size is kept small to prevent thumbnails bloating the size of `.blend` files.
  *
  *     The this thumbnail will be extracted if the file is shared or the local thumbnail cache

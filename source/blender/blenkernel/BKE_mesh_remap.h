@@ -7,6 +7,10 @@
  */
 
 #ifdef __cplusplus
+#  include "BLI_offset_indices.hh"
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -159,14 +163,14 @@ void BKE_mesh_remap_calc_source_cddata_masks_from_map_modes(
 float BKE_mesh_remap_calc_difference_from_mesh(const struct SpaceTransform *space_transform,
                                                const float (*vert_positions_dst)[3],
                                                int numverts_dst,
-                                               struct Mesh *me_src);
+                                               const struct Mesh *me_src);
 
 /**
  * Set r_space_transform so that best bbox of dst matches best bbox of src.
  */
 void BKE_mesh_remap_find_best_match_from_mesh(const float (*vert_positions_dst)[3],
                                               int numverts_dst,
-                                              struct Mesh *me_src,
+                                              const struct Mesh *me_src,
                                               struct SpaceTransform *r_space_transform);
 
 void BKE_mesh_remap_calc_verts_from_mesh(int mode,
@@ -176,7 +180,7 @@ void BKE_mesh_remap_calc_verts_from_mesh(int mode,
                                          const float (*vert_positions_dst)[3],
                                          int numverts_dst,
                                          bool dirty_nors_dst,
-                                         struct Mesh *me_src,
+                                         const struct Mesh *me_src,
                                          struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
 
@@ -189,9 +193,15 @@ void BKE_mesh_remap_calc_edges_from_mesh(int mode,
                                          const struct MEdge *edges_dst,
                                          int numedges_dst,
                                          bool dirty_nors_dst,
-                                         struct Mesh *me_src,
+                                         const struct Mesh *me_src,
                                          struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
 
 void BKE_mesh_remap_calc_loops_from_mesh(int mode,
                                          const struct SpaceTransform *space_transform,
@@ -205,13 +215,12 @@ void BKE_mesh_remap_calc_loops_from_mesh(int mode,
                                          const int *corner_verts_dst,
                                          const int *corner_edges_dst,
                                          int numloops_dst,
-                                         const struct MPoly *polys_dst,
-                                         int numpolys_dst,
+                                         const blender::OffsetIndices<int> polys_dst,
                                          struct CustomData *ldata_dst,
                                          bool use_split_nors_dst,
                                          float split_angle_dst,
                                          bool dirty_nors_dst,
-                                         struct Mesh *me_src,
+                                         const struct Mesh *me_src,
                                          MeshRemapIslandsCalc gen_islands_src,
                                          float islands_precision_src,
                                          struct MeshPairRemap *r_map);
@@ -224,11 +233,8 @@ void BKE_mesh_remap_calc_polys_from_mesh(int mode,
                                          const float (*vert_positions_dst)[3],
                                          int numverts_dst,
                                          const int *corner_verts,
-                                         const struct MPoly *polys_dst,
-                                         int numpolys_dst,
-                                         struct Mesh *me_src,
+                                         const blender::OffsetIndices<int> polys_dst,
+                                         const struct Mesh *me_src,
                                          struct MeshPairRemap *r_map);
 
-#ifdef __cplusplus
-}
 #endif

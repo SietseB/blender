@@ -2,7 +2,6 @@
 
 #include "BLI_array_utils.hh"
 #include "BLI_index_mask.hh"
-#include "BLI_user_counter.hh"
 
 #include "BKE_attribute.hh"
 #include "BKE_attribute_math.hh"
@@ -69,7 +68,7 @@ static void add_new_edges(Mesh &mesh,
   /* Store a copy of the IDs locally since we will remove the existing attributes which
    * can also free the names, since the API does not provide pointer stability. */
   Vector<std::string> named_ids;
-  Vector<UserCounter<const bke::AnonymousAttributeID>> anonymous_ids;
+  Vector<bke::AutoAnonymousAttributeID> anonymous_ids;
   for (const bke::AttributeIDRef &id : attributes.all_ids()) {
     if (attributes.lookup_meta_data(id)->domain != ATTR_DOMAIN_EDGE) {
       continue;
@@ -82,14 +81,14 @@ static void add_new_edges(Mesh &mesh,
     }
     else {
       anonymous_ids.append(&id.anonymous_id());
-      id.anonymous_id().user_add();
+      id.anonymous_id().add_user();
     }
   }
   Vector<bke::AttributeIDRef> local_edge_ids;
   for (const StringRef name : named_ids) {
     local_edge_ids.append(name);
   }
-  for (const UserCounter<const bke::AnonymousAttributeID> &id : anonymous_ids) {
+  for (const bke::AutoAnonymousAttributeID &id : anonymous_ids) {
     local_edge_ids.append(*id);
   }
 
@@ -247,12 +246,12 @@ static void split_vertex_per_fan(const int vertex,
 static int adjacent_edge(const Span<int> corner_verts,
                          const Span<int> corner_edges,
                          const int loop_i,
-                         const MPoly &poly,
+                         const IndexRange poly,
                          const int vertex)
 {
   const int adjacent_loop_i = (corner_verts[loop_i] == vertex) ?
-                                  bke::mesh_topology::poly_loop_prev(poly, loop_i) :
-                                  bke::mesh_topology::poly_loop_next(poly, loop_i);
+                                  bke::mesh::poly_corner_prev(poly, loop_i) :
+                                  bke::mesh::poly_corner_next(poly, loop_i);
   return corner_edges[adjacent_loop_i];
 }
 
@@ -265,7 +264,7 @@ static int adjacent_edge(const Span<int> corner_verts,
 static void calc_vertex_fans(const int vertex,
                              const Span<int> new_corner_verts,
                              const Span<int> new_corner_edges,
-                             const Span<MPoly> polys,
+                             const OffsetIndices<int> polys,
                              const Span<Vector<int>> edge_to_loop_map,
                              const Span<int> loop_to_poly_map,
                              MutableSpan<int> connected_edges,
@@ -374,8 +373,7 @@ void split_edges(Mesh &mesh,
                                                                                    mesh.totvert);
   Vector<Vector<int>> edge_to_loop_map = bke::mesh_topology::build_edge_to_loop_map_resizable(
       mesh.corner_edges(), mesh.totedge);
-  Array<int> loop_to_poly_map = bke::mesh_topology::build_loop_to_poly_map(mesh.polys(),
-                                                                           mesh.totloop);
+  Array<int> loop_to_poly_map = bke::mesh_topology::build_loop_to_poly_map(mesh.polys());
 
   /* Store offsets, so we can split edges in parallel. */
   Array<int> edge_offsets(edges.size());
@@ -390,7 +388,7 @@ void split_edges(Mesh &mesh,
     num_edge_duplicates[edge] = num_duplicates;
   }
 
-  const Span<MPoly> polys = mesh.polys();
+  const OffsetIndices polys = mesh.polys();
 
   MutableSpan<int> corner_verts = mesh.corner_verts_for_write();
   MutableSpan<int> corner_edges = mesh.corner_edges_for_write();

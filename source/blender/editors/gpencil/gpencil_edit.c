@@ -1741,47 +1741,46 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
          */
         int new_seed = -1;
 
-        for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
-          /* Active frame is copied later, so don't need duplicate the stroke here. */
-          if (gpl->actframe == gpf) {
-            continue;
-          }
-          if (gpf->flag & GP_FRAME_SELECT) {
-            if (gpf) {
-              /* Create new stroke */
-              bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true, true);
-              new_stroke->runtime.tmp_layerinfo[0] = '\0';
-              new_stroke->next = new_stroke->prev = NULL;
-
-              /* Calc geometry data. */
-              BKE_gpencil_stroke_geometry_update(gpd, new_stroke);
-
-              /* Ondine: ensure unique seed */
-              if (new_seed != -1) {
-                new_stroke->seed = new_seed;
-              }
-              gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
-              if (((new_seed != -1) && (new_stroke->seed != new_seed)) ||
-                  ((new_seed == -1) && (new_stroke->seed != gps->seed))) {
-                new_seed = new_stroke->seed;
-              }
-
-              if (on_back) {
-                BLI_addhead(&gpf->strokes, new_stroke);
-              }
-              else {
-                BLI_addtail(&gpf->strokes, new_stroke);
-              }
-
-              /* Remap material */
-              Material *ma = BLI_ghash_lookup(new_colors, POINTER_FROM_INT(new_stroke->mat_nr));
-              new_stroke->mat_nr = BKE_gpencil_object_material_index_get(ob, ma);
-              CLAMP_MIN(new_stroke->mat_nr, 0);
+        /* Multiframe paste. */
+        if (is_multiedit) {
+          for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+            /* Active frame is copied later, so don't need duplicate the stroke here. */
+            if (gpl->actframe == gpf) {
+              continue;
             }
-          }
-          /* If not multi-edit, exit loop. */
-          if (!is_multiedit) {
-            break;
+            if (gpf->flag & GP_FRAME_SELECT) {
+              if (gpf) {
+                /* Create new stroke */
+                bGPDstroke *new_stroke = BKE_gpencil_stroke_duplicate(gps, true, true, true);
+                new_stroke->runtime.tmp_layerinfo[0] = '\0';
+                new_stroke->next = new_stroke->prev = NULL;
+
+                /* Calc geometry data. */
+                BKE_gpencil_stroke_geometry_update(gpd, new_stroke);
+
+                /* Ondine: ensure unique seed */
+                if (new_seed != -1) {
+                  new_stroke->seed = new_seed;
+                }
+                gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
+                if (((new_seed != -1) && (new_stroke->seed != new_seed)) ||
+                    ((new_seed == -1) && (new_stroke->seed != gps->seed))) {
+                  new_seed = new_stroke->seed;
+                }
+
+                if (on_back) {
+                  BLI_addhead(&gpf->strokes, new_stroke);
+                }
+                else {
+                  BLI_addtail(&gpf->strokes, new_stroke);
+                }
+
+                /* Remap material */
+                Material *ma = BLI_ghash_lookup(new_colors, POINTER_FROM_INT(new_stroke->mat_nr));
+                new_stroke->mat_nr = BKE_gpencil_object_material_index_get(ob, ma);
+                CLAMP_MIN(new_stroke->mat_nr, 0);
+              }
+            }
           }
         }
 

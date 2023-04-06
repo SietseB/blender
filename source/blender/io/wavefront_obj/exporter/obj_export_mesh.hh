@@ -39,7 +39,7 @@ class OBJMesh : NonCopyable {
   Mesh *owned_export_mesh_ = nullptr;
   Span<float3> mesh_positions_;
   Span<MEdge> mesh_edges_;
-  Span<MPoly> mesh_polys_;
+  OffsetIndices<int> mesh_polys_;
   Span<int> mesh_corner_verts_;
   VArray<bool> sharp_faces_;
 
@@ -52,17 +52,14 @@ class OBJMesh : NonCopyable {
   bool mirrored_transform_;
 
   /**
-   * Total UV vertices in a mesh's texture map.
+   * Per-loop UV index.
    */
-  int tot_uv_vertices_ = 0;
-  /**
-   * Per-polygon-per-vertex UV vertex indices.
-   */
-  Vector<Vector<int>> uv_indices_;
+  Vector<int> loop_to_uv_index_;
   /*
    * UV vertices.
    */
   Vector<float2> uv_coords_;
+
   /**
    * Per-loop normal index.
    */

@@ -4,6 +4,10 @@
 #pragma once
 
 #ifdef __cplusplus
+#  include "BLI_offset_indices.hh"
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -18,7 +22,6 @@ struct ID;
 struct ListBase;
 struct MDeformVert;
 struct MEdge;
-struct MPoly;
 struct Object;
 struct bDeformGroup;
 
@@ -58,7 +61,7 @@ struct bDeformGroup *BKE_object_defgroup_find_name(const struct Object *ob, cons
  *
  * \param use_default: How to handle cases where no symmetrical group is found.
  * - false: sets these indices to -1, indicating the group should be ignored.
- * - true: sets the index to its location in the array (making the group point to it's self).
+ * - true: sets the index to its location in the array (making the group point to itself).
  *   Enable this for symmetrical actions which apply weight operations on symmetrical vertices
  *   where the symmetrical group will be used (if found), otherwise the same group is used.
  *
@@ -273,15 +276,19 @@ void BKE_defvert_extract_vgroup_to_loopweights(const struct MDeformVert *dvert,
                                                int loops_num,
                                                bool invert_vgroup,
                                                float *r_weights);
+
+#ifdef __cplusplus
+
 void BKE_defvert_extract_vgroup_to_polyweights(const struct MDeformVert *dvert,
                                                int defgroup,
                                                int verts_num,
                                                const int *corner_verts,
                                                int loops_num,
-                                               const struct MPoly *polys,
-                                               int polys_num,
+                                               blender::OffsetIndices<int> polys,
                                                bool invert_vgroup,
                                                float *r_weights);
+
+#endif
 
 void BKE_defvert_weight_to_rgb(float r_rgb[3], float weight);
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2006 Blender Foundation. All rights reserved.
+# Copyright 2006 Blender Foundation
 
 # -----------------------------------------------------------------------------
 # Early Initialization
@@ -164,7 +164,7 @@ get_blender_version()
 # Declare Options
 
 # Blender internal features
-option(WITH_BLENDER "Build blender (disable to build only the blender player)" ON)
+option(WITH_BLENDER "Build blender (disable to build only Cycles stand-alone)." ON)
 mark_as_advanced(WITH_BLENDER)
 
 if(WIN32)
@@ -617,10 +617,12 @@ endif()
 
 option(WITH_OPENGL "When off limits visibility of the opengl headers to just bf_gpu and gawain (temporary option for development purposes)" ON)
 option(WITH_GPU_BUILDTIME_SHADER_BUILDER "Shader builder is a developer option enabling linting on GLSL during compilation" OFF)
+option(WITH_RENDERDOC "Use Renderdoc API to capture frames" OFF)
 
 mark_as_advanced(
   WITH_OPENGL
   WITH_GPU_BUILDTIME_SHADER_BUILDER
+  WITH_RENDERDOC
 )
 
 # Vulkan
@@ -884,8 +886,11 @@ set_and_warn_dependency(WITH_TBB WITH_MOD_FLUID         OFF)
 # NanoVDB requires OpenVDB to convert the data structure
 set_and_warn_dependency(WITH_OPENVDB WITH_NANOVDB       OFF)
 
-# OpenVDB and OpenColorIO uses 'half' type from OpenEXR
+# OpenVDB, Alembic and Vulkan, OSL uses 'half' or 'imath' from OpenEXR
 set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_OPENVDB OFF)
+set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_ALEMBIC OFF)
+set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_VULKAN_BACKEND OFF)
+set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_CYCLES_OSL OFF)
 
 # Haru needs `TIFFFaxBlackCodes` & `TIFFFaxWhiteCodes` symbols from TIFF.
 set_and_warn_dependency(WITH_IMAGE_TIFF WITH_HARU       OFF)

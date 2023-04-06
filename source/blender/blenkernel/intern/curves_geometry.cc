@@ -48,9 +48,7 @@ static const std::string ATTR_SURFACE_UV_COORDINATE = "surface_uv_coordinate";
 /** \name Constructors/Destructor
  * \{ */
 
-CurvesGeometry::CurvesGeometry() : CurvesGeometry(0, 0)
-{
-}
+CurvesGeometry::CurvesGeometry() : CurvesGeometry(0, 0) {}
 
 CurvesGeometry::CurvesGeometry(const int point_num, const int curve_num)
 {
@@ -551,13 +549,8 @@ IndexMask CurvesGeometry::indices_for_curve_type(const CurveType type,
 
 Array<int> CurvesGeometry::point_to_curve_map() const
 {
-  const OffsetIndices points_by_curve = this->points_by_curve();
   Array<int> map(this->points_num());
-  threading::parallel_for(this->curves_range(), 1024, [&](const IndexRange range) {
-    for (const int i_curve : range) {
-      map.as_mutable_span().slice(points_by_curve[i_curve]).fill(i_curve);
-    }
-  });
+  offset_indices::build_reverse_map(this->points_by_curve(), map);
   return map;
 }
 
@@ -981,9 +974,7 @@ void CurvesGeometry::tag_normals_changed()
 {
   this->runtime->evaluated_normal_cache.tag_dirty();
 }
-void CurvesGeometry::tag_radii_changed()
-{
-}
+void CurvesGeometry::tag_radii_changed() {}
 
 static void translate_positions(MutableSpan<float3> positions, const float3 &translation)
 {
@@ -1037,6 +1028,15 @@ void CurvesGeometry::calculate_bezier_auto_handles()
 
 void CurvesGeometry::translate(const float3 &translation)
 {
+  if (math::is_zero(translation)) {
+    return;
+  }
+
+  std::optional<Bounds<float3>> bounds;
+  if (this->runtime->bounds_cache.is_cached()) {
+    bounds = this->runtime->bounds_cache.data();
+  }
+
   translate_positions(this->positions_for_write(), translation);
   if (!this->handle_positions_left().is_empty()) {
     translate_positions(this->handle_positions_left_for_write(), translation);
@@ -1045,6 +1045,12 @@ void CurvesGeometry::translate(const float3 &translation)
     translate_positions(this->handle_positions_right_for_write(), translation);
   }
   this->tag_positions_changed();
+
+  if (bounds) {
+    bounds->min += translation;
+    bounds->max += translation;
+    this->runtime->bounds_cache.ensure([&](blender::Bounds<float3> &r_data) { r_data = *bounds; });
+  }
 }
 
 void CurvesGeometry::transform(const float4x4 &matrix)

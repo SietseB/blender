@@ -4469,6 +4469,8 @@ def km_face_mask(params):
          {"properties": [("deselect", False)]}),
         ("paint.face_select_linked_pick", {"type": 'L', "value": 'PRESS', "shift": True},
          {"properties": [("deselect", True)]}),
+        ("paint.face_select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True}, None),
+        ("paint.face_select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True}, None),
     ])
 
     return keymap
@@ -4496,6 +4498,8 @@ def km_weight_paint_vertex_selection(params):
          {"properties": [("select", True)]}),
         ("paint.vert_select_linked_pick", {"type": 'L', "value": 'PRESS', "shift": True},
          {"properties": [("select", False)]}),
+        ("paint.vert_select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True}, None),
+        ("paint.vert_select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True}, None),
     ])
 
     return keymap
@@ -5854,6 +5858,7 @@ def km_transform_modal_map(_params):
         ("ROTATE", {"type": 'R', "value": 'PRESS'}, None),
         ("TRACKBALL", {"type": 'R', "value": 'PRESS'}, None),
         ("RESIZE", {"type": 'S', "value": 'PRESS'}, None),
+        ("ROTATE_NORMALS", {"type": 'N', "value": 'PRESS'}, None),
         ("SNAP_TOGGLE", {"type": 'TAB', "value": 'PRESS', "shift": True}, None),
         ("SNAP_INV_ON", {"type": 'LEFT_CTRL', "value": 'PRESS', "any": True}, None),
         ("SNAP_INV_OFF", {"type": 'LEFT_CTRL', "value": 'RELEASE', "any": True}, None),

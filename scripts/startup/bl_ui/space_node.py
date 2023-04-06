@@ -318,9 +318,9 @@ class NODE_MT_node(Menu):
 
         layout.separator()
         layout.operator("node.clipboard_copy", text="Copy")
-        row = layout.row()
-        row.operator_context = 'EXEC_DEFAULT'
-        row.operator("node.clipboard_paste", text="Paste")
+        layout.operator_context = 'EXEC_DEFAULT'
+        layout.operator("node.clipboard_paste", text="Paste")
+        layout.operator_context = 'INVOKE_REGION_WIN'
         layout.operator("node.duplicate_move")
         layout.operator("node.duplicate_move_linked")
         layout.operator("node.delete")
@@ -888,6 +888,23 @@ class NodeTreeInterfacePanel(Panel):
                 text=active_socket.bl_label if active_socket.bl_label else active_socket.bl_idname,
             )
             props.in_out = in_out
+
+            with context.temp_override(interface_socket=active_socket):
+                if bpy.ops.node.tree_socket_change_subtype.poll():
+                    layout_row = layout.row(align=True)
+                    layout_split = layout_row.split(factor=0.4, align=True)
+
+                    label_column = layout_split.column(align=True)
+                    label_column.alignment = 'RIGHT'
+                    label_column.label(text="Subtype")
+                    property_row = layout_split.row(align=True)
+
+                    property_row.context_pointer_set("interface_socket", active_socket)
+                    props = property_row.operator_menu_enum(
+                        "node.tree_socket_change_subtype",
+                        "socket_subtype",
+                        text=active_socket.bl_subtype_label if active_socket.bl_subtype_label else active_socket.bl_idname
+                    )
 
             layout.use_property_split = True
             layout.use_property_decorate = False
