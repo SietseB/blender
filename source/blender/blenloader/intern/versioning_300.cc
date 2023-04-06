@@ -4179,6 +4179,11 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
+  if (!MAIN_VERSION_ATLEAST(bmain, 306, 5)) {
+    /* Rename Grease Pencil weight draw brush. */
+    do_versions_rename_id(bmain, ID_BR, "Draw Weight", "Weight Draw");
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *

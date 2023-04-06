@@ -4177,6 +4177,9 @@ def km_grease_pencil_stroke_weight_mode(params):
         # Brush size
         ("wm.radial_control", {"type": 'F', "value": 'PRESS'},
          {"properties": [("data_path_primary", 'tool_settings.gpencil_weight_paint.brush.size')]}),
+        # Brush weight
+        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
+         {"properties": [("data_path_primary", 'tool_settings.gpencil_weight_paint.brush.weight')]}),
         # Increase/Decrease brush size
         ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
          {"properties": [("scalar", 0.9)]}),
@@ -4196,6 +4199,8 @@ def km_grease_pencil_stroke_weight_mode(params):
         op_menu("VIEW3D_MT_gpencil_animation", {"type": 'I', "value": 'PRESS'}),
         # Context menu
         *_template_items_context_panel("VIEW3D_PT_gpencil_weight_context_menu", params.context_menu_event),
+        # Toggle Add/Subtract for weight draw tool
+        ("gpencil.weight_toggle_direction", {"type": 'D', "value": 'PRESS'}, None),
         # Weight sample
         ("gpencil.weight_sample", {"type": params.action_mouse, "value": 'PRESS', "ctrl": True}, None),
     ])
@@ -4203,7 +4208,7 @@ def km_grease_pencil_stroke_weight_mode(params):
     if params.select_mouse == 'LEFTMOUSE':
         # Bone selection for combined weight paint + pose mode.
         items.extend([
-            ("view3d.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True}, None),
+            ("view3d.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True}, None),
         ])
 
     return keymap

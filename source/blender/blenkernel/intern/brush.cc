@@ -1281,53 +1281,58 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
 
       break;
     }
-    case GP_BRUSH_PRESET_DRAW_WEIGHT: {
+    case GP_BRUSH_PRESET_WEIGHT_DRAW: {
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_GPBRUSH_WEIGHT;
       brush->gpencil_weight_tool = GPWEIGHT_TOOL_DRAW;
 
       brush->size = 25.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
+      brush->blend = IMB_BLEND_MIX;
 
-      brush->gpencil_settings->draw_strength = 0.8f;
+      brush->alpha = 0.3f;
+      brush->gpencil_settings->draw_strength = 0.3f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
       brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
 
       break;
     }
-    case GP_BRUSH_PRESET_BLUR_WEIGHT: {
+    case GP_BRUSH_PRESET_WEIGHT_BLUR: {
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
       brush->gpencil_weight_tool = GPWEIGHT_TOOL_BLUR;
 
       brush->size = 50.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
 
-      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->alpha = 0.3f;
+      brush->gpencil_settings->draw_strength = 0.3f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
       brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
 
       break;
     }
-    case GP_BRUSH_PRESET_AVERAGE_WEIGHT: {
+    case GP_BRUSH_PRESET_WEIGHT_AVERAGE: {
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
       brush->gpencil_weight_tool = GPWEIGHT_TOOL_AVERAGE;
 
       brush->size = 50.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
 
-      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->alpha = 0.3f;
+      brush->gpencil_settings->draw_strength = 0.3f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
       brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
 
       break;
     }
-    case GP_BRUSH_PRESET_SMEAR_WEIGHT: {
+    case GP_BRUSH_PRESET_WEIGHT_SMEAR: {
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
       brush->gpencil_weight_tool = GPWEIGHT_TOOL_SMEAR;
 
       brush->size = 50.0f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
 
-      brush->gpencil_settings->draw_strength = 1.0f;
+      brush->alpha = 0.3f;
+      brush->gpencil_settings->draw_strength = 0.3f;
       brush->gpencil_settings->flag |= GP_BRUSH_USE_STRENGTH_PRESSURE;
       brush->gpencil_settings->sculpt_mode_flag |= GP_SCULPT_FLAGMODE_APPLY_POSITION;
 
@@ -1613,29 +1618,30 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
   Paint *weightpaint = &ts->gp_weightpaint->paint;
   Brush *brush_prev = weightpaint->brush;
   Brush *brush, *deft_weight;
-  /* Vertex Draw brush. */
-  brush = gpencil_brush_ensure(bmain, ts, "Draw Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+
+  /* Weight Draw brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Weight Draw", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
-    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_DRAW_WEIGHT);
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_DRAW);
   }
   deft_weight = brush; /* save default brush. */
 
-  /* Vertex Blur brush. */
-  brush = gpencil_brush_ensure(bmain, ts, "Blur Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  /* Weight Blur brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Weight Blur", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
-    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_BLUR_WEIGHT);
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_BLUR);
   }
 
-  /* Vertex Average brush. */
-  brush = gpencil_brush_ensure(bmain, ts, "Average Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  /* Weight Average brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Weight Average", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
-    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_AVERAGE_WEIGHT);
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_AVERAGE);
   }
 
-  /* Vertex Smear brush. */
-  brush = gpencil_brush_ensure(bmain, ts, "Smear Weight", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  /* Weight Smear brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Weight Smear", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
-    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_SMEAR_WEIGHT);
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_SMEAR);
   }
 
   /* Set default brush. */
