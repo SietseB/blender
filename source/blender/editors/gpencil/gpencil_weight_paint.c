@@ -880,6 +880,27 @@ static void gpencil_weightpaint_brush_exit(bContext *C, wmOperator *op)
 /* Poll callback for stroke weight paint operator. */
 static bool gpencil_weightpaint_brush_poll(bContext *C)
 {
+  if (!ED_operator_regionactive(C)) {
+    CTX_wm_operator_poll_msg_set(C, "Active region not set");
+    return false;
+  }
+
+  ScrArea *area = CTX_wm_area(C);
+  if (area->spacetype != SPACE_VIEW3D) {
+    return false;
+  }
+
+  bGPdata *gpd = ED_gpencil_data_get_active(C);
+  if ((gpd == NULL) || (!GPENCIL_WEIGHT_MODE(gpd))) {
+    return false;
+  }
+
+  ToolSettings *ts = CTX_data_scene(C)->toolsettings;
+  if (!&ts->gp_weightpaint->paint.brush) {
+    CTX_wm_operator_poll_msg_set(C, "Grease Pencil has no active paint tool");
+    return false;
+  }
+
   /* NOTE: this is a bit slower, but is the most accurate... */
   return CTX_DATA_COUNT(C, editable_gpencil_strokes) != 0;
 }

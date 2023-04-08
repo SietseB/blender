@@ -478,11 +478,23 @@ static void ed_keymap_gpencil_weightpainting_draw(wmKeyConfig *keyconf)
   wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Draw)", 0, 0);
   keymap->poll = gpencil_stroke_weightmode_draw_poll;
 }
-/* keys for weight blur with a draw brush */
+/* keys for weight with a blur brush */
 static void ed_keymap_gpencil_weightpainting_blur(wmKeyConfig *keyconf)
 {
   wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Blur)", 0, 0);
   keymap->poll = gpencil_stroke_weightmode_blur_poll;
+}
+/* keys for weight with a average brush */
+static void ed_keymap_gpencil_weightpainting_average(wmKeyConfig *keyconf)
+{
+  wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Average)", 0, 0);
+  keymap->poll = gpencil_stroke_weightmode_average_poll;
+}
+/* keys for weight with a smear brush */
+static void ed_keymap_gpencil_weightpainting_smear(wmKeyConfig *keyconf)
+{
+  wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Grease Pencil Stroke Weight (Smear)", 0, 0);
+  keymap->poll = gpencil_stroke_weightmode_smear_poll;
 }
 
 /* ==================== */
@@ -510,6 +522,8 @@ void ED_keymap_gpencil(wmKeyConfig *keyconf)
   ed_keymap_gpencil_weightpainting(keyconf);
   ed_keymap_gpencil_weightpainting_draw(keyconf);
   ed_keymap_gpencil_weightpainting_blur(keyconf);
+  ed_keymap_gpencil_weightpainting_average(keyconf);
+  ed_keymap_gpencil_weightpainting_smear(keyconf);
   ed_keymap_gpencil_vertexpainting(keyconf);
   ed_keymap_gpencil_vertexpainting_draw(keyconf);
   ed_keymap_gpencil_vertexpainting_blur(keyconf);
