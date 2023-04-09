@@ -65,6 +65,7 @@
 #include "GPU_state.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "gpencil_intern.h"
 
@@ -444,6 +445,11 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
       if (md->type == eGpencilModifierType_MorphTargets) {
         MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
         mmd->index_edited = -1;
+        mmd->gpd_base = NULL;
+        if (mmd->base_layers != NULL) {
+          BLI_ghash_free(mmd->base_layers, NULL, NULL);
+        }
+        mmd->base_layers = NULL;
       }
     }
 
@@ -509,7 +515,8 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 0.7f});
   BLF_shadow_offset(font_id, 1, -1);
 
-  char text[64] = "Editing Morph Target";
+  const char *text;
+  text = TIP_("Editing Morph Target");
   float x = (rect->xmax - rect->xmin - tgpm->npanel_width) * 0.5f -
             BLF_width(font_id, text, strlen(text)) * 0.5f;
   float y = rect->ymax - rect->ymin - tgpm->header_height - style->widget.points * UI_SCALE_FAC -
@@ -519,10 +526,252 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   BLF_disable(font_id, BLF_SHADOW);
 }
 
-static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
-{
 #define EPSILON 0.00001f
 
+static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
+                                                     bGPDframe *gpf_morph,
+                                                     const int active_morph_index)
+{
+  float vecb[3], vecm[3];
+  bGPDsmorph smorph;
+  bGPDstroke *gps_base = gpf_base->strokes.first;
+  bGPDstroke *gps_morph = gpf_morph->strokes.first;
+  int uneq_strokes = 0;
+
+  /* Iterate all strokes in (possibly) morphed frame. */
+  for (; gps_morph; gps_morph = gps_morph->next) {
+    /* Skip newly created strokes. */
+    if (gps_morph->runtime.morph_index == 0) {
+      uneq_strokes++;
+      continue;
+    }
+    /* Find matching base stroke. */
+    while (gps_base && (gps_base->runtime.morph_index < gps_morph->runtime.morph_index)) {
+      gps_base = gps_base->next;
+    }
+    if (gps_base == NULL) {
+      uneq_strokes++;
+      break;
+    }
+    if (gps_base->runtime.morph_index > gps_morph->runtime.morph_index) {
+      uneq_strokes++;
+      continue;
+    }
+
+    /* Apply existing stroke morph for active morph target. */
+    bGPDspoint *pt1;
+    float mat[3][3];
+
+    bool morph_found = false;
+    smorph.point_deltas = NULL;
+
+    bGPDsmorph *gpsm = gps_morph->morphs.first;
+    for (; gpsm; gpsm = gpsm->next) {
+      if (gpsm->morph_target_nr != active_morph_index) {
+        continue;
+      }
+      morph_found = true;
+      smorph.point_deltas = gpsm->point_deltas;
+
+      /* Apply stroke fill color. */
+      add_v4_v4(gps_morph->vert_color_fill, gpsm->fill_color_delta);
+      clamp_v4(gps_morph->vert_color_fill, 0.0f, 1.0f);
+
+      if (gpsm->point_deltas != NULL) {
+        /* Apply stroke point morphs. */
+        for (int i = 0; i < gps_morph->totpoints; i++) {
+          bGPDspoint *pt = &gps_morph->points[i];
+          bGPDspoint_delta *pd = &gpsm->point_deltas[i];
+
+          /* Convert quaternion rotation to point delta. */
+          if (pd->distance > 0.0f) {
+            quat_to_mat3(mat, pd->rot_quat);
+            if (i < (gps_morph->totpoints - 1)) {
+              pt1 = &gps_morph->points[i + 1];
+              sub_v3_v3v3(vecb, &pt1->x, &pt->x);
+              mul_m3_v3(mat, vecb);
+              normalize_v3(vecb);
+            }
+            else if (gps_morph->totpoints == 1) {
+              vecb[0] = 1.0f;
+              vecb[1] = 0.0f;
+              vecb[2] = 0.0f;
+              mul_m3_v3(mat, vecb);
+              normalize_v3(vecb);
+            }
+            mul_v3_v3fl(vecm, vecb, pd->distance);
+            add_v3_v3(&pt->x, vecm);
+          }
+
+          pt->pressure += pd->pressure;
+          clamp_f(pt->pressure, 0.0f, FLT_MAX);
+          pt->strength += pd->strength;
+          clamp_f(pt->strength, 0.0f, 1.0f);
+          add_v4_v4(pt->vert_color, pd->vert_color);
+          clamp_v4(pt->vert_color, 0.0f, 1.0f);
+        }
+      }
+
+      break;
+    }
+
+    /* When the number of points in the base stroke and the morph stroke doesn't match,
+     * it's difficult to create a morph.
+     * For now, we consider the modified stroke a base stroke, without morph.
+     * In the future we could implement a smarter algorithm for matching the points.
+     */
+    if (gps_base->totpoints != gps_morph->totpoints) {
+      if (morph_found) {
+        if (gpsm->point_deltas != NULL) {
+          MEM_freeN(gpsm->point_deltas);
+        }
+        BLI_freelinkN(&gps_morph->morphs, gpsm);
+      }
+      uneq_strokes++;
+      break;
+    }
+
+    /* Store delta of fill vertex color. */
+    sub_v4_v4v4(smorph.fill_color_delta, gps_morph->vert_color_fill, gps_base->vert_color_fill);
+    bool stroke_is_morphed = (fabs(smorph.fill_color_delta[0]) > EPSILON) ||
+                             (fabs(smorph.fill_color_delta[1]) > EPSILON) ||
+                             (fabs(smorph.fill_color_delta[2]) > EPSILON) ||
+                             (fabs(smorph.fill_color_delta[3]) > EPSILON);
+
+    /* Restore fill vertex color to base. */
+    copy_v4_v4(gps_morph->vert_color_fill, gps_base->vert_color_fill);
+
+    /* Store the delta's between stroke points. */
+    for (int i = 0; i < gps_morph->totpoints; i++) {
+      bGPDspoint_delta pd;
+      bGPDspoint *ptb1;
+      bGPDspoint *ptb = &gps_base->points[i];
+      bGPDspoint *ptm = &gps_morph->points[i];
+
+      /* Get quaternion rotation and distance between base and morph point. */
+      sub_v3_v3v3(vecm, &ptm->x, &ptb->x);
+      pd.distance = len_v3(vecm);
+      if (pd.distance > 0.0f) {
+        if (i < (gps_morph->totpoints - 1)) {
+          ptb1 = &gps_base->points[i + 1];
+          sub_v3_v3v3(vecb, &ptb1->x, &ptb->x);
+          normalize_v3(vecb);
+        }
+        else if (gps_morph->totpoints == 1) {
+          zero_v3(vecb);
+          vecb[0] = 1.0f;
+        }
+        normalize_v3(vecm);
+        rotation_between_vecs_to_quat(pd.rot_quat, vecb, vecm);
+      }
+      else {
+        unit_qt(pd.rot_quat);
+      }
+
+      /* Get delta's in pressure, strength and vertex color. */
+      pd.pressure = ptm->pressure - ptb->pressure;
+      pd.strength = ptm->strength - ptb->strength;
+      sub_v4_v4v4(pd.vert_color, ptm->vert_color, ptb->vert_color);
+
+      /* Check on difference between morph and base. */
+      if ((fabs(pd.distance) > EPSILON) || (fabs(pd.pressure) > EPSILON) ||
+          (fabs(pd.strength) > EPSILON) || (fabs(pd.vert_color[0]) > EPSILON) ||
+          (fabs(pd.vert_color[1]) > EPSILON) || (fabs(pd.vert_color[2]) > EPSILON) ||
+          (fabs(pd.vert_color[3]) > EPSILON)) {
+
+        if (smorph.point_deltas == NULL) {
+          smorph.point_deltas = (bGPDspoint_delta *)MEM_calloc_arrayN(
+              gps_morph->totpoints, sizeof(bGPDspoint_delta), "bGPDsmorph point deltas");
+        }
+        bGPDspoint_delta *pdm = &smorph.point_deltas[i];
+        pdm->distance = pd.distance;
+        pdm->pressure = pd.pressure;
+        pdm->strength = pd.strength;
+        copy_v4_v4(pdm->rot_quat, pd.rot_quat);
+        copy_v4_v4(pdm->vert_color, pd.vert_color);
+
+        stroke_is_morphed = true;
+
+        /* Revert to base values, since the delta will be applied by the morph target modifier. */
+        ptm->x = ptb->x;
+        ptm->y = ptb->y;
+        ptm->z = ptb->z;
+        ptm->pressure = ptb->pressure;
+        ptm->strength = ptb->strength;
+        copy_v4_v4(ptm->vert_color, ptb->vert_color);
+      }
+    }
+
+    /* When there is no difference between morph and base stroke,
+     * don't store the morph. */
+    if (!stroke_is_morphed) {
+      if (morph_found) {
+        if (gpsm->point_deltas != NULL) {
+          MEM_freeN(gpsm->point_deltas);
+        }
+        BLI_freelinkN(&gps_morph->morphs, gpsm);
+      }
+    }
+    else {
+      /* Add morph to stroke. */
+      if (!morph_found) {
+        gpsm = MEM_mallocN(sizeof(bGPDsmorph), "bGPDsmorph");
+      }
+      gpsm->morph_target_nr = active_morph_index;
+      gpsm->tot_point_deltas = gps_morph->totpoints;
+      gpsm->point_deltas = smorph.point_deltas;
+      copy_v4_v4(gpsm->fill_color_delta, smorph.fill_color_delta);
+
+      if (!morph_found) {
+        BLI_addtail(&gps_morph->morphs, gpsm);
+      }
+    }
+  }
+
+  return uneq_strokes;
+}
+
+void ED_gpencil_morph_target_update_stroke_deltas(MorphTargetsGpencilModifierData *mmd,
+                                                  Depsgraph *depsgraph,
+                                                  Scene *scene,
+                                                  Object *ob)
+{
+  Object *ob_orig = (Object *)DEG_get_original_id(&ob->id);
+  bGPdata *gpd_morph = (bGPdata *)ob_orig->data;
+
+  /* Iterate all layers in morphed GP object. */
+  LISTBASE_FOREACH (bGPDlayer *, gpl_morph, &gpd_morph->layers) {
+    /* Find matching base layer. */
+    bGPDlayer *gpl_base = BLI_ghash_lookup(mmd->base_layers,
+                                           POINTER_FROM_INT(gpl_morph->runtime.morph_index));
+    if (gpl_base == NULL) {
+      continue;
+    }
+
+    /* Get active frame. */
+    bGPDframe *gpf_morph = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl_morph);
+    if (gpf_morph == NULL) {
+      continue;
+    }
+    bool base_frame_found = false;
+    bGPDframe *gpf_base = gpl_base->frames.first;
+    for (; gpf_base != NULL; gpf_base = gpf_base->next) {
+      if (gpf_base->runtime.morph_index == gpf_morph->runtime.morph_index) {
+        base_frame_found = true;
+        break;
+      }
+    }
+    if (!base_frame_found) {
+      continue;
+    }
+
+    /* Create stroke deltas. */
+    gpencil_morph_target_create_stroke_deltas(gpf_base, gpf_morph, mmd->index_edited);
+  }
+}
+
+static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
+{
   /* Match the stored base GP object with the morphed one. */
   int uneq_layers = 0, uneq_frames = 0, uneq_strokes = 0;
   bool is_morphed;
@@ -555,7 +804,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 
     /* Get delta in layer transformation and opacity. */
     is_morphed = false;
-    gplm = MEM_callocN(sizeof(bGPDlmorph), "bGPDlmorph");
+    gplm = MEM_mallocN(sizeof(bGPDlmorph), "bGPDlmorph");
     sub_v3_v3v3(gplm->location, gpl_morph->location, gpl_base->location);
     sub_v3_v3v3(gplm->rotation, gpl_morph->rotation, gpl_base->rotation);
     sub_v3_v3v3(gplm->scale, gpl_morph->scale, gpl_base->scale);
@@ -618,124 +867,9 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
         break;
       }
 
-      bGPDstroke *gps_base = gpf_base->strokes.first;
-      bGPDstroke *gps_morph = gpf_morph->strokes.first;
-      for (; gps_morph; gps_morph = gps_morph->next) {
-        /* Skip newly created strokes. */
-        if (gps_morph->runtime.morph_index == 0) {
-          uneq_strokes++;
-          continue;
-        }
-        /* Find matching base stroke. */
-        while (gps_base && (gps_base->runtime.morph_index < gps_morph->runtime.morph_index)) {
-          gps_base = gps_base->next;
-        }
-        if (gps_base == NULL) {
-          uneq_strokes++;
-          break;
-        }
-
-        /* Remove existing morph data for active morph target. */
-        bGPDsmorph *gpsm = gps_morph->morphs.first;
-        for (; gpsm; gpsm = gpsm->next) {
-          if (gpsm->morph_target_nr == tgpm->active_index) {
-            if (gpsm->point_deltas != NULL) {
-              MEM_freeN(gpsm->point_deltas);
-            }
-            BLI_freelinkN(&gps_morph->morphs, gpsm);
-            break;
-          }
-        }
-
-        /* When the number of points in the base stroke and the morph stroke doesn't match,
-         * it's difficult to create a morph.
-         * For now, we consider the modified stroke a base stroke, without morph.
-         * In the future we could implement a smarter algorithm for matching the points.
-         */
-        if (gps_base->totpoints != gps_morph->totpoints) {
-          uneq_strokes++;
-          break;
-        }
-
-        /* Store delta of fill vertex color. */
-        gpsm = MEM_callocN(sizeof(bGPDsmorph), "bGPDsmorph");
-        sub_v4_v4v4(gpsm->fill_color_delta, gps_morph->vert_color_fill, gps_base->vert_color_fill);
-        bool stroke_is_morphed = (fabs(gpsm->fill_color_delta[0]) > EPSILON) ||
-                                 (fabs(gpsm->fill_color_delta[1]) > EPSILON) ||
-                                 (fabs(gpsm->fill_color_delta[2]) > EPSILON) ||
-                                 (fabs(gpsm->fill_color_delta[3]) > EPSILON);
-        copy_v4_v4(gps_morph->vert_color_fill, gps_base->vert_color_fill);
-
-        /* Store the delta's between stroke points. */
-        is_morphed = false;
-        gpsm->point_deltas = MEM_callocN(sizeof(bGPDspoint_delta) * gps_morph->totpoints,
-                                         "bGPDsmorph point deltas");
-        for (int i = 0; i < gps_morph->totpoints; i++) {
-          float vecb[3], vecm[3];
-          bGPDspoint *ptb1;
-          bGPDspoint *ptb = &gps_base->points[i];
-          bGPDspoint *ptm = &gps_morph->points[i];
-          bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-
-          /* Get quaternion rotation and distance between base and morph point. */
-          sub_v3_v3v3(vecm, &ptm->x, &ptb->x);
-          pd->distance = len_v3(vecm);
-          if (pd->distance > 0.0f) {
-            if (i < (gps_morph->totpoints - 1)) {
-              ptb1 = &gps_base->points[i + 1];
-              sub_v3_v3v3(vecb, &ptb1->x, &ptb->x);
-              normalize_v3(vecb);
-            }
-            else if (gps_morph->totpoints == 1) {
-              zero_v3(vecb);
-              vecb[0] = 1.0f;
-            }
-            normalize_v3(vecm);
-            rotation_between_vecs_to_quat(pd->rot_quat, vecb, vecm);
-          }
-          else {
-            unit_qt(pd->rot_quat);
-          }
-
-          /* Get delta's in pressure, strength and vertex color. */
-          pd->pressure = ptm->pressure - ptb->pressure;
-          pd->strength = ptm->strength - ptb->strength;
-          sub_v4_v4v4(pd->vert_color, ptm->vert_color, ptb->vert_color);
-
-          /* Revert to base values, since the morph was applied during edit. */
-          ptm->x = ptb->x;
-          ptm->y = ptb->y;
-          ptm->z = ptb->z;
-          ptm->pressure = ptb->pressure;
-          ptm->strength = ptb->strength;
-          copy_v4_v4(ptm->vert_color, ptb->vert_color);
-
-          /* Check on difference between morph and base. */
-          if ((fabs(pd->distance) > EPSILON) || (fabs(pd->pressure) > EPSILON) ||
-              (fabs(pd->strength) > EPSILON) || (fabs(pd->vert_color[0]) > EPSILON) ||
-              (fabs(pd->vert_color[1]) > EPSILON) || (fabs(pd->vert_color[2]) > EPSILON) ||
-              (fabs(pd->vert_color[3]) > EPSILON)) {
-            is_morphed = true;
-            stroke_is_morphed = true;
-          }
-        }
-
-        /* When there is no difference between morph and base stroke,
-         * don't store the morph. */
-        if (!is_morphed) {
-          MEM_freeN(gpsm->point_deltas);
-          gpsm->point_deltas = NULL;
-        }
-        if (!stroke_is_morphed) {
-          MEM_freeN(gpsm);
-        }
-        else {
-          /* Add morph to stroke. */
-          gpsm->morph_target_nr = tgpm->active_index;
-          gpsm->tot_point_deltas = gps_morph->totpoints;
-          BLI_addtail(&gps_morph->morphs, gpsm);
-        }
-      }
+      /* Create stroke deltas. */
+      uneq_strokes += gpencil_morph_target_create_stroke_deltas(
+          gpf_base, gpf_morph, tgpm->active_index);
     }
   }
 
@@ -760,8 +894,6 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 
   /* Clean up temp data. */
   gpencil_morph_target_edit_exit(C, op);
-
-#undef EPSILON
 }
 
 static void gpencil_morph_target_apply_to_layer(bGPDlayer *gpl, bGPDlmorph *gplm, float factor)
@@ -775,59 +907,6 @@ static void gpencil_morph_target_apply_to_layer(bGPDlayer *gpl, bGPDlmorph *gplm
   gpl->opacity = clamp_f(gpl->opacity, 0.0f, 1.0f);
   loc_eul_size_to_mat4(gpl->layer_mat, gpl->location, gpl->rotation, gpl->scale);
   invert_m4_m4(gpl->layer_invmat, gpl->layer_mat);
-}
-
-static void gpencil_morph_target_apply_to_stroke(bGPDstroke *gps, bGPDsmorph *gpsm, float factor)
-{
-  bGPDspoint *pt1;
-  float vecb[3], vecm[3], color_delta[4];
-  float mat[3][3];
-
-  copy_v4_v4(color_delta, gpsm->fill_color_delta);
-  mul_v4_fl(color_delta, factor);
-  add_v4_v4(gps->vert_color_fill, color_delta);
-  clamp_v4(gps->vert_color_fill, 0.0f, 1.0f);
-
-  if (gpsm->point_deltas == NULL) {
-    return;
-  }
-
-  for (int i = 0; i < gps->totpoints; i++) {
-    bGPDspoint *pt = &gps->points[i];
-    bGPDspoint_delta *pd = &gpsm->point_deltas[i];
-
-    /* Convert quaternion rotation to point delta. */
-    if (pd->distance > 0.0f) {
-      quat_to_mat3(mat, pd->rot_quat);
-      if (i < (gps->totpoints - 1)) {
-        pt1 = &gps->points[i + 1];
-        sub_v3_v3v3(vecb, &pt1->x, &pt->x);
-        mul_m3_v3(mat, vecb);
-        normalize_v3(vecb);
-      }
-      else if (gps->totpoints == 1) {
-        vecb[0] = 1.0f;
-        vecb[1] = 0.0f;
-        vecb[2] = 0.0f;
-        mul_m3_v3(mat, vecb);
-        normalize_v3(vecb);
-      }
-      mul_v3_v3fl(vecm, vecb, pd->distance * fabs(factor));
-      if (factor < 0.0f) {
-        negate_v3(vecm);
-      }
-      add_v3_v3(&pt->x, vecm);
-    }
-
-    pt->pressure += pd->pressure * factor;
-    clamp_f(pt->pressure, 0.0f, FLT_MAX);
-    pt->strength += pd->strength * factor;
-    clamp_f(pt->strength, 0.0f, 1.0f);
-    copy_v4_v4(color_delta, pd->vert_color);
-    mul_v4_fl(color_delta, factor);
-    add_v4_v4(pt->vert_color, color_delta);
-    clamp_v4(pt->vert_color, 0.0f, 1.0f);
-  }
 }
 
 static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
@@ -918,14 +997,6 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
         gps_base->points = MEM_dupallocN(gps->points);
         gps_base->totpoints = gps->totpoints;
         copy_v4_v4(gps_base->vert_color_fill, gps->vert_color_fill);
-
-        /* Apply active morph target to GP object in viewport. */
-        LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
-          if ((gpsm->morph_target_nr == tgpm->active_index) &&
-              (gps->totpoints == gpsm->tot_point_deltas)) {
-            gpencil_morph_target_apply_to_stroke(gps, gpsm, 1.0f);
-          }
-        }
       }
     }
   }
@@ -960,10 +1031,24 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   in_edit_mode = true;
 
   /* Mark the edited morph target in the modifiers. */
+  bool is_first = true;
   LISTBASE_FOREACH (GpencilModifierData *, md, &tgpm->ob->greasepencil_modifiers) {
     if (md->type == eGpencilModifierType_MorphTargets) {
       MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
       mmd->index_edited = tgpm->active_index;
+      mmd->gpd_base = (is_first) ? gpd_base : NULL;
+      mmd->base_layers = NULL;
+
+      /* Create lookup hash table for base layers. */
+      if (is_first) {
+        mmd->base_layers = BLI_ghash_int_new(__func__);
+        LISTBASE_FOREACH (bGPDlayer *, gpl_base, &gpd_base->layers) {
+          BLI_ghash_insert(
+              mmd->base_layers, POINTER_FROM_INT(gpl_base->runtime.morph_index), gpl_base);
+        }
+      }
+
+      is_first = false;
     }
   }
 

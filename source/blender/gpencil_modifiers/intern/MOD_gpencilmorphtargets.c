@@ -36,6 +36,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "ED_gpencil.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -62,6 +64,9 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
   BKE_gpencil_modifier_copydata_generic(md, target);
 
   tgmd->factor = gmd->factor;
+  tgmd->index_edited = gmd->index_edited;
+  tgmd->gpd_base = gmd->gpd_base;
+  tgmd->base_layers = gmd->base_layers;
 }
 
 /* Change stroke points by active morph targets. */
@@ -125,7 +130,7 @@ static void morph_strokes(GpencilModifierData *md,
         continue;
       }
 
-      /* Apply morph to stroke. */
+      /* Apply fill color morph to stroke. */
       bGPDspoint *pt1;
       float vecb[3], vecm[3], color_delta[4];
       float mat[3][3];
@@ -136,10 +141,12 @@ static void morph_strokes(GpencilModifierData *md,
       add_v4_v4(gps->vert_color_fill, color_delta);
       clamp_v4(gps->vert_color_fill, 0.0f, 1.0f);
 
+      /* Continue when there aren't morphed stroke points. */
       if (gpsm->point_deltas == NULL) {
         continue;
       }
 
+      /* Apply stroke point morphs. */
       for (int i = 0; i < gps->totpoints; i++) {
         /* Verify point is part of vertex group. */
         MDeformVert *dvert = gps->dvert != NULL ? &gps->dvert[i] : NULL;
@@ -193,18 +200,31 @@ static void morph_strokes(GpencilModifierData *md,
   }
 }
 
-static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *scene, Object *ob)
+static void morph_object(GpencilModifierData *md,
+                         Depsgraph *depsgraph,
+                         Scene *scene,
+                         Object *ob,
+                         const bool update_deltas)
 {
   float mt_factor[GPENCIL_MORPH_TARGETS_MAX];
   bGPDlmorph *gplm_lookup[GPENCIL_MORPH_TARGETS_MAX];
   MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
-  bGPdata *gpd = ob->data;
+  bGPdata *gpd = (bGPdata *)ob->data;
+
+  /* Update stroke deltas on the fly when a morph target is edited. */
+  if (update_deltas && mmd->gpd_base != NULL) {
+    ED_gpencil_morph_target_update_stroke_deltas(mmd, depsgraph, scene, ob);
+  }
 
   /* Create lookup table for morph target values by index. */
   int mt_count = 0;
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
-    /* Don't apply morph when muted or currently edited. */
-    if ((mt_count == mmd->index_edited) || ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0)) {
+    /* Fully apply a morph when currently edited. */
+    if (mt_count == mmd->index_edited) {
+      mt_factor[mt_count] = 1.0f;
+    }
+    /* Don't apply morph when muted. */
+    else if ((gpmt->flag & GP_MORPH_TARGET_MUTE) != 0) {
       mt_factor[mt_count] = 0.0f;
     }
     else {
@@ -339,7 +359,7 @@ static void morph_object(GpencilModifierData *md, Depsgraph *depsgraph, Scene *s
     /* Apply layer morphs. */
     for (int mi = 0; mi < mt_count; mi++) {
       bGPDlmorph *gplm = gplm_lookup[mi];
-      if (gplm == NULL) {
+      if ((gplm == NULL) || (mi == mmd->index_edited)) {
         continue;
       }
       float factor = mt_factor[gplm->morph_target_nr];
@@ -370,14 +390,14 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          Object *ob)
 {
   Scene *scene = DEG_get_evaluated_scene(depsgraph);
-  morph_object(md, depsgraph, scene, ob);
+  morph_object(md, depsgraph, scene, ob, false);
 }
 
 /* Generic "generateStrokes" callback */
 static void generateStrokes(GpencilModifierData *md, Depsgraph *depsgraph, Object *ob)
 {
   Scene *scene = DEG_get_evaluated_scene(depsgraph);
-  morph_object(md, depsgraph, scene, ob);
+  morph_object(md, depsgraph, scene, ob, true);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)

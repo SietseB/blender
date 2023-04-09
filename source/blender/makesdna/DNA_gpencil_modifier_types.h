@@ -1333,6 +1333,10 @@ typedef struct MorphTargetsGpencilModifierData {
   /** Index of currently edited morph target. */
   int index_edited;
   char _pad[4];
+  /** Base GP object of currently edited morph target. */
+  struct bGPdata *gpd_base;
+  /** Hash table of layers in base GP object. */
+  struct GHash *base_layers;
 } MorphTargetsGpencilModifierData;
 
 typedef enum eMorphTargetsGpencil_Flag {
