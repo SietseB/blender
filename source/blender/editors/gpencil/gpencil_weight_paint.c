@@ -1146,7 +1146,7 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
   }
 
   bDeformGroup *defgroup = BLI_findlink(&gso->gpd->vertex_group_names, gso->vrgroup);
-  if (defgroup->flag & DG_LOCK_WEIGHT) {
+  if ((defgroup == NULL) || (defgroup->flag & DG_LOCK_WEIGHT)) {
     return false;
   }
 
