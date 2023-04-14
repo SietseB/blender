@@ -2317,6 +2317,32 @@ class _defs_gpencil_weight:
                 operator="gpencil.weight_paint",
             ),
         )
+    
+    @ToolDef.from_fn
+    def gradient():
+        def draw_settings(context, layout, tool):
+            region_type = context.region.type
+            
+            brush = context.tool_settings.gpencil_weight_paint.brush
+            if brush is not None:
+                layout.prop(brush, "strength")
+                layout.prop(brush, "weight")
+            
+            props = tool.operator_properties("gpencil.weight_gradient")
+            layout.prop(props, "type", expand=True)
+            
+            if region_type == 'TOOL_HEADER':
+                layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")
+                layout.popover("VIEW3D_PT_tools_grease_pencil_brush_weight_falloff", text="Falloff")
+        
+        return dict(
+            idname="builtin.gradient",
+            label="Gradient",
+            icon="ops.gpencil.weight_gradient",
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
+        )
 
 
 class _defs_curves_sculpt:
@@ -3169,6 +3195,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         ],
         'WEIGHT_GPENCIL': [
             _defs_gpencil_weight.generate_from_brushes,
+            _defs_gpencil_weight.gradient,
             None,
             *_tools_annotate,
         ],

@@ -2005,7 +2005,14 @@ class GreasePencilWeightPanel:
 
 class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, GreasePencilWeightPanel):
     bl_label = "Brushes"
-
+    
+    @classmethod
+    def poll(cls, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is not None and tool.idname == 'builtin.gradient':
+            return False
+        return True
+    
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -2032,6 +2039,13 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, Grea
 class VIEW3D_PT_tools_grease_pencil_weight_paint_settings(Panel, View3DPanel, GreasePencilWeightPanel):
     bl_label = "Brush Settings"
 
+    @classmethod
+    def poll(cls, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is not None and tool.idname == 'builtin.gradient':
+            return False
+        return True
+    
     def draw(self, context):
         if self.is_popover:
             return
@@ -2058,6 +2072,23 @@ class VIEW3D_PT_tools_grease_pencil_brush_weight_falloff(GreasePencilBrushFallof
 
     @classmethod
     def poll(cls, context):
+        ts = context.tool_settings
+        settings = ts.gpencil_weight_paint
+        brush = settings.brush
+        return (brush and brush.curve)
+
+
+class VIEW3D_PT_tools_grease_pencil_weight_gradient_falloff(GreasePencilBrushFalloff, Panel, View3DPaintPanel):
+    bl_context = ".greasepencil_weight"
+    bl_label = "Falloff"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is None or tool.idname != 'builtin.gradient':
+            return False
+        
         ts = context.tool_settings
         settings = ts.gpencil_weight_paint
         brush = settings.brush
@@ -2465,6 +2496,7 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_brush_paint_falloff,
     VIEW3D_PT_tools_grease_pencil_brush_sculpt_falloff,
     VIEW3D_PT_tools_grease_pencil_brush_weight_falloff,
+    VIEW3D_PT_tools_grease_pencil_weight_gradient_falloff,
     VIEW3D_PT_tools_grease_pencil_brush_vertex_color,
     VIEW3D_PT_tools_grease_pencil_brush_vertex_palette,
     VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff,

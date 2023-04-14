@@ -7967,6 +7967,19 @@ def km_3d_view_tool_sculpt_gpencil_select_lasso(params):
 
 
 # ------------------------------------------------------------------------------
+# Tool System (3D View, Grease Pencil, Weight)
+
+def km_3d_view_tool_paint_gpencil_weight_gradient(params):
+    return (
+        "3D View Tool: Weight Gpencil, Gradient",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("gpencil.weight_gradient", params.tool_maybe_tweak_event, None),
+        ]},
+    )
+
+
+# ------------------------------------------------------------------------------
 # Tool System (Sequencer, Generic)
 
 def km_sequencer_editor_tool_generic_select(params, *, fallback):
@@ -8343,6 +8356,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_sculpt_gpencil_select_box(params),
         km_3d_view_tool_sculpt_gpencil_select_circle(params),
         km_3d_view_tool_sculpt_gpencil_select_lasso(params),
+        km_3d_view_tool_paint_gpencil_weight_gradient(params),
         *(km_sequencer_editor_tool_generic_select(params, fallback=fallback) for fallback in (False, True)),
         *(km_sequencer_editor_tool_generic_select_box(params, fallback=fallback) for fallback in (False, True)),
         km_sequencer_editor_tool_generic_cursor(params),

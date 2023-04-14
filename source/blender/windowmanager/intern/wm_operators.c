@@ -3886,6 +3886,7 @@ static void gesture_straightline_modal_keymap(wmKeyConfig *keyconf)
   /* assign map to operators */
   WM_modalkeymap_assign(keymap, "IMAGE_OT_sample_line");
   WM_modalkeymap_assign(keymap, "PAINT_OT_weight_gradient");
+  WM_modalkeymap_assign(keymap, "GPENCIL_OT_weight_gradient");
   WM_modalkeymap_assign(keymap, "MESH_OT_bisect");
   WM_modalkeymap_assign(keymap, "PAINT_OT_mask_line_gesture");
   WM_modalkeymap_assign(keymap, "SCULPT_OT_project_line_gesture");

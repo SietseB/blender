@@ -823,6 +823,7 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.gpencil.sculpt_weight
   ops.gpencil.stroke_cutter
   ops.gpencil.transform_fill
+  ops.gpencil.weight_gradient
   ops.mesh.bevel
   ops.mesh.bisect
   ops.mesh.dupli_extrude_cursor

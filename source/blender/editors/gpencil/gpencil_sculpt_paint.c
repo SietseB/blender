@@ -163,11 +163,8 @@ typedef bool (*GP_BrushApplyCb)(tGP_BrushEditData *gso,
                                 const int radius,
                                 const int co[2]);
 /* Callback for performing some brush operation on an entire stroke */
-typedef bool (*GP_BrushApplyStrokeCb)(tGP_BrushEditData *gso,
-                                      bGPDstroke *gps,
-                                      float rotation,
-                                      const int radius,
-                                      const int co[2]);
+typedef bool (*GP_BrushApplyStrokeCb)(
+    tGP_BrushEditData *gso, bGPDstroke *gps, float rotation, const int radius, const int co[2]);
 
 /* ************************************************ */
 /* Utility Functions */
@@ -1749,22 +1746,31 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
     switch (tool) {
       case GPSCULPT_TOOL_SMOOTH: /* Smooth strokes */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_smooth_apply, false, NULL);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_smooth_apply, false, NULL);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_THICKNESS: /* Adjust stroke thickness */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_thickness_apply,
-          stroke_mode, gpencil_brush_thickness_stroke_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso,
+                                                  gps,
+                                                  diff_mat,
+                                                  gpencil_brush_thickness_apply,
+                                                  stroke_mode,
+                                                  gpencil_brush_thickness_stroke_apply);
         break;
       }
 
       case GPSCULPT_TOOL_STRENGTH: /* Adjust stroke color strength */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_strength_apply,
-          stroke_mode, gpencil_brush_strength_stroke_apply);
+        changed |= gpencil_sculpt_brush_do_stroke(gso,
+                                                  gps,
+                                                  diff_mat,
+                                                  gpencil_brush_strength_apply,
+                                                  stroke_mode,
+                                                  gpencil_brush_strength_stroke_apply);
         break;
       }
 
@@ -1779,7 +1785,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
              */
             gpencil_brush_grab_stroke_init(gso, gps_active);
             changed |= gpencil_sculpt_brush_do_stroke(
-                gso, gps_active, bound_mat, gpencil_brush_grab_store_points, false, NULL);
+                gso, gps, bound_mat, gpencil_brush_grab_store_points, false, NULL);
           }
           else {
             /* Apply effect to the stored points */
@@ -1793,7 +1799,8 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
 
       case GPSCULPT_TOOL_PUSH: /* Push points */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_push_apply, false, NULL);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_push_apply, false, NULL);
         redo_geom |= changed;
         break;
       }

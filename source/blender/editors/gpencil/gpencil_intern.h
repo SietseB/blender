@@ -520,6 +520,7 @@ void GPENCIL_OT_sculpt_paint(struct wmOperatorType *ot);
 void GPENCIL_OT_weight_paint(struct wmOperatorType *ot);
 void GPENCIL_OT_weight_toggle_direction(struct wmOperatorType *ot);
 void GPENCIL_OT_weight_sample(struct wmOperatorType *ot);
+void GPENCIL_OT_weight_gradient(struct wmOperatorType *ot);
 
 /* buttons editing --- */
 

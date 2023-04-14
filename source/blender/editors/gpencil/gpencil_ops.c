@@ -605,6 +605,7 @@ void ED_operatortypes_gpencil(void)
   WM_operatortype_append(GPENCIL_OT_weight_paint);
   WM_operatortype_append(GPENCIL_OT_weight_toggle_direction);
   WM_operatortype_append(GPENCIL_OT_weight_sample);
+  WM_operatortype_append(GPENCIL_OT_weight_gradient);
 
   /* Edit stroke editcurve */
 
