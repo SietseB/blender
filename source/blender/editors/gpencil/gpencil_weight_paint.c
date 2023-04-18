@@ -500,28 +500,27 @@ static float brush_influence_calc(tGP_BrushWeightpaintData *gso, const int radiu
 {
   Brush *brush = gso->brush;
 
-  /* basic strength factor from brush settings */
+  /* Basic strength factor from brush settings. */
   float influence = brush->alpha;
 
-  /* use pressure? */
+  /* Use pressure? */
   if (brush->gpencil_settings->flag & GP_BRUSH_USE_PRESSURE) {
     influence *= gso->pressure;
   }
 
-  /* distance fading */
+  /* Get distance to center of brush. */
   int mouse_i[2];
   round_v2i_v2fl(mouse_i, gso->mouse);
   float distance = (float)len_v2v2_int(mouse_i, co);
-  influence *= 1.0f - (distance / max_ff(radius, 1e-8));
 
-  /* Apply Brush curve. */
+  /* Apply brush curve (falloff). */
   float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
   influence *= brush_falloff;
 
-  /* apply multi-frame falloff */
+  /* Apply multi-frame falloff. */
   influence *= gso->mf_falloff;
 
-  /* return influence */
+  /* Return influence. */
   return influence;
 }
 
@@ -1743,8 +1742,6 @@ typedef struct tGPWeightGradient_data {
   float line_segment_len_sq;
   /* Radius of radial gradient line. */
   float radius;
-  /* Gradient type (linear/radial). */
-  int type;
   /* Number of vertex groups in active object. */
   int vgroup_tot;
   /* Boolean array of vertex groups deformed by bones. */
@@ -1886,9 +1883,6 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   gso->gpd = ED_gpencil_data_get_active(C);
   gpencil_point_conversion_init(C, &gso->gsc);
 
-  // TODO: use tool_slot in space_toolsystem_toolbar.py?
-  // What to do with falloff???
-  // gso->brush = &ts->gp_weightpaint->paint.tool_slots[0].brush;
   Paint *paint = &ts->gp_weightpaint->paint;
   gso->brush = paint->brush;
   BKE_curvemapping_init(gso->brush->curve);
@@ -2025,7 +2019,14 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   const float sco_start[2] = {(float)x_start, (float)y_start};
   const float sco_end[2] = {(float)x_end, (float)y_end};
 
-  tool_data->type = RNA_enum_get(op->ptr, "type");
+  /* Strength and weight. */
+  float gradient_strength = RNA_float_get(op->ptr, "strength");
+  float gradient_weight = RNA_float_get(op->ptr, "weight");
+
+  /* Gradient type (linear/radial). */
+  int gradient_type = RNA_enum_get(op->ptr, "type");
+
+  /* Length of interactive line segment. */
   sub_v2_v2v2(tool_data->line_segment, sco_end, sco_start);
   tool_data->line_segment_len_sq = dot_v2v2(tool_data->line_segment, tool_data->line_segment);
   tool_data->radius = sqrtf(tool_data->line_segment_len_sq);
@@ -2043,6 +2044,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
 
   /* Update vertex weights based on interactive gradient. */
   for (int v_index = 0; v_index < tool_data->vertex_tot; v_index++) {
+    bool changed = false;
     MDeformVert *dvert;
     tGPWeightGradient_vertex *vertex = &tool_data->vertex_cache[v_index];
     float co[2], vec_p_to_line[2];
@@ -2050,7 +2052,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     sub_v2_v2v2(vec_p_to_line, co, sco_start);
 
     /* Linear gradient. */
-    if (tool_data->type == WPAINT_GRADIENT_TYPE_LINEAR) {
+    if (gradient_type == WPAINT_GRADIENT_TYPE_LINEAR) {
       /* Get orthogonal position of vertex relative to the gradient line segment. */
       float dist_on_line = dot_v2v2(vec_p_to_line, tool_data->line_segment);
 
@@ -2069,14 +2071,15 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
         float distance_factor = dist_on_line / tool_data->line_segment_len_sq;
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, distance_factor * tool_data->radius, tool_data->radius);
-        float add_weight = gso->brush->weight * gso->brush->alpha * gradient_falloff *
+        float add_weight = gradient_weight * gradient_strength * gradient_falloff *
                            vertex->mf_falloff;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
+        changed = true;
       }
     }
     /* Radial gradient. */
-    else if (tool_data->type == WPAINT_GRADIENT_TYPE_RADIAL) {
+    else if (gradient_type == WPAINT_GRADIENT_TYPE_RADIAL) {
       /* Get distance of vertex to center of gradient. */
       float p_dist_to_center = len_v2(vec_p_to_line);
 
@@ -2094,15 +2097,16 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
         /* Add weight, with gradient tool weight, strength and falloff, and multi-frame falloff. */
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, p_dist_to_center, tool_data->radius);
-        float add_weight = gso->brush->weight * gso->brush->alpha * gradient_falloff *
+        float add_weight = gradient_weight * gradient_strength * gradient_falloff *
                            vertex->mf_falloff;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
+        changed = true;
       }
     }
 
     /* Perform auto-normalize. */
-    if (gso->auto_normalize && vertex->gps->dvert != NULL) {
+    if (changed && gso->auto_normalize && vertex->gps->dvert != NULL) {
       dvert = vertex->gps->dvert + vertex->point_index;
       do_weight_paint_normalize_all_try(dvert, gso);
     }
@@ -2219,32 +2223,48 @@ static int gpencil_weight_gradient_invoke(bContext *C, wmOperator *op, const wmE
 
 void GPENCIL_OT_weight_gradient(wmOperatorType *ot)
 {
-  /* defined in DNA_space_types.h */
+  /* Defined in DNA_space_types.h */
   static const EnumPropertyItem gradient_types[] = {
       {WPAINT_GRADIENT_TYPE_LINEAR, "LINEAR", 0, "Linear", ""},
       {WPAINT_GRADIENT_TYPE_RADIAL, "RADIAL", 0, "Radial", ""},
       {0, NULL, 0, NULL, NULL},
   };
 
-  PropertyRNA *prop;
-
-  /* identifiers */
+  /* Identifiers. */
   ot->name = "Weight Gradient";
   ot->idname = "GPENCIL_OT_weight_gradient";
-  ot->description = "Draw a line to apply a weight gradient to selected vertices";
+  ot->description = "Draw a line to apply a weight gradient to the active vertex group";
 
-  /* api callbacks */
+  /* Api callbacks. */
   ot->invoke = gpencil_weight_gradient_invoke;
   ot->modal = gpencil_weight_gradient_modal;
   ot->exec = gpencil_weight_gradient_exec;
   ot->poll = gpencil_weightpaint_brush_poll;
   ot->cancel = WM_gesture_straightline_cancel;
 
-  /* flags */
+  /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  prop = RNA_def_enum(ot->srna, "type", gradient_types, 0, "Type", "");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  /* Properties. */
+  RNA_def_float_factor(ot->srna,
+                       "strength",
+                       1.0f,
+                       0.0f,
+                       1.0f,
+                       "Strength",
+                       "How powerful the effect of the gradient is when applied",
+                       0.0f,
+                       1.0f);
+  RNA_def_float_factor(ot->srna,
+                       "weight",
+                       1.0f,
+                       0.0f,
+                       1.0f,
+                       "Weight",
+                       "Vertex weight when the gradient is applied",
+                       0.0f,
+                       1.0f);
+  RNA_def_enum(ot->srna, "type", gradient_types, 0, "Type", "");
 
   WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);
 }
