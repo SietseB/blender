@@ -43,6 +43,7 @@ set(SRC
   intern/MOD_gpencil_legacy_length.c
   intern/MOD_gpencil_legacy_lineart.c
   intern/MOD_gpencil_legacy_mirror.c
+  intern/MOD_gpencil_legacy_morphtargets.c
   intern/MOD_gpencil_legacy_multiply.c
   intern/MOD_gpencil_legacy_noise.c
   intern/MOD_gpencil_legacy_offset.c
