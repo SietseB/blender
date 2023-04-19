@@ -210,7 +210,7 @@ set(INC
   ../../simulation
   ../../windowmanager
   ../../editors/include
-  ../../editors/gpencil
+  ../../editors/gpencil_legacy
   ../../render
   ../../../../intern/clog
   ../../../../intern/cycles/blender

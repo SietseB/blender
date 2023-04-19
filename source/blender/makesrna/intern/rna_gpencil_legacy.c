@@ -21,7 +21,7 @@
 
 #include "BLT_translation.h"
 
-#include "ED_gpencil.h"
+#include "ED_gpencil_legacy.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"

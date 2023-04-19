@@ -51,7 +51,7 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
-#include "ED_gpencil.h"
+#include "ED_gpencil_legacy.h"
 #include "ED_object.h"
 #include "ED_space_api.h"
 #include "ED_undo.h"

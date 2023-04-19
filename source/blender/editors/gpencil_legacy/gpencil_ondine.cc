@@ -34,7 +34,7 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "ED_gpencil.h"
+#include "ED_gpencil_legacy.h"
 #include "ED_view3d.h"
 #include "gpencil_intern.h"
 
@@ -80,9 +80,7 @@ View3D *get_invoke_view3d(bContext *C)
 }
 
 /* Runtime render properties */
-GpencilOndine::GpencilOndine()
-{
-}
+GpencilOndine::GpencilOndine() {}
 
 void GpencilOndine::init(bContext *C)
 {

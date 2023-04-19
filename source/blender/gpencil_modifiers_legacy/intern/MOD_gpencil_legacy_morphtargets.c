@@ -36,16 +36,16 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "ED_gpencil.h"
+#include "ED_gpencil_legacy.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
 
 #include "RNA_access.h"
 
-#include "MOD_gpencil_modifiertypes.h"
-#include "MOD_gpencil_ui_common.h"
-#include "MOD_gpencil_util.h"
+#include "MOD_gpencil_legacy_modifiertypes.h"
+#include "MOD_gpencil_legacy_ui_common.h"
+#include "MOD_gpencil_legacy_util.h"
 
 static void initData(GpencilModifierData *md)
 {
