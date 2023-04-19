@@ -132,7 +132,8 @@ struct DupliContext {
 };
 
 struct DupliGenerator {
-  short type; /* Dupli Type, see members of #OB_DUPLI. */
+  /** Duplicator Type, see members of #OB_DUPLI. */
+  short type;
   void (*make_duplis)(const DupliContext *ctx);
 };
 
@@ -1325,8 +1326,10 @@ static void make_duplis_faces(const DupliContext *ctx)
   }
 }
 
-static const DupliGenerator gen_dupli_faces = {/*type*/ OB_DUPLIFACES,
-                                               /*make_duplis*/ make_duplis_faces};
+static const DupliGenerator gen_dupli_faces = {
+    /*type*/ OB_DUPLIFACES,
+    /*make_duplis*/ make_duplis_faces,
+};
 
 /** \} */
 
@@ -1673,8 +1676,10 @@ static void make_duplis_particles(const DupliContext *ctx)
   }
 }
 
-static const DupliGenerator gen_dupli_particles = {/*type*/ OB_DUPLIPARTS,
-                                                   /*make_duplis*/ make_duplis_particles};
+static const DupliGenerator gen_dupli_particles = {
+    /*type*/ OB_DUPLIPARTS,
+    /*make_duplis*/ make_duplis_particles,
+};
 
 /** \} */
 
@@ -1828,7 +1833,7 @@ static bool find_geonode_attribute_rgba(const DupliObject *dupli,
 
     /* Attempt to look up the attribute. */
     std::optional<bke::AttributeAccessor> attributes = component->attributes();
-    const VArray data = attributes->lookup<ColorGeometry4f>(name);
+    const VArray data = *attributes->lookup<ColorGeometry4f>(name);
 
     /* If the attribute was found and converted to float RGBA successfully, output it. */
     if (data) {

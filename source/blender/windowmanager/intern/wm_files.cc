@@ -1629,8 +1629,11 @@ static ImBuf *blend_file_thumb_from_screenshot(bContext *C, BlendThumbnail **r_t
     win = win->parent;
   }
 
+  wmWindowManager *wm = CTX_wm_manager(C);
   int win_size[2];
-  uint *buffer = WM_window_pixels_read(CTX_wm_manager(C), win, win_size);
+  /* NOTE: always read from front-buffer as drawing a window can cause problems while saving,
+   * even if this means the thumbnail from the screen-shot fails to be created, see: #98462. */
+  uint *buffer = WM_window_pixels_read_from_frontbuffer(wm, win, win_size);
   ImBuf *ibuf = IMB_allocFromBufferOwn(buffer, nullptr, win_size[0], win_size[1], 24);
 
   if (ibuf) {
@@ -3262,8 +3265,9 @@ static bool wm_save_mainfile_check(bContext * /*C*/, wmOperator *op)
   char filepath[FILE_MAX];
   RNA_string_get(op->ptr, "filepath", filepath);
   if (!BKE_blendfile_extension_check(filepath)) {
-    /* some users would prefer BLI_path_extension_replace(),
-     * we keep getting nitpicking bug reports about this - campbell */
+    /* NOTE(@ideasman42): some users would prefer #BLI_path_extension_replace(),
+     * we have had some nitpicking bug reports about this.
+     * Always adding the extension as users may use '.' as part of the file-name. */
     BLI_path_extension_ensure(filepath, FILE_MAX, ".blend");
     RNA_string_set(op->ptr, "filepath", filepath);
     return true;

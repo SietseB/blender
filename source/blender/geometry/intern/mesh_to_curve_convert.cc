@@ -52,7 +52,7 @@ bke::CurvesGeometry create_curve_from_vert_indices(
       continue;
     }
 
-    const GVArray mesh_attribute = mesh_attributes.lookup(attribute_id, ATTR_DOMAIN_POINT);
+    const GVArray mesh_attribute = *mesh_attributes.lookup(attribute_id, ATTR_DOMAIN_POINT);
     /* Some attributes might not exist if they were builtin attribute on domains that don't
      * have any elements, i.e. a face attribute on the output of the line primitive node. */
     if (!mesh_attribute) {
@@ -207,9 +207,9 @@ static CurveFromEdgesOutput edges_to_curve_point_indices(const int verts_num,
 static Vector<std::pair<int, int>> get_selected_edges(const Mesh &mesh, const IndexMask selection)
 {
   Vector<std::pair<int, int>> selected_edges;
-  const Span<MEdge> edges = mesh.edges();
+  const Span<int2> edges = mesh.edges();
   for (const int i : selection) {
-    selected_edges.append({edges[i].v1, edges[i].v2});
+    selected_edges.append({edges[i][0], edges[i][1]});
   }
   return selected_edges;
 }

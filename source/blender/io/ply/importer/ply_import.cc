@@ -171,7 +171,7 @@ void importer_main(Main *bmain,
   /* File base name used for both mesh and object. */
   char ob_name[FILE_MAX];
   BLI_strncpy(ob_name, BLI_path_basename(import_params.filepath), FILE_MAX);
-  BLI_path_extension_replace(ob_name, FILE_MAX, "");
+  BLI_path_extension_strip(ob_name);
 
   /* Parse header. */
   PlyReadBuffer file(import_params.filepath, 64 * 1024);
@@ -188,17 +188,17 @@ void importer_main(Main *bmain,
   std::unique_ptr<PlyData> data = import_ply_data(file, header);
   if (data == nullptr) {
     fprintf(stderr, "PLY Importer: failed importing %s, unknown error\n", ob_name);
-    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, unknown error.");
+    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, unknown error");
     return;
   }
   if (!data->error.empty()) {
     fprintf(stderr, "PLY Importer: failed importing %s: %s\n", ob_name, data->error.c_str());
-    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, unknown error.");
+    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, unknown error");
     return;
   }
   if (data->vertices.is_empty()) {
     fprintf(stderr, "PLY Importer: file %s contains no vertices\n", ob_name);
-    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, no vertices.");
+    BKE_report(op->reports, RPT_ERROR, "PLY Importer: failed importing, no vertices");
     return;
   }
 
