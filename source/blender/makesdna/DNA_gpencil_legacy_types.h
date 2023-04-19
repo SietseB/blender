@@ -1116,9 +1116,6 @@ typedef enum eGPD_MorphLayerOrderCompare {
 #define GPENCIL_NONE_EDIT_MODE(gpd) \
   ((gpd) && (((gpd)->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | \
                              GP_DATA_STROKE_WEIGHTMODE | GP_DATA_STROKE_VERTEXMODE)) == 0))
-#define GPENCIL_NON_WEIGHT_MODE(gpd) \
-  ((gpd) && ((gpd)->flag & (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | \
-                            GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_VERTEXMODE)))
 #define GPENCIL_LAZY_MODE(brush, shift) \
   (((brush) && \
     (((brush)->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) && ((shift) == 0))) || \

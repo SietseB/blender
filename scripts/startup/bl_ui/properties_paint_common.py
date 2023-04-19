@@ -1427,8 +1427,7 @@ def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=Fals
         layout.prop(brush, "weight", slider=True)
         
         gp_settings = brush.gpencil_settings
-        text = "" if compact else "Direction"
-        layout.prop(gp_settings, "direction", expand=True, text=text)
+        layout.prop(gp_settings, "direction", expand=True, text="" if compact else "Direction")
 
 
 def brush_basic_gpencil_vertex_settings(layout, _context, brush, *, compact=False):

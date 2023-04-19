@@ -236,27 +236,32 @@ static void gpencil_select_buffer_ensure(tGP_BrushWeightpaintData *gso, const bo
 /* Ensure a vertex group for the weight paint brush. */
 static void gpencil_vertex_group_ensure(tGP_BrushWeightpaintData *gso)
 {
-  if (gso->vrgroup == -1) {
-    if (gso->object) {
-      Object *ob_armature = BKE_modifiers_is_deformed_by_armature(gso->object);
-      if (ob_armature != NULL) {
-        Bone *actbone = ((bArmature *)ob_armature->data)->act_bone;
-        if (actbone != NULL) {
-          bPoseChannel *pchan = BKE_pose_channel_find_name(ob_armature->pose, actbone->name);
-          if (pchan != NULL) {
-            bDeformGroup *dg = BKE_object_defgroup_find_name(gso->object, pchan->name);
-            if (dg == NULL) {
-              dg = BKE_object_defgroup_add_name(gso->object, pchan->name);
-            }
-          }
-        }
-      }
-      else {
-        BKE_object_defgroup_add(gso->object);
-      }
-      DEG_relations_tag_update(gso->bmain);
-      gso->vrgroup = 0;
-    }
+  if (gso->vrgroup >= 0) {
+    return;
+  }
+  if (gso->object == NULL) {
+    return;
+  }
+
+  DEG_relations_tag_update(gso->bmain);
+  gso->vrgroup = 0;
+
+  Object *ob_armature = BKE_modifiers_is_deformed_by_armature(gso->object);
+  if (ob_armature == NULL) {
+    BKE_object_defgroup_add(gso->object);
+    return;
+  }
+  Bone *actbone = ((bArmature *)ob_armature->data)->act_bone;
+  if (actbone == NULL) {
+    return;
+  }
+  bPoseChannel *pchan = BKE_pose_channel_find_name(ob_armature->pose, actbone->name);
+  if (pchan == NULL) {
+    return;
+  }
+  bDeformGroup *dg = BKE_object_defgroup_find_name(gso->object, pchan->name);
+  if (dg == NULL) {
+    BKE_object_defgroup_add_name(gso->object, pchan->name);
   }
 }
 
@@ -278,7 +283,7 @@ static void gpencil_select_buffer_avg_weight_set(tGP_BrushWeightpaintData *gso)
 /* Get boolean array of vertex groups deformed by GP armature modifiers.
  * GP equivalent of `BKE_object_defgroup_validmap_get`.
  */
-bool *gpencil_vgroup_bone_deformed_map_get(Object *ob, const int defbase_tot)
+static bool *gpencil_vgroup_bone_deformed_map_get(Object *ob, const int defbase_tot)
 {
   bDeformGroup *dg;
   bool *vgroup_bone_deformed;
@@ -324,8 +329,7 @@ bool *gpencil_vgroup_bone_deformed_map_get(Object *ob, const int defbase_tot)
   }
 
   /* Mark vertex groups with reference in the bone hash table. */
-  vgroup_bone_deformed = MEM_mallocN(sizeof(*vgroup_bone_deformed) * defbase_tot,
-                                     "wpaint bone deformed map");
+  vgroup_bone_deformed = MEM_mallocN(sizeof(*vgroup_bone_deformed) * defbase_tot, __func__);
   for (dg = defbase->first, i = 0; dg; dg = dg->next, i++) {
     vgroup_bone_deformed[i] = (BLI_ghash_lookup(gh, dg->name) != NULL);
   }
@@ -351,10 +355,11 @@ static void do_weight_paint_normalize_all(MDeformVert *dvert,
                                           const bool *vgroup_bone_deformed)
 {
   float sum = 0.0f, fac;
-  uint i, tot = 0;
+  uint tot = 0;
   MDeformWeight *dw;
 
-  for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+  dw = dvert->dw;
+  for (int i = dvert->totweight; i != 0; i--, dw++) {
     if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
       tot++;
       sum += dw->weight;
@@ -368,7 +373,8 @@ static void do_weight_paint_normalize_all(MDeformVert *dvert,
   if (sum != 0.0f) {
     fac = 1.0f / sum;
 
-    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    dw = dvert->dw;
+    for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         dw->weight *= fac;
       }
@@ -377,7 +383,8 @@ static void do_weight_paint_normalize_all(MDeformVert *dvert,
   else {
     fac = 1.0f / tot;
 
-    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    dw = dvert->dw;
+    for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         dw->weight = fac;
       }
@@ -398,7 +405,7 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
   float sum = 0.0f, fac;
   float sum_unlock = 0.0f;
   float sum_lock = 0.0f;
-  uint i, tot = 0;
+  uint tot = 0;
   MDeformWeight *dw;
 
   if (vgroup_locked == NULL) {
@@ -410,7 +417,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
     return true;
   }
 
-  for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+  dw = dvert->dw;
+  for (int i = dvert->totweight; i != 0; i--, dw++) {
     if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
       sum += dw->weight;
 
@@ -433,9 +441,11 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
   }
 
   if (sum_lock >= 1.0f - VERTEX_WEIGHT_LOCK_EPSILON) {
-    /* locked groups make it impossible to fully normalize,
-     * zero out what we can and return false */
-    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    /* Locked groups make it impossible to fully normalize,
+     * zero out what we can and return false. */
+    dw = dvert->dw;
+    for (int i = dvert->totweight; i != 0; i--, dw++) {
+      *dw = dvert->dw[i];
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
             !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
@@ -449,7 +459,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
   if (sum_unlock != 0.0f) {
     fac = (1.0f - sum_lock) / sum_unlock;
 
-    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    dw = dvert->dw;
+    for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
             !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
@@ -463,7 +474,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
     fac = (1.0f - sum_lock) / tot;
     CLAMP(fac, 0.0f, 1.0f);
 
-    for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+    dw = dvert->dw;
+    for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
             !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
@@ -500,27 +512,27 @@ static float brush_influence_calc(tGP_BrushWeightpaintData *gso, const int radiu
 {
   Brush *brush = gso->brush;
 
-  /* Basic strength factor from brush settings. */
+  /* basic strength factor from brush settings */
   float influence = brush->alpha;
 
-  /* Use pressure? */
+  /* use pressure? */
   if (brush->gpencil_settings->flag & GP_BRUSH_USE_PRESSURE) {
     influence *= gso->pressure;
   }
 
-  /* Get distance to center of brush. */
+  /* distance fading */
   int mouse_i[2];
   round_v2i_v2fl(mouse_i, gso->mouse);
   float distance = (float)len_v2v2_int(mouse_i, co);
 
-  /* Apply brush curve (falloff). */
+  /* Apply Brush curve. */
   float brush_falloff = BKE_brush_curve_strength(brush, distance, (float)radius);
   influence *= brush_falloff;
 
-  /* Apply multi-frame falloff. */
+  /* apply multi-frame falloff */
   influence *= gso->mf_falloff;
 
-  /* Return influence. */
+  /* return influence */
   return influence;
 }
 
@@ -632,15 +644,15 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
 
   /* Calculate the average (=blurred) weight. */
   float blur_weight = 0.0f, dist_sum = 0.0f;
-  int i, count = 0;
-  for (i = 0; i < tot; i++) {
+  int count = 0;
+  for (int i = 0; i < tot; i++) {
     dist_sum += nearest[i].dist;
     count++;
   }
   if (count <= 1) {
     return false;
   }
-  for (i = 0; i < tot; i++) {
+  for (int i = 0; i < tot; i++) {
     /* Weighted average, based on distance to point. */
     blur_weight += (1.0f - nearest[i].dist / dist_sum) * gso->fn_pbuffer[nearest[i].index].weight;
   }
@@ -684,9 +696,9 @@ static bool brush_smear_apply(tGP_BrushWeightpaintData *gso,
   float point_dot[8] = {0};
   float point_dir[2];
   float score_max = 0.0f, dist_min = FLT_MAX, dist_max = 0.0f;
-  int i_max = -1, count = 0, i;
+  int i_max = -1, count = 0;
 
-  for (i = 0; i < tot; i++) {
+  for (int i = 0; i < tot; i++) {
     /* Skip the point we are about to smear. */
     if (nearest[i].dist > GP_FIND_NEAREST_EPSILON) {
       sub_v2_v2v2(point_dir, pc_f, nearest[i].co);
@@ -712,7 +724,7 @@ static bool brush_smear_apply(tGP_BrushWeightpaintData *gso,
 
   /* Find best match in angle and distance. */
   float dist_f = (dist_min == dist_max) ? 1.0f : 0.95f / (dist_max - dist_min);
-  for (i = 0; i < tot; i++) {
+  for (int i = 0; i < tot; i++) {
     if (point_dot[i] > 0.0f) {
       float score = point_dot[i] * (1.0f - (nearest[i].dist - dist_min) * dist_f);
       if (score > score_max) {
@@ -835,7 +847,7 @@ static bool gpencil_weightpaint_brush_init(bContext *C, wmOperator *op)
     /* Get boolean array of vertex groups deformed by bones. */
     gso->vgroup_bone_deformed = gpencil_vgroup_bone_deformed_map_get(ob, gso->vgroup_tot);
     if (gso->vgroup_bone_deformed != NULL) {
-      /* Get boolean array of locked vertex groups. */
+      /* Get boolean array of locked vertext groups. */
       gso->vgroup_locked = BKE_object_defgroup_lock_flags_get(ob, gso->vgroup_tot);
       if (gso->vgroup_locked == NULL) {
         gso->vgroup_locked = (bool *)MEM_callocN(sizeof(bool) * gso->vgroup_tot, __func__);
@@ -1128,10 +1140,8 @@ static bool gpencil_weightpaint_brush_do_frame(bContext *C,
    * all selected points before apply the effect, because it could be
    * required to do some step. Now is not used, but the operator is ready.
    *--------------------------------------------------------------------- */
-  int gps_index = -1;
-  LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-    gps_index++;
-
+  int gps_index;
+  LISTBASE_FOREACH_INDEX (bGPDstroke *, gps, &gpf->strokes, gps_index) {
     /* Skip strokes that are invalid for current view. */
     if (ED_gpencil_stroke_can_use(C, gps) == false) {
       continue;
@@ -1645,7 +1655,7 @@ static int gpencil_weight_sample_invoke(bContext *C, wmOperator *UNUSED(op), con
 
       /* Look for two closest points. */
       for (int i = 0; i < gps->totpoints; i++) {
-        bGPDspoint *pt = gps->points + i;
+        bGPDspoint *pt = &gps->points[i];
         bGPDspoint npt;
 
         gpencil_point_to_world_space(pt, diff_mat, &npt);
@@ -1655,7 +1665,7 @@ static int gpencil_weight_sample_invoke(bContext *C, wmOperator *UNUSED(op), con
 
         if ((dist < closest_dist[0]) || (dist < closest_dist[1])) {
           /* Get weight. */
-          MDeformVert *dvert = gps->dvert + i;
+          MDeformVert *dvert = &gps->dvert[i];
           MDeformWeight *dw = BKE_defvert_find_index(dvert, vgroup);
           if (dw == NULL) {
             continue;
