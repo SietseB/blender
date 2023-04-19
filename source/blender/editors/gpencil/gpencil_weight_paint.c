@@ -2026,7 +2026,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   /* Gradient type (linear/radial). */
   int gradient_type = RNA_enum_get(op->ptr, "type");
 
-  /* Length of interactive line segment. */
+  /* Get length of interactive line segment. */
   sub_v2_v2v2(tool_data->line_segment, sco_end, sco_start);
   tool_data->line_segment_len_sq = dot_v2v2(tool_data->line_segment, tool_data->line_segment);
   tool_data->radius = sqrtf(tool_data->line_segment_len_sq);
@@ -2034,19 +2034,18 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     goto finally;
   }
 
-  /* Reset vertex weights. */
-  for (int v_index = 0; v_index < tool_data->vertex_tot; v_index++) {
-    tGPWeightGradient_vertex *vertex = &tool_data->vertex_cache[v_index];
-    if (vertex->dw) {
-      vertex->dw->weight = vertex->weight_orig;
-    }
-  }
-
   /* Update vertex weights based on interactive gradient. */
   for (int v_index = 0; v_index < tool_data->vertex_tot; v_index++) {
     bool changed = false;
     MDeformVert *dvert;
     tGPWeightGradient_vertex *vertex = &tool_data->vertex_cache[v_index];
+
+    /* Reset vertex weight. */
+    if (vertex->dw) {
+      vertex->dw->weight = vertex->weight_orig;
+    }
+
+    /* Get vector of line starting point to vertex. */
     float co[2], vec_p_to_line[2];
     copy_v2fl_v2i(co, vertex->co);
     sub_v2_v2v2(vec_p_to_line, co, sco_start);
