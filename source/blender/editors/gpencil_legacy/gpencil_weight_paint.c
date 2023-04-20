@@ -564,7 +564,7 @@ static bool brush_draw_apply(tGP_BrushWeightpaintData *gso,
                              const int radius,
                              const int co[2])
 {
-  MDeformVert *dvert = gps->dvert + pt_index;
+  MDeformVert *dvert = &gps->dvert[pt_index];
 
   /* Compute strength of effect. */
   float inf = brush_influence_calc(gso, radius, co);
@@ -595,7 +595,7 @@ static bool brush_average_apply(tGP_BrushWeightpaintData *gso,
                                 const int radius,
                                 const int co[2])
 {
-  MDeformVert *dvert = gps->dvert + pt_index;
+  MDeformVert *dvert = &gps->dvert[pt_index];
 
   /* Compute strength of effect. */
   float inf = brush_influence_calc(gso, radius, co);
@@ -625,7 +625,7 @@ static bool brush_blur_apply(tGP_BrushWeightpaintData *gso,
                              const int radius,
                              const int co[2])
 {
-  MDeformVert *dvert = gps->dvert + pt_index;
+  MDeformVert *dvert = &gps->dvert[pt_index];
 
   /* Compute strength of effect. */
   float inf = brush_influence_calc(gso, radius, co);
@@ -677,7 +677,7 @@ static bool brush_smear_apply(tGP_BrushWeightpaintData *gso,
                               const int radius,
                               const int co[2])
 {
-  MDeformVert *dvert = gps->dvert + pt_index;
+  MDeformVert *dvert = &gps->dvert[pt_index];
 
   /* Get current weight. */
   MDeformWeight *dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
@@ -946,7 +946,7 @@ static void gpencil_save_selected_point(tGP_BrushWeightpaintData *gso,
   BKE_gpencil_dvert_ensure(gps);
 
   /* Copy current weight. */
-  MDeformVert *dvert = gps->dvert + index;
+  MDeformVert *dvert = &gps->dvert[index];
   MDeformWeight *dw = BKE_defvert_find_index(dvert, gso->vrgroup);
   if (within_brush && (dw != NULL)) {
     selected->weight = dw->weight;
@@ -1048,8 +1048,8 @@ static void gpencil_weightpaint_select_stroke(tGP_BrushWeightpaintData *gso,
      */
     for (i = 0; (i + 1) < gps->totpoints; i++) {
       /* Get points to work with */
-      pt1 = gps->points + i;
-      pt2 = gps->points + i + 1;
+      pt1 = &gps->points[i];
+      pt2 = &gps->points[i + 1];
 
       bGPDspoint npt;
       gpencil_point_to_world_space(pt1, diff_mat, &npt);
@@ -1791,7 +1791,7 @@ static void gpencil_weight_gradient_cache_frame(bContext *C,
       }
       tGPWeightGradient_vertex *cached_vertex = &vertex_data->vertex_cache[*cache_index];
       bGPDspoint pt_world;
-      bGPDspoint *pt = gps_eval->points + i;
+      bGPDspoint *pt = &gps_eval->points[i];
       gpencil_point_to_world_space(pt, diff_mat, &pt_world);
       gpencil_point_to_xy(gsc, gps_eval, &pt_world, &co_2d[0], &co_2d[1]);
 
@@ -1804,7 +1804,7 @@ static void gpencil_weight_gradient_cache_frame(bContext *C,
       cached_vertex->dw = NULL;
 
       if (gps->dvert != NULL) {
-        MDeformVert *dvert = gps->dvert + i;
+        MDeformVert *dvert = &gps->dvert[i];
         MDeformWeight *dw = BKE_defvert_find_index(dvert, vertex_group);
         if (dw != NULL) {
           cached_vertex->flag |= GP_WEIGHT_GRADIENT_VERTEX_DW_EXISTS;
@@ -1854,7 +1854,7 @@ static int gpencil_weight_gradient_vertex_count_total_get(bContext *C,
       LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
         /* Always do active frame; otherwise, only include selected frames. */
         if ((gpf == gpl->actframe) || (gpf->flag & GP_FRAME_SELECT)) {
-          vertex_tot = gpencil_weight_gradient_vertex_count_frame_get(C, ob, gpf);
+          vertex_tot += gpencil_weight_gradient_vertex_count_frame_get(C, ob, gpf);
         }
       }
     }
@@ -1930,6 +1930,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     /* Fill cache. */
     tool_data->vertex_cache = (tGPWeightGradient_vertex *)MEM_malloc_arrayN(
         tool_data->vertex_tot, sizeof(tGPWeightGradient_vertex), __func__);
+
     if (is_interactive) {
       gesture->user_data.data = tool_data;
       gesture->user_data.use_free = false;
@@ -2069,7 +2070,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
       if ((dist_on_line >= 0) && (dist_on_line <= tool_data->line_segment_len_sq)) {
         if (vertex->dw == NULL) {
           BKE_gpencil_dvert_ensure(vertex->gps);
-          dvert = vertex->gps->dvert + vertex->point_index;
+          dvert = &vertex->gps->dvert[vertex->point_index];
           vertex->dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
           if (vertex->dw == NULL) {
             continue;
@@ -2096,7 +2097,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
       if (p_dist_to_center <= tool_data->radius) {
         if (vertex->dw == NULL) {
           BKE_gpencil_dvert_ensure(vertex->gps);
-          dvert = vertex->gps->dvert + vertex->point_index;
+          dvert = &vertex->gps->dvert[vertex->point_index];
           vertex->dw = BKE_defvert_ensure_index(dvert, gso->vrgroup);
           if (vertex->dw == NULL) {
             continue;
@@ -2116,7 +2117,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
 
     /* Perform auto-normalize. */
     if (changed && gso->auto_normalize && vertex->gps->dvert != NULL) {
-      dvert = vertex->gps->dvert + vertex->point_index;
+      dvert = &vertex->gps->dvert[vertex->point_index];
       do_weight_paint_normalize_all_try(dvert, gso);
     }
   }
@@ -2163,7 +2164,7 @@ static void gpencil_weight_gradient_cancel(tGPWeightGradient_data *tool_data)
       vertex->dw->weight = vertex->weight_orig;
 
       if ((vertex->flag & GP_WEIGHT_GRADIENT_VERTEX_DW_EXISTS) == 0) {
-        MDeformVert *dvert = vertex->gps->dvert + vertex->point_index;
+        MDeformVert *dvert = &vertex->gps->dvert[vertex->point_index];
         BKE_defvert_remove_group(dvert, vertex->dw);
       }
     }
