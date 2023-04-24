@@ -1919,7 +1919,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   /* Get auto-normalize setting. */
   gso->auto_normalize = (ts->auto_normalize && gso->vrgroup != -1);
 
-  /* Init cache. */
+  /* Create tool data and cache. */
   if ((!is_interactive) || (gesture->user_data.data == NULL)) {
     tool_data = MEM_mallocN(sizeof(tGPWeightGradient_data), __func__);
 
@@ -1927,7 +1927,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     tool_data->vertex_tot = gpencil_weight_gradient_vertex_count_total_get(
         C, ob_active, gpd, gso->is_multiframe);
 
-    /* Fill cache. */
+    /* Init cache. */
     tool_data->vertex_cache = (tGPWeightGradient_vertex *)MEM_malloc_arrayN(
         tool_data->vertex_tot, sizeof(tGPWeightGradient_vertex), __func__);
 
@@ -1936,6 +1936,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
       gesture->user_data.use_free = false;
     }
 
+    /* Fill cache with all vertices potentially affected by gradient. */
     int cache_index = 0;
     float diff_mat[4][4];
 
@@ -2064,10 +2065,10 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     /* Linear gradient. */
     if (gradient_type == WPAINT_GRADIENT_TYPE_LINEAR) {
       /* Get orthogonal position of vertex relative to the gradient line segment. */
-      float dist_on_line = dot_v2v2(vec_p_to_line, tool_data->line_segment);
+      float dist_on_line = MAX2(0.0f, dot_v2v2(vec_p_to_line, tool_data->line_segment));
 
       /* When vertex is within reach of the line segment, add the gradient weight. */
-      if ((dist_on_line >= 0) && (dist_on_line <= tool_data->line_segment_len_sq)) {
+      if (dist_on_line <= tool_data->line_segment_len_sq) {
         if (vertex->dw == NULL) {
           BKE_gpencil_dvert_ensure(vertex->gps);
           dvert = &vertex->gps->dvert[vertex->point_index];
