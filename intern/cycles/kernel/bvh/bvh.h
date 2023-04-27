@@ -17,6 +17,8 @@
 #  include "kernel/device/metal/bvh.h"
 #elif defined(__KERNEL_OPTIX__)
 #  include "kernel/device/optix/bvh.h"
+#elif defined(__HIPRT__)
+#  include "kernel/device/hiprt/bvh.h"
 #else
 #  define __BVH2__
 #endif
@@ -288,6 +290,15 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   if (!intersection_ray_valid(ray)) {
     return false;
   }
+
+#    ifdef __EMBREE__
+  IF_USING_EMBREE
+  {
+    if (kernel_data.device_bvh) {
+      return kernel_embree_intersect_volume(kg, ray, isect, visibility);
+    }
+  }
+#    endif
 
   IF_NOT_USING_EMBREE
   {

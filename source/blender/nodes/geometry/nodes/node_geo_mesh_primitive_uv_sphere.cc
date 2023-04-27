@@ -306,8 +306,8 @@ static Mesh *create_uv_sphere_mesh(const float radius,
 {
   Mesh *mesh = BKE_mesh_new_nomain(sphere_vert_total(segments, rings),
                                    sphere_edge_total(segments, rings),
-                                   sphere_corner_total(segments, rings),
-                                   sphere_face_total(segments, rings));
+                                   sphere_face_total(segments, rings),
+                                   sphere_corner_total(segments, rings));
   BKE_id_material_eval_ensure_default_slot(&mesh->id);
   MutableSpan<float3> positions = mesh->vert_positions_for_write();
   MutableSpan<int2> edges = mesh->edges_for_write();
@@ -333,6 +333,7 @@ static Mesh *create_uv_sphere_mesh(const float radius,
         }
       });
 
+  mesh->tag_loose_verts_none();
   mesh->loose_edges_tag_none();
   mesh->bounds_set_eager(calculate_bounds_uv_sphere(radius, segments, rings));
 
@@ -358,16 +359,10 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   const float radius = params.extract_input<float>("Radius");
 
-  AutoAnonymousAttributeID uv_map_id = params.get_output_anonymous_attribute_id_if_needed(
-      "UV Map");
+  AnonymousAttributeIDPtr uv_map_id = params.get_output_anonymous_attribute_id_if_needed("UV Map");
 
   Mesh *mesh = create_uv_sphere_mesh(radius, segments_num, rings_num, uv_map_id.get());
   params.set_output("Mesh", GeometrySet::create_with_mesh(mesh));
-  if (uv_map_id) {
-    params.set_output("UV Map",
-                      AnonymousAttributeFieldInput::Create<float3>(
-                          std::move(uv_map_id), params.attribute_producer_name()));
-  }
 }
 
 }  // namespace blender::nodes::node_geo_mesh_primitive_uv_sphere_cc

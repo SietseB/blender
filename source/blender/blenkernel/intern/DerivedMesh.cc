@@ -380,7 +380,7 @@ static Mesh *create_orco_mesh(Object *ob, Mesh *me, BMEditMesh *em, int layer)
     BKE_mesh_ensure_default_orig_index_customdata(mesh);
   }
   else {
-    mesh = BKE_mesh_copy_for_eval(me, true);
+    mesh = BKE_mesh_copy_for_eval(me);
   }
 
   orco = get_orco_coords(ob, em, layer, &free);
@@ -569,6 +569,27 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
   return mesh_output;
 }
 
+static void set_rest_position(Mesh &mesh)
+{
+  using namespace blender;
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = mesh.attributes_for_write();
+  const AttributeReader positions = attributes.lookup<float3>("position");
+  attributes.remove("rest_position");
+  if (positions) {
+    if (positions.sharing_info && positions.varray.is_span()) {
+      attributes.add<float3>("rest_position",
+                             ATTR_DOMAIN_POINT,
+                             AttributeInitShared(positions.varray.get_internal_span().data(),
+                                                 *positions.sharing_info));
+    }
+    else {
+      attributes.add<float3>(
+          "rest_position", ATTR_DOMAIN_POINT, AttributeInitVArray(positions.varray));
+    }
+  }
+}
+
 static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
                                 const Scene *scene,
                                 Object *ob,
@@ -654,23 +675,10 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
 
   if (ob->modifier_flag & OB_MODIFIER_FLAG_ADD_REST_POSITION) {
     if (mesh_final == nullptr) {
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
       ASSERT_IS_VALID_MESH(mesh_final);
     }
-    MutableAttributeAccessor attributes = mesh_final->attributes_for_write();
-    const AttributeReader positions = attributes.lookup<float3>("position");
-    if (positions) {
-      if (positions.sharing_info && positions.varray.is_span()) {
-        attributes.add<float3>("rest_position",
-                               ATTR_DOMAIN_POINT,
-                               AttributeInitShared(positions.varray.get_internal_span().data(),
-                                                   *positions.sharing_info));
-      }
-      else {
-        attributes.add<float3>(
-            "rest_position", ATTR_DOMAIN_POINT, AttributeInitVArray(positions.varray));
-      }
-    }
+    set_rest_position(*mesh_final);
   }
 
   /* Apply all leading deform modifiers. */
@@ -685,7 +693,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       if (mti->type == eModifierTypeType_OnlyDeform && !sculpt_dyntopo) {
         blender::bke::ScopedModifierTimer modifier_timer{*md};
         if (!mesh_final) {
-          mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+          mesh_final = BKE_mesh_copy_for_eval(mesh_input);
           ASSERT_IS_VALID_MESH(mesh_final);
         }
         BKE_modifier_deform_verts(md,
@@ -703,12 +711,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
      * places that wish to use the original mesh but with deformed
      * coordinates (like vertex paint). */
     if (r_deform) {
-      if (mesh_final) {
-        mesh_deform = BKE_mesh_copy_for_eval(mesh_final, false);
-      }
-      else {
-        mesh_deform = BKE_mesh_copy_for_eval(mesh_input, false);
-      }
+      mesh_deform = BKE_mesh_copy_for_eval(mesh_final ? mesh_final : mesh_input);
     }
   }
 
@@ -779,7 +782,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
 
     if (mti->type == eModifierTypeType_OnlyDeform) {
       if (!mesh_final) {
-        mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+        mesh_final = BKE_mesh_copy_for_eval(mesh_input);
         ASSERT_IS_VALID_MESH(mesh_final);
       }
       BKE_modifier_deform_verts(md,
@@ -798,7 +801,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
       else {
-        mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+        mesh_final = BKE_mesh_copy_for_eval(mesh_input);
         ASSERT_IS_VALID_MESH(mesh_final);
         check_for_needs_mapping = true;
       }
@@ -966,7 +969,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
       mesh_final = mesh_input;
     }
     else {
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
     }
   }
 
@@ -1011,7 +1014,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         /* Not yet finalized by any instance, do it now
          * Isolate since computing normals is multithreaded and we are holding a lock. */
         blender::threading::isolate_task([&] {
-          mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+          mesh_final = BKE_mesh_copy_for_eval(mesh_input);
           mesh_calc_modifier_final_normals(
               mesh_input, &final_datamask, sculpt_dyntopo, mesh_final);
           mesh_calc_finalize(mesh_input, mesh_final);
@@ -1026,7 +1029,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
     else if (!mesh_has_modifier_final_normals(mesh_input, &final_datamask, runtime->mesh_eval)) {
       /* Modifier stack was (re-)evaluated with a request for additional normals
        * different than the instanced mesh, can't instance anymore now. */
-      mesh_final = BKE_mesh_copy_for_eval(mesh_input, true);
+      mesh_final = BKE_mesh_copy_for_eval(mesh_input);
       mesh_calc_modifier_final_normals(mesh_input, &final_datamask, sculpt_dyntopo, mesh_final);
       mesh_calc_finalize(mesh_input, mesh_final);
     }
@@ -1199,6 +1202,14 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   /* Clear errors before evaluation. */
   BKE_modifiers_clear_errors(ob);
 
+  if (ob->modifier_flag & OB_MODIFIER_FLAG_ADD_REST_POSITION) {
+    if (mesh_final == nullptr) {
+      mesh_final = BKE_mesh_from_bmesh_for_eval_nomain(em_input->bm, nullptr, mesh_input);
+      ASSERT_IS_VALID_MESH(mesh_final);
+    }
+    set_rest_position(*mesh_final);
+  }
+
   for (int i = 0; md; i++, md = md->next, md_datamask = md_datamask->next) {
     const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
 
@@ -1255,7 +1266,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
       /* apply vertex coordinates or build a DerivedMesh as necessary */
       if (mesh_final) {
         if (deformed_verts) {
-          Mesh *mesh_tmp = BKE_mesh_copy_for_eval(mesh_final, false);
+          Mesh *mesh_tmp = BKE_mesh_copy_for_eval(mesh_final);
           if (mesh_final != mesh_cage) {
             BKE_id_free(nullptr, mesh_final);
           }
@@ -1264,7 +1275,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
         else if (mesh_final == mesh_cage) {
           /* 'me' may be changed by this modifier, so we need to copy it. */
-          mesh_final = BKE_mesh_copy_for_eval(mesh_final, false);
+          mesh_final = BKE_mesh_copy_for_eval(mesh_final);
         }
       }
       else {
@@ -1337,7 +1348,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
     if (r_cage && i == cageIndex) {
       if (mesh_final && deformed_verts) {
-        mesh_cage = BKE_mesh_copy_for_eval(mesh_final, false);
+        mesh_cage = BKE_mesh_copy_for_eval(mesh_final);
         BKE_mesh_vert_coords_apply(mesh_cage, deformed_verts);
       }
       else if (mesh_final) {
@@ -1373,7 +1384,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   if (mesh_final) {
     if (deformed_verts) {
       if (mesh_final == mesh_cage) {
-        mesh_final = BKE_mesh_copy_for_eval(mesh_final, false);
+        mesh_final = BKE_mesh_copy_for_eval(mesh_final);
       }
       BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
     }

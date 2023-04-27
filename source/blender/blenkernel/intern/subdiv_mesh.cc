@@ -532,7 +532,7 @@ static bool subdiv_mesh_topology_info(const SubdivForeachContext *foreach_contex
 
   SubdivMeshContext *subdiv_context = static_cast<SubdivMeshContext *>(foreach_context->user_data);
   subdiv_context->subdiv_mesh = BKE_mesh_new_nomain_from_template_ex(
-      subdiv_context->coarse_mesh, num_vertices, num_edges, 0, num_loops, num_polygons, mask);
+      subdiv_context->coarse_mesh, num_vertices, num_edges, 0, num_polygons, num_loops, mask);
   subdiv_mesh_ctx_cache_custom_data_layers(subdiv_context);
   subdiv_mesh_prepare_accumulator(subdiv_context, num_vertices);
   subdiv_context->subdiv_mesh->runtime->subsurf_face_dot_tags.clear();
@@ -1192,11 +1192,19 @@ Mesh *BKE_subdiv_to_mesh(Subdiv *subdiv,
     BitVector<> &bit_vector = result->runtime->subsurf_optimal_display_edges;
     bit_vector.clear();
     bit_vector.resize(subdiv_context.subdiv_display_edges.size());
-    threading::parallel_for_aligned(span.index_range(), 4096, 64, [&](const IndexRange range) {
-      for (const int i : range) {
-        bit_vector[i].set(span[i]);
-      }
-    });
+    threading::parallel_for_aligned(
+        span.index_range(), 4096, bits::BitsPerInt, [&](const IndexRange range) {
+          for (const int i : range) {
+            bit_vector[i].set(span[i]);
+          }
+        });
+  }
+
+  if (coarse_mesh->verts_no_face().count == 0) {
+    result->tag_loose_verts_none();
+  }
+  if (coarse_mesh->loose_edges().count == 0) {
+    result->loose_edges_tag_none();
   }
 
   if (subdiv->settings.is_simple) {

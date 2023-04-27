@@ -237,7 +237,8 @@ struct ResultOffsets {
   Array<int> profile_indices;
 
   /** Whether any curve in the profile or curve input has only a single evaluated point. */
-  bool any_single_point_curve;
+  bool any_single_point_main;
+  bool any_single_point_profile;
 };
 static ResultOffsets calculate_result_offsets(const CurvesInfo &info, const bool fill_caps)
 {
@@ -315,10 +316,8 @@ static ResultOffsets calculate_result_offsets(const CurvesInfo &info, const bool
           }
         }
       },
-      [&]() {
-        result.any_single_point_curve = offsets_contain_single_point(main_offsets) ||
-                                        offsets_contain_single_point(profile_offsets);
-      });
+      [&]() { result.any_single_point_main = offsets_contain_single_point(main_offsets); },
+      [&]() { result.any_single_point_profile = offsets_contain_single_point(profile_offsets); });
 
   return result;
 }
@@ -691,7 +690,7 @@ Mesh *curve_to_mesh_sweep(const CurvesGeometry &main,
   }
 
   Mesh *mesh = BKE_mesh_new_nomain(
-      offsets.vert.last(), offsets.edge.last(), offsets.loop.last(), offsets.poly.last());
+      offsets.vert.last(), offsets.edge.last(), offsets.poly.last(), offsets.loop.last());
   mesh->flag |= ME_AUTOSMOOTH;
   mesh->smoothresh = DEG2RADF(180.0f);
   MutableSpan<float3> positions = mesh->vert_positions_for_write();
@@ -765,9 +764,13 @@ Mesh *curve_to_mesh_sweep(const CurvesGeometry &main,
                         positions.slice(info.vert_range));
   });
 
-  if (!offsets.any_single_point_curve) {
-    /* If there are no single point curves, every curve combination will always have faces. */
-    mesh->loose_edges_tag_none();
+  if (!offsets.any_single_point_main) {
+    /* If there are no single point curves, every combination will have at least loose edges. */
+    mesh->tag_loose_verts_none();
+    if (!offsets.any_single_point_profile) {
+      /* If there are no single point profiles, every combination will have faces. */
+      mesh->loose_edges_tag_none();
+    }
   }
 
   SpanAttributeWriter<bool> sharp_edges;

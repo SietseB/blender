@@ -113,7 +113,7 @@ static Mesh *mesh_nurbs_displist_to_mesh(const Curve *cu, const ListBase *dispba
     return BKE_mesh_new_nomain(0, 0, 0, 0);
   }
 
-  Mesh *mesh = BKE_mesh_new_nomain(totvert, totedge, totloop, totpoly);
+  Mesh *mesh = BKE_mesh_new_nomain(totvert, totedge, totpoly, totloop);
   MutableSpan<float3> positions = mesh->vert_positions_for_write();
   MutableSpan<blender::int2> edges = mesh->edges_for_write();
   MutableSpan<int> poly_offsets = mesh->poly_offsets_for_write();
@@ -693,7 +693,7 @@ static const Curves *get_evaluated_curves_from_object(const Object *object)
 static Mesh *mesh_new_from_evaluated_curve_type_object(const Object *evaluated_object)
 {
   if (const Mesh *mesh = BKE_object_get_evaluated_mesh(evaluated_object)) {
-    return BKE_mesh_copy_for_eval(mesh, false);
+    return BKE_mesh_copy_for_eval(mesh);
   }
   if (const Curves *curves = get_evaluated_curves_from_object(evaluated_object)) {
     const blender::bke::AnonymousAttributePropagationInfo propagation_info;
@@ -752,7 +752,7 @@ static Mesh *mesh_new_from_mball_object(Object *object)
     return (Mesh *)BKE_id_new_nomain(ID_ME, ((ID *)object->data)->name + 2);
   }
 
-  return BKE_mesh_copy_for_eval(mesh_eval, false);
+  return BKE_mesh_copy_for_eval(mesh_eval);
 }
 
 static Mesh *mesh_new_from_mesh(Object *object, Mesh *mesh)

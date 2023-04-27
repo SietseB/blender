@@ -704,7 +704,7 @@ Mesh *create_cylinder_or_cone_mesh(const float radius_top,
   }
 
   Mesh *mesh = BKE_mesh_new_nomain(
-      config.tot_verts, config.tot_edges, config.tot_corners, config.tot_faces);
+      config.tot_verts, config.tot_edges, config.tot_faces, config.tot_corners);
   BKE_id_material_eval_ensure_default_slot(&mesh->id);
 
   MutableSpan<float3> positions = mesh->vert_positions_for_write();
@@ -723,6 +723,7 @@ Mesh *create_cylinder_or_cone_mesh(const float radius_top,
   }
   calculate_selection_outputs(config, attribute_outputs, mesh->attributes_for_write());
 
+  mesh->tag_loose_verts_none();
   mesh->loose_edges_tag_none();
   mesh->bounds_set_eager(calculate_bounds_cylinder(config));
 
@@ -849,29 +850,6 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   /* Transform the mesh so that the base of the cone is at the origin. */
   BKE_mesh_translate(mesh, float3(0.0f, 0.0f, depth * 0.5f), false);
-
-  if (attribute_outputs.top_id) {
-    params.set_output("Top",
-                      AnonymousAttributeFieldInput::Create<bool>(
-                          std::move(attribute_outputs.top_id), params.attribute_producer_name()));
-  }
-  if (attribute_outputs.bottom_id) {
-    params.set_output(
-        "Bottom",
-        AnonymousAttributeFieldInput::Create<bool>(std::move(attribute_outputs.bottom_id),
-                                                   params.attribute_producer_name()));
-  }
-  if (attribute_outputs.side_id) {
-    params.set_output("Side",
-                      AnonymousAttributeFieldInput::Create<bool>(
-                          std::move(attribute_outputs.side_id), params.attribute_producer_name()));
-  }
-  if (attribute_outputs.uv_map_id) {
-    params.set_output(
-        "UV Map",
-        AnonymousAttributeFieldInput::Create<float3>(std::move(attribute_outputs.uv_map_id),
-                                                     params.attribute_producer_name()));
-  }
 
   params.set_output("Mesh", GeometrySet::create_with_mesh(mesh));
 }

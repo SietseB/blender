@@ -110,8 +110,8 @@ static Mesh *create_circle_mesh(const float radius,
 {
   Mesh *mesh = BKE_mesh_new_nomain(circle_vert_total(fill_type, verts_num),
                                    circle_edge_total(fill_type, verts_num),
-                                   circle_corner_total(fill_type, verts_num),
-                                   circle_face_total(fill_type, verts_num));
+                                   circle_face_total(fill_type, verts_num),
+                                   circle_corner_total(fill_type, verts_num));
   BKE_id_material_eval_ensure_default_slot(&mesh->id);
   MutableSpan<float3> positions = mesh->vert_positions_for_write();
   MutableSpan<int2> edges = mesh->edges_for_write();
@@ -153,6 +153,8 @@ static Mesh *create_circle_mesh(const float radius,
 
     std::iota(corner_verts.begin(), corner_verts.end(), 0);
     std::iota(corner_edges.begin(), corner_edges.end(), 0);
+
+    mesh->loose_edges_tag_none();
   }
   else if (fill_type == GEO_NODE_MESH_CIRCLE_FILL_TRIANGLE_FAN) {
     for (const int i : poly_offsets.index_range()) {
@@ -170,6 +172,7 @@ static Mesh *create_circle_mesh(const float radius,
     }
   }
 
+  mesh->tag_loose_verts_none();
   mesh->bounds_set_eager(calculate_bounds_circle(radius, verts_num));
 
   return mesh;

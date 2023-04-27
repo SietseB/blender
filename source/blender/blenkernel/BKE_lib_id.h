@@ -32,6 +32,8 @@
 #include "BLI_compiler_attrs.h"
 #include "BLI_utildefines.h"
 
+#include "DNA_userdef_enums.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -152,8 +154,6 @@ enum {
   LIB_ID_COPY_CACHES = 1 << 18,
   /** Don't copy `id->adt`, used by ID data-block localization routines. */
   LIB_ID_COPY_NO_ANIMDATA = 1 << 19,
-  /** Mesh: Reference CD data layers instead of doing real copy - USE WITH CAUTION! */
-  LIB_ID_COPY_CD_REFERENCE = 1 << 20,
   /** Do not copy id->override_library, used by ID data-block override routines. */
   LIB_ID_COPY_NO_LIB_OVERRIDE = 1 << 21,
   /** When copying local sub-data (like constraints or modifiers), do not set their "library
@@ -450,7 +450,7 @@ struct ID *BKE_id_copy(struct Main *bmain, const struct ID *id);
  */
 struct ID *BKE_id_copy_for_duplicate(struct Main *bmain,
                                      struct ID *id,
-                                     uint duplicate_flags,
+                                     eDupli_ID_Flags duplicate_flags,
                                      int copy_flags);
 
 /**
