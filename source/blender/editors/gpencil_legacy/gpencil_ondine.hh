@@ -13,7 +13,7 @@ class GpencilOndine {
   void init(bContext *C);
   bool prepare_camera_params(bContext *C);
   void set_zdepth(Object *object);
-  void set_render_data(Object *object);
+  void set_render_data(Object *object, const blender::float4x4 obmat);
   void set_stroke_colors(bGPDlayer *gpl, bGPDstroke *gps, MaterialGPencilStyle *gp_style);
   float stroke_point_radius_get(bGPdata *gpd,
                                 bGPDstroke *gps,

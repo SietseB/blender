@@ -43,7 +43,7 @@
 
 namespace blender {
 
-/* Object instance of Ondine runtime render data */
+/* Object instance of Ondine runtime render data. */
 GpencilOndine *ondine_render = new GpencilOndine();
 
 ARegion *get_invoke_region(bContext *C)
@@ -79,7 +79,7 @@ View3D *get_invoke_view3d(bContext *C)
   return NULL;
 }
 
-/* Runtime render properties */
+/* Runtime render properties. */
 GpencilOndine::GpencilOndine() {}
 
 void GpencilOndine::init(bContext *C)
@@ -118,12 +118,12 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
 
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
 
-    /* Store camera position and normal vector */
+    /* Store camera position and normal vector. */
     camera_loc_ = cam_ob->loc;
     mul_v3_m4v3(camera_normal_vec_, cam_ob->object_to_world, vec_z);
     normalize_v3(camera_normal_vec_);
 
-    /* Store camera rotation */
+    /* Store camera rotation. */
     camera_rot_sin_ = (float)abs(sin(cam_ob->rot[0]));
     camera_rot_cos_ = (float)abs(cos(cam_ob->rot[0]));
   }
@@ -234,7 +234,7 @@ void GpencilOndine::set_stroke_colors(bGPDlayer *gpl,
   interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
   copy_v3_v3(gps->runtime.render_stroke_color, col);
 
-  /* Get fill color */
+  /* Get fill color. */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
   interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
@@ -259,7 +259,7 @@ void GpencilOndine::set_zdepth(Object *object)
   gpd->runtime.render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
 }
 
-void GpencilOndine::set_render_data(Object *object)
+void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obmat)
 {
   float cam_plane[4];
 
@@ -274,17 +274,17 @@ void GpencilOndine::set_render_data(Object *object)
     return;
   }
 
-  /* Calculate camera plane */
+  /* Calculate camera plane. */
   plane_from_point_normal_v3(cam_plane, camera_loc_, camera_normal_vec_);
 
-  /* Iterate all layers of GP watercolor object */
+  /* Iterate all layers of GP watercolor object. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Layer is hidden? */
     if (gpl->flag & GP_LAYER_HIDE) {
       continue;
     }
 
-    /* Prepare layer matrix */
+    /* Prepare layer matrix. */
     BKE_gpencil_layer_transform_matrix_get(depsgraph_, object, gpl, diff_mat_.ptr());
     diff_mat_ = diff_mat_ * float4x4(gpl->layer_invmat);
 
@@ -294,13 +294,13 @@ void GpencilOndine::set_render_data(Object *object)
       continue;
     }
 
-    /* Iterate all strokes of layer */
+    /* Iterate all strokes of layer. */
     LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
       if (!ED_gpencil_stroke_material_visible(object, gps)) {
         continue;
       }
 
-      /* Set fill and stroke flags */
+      /* Set fill and stroke flags. */
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(object, gps->mat_nr + 1);
 
       const bool has_stroke = ((gp_style->flag & GP_MATERIAL_STROKE_SHOW) &&
@@ -316,13 +316,13 @@ void GpencilOndine::set_render_data(Object *object)
         gps->runtime.render_flag |= GP_ONDINE_STROKE_HAS_FILL;
       }
 
-      /* Set stroke and fill color, in linear sRGB */
-      this->set_stroke_colors(gpl, gps, gp_style);
+      /* Set stroke and fill color, in linear sRGB. */
+      set_stroke_colors(gpl, gps, gp_style);
 
-      /* Calculate distance to camera */
+      /* Calculate distance to camera. */
       gps->runtime.render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
 
-      /* Init min/max calculations */
+      /* Init min/max calculations. */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
       strength = (float)strength / 1000;
       float min_y = FLT_MAX;
@@ -334,16 +334,21 @@ void GpencilOndine::set_render_data(Object *object)
       float min_dist_to_cam = -FLT_MAX, max_dist_to_cam = FLT_MAX;
       int min_dist_point_index = 0, max_dist_point_index = 0;
 
-      /* Convert 3d stroke points to 2d */
+      /* Convert 3D stroke points to 2D. */
       for (const int i : IndexRange(gps->totpoints)) {
+        /* Apply object world matrix (given by object instances). */
         bGPDspoint &pt = gps->points[i];
-        const float2 screen_co = this->gpencil_3D_point_to_2D(&pt.x);
+        float3 co = {pt.x, pt.y, pt.z};
+        co = math::transform_point(obmat, co);
+
+        /* Convert to 2D space. */
+        const float2 screen_co = gpencil_3D_point_to_2D(co);
         pt.runtime.flat_x = screen_co.x;
         pt.runtime.flat_y = screen_co.y;
-        dist_to_cam = dist_signed_squared_to_plane_v3(&pt.x, cam_plane);
+        dist_to_cam = dist_signed_squared_to_plane_v3(co, cam_plane);
         pt.runtime.dist_to_cam = dist_to_cam;
 
-        /* Keep track of closest/furthest point to camera */
+        /* Keep track of closest/furthest point to camera. */
         if (dist_to_cam < max_dist_to_cam) {
           max_dist_to_cam = dist_to_cam;
           max_dist_point_index = i;
@@ -353,7 +358,7 @@ void GpencilOndine::set_render_data(Object *object)
           min_dist_point_index = i;
         }
 
-        /* Keep track of minimum y point */
+        /* Keep track of minimum y point. */
         if (pt.runtime.flat_y <= min_y) {
           if ((pt.runtime.flat_y < min_y) || (pt.runtime.flat_x > max_x)) {
             min_i1 = i;
@@ -362,7 +367,7 @@ void GpencilOndine::set_render_data(Object *object)
           }
         }
 
-        /* Get bounding box */
+        /* Get bounding box. */
         if (bbox_minx > pt.runtime.flat_x) {
           bbox_minx = pt.runtime.flat_x;
         }
@@ -377,19 +382,19 @@ void GpencilOndine::set_render_data(Object *object)
         }
       }
 
-      /* Calculate stroke width */
+      /* Calculate stroke width. */
       bool pressure_is_set = false;
       float max_pressure = 0.001f;
       gps->runtime.render_stroke_width = 0.0f;
       if (has_stroke) {
-        /* Get stroke thickness, taking object scale and layer line change into account */
+        /* Get stroke thickness, taking object scale and layer line change into account. */
         float thickness = gps->thickness + gpl->line_change;
         thickness *= mat4_to_scale(object->object_to_world);
         CLAMP_MIN(thickness, 1.0f);
-        float max_stroke_width = this->stroke_point_radius_get(
+        float max_stroke_width = stroke_point_radius_get(
                                      gpd, gps, min_dist_point_index, thickness) *
                                  2.0f;
-        float min_stroke_width = this->stroke_point_radius_get(
+        float min_stroke_width = stroke_point_radius_get(
                                      gpd, gps, max_dist_point_index, thickness) *
                                  2.0f;
         gps->runtime.render_stroke_width = max_stroke_width;
@@ -402,7 +407,7 @@ void GpencilOndine::set_render_data(Object *object)
           pressure_is_set = true;
           for (const int i : IndexRange(gps->totpoints)) {
             bGPDspoint &pt = gps->points[i];
-            /* Adjust pressure based on camera distance */
+            /* Adjust pressure based on camera distance. */
             pt.runtime.pressure_3d = pt.pressure *
                                      (1.0f -
                                       ((min_dist_to_cam - pt.runtime.dist_to_cam) / delta_dist) *
@@ -424,7 +429,7 @@ void GpencilOndine::set_render_data(Object *object)
       }
       gps->runtime.render_max_pressure = max_pressure;
 
-      /* Determine wether a fill is clockwise or counterclockwise */
+      /* Determine wether a fill is clockwise or counterclockwise. */
       /* See: https://en.wikipedia.org/wiki/Curve_orientation */
       gps->runtime.render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
       if (has_fill) {
@@ -440,7 +445,7 @@ void GpencilOndine::set_render_data(Object *object)
         }
       }
 
-      /* Set bounding box */
+      /* Set bounding box. */
       gps->runtime.render_bbox[0] = bbox_minx;
       gps->runtime.render_bbox[1] = bbox_miny;
       gps->runtime.render_bbox[2] = bbox_maxx;
@@ -451,9 +456,9 @@ void GpencilOndine::set_render_data(Object *object)
 
 }  // namespace blender
 
-void gpencil_ondine_set_render_data(Object *ob)
+void gpencil_ondine_set_render_data(Object *ob, const blender::float4x4 mat)
 {
-  blender::ondine_render->set_render_data(ob);
+  blender::ondine_render->set_render_data(ob, mat);
 }
 
 void gpencil_ondine_set_zdepth(Object *ob)

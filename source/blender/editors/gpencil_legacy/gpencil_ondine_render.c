@@ -14,9 +14,9 @@
 #include "gpencil_ondine_render.h"
 
 /* Set render data on GP object */
-void gpencil_ondine_render_set_data(Object *ob)
+void gpencil_ondine_render_set_data(Object *ob, const float mat[4][4])
 {
-  gpencil_ondine_set_render_data(ob);
+  gpencil_ondine_set_render_data(ob, mat);
 }
 
 /* Set z-depth on GP object */

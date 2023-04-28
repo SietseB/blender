@@ -27,9 +27,9 @@
 
 #include "BLT_translation.h"
 
-#include "BKE_context.h"
 #include "BKE_camera.h"
 #include "BKE_collection.h"
+#include "BKE_context.h"
 #include "BKE_editlattice.h"
 #include "BKE_editmesh.h"
 #include "BKE_layer.h"
@@ -2351,9 +2351,9 @@ void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
   gpencil_ondine_render_set_zdepth(ob);
 }
 
-void rna_Object_gpencil_ondine_set_render_data(Object *ob)
+void rna_Object_gpencil_ondine_set_render_data(Object *ob, float mat[16])
 {
-  gpencil_ondine_render_set_data(ob);
+  gpencil_ondine_render_set_data(ob, (const float(*)[4])mat);
 }
 
 #else
@@ -3891,19 +3891,26 @@ static void rna_def_object(BlenderRNA *brna)
   prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_CLEAR_BG);
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
-  RNA_def_property_ui_text(
-      prop, "Clear Background", "Clear the background when drawing this object (Ondine watercolor)");
+  RNA_def_property_ui_text(prop,
+                           "Clear Background",
+                           "Clear the background when drawing this object (Ondine watercolor)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* set z-depth */
   func = RNA_def_function(
       srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
-  RNA_def_function_ui_description(func, "Set z-depth of watercolor grease pencil object for rendering");
+  RNA_def_function_ui_description(func,
+                                  "Set z-depth of watercolor grease pencil object for rendering");
 
   /* set render data */
+  PropertyRNA *parm;
   func = RNA_def_function(
       srna, "ondine_render_set_data", "rna_Object_gpencil_ondine_set_render_data");
-  RNA_def_function_ui_description(func, "Set data of watercolor grease pencil object for rendering");
+  RNA_def_function_ui_description(func,
+                                  "Set data of watercolor grease pencil object for rendering");
+  parm = RNA_def_float_matrix(
+      func, "matrix_world", 4, 4, NULL, 0.0f, 0.0f, "", "World Matrix", 0.0f, 0.0f);
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
   /* anim */
   rna_def_animdata_common(srna);
