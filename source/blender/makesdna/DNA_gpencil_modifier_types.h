@@ -382,6 +382,7 @@ typedef struct ArrayGpencilModifierData {
   int flag;
   /** Location increments. */
   float offset[3];
+  float rotation[3];
   /** Shift increment. */
   float shift[3];
   /** Random Offset. */
@@ -391,7 +392,6 @@ typedef struct ArrayGpencilModifierData {
   /** Random Scales. */
   float rnd_scale[3];
 
-  char _pad[4];
   /** (first element is the index) random values. */
   int seed;
 

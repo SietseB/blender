@@ -80,15 +80,18 @@ static void BKE_gpencil_instance_modifier_instance_tfm(Object *ob,
 {
   float offset[3], rot[3], scale[3];
   ARRAY_SET_ITEMS(scale, 1.0f, 1.0f, 1.0f);
-  zero_v3(rot);
 
   if (mmd->flag & GP_ARRAY_USE_OFFSET) {
     offset[0] = mmd->offset[0] * elem_idx;
     offset[1] = mmd->offset[1] * elem_idx;
     offset[2] = mmd->offset[2] * elem_idx;
+    rot[0] = mmd->rotation[0] * elem_idx;
+    rot[1] = mmd->rotation[1] * elem_idx;
+    rot[2] = mmd->rotation[2] * elem_idx;
   }
   else {
     zero_v3(offset);
+    zero_v3(rot);
   }
 
   /* Calculate matrix */
@@ -415,6 +418,7 @@ static void constant_offset_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiLayoutSetActive(col, RNA_boolean_get(ptr, "use_constant_offset"));
   uiItemR(col, ptr, "constant_offset", 0, IFACE_("Distance"), ICON_NONE);
+  uiItemR(col, ptr, "constant_rotation", 0, IFACE_("Rotation"), ICON_NONE);
 }
 
 /**
