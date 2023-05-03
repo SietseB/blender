@@ -2046,6 +2046,9 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     goto finally;
   }
 
+  /* Get direction: add or subtract gradient to existing weight. */
+  int direction = (gso->brush->gpencil_settings->sculpt_flag & BRUSH_DIR_IN) ? -1 : 1;
+
   /* Update vertex weights based on interactive gradient. */
   for (int v_index = 0; v_index < tool_data->vertex_tot; v_index++) {
     bool changed = false;
@@ -2078,12 +2081,13 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
           }
         }
 
-        /* Add weight, with gradient tool weight, strength and falloff, and multi-frame falloff. */
+        /* Calculate new weight, with gradient tool weight, strength and falloff, and multi-frame
+         * falloff. */
         float distance_factor = dist_on_line / tool_data->line_segment_len_sq;
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, distance_factor * tool_data->radius, tool_data->radius);
         float add_weight = gradient_weight * gradient_strength * gradient_falloff *
-                           vertex->mf_falloff;
+                           vertex->mf_falloff * direction;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
         changed = true;
@@ -2105,11 +2109,12 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
           }
         }
 
-        /* Add weight, with gradient tool weight, strength and falloff, and multi-frame falloff. */
+        /* Calculate new weight, with gradient tool weight, strength and falloff, and multi-frame
+         * falloff. */
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, p_dist_to_center, tool_data->radius);
         float add_weight = gradient_weight * gradient_strength * gradient_falloff *
-                           vertex->mf_falloff;
+                           vertex->mf_falloff * direction;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
         changed = true;
