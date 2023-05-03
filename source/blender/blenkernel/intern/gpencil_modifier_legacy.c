@@ -105,6 +105,7 @@ void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Object *ob)
         }
         break;
       }
+
       default:
         break;
     }
@@ -433,7 +434,7 @@ bool BKE_gpencil_modifier_depends_ontime(GpencilModifierData *md)
 const GpencilModifierTypeInfo *BKE_gpencil_modifier_get_info(GpencilModifierType type)
 {
   /* type unsigned, no need to check < 0 */
-  if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 && modifier_gpencil_types[type] != NULL &&
+  if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 &&
       modifier_gpencil_types[type]->name[0] != '\0') {
     return modifier_gpencil_types[type];
   }
