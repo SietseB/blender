@@ -1989,6 +1989,12 @@ class GreasePencilWeightPanel:
             return bool(gpd.is_stroke_weight_mode)
         else:
             return True
+    
+    def is_tool_with_brush(context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is not None and tool.idname == 'builtin.gradient':
+            return False
+        return True
 
 
 class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, GreasePencilWeightPanel):
@@ -1996,10 +2002,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, Grea
     
     @classmethod
     def poll(cls, context):
-        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        if tool is not None and tool.idname == 'builtin.gradient':
-            return False
-        return True
+        return cls.is_tool_with_brush(context)
     
     def draw(self, context):
         layout = self.layout
@@ -2029,10 +2032,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_settings(Panel, View3DPanel, Gr
 
     @classmethod
     def poll(cls, context):
-        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        if tool is not None and tool.idname == 'builtin.gradient':
-            return False
-        return True
+        return cls.is_tool_with_brush(context)
     
     def draw(self, context):
         if self.is_popover:

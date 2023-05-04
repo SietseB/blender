@@ -448,7 +448,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
       *dw = dvert->dw[i];
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
-            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+            !(lock_active_vgroup && active_vgroup == dw->def_nr))
+        {
           dw->weight = 0.0f;
         }
       }
@@ -463,7 +464,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
     for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
-            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+            !(lock_active_vgroup && active_vgroup == dw->def_nr))
+        {
           dw->weight *= fac;
           CLAMP(dw->weight, 0.0f, 1.0f);
         }
@@ -478,7 +480,8 @@ static bool do_weight_paint_normalize_all_unlocked(MDeformVert *dvert,
     for (int i = dvert->totweight; i != 0; i--, dw++) {
       if (dw->def_nr < defbase_tot && vgroup_bone_deformed[dw->def_nr]) {
         if ((vgroup_locked[dw->def_nr] == false) &&
-            !(lock_active_vgroup && active_vgroup == dw->def_nr)) {
+            !(lock_active_vgroup && active_vgroup == dw->def_nr))
+        {
           dw->weight = fac;
         }
       }
