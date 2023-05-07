@@ -7666,9 +7666,17 @@ class VIEW3D_PT_gpencil_weight_context_menu(Panel):
         settings = tool_settings.gpencil_weight_paint
         brush = settings.brush
         layout = self.layout
+        gradient_tool = False
+        
+        # The brush of the gradient tool isn't automatically activated
+        # by the window manager, so we select it here manually.
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool.idname == 'builtin.gradient':
+            brush = bpy.data.brushes["Weight Gradient"]
+            gradient_tool = True
         
         # Weight settings
-        brush_basic_gpencil_weight_settings(layout, context, brush)
+        brush_basic_gpencil_weight_settings(layout, context, brush, gradient_tool=gradient_tool)
 
         # Layers
         draw_gpencil_layer_active(context, layout)

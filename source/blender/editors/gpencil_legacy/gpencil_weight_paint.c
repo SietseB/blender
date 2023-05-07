@@ -34,6 +34,7 @@
 #include "DNA_meshdata_types.h"
 
 #include "WM_api.h"
+#include "WM_toolsystem.h"
 #include "WM_types.h"
 
 #include "RNA_access.h"
@@ -1562,10 +1563,19 @@ static int gpencil_weight_toggle_direction_invoke(bContext *C,
                                                   const wmEvent *UNUSED(event))
 {
   ToolSettings *ts = CTX_data_tool_settings(C);
-  Paint *paint = &ts->gp_weightpaint->paint;
+  Main *bmain = CTX_data_main(C);
+  Brush *brush = ts->gp_weightpaint->paint.brush;
+
+  /* The brush of the gradient tool isn't automatically activated
+   * by the window manager, so we select it here manually.
+   */
+  bToolRef *tref = WM_toolsystem_ref_from_context(C);
+  if (tref && STREQ(tref->idname, "builtin.gradient")) {
+    brush = (Brush *)BLI_findstring(&bmain->brushes, "Weight Gradient", offsetof(ID, name) + 2);
+  }
 
   /* Toggle Add/Subtract flag. */
-  paint->brush->gpencil_settings->sculpt_flag ^= BRUSH_DIR_IN;
+  brush->gpencil_settings->sculpt_flag ^= BRUSH_DIR_IN;
 
   /* Update tool settings. */
   WM_main_add_notifier(NC_BRUSH | NA_EDITED, NULL);
@@ -1897,8 +1907,9 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   gso->gpd = ED_gpencil_data_get_active(C);
   gpencil_point_conversion_init(C, &gso->gsc);
 
-  Paint *paint = &ts->gp_weightpaint->paint;
-  gso->brush = paint->brush;
+  /* Get Weight Gradient brush. */
+  gso->brush = (Brush *)BLI_findstring(
+      &gso->bmain->brushes, "Weight Gradient", offsetof(ID, name) + 2);
   BKE_curvemapping_init(gso->brush->curve);
 
   /* Ensure active vertex group. */
@@ -2035,10 +2046,6 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
   const float sco_start[2] = {(float)x_start, (float)y_start};
   const float sco_end[2] = {(float)x_end, (float)y_end};
 
-  /* Strength and weight. */
-  float gradient_strength = RNA_float_get(op->ptr, "strength");
-  float gradient_weight = RNA_float_get(op->ptr, "weight");
-
   /* Gradient type (linear/radial). */
   int gradient_type = RNA_enum_get(op->ptr, "type");
 
@@ -2090,7 +2097,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
         float distance_factor = dist_on_line / tool_data->line_segment_len_sq;
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, distance_factor * tool_data->radius, tool_data->radius);
-        float add_weight = gradient_weight * gradient_strength * gradient_falloff *
+        float add_weight = gso->brush->weight * gso->brush->alpha * gradient_falloff *
                            vertex->mf_falloff * direction;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
@@ -2117,7 +2124,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
          * falloff. */
         float gradient_falloff = BKE_brush_curve_strength(
             gso->brush, p_dist_to_center, tool_data->radius);
-        float add_weight = gradient_weight * gradient_strength * gradient_falloff *
+        float add_weight = gso->brush->weight * gso->brush->alpha * gradient_falloff *
                            vertex->mf_falloff * direction;
         vertex->dw->weight += add_weight;
         CLAMP(vertex->dw->weight, 0.0f, 1.0f);
@@ -2266,24 +2273,6 @@ void GPENCIL_OT_weight_gradient(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* Properties. */
-  RNA_def_float_factor(ot->srna,
-                       "strength",
-                       1.0f,
-                       0.0f,
-                       1.0f,
-                       "Strength",
-                       "How powerful the effect of the gradient is when applied",
-                       0.0f,
-                       1.0f);
-  RNA_def_float_factor(ot->srna,
-                       "weight",
-                       1.0f,
-                       0.0f,
-                       1.0f,
-                       "Weight",
-                       "Vertex weight when the gradient is applied",
-                       0.0f,
-                       1.0f);
   RNA_def_enum(ot->srna, "type", gradient_types, 0, "Type", "");
 
   WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);

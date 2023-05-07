@@ -54,6 +54,7 @@ typedef enum eGPBrush_Presets {
   GP_BRUSH_PRESET_WEIGHT_BLUR = 301,
   GP_BRUSH_PRESET_WEIGHT_AVERAGE = 302,
   GP_BRUSH_PRESET_WEIGHT_SMEAR = 303,
+  GP_BRUSH_PRESET_WEIGHT_GRADIENT = 304,
 } eGPBrush_Presets;
 
 /* BrushGpencilSettings->flag */

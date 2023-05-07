@@ -2367,15 +2367,16 @@ class _defs_gpencil_weight:
     @ToolDef.from_fn
     def gradient():
         def draw_settings(context, layout, tool):
+            # The brush of the gradient tool isn't automatically activated
+            # by the window manager, so we select it here manually.
+            brush = bpy.data.brushes["Weight Gradient"]
             props = tool.operator_properties("gpencil.weight_gradient")
-            layout.prop(props, "strength", expand=True)
-            layout.prop(props, "weight", expand=True)
-            layout.prop(props, "type", expand=True)
-            
-            brush = context.tool_settings.gpencil_weight_paint.brush
-            gp_settings = brush.gpencil_settings
             compact = context.region.type == 'TOOL_HEADER'
-            layout.prop(gp_settings, "direction", expand=True, text="" if compact else "Direction")
+            
+            layout.prop(brush, "strength", expand=True)
+            layout.prop(brush, "weight", expand=True)
+            layout.prop(props, "type", expand=True)
+            layout.prop(brush.gpencil_settings, "direction", expand=True, text="" if compact else "Direction")
             
             if compact:
                 layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")

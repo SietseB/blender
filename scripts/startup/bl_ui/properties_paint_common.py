@@ -1416,14 +1416,16 @@ def brush_basic_gpencil_sculpt_settings(layout, _context, brush, *, compact=Fals
         layout.use_property_split = use_property_split_prev
 
 
-def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=False):
-    layout.prop(brush, "size", slider=True)
+def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=False, gradient_tool=False):
+    if not gradient_tool:
+        layout.prop(brush, "size", slider=True)
 
     row = layout.row(align=True)
     row.prop(brush, "strength", slider=True)
-    row.prop(brush, "use_pressure_strength", text="")
+    if not gradient_tool:
+        row.prop(brush, "use_pressure_strength", text="")
 
-    if brush.gpencil_weight_tool in {'WEIGHT'}:
+    if brush.gpencil_weight_tool in {'WEIGHT'} or gradient_tool:
         layout.prop(brush, "weight", slider=True)
 
         gp_settings = brush.gpencil_settings

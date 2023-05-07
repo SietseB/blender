@@ -1340,6 +1340,15 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
 
       break;
     }
+    case GP_BRUSH_PRESET_WEIGHT_GRADIENT: {
+      brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
+
+      brush->alpha = 1.0f;
+      brush->weight = 1.0f;
+      brush->gpencil_settings->sculpt_flag = 0;
+
+      break;
+    }
     default:
       break;
   }
@@ -1644,6 +1653,12 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
   brush = gpencil_brush_ensure(bmain, ts, "Weight Smear", OB_MODE_WEIGHT_GPENCIL, &r_new);
   if ((reset) || (r_new)) {
     BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_SMEAR);
+  }
+
+  /* Weight Gradient brush. */
+  brush = gpencil_brush_ensure(bmain, ts, "Weight Gradient", OB_MODE_WEIGHT_GPENCIL, &r_new);
+  if ((reset) || (r_new)) {
+    BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_GRADIENT);
   }
 
   /* Set default brush. */

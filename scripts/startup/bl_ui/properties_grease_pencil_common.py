@@ -150,17 +150,24 @@ class GreasePencilBrushFalloff:
         layout = self.layout
         tool_settings = context.tool_settings
         settings = None
+        brush = None
         if context.mode == 'PAINT_GPENCIL':
             settings = tool_settings.gpencil_paint
         if context.mode == 'SCULPT_GPENCIL':
             settings = tool_settings.gpencil_sculpt_paint
         elif context.mode == 'WEIGHT_GPENCIL':
             settings = tool_settings.gpencil_weight_paint
+            # The brush of the gradient tool isn't automatically activated
+            # by the window manager, so we select it here manually.
+            tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+            if tool.idname == 'builtin.gradient':
+                brush = bpy.data.brushes["Weight Gradient"]
         elif context.mode == 'VERTEX_GPENCIL':
             settings = tool_settings.gpencil_vertex_paint
 
         if settings:
-            brush = settings.brush
+            if brush is None:
+                brush = settings.brush
 
             col = layout.column(align=True)
             row = col.row(align=True)
