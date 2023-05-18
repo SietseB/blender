@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #include "DNA_armature_types.h"
+#include "DNA_collection_types.h"
 #include "DNA_gpencil_legacy_types.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_modifier_types.h"
@@ -116,6 +117,11 @@ const EnumPropertyItem rna_enum_object_greasepencil_modifier_type_items[] = {
      ICON_MOD_ARMATURE,
      "Armature",
      "Deform stroke points using armature object"},
+    {eGpencilModifierType_FollowCurve,
+     "GP_FOLLOWCURVE",
+     ICON_FORCE_CURVE,
+     "Follow Curve",
+     "Deform stroke points along curves"},
     {eGpencilModifierType_Hook,
      "GP_HOOK",
      ICON_HOOK,
@@ -270,6 +276,12 @@ static const EnumPropertyItem modifier_noise_random_mode_items[] = {
     {GP_NOISE_RANDOM_KEYFRAME, "KEYFRAME", 0, "Keyframes", "Randomize on keyframes only"},
     {0, NULL, 0, NULL, NULL},
 };
+static const EnumPropertyItem modifier_follow_curve_axis_items[] = {
+    {GP_FOLLOWCURVE_AXIS_X, "X", 0, "X", "Projection angle around x axis"},
+    {GP_FOLLOWCURVE_AXIS_Y, "Y", 0, "Y", "Projection angle around y axis"},
+    {GP_FOLLOWCURVE_AXIS_Z, "Z", 0, "Z", "Projection angle around z axis"},
+    {0, NULL, 0, NULL, NULL},
+};
 #endif
 
 #ifdef RNA_RUNTIME
@@ -347,6 +359,8 @@ static StructRNA *rna_GpencilModifier_refine(struct PointerRNA *ptr)
       return &RNA_EnvelopeGpencilModifier;
     case eGpencilModifierType_MorphTargets:
       return &RNA_MorphTargetsGpencilModifier;
+    case eGpencilModifierType_FollowCurve:
+      return &RNA_FollowCurveGpencilModifier;
       /* Default */
     case eGpencilModifierType_None:
     case eGpencilModifierType_None1: /* Placeholder. */
@@ -475,6 +489,17 @@ static void rna_HookGpencilModifier_object_set(PointerRNA *ptr,
   hmd->object = ob;
   id_lib_extern((ID *)ob);
   BKE_object_modifier_gpencil_hook_reset(ob, hmd);
+}
+
+static void rna_FollowCurveGpencilModifier_collection_set(PointerRNA *ptr,
+                                                          PointerRNA value,
+                                                          struct ReportList *UNUSED(reports))
+{
+  FollowCurveGpencilModifierData *fcmd = ptr->data;
+  Collection *collection = (Collection *)value.data;
+
+  fcmd->collection = collection;
+  id_lib_extern((ID *)collection);
 }
 
 static void rna_TintGpencilModifier_object_set(PointerRNA *ptr,
@@ -762,6 +787,16 @@ static void rna_HookGpencilModifier_material_set(PointerRNA *ptr,
 {
   HookGpencilModifierData *hmd = (HookGpencilModifierData *)ptr->data;
   Material **ma_target = &hmd->material;
+
+  rna_GpencilModifier_material_set(ptr, value, ma_target, reports);
+}
+
+static void rna_FollowCurveGpencilModifier_material_set(PointerRNA *ptr,
+                                                        PointerRNA value,
+                                                        struct ReportList *reports)
+{
+  FollowCurveGpencilModifierData *fcmd = (FollowCurveGpencilModifierData *)ptr->data;
+  Material **ma_target = &fcmd->material;
 
   rna_GpencilModifier_material_set(ptr, value, ma_target, reports);
 }
@@ -4730,6 +4765,157 @@ static void rna_def_modifier_gpencilmorphtargets(BlenderRNA *brna)
   RNA_define_lib_overridable(false);
 }
 
+static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "FollowCurveGpencilModifier", "GpencilModifier");
+  RNA_def_struct_ui_text(
+      srna, "Follow Curve Modifier", "Follow Curve modifier to deform stroke points along curves");
+  RNA_def_struct_sdna(srna, "FollowCurveGpencilModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_FORCE_CURVE);
+
+  RNA_define_lib_overridable(true);
+
+  prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, NULL, "layername");
+  RNA_def_property_ui_text(prop, "Layer", "Layer name");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "material", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_pointer_funcs(prop,
+                                 NULL,
+                                 "rna_FollowCurveGpencilModifier_material_set",
+                                 NULL,
+                                 "rna_GpencilModifier_material_poll");
+  RNA_def_property_ui_text(prop, "Material", "Material used for filtering effect");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "pass_index");
+  RNA_def_property_range(prop, 0, 100);
+  RNA_def_property_ui_text(prop, "Pass", "Pass index");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "invert_layers", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_INVERT_LAYER);
+  RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "invert_materials", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_INVERT_MATERIAL);
+  RNA_def_property_ui_text(prop, "Inverse Materials", "Inverse filter");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "invert_material_pass", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_INVERT_PASS);
+  RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "layer_pass", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, NULL, "layer_pass");
+  RNA_def_property_range(prop, 0, 100);
+  RNA_def_property_ui_text(prop, "Pass", "Layer pass index");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "invert_layer_pass", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_INVERT_LAYERPASS);
+  RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "collection", PROP_POINTER, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Collection", "Collection with Bezier curves to follow");
+  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+  RNA_def_property_pointer_funcs(
+      prop, NULL, "rna_FollowCurveGpencilModifier_collection_set", NULL, NULL);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_dependency_update");
+
+  prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_float_sdna(prop, NULL, "angle");
+  RNA_def_property_range(prop, 0.0f, DEG2RAD(360.0f));
+  RNA_def_property_ui_range(prop, 0.0f, DEG2RAD(359.5f), 10.0f, 1);
+  RNA_def_property_ui_text(prop, "Angle", "Angle of the stroke projection on the curve(s)");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "axis", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "angle_axis");
+  RNA_def_property_enum_items(prop, modifier_follow_curve_axis_items);
+  RNA_def_property_ui_text(prop, "Axis", "Axis for the projection angle");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "spiral_factor", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "spiral_factor");
+  RNA_def_property_range(prop, 0, 1000.0);
+  RNA_def_property_ui_range(prop, 0, 10.0, 0.1, 1);
+  RNA_def_property_ui_text(prop, "Spirals", "Number of spirals a stroke makes around the curve");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "speed", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "speed");
+  RNA_def_property_range(prop, -1.0, 1.0);
+  RNA_def_property_ui_range(prop, -1.0, 1.0, 0.002, 3);
+  RNA_def_property_ui_text(prop, "Speed", "Animation speed, in units per frame");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "speed_variation", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "speed_variation");
+  RNA_def_property_range(prop, 0.0, 1.0);
+  RNA_def_property_ui_range(prop, 0.0, 1.0, 0.001, 3);
+  RNA_def_property_ui_text(prop,
+                           "Variation",
+                           "Random variation in speed. When not zero, strokes will have different "
+                           "speeds in the animation");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "seed", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_ui_text(prop, "Seed", "Random seed");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "scatter", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_SCATTER);
+  RNA_def_property_ui_text(prop, "Scatter", "Scatter strokes over the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "dissolve", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_DISSOLVE);
+  RNA_def_property_ui_text(
+      prop,
+      "Dissolve",
+      "Hide stroke points before the start point and behind the end point of the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "repeat", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_REPEAT);
+  RNA_def_property_ui_text(
+      prop, "Repeat", "Repeat the animation of a stroke when it completed following the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "tail_first", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_STROKE_TAIL_FIRST);
+  RNA_def_property_ui_text(
+      prop, "Tail First", "Start with the end of a stroke when projecting it on the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "vary_dir", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_VARY_DIR);
+  RNA_def_property_ui_text(prop,
+                           "Vary Direction",
+                           "Randomly vary the direction of stroke projection on curves (both "
+                           "head-to-tail and tail-to-head)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  RNA_define_lib_overridable(false);
+}
+
 void RNA_def_greasepencil_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -4823,6 +5009,7 @@ void RNA_def_greasepencil_modifier(BlenderRNA *brna)
   rna_def_modifier_gpencilshrinkwrap(brna);
   rna_def_modifier_gpencilenvelope(brna);
   rna_def_modifier_gpencilmorphtargets(brna);
+  rna_def_modifier_gpencilfollowcurve(brna);
 }
 
 #endif

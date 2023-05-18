@@ -397,9 +397,12 @@ bool BKE_gpencil_is_first_lineart_in_stack(const struct Object *ob,
 
 /**
  * Init grease pencil cache deform data.
- * \param ob: Grease pencil object
+ * \param scene: Current scene.
+ * \param ob: Grease pencil object.
  */
-void BKE_gpencil_cache_data_init(struct Depsgraph *depsgraph, struct Object *ob);
+void BKE_gpencil_cache_data_init(struct Depsgraph *depsgraph,
+                                 struct Scene *scene,
+                                 struct Object *ob);
 /**
  * Clear grease pencil cache deform data.
  * \param ob: Grease pencil object

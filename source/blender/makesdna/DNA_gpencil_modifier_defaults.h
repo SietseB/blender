@@ -424,4 +424,20 @@
     .index_edited = -1, \
   }
 
+#define _DNA_DEFAULT_FollowCurveGpencilModifierData \
+  { \
+    .collection = NULL, \
+    .material = NULL, \
+    .layername = "", \
+    .layer_pass = 0, \
+    .pass_index = 0, \
+    .flag = GP_FOLLOWCURVE_DISSOLVE | GP_FOLLOWCURVE_REPEAT | GP_FOLLOWCURVE_STROKE_TAIL_FIRST, \
+    .seed = 0, \
+    .speed = 0.0f, \
+    .speed_variation = 0.0f, \
+    .angle = 0.0f, \
+    .angle_axis = GP_FOLLOWCURVE_AXIS_Y, \
+    .spiral_factor = 0.0f, \
+  }
+
 /* clang-format off */

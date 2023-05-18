@@ -50,6 +50,7 @@ typedef enum GpencilModifierType {
   eGpencilModifierType_Outline = 26,
   eGpencilModifierType_None1 = 27, /* Placeholder for Surface Deform modifier. */
   eGpencilModifierType_MorphTargets = 28,
+  eGpencilModifierType_FollowCurve = 29,
   /* Keep last. */
   NUM_GREASEPENCIL_MODIFIER_TYPES,
 } GpencilModifierType;
@@ -1346,6 +1347,84 @@ typedef enum eMorphTargetsGpencil_Flag {
   GP_MORPHTARGETS_INVERT_PASS = (1 << 3),
   GP_MORPHTARGETS_INVERT_VGROUP = (1 << 4),
 } eMorphTargetsGpencil_Flag;
+
+typedef struct GPFollowCurvePoint {
+  float co[3];
+  float vec_to_next[3];
+  float vec_len;
+  float vec_len_accumulative;
+} GPFollowCurvePoint;
+
+typedef struct GPFollowCurve {
+  /** Bezier curve. */
+  struct Curve *curve;
+  /** Curve point data. */
+  struct GPFollowCurvePoint *points;
+  int points_len;
+  /* Curve length. */
+  float length;
+} GPFollowCurve;
+
+typedef struct FollowCurveGpencilModifierData {
+  GpencilModifierData modifier;
+
+  /** Collection with curves to follow. */
+  struct Collection *collection;
+
+  /** Material for filtering. */
+  struct Material *material;
+  /** Layer name. */
+  char layername[64];
+  /** Custom index for passes. */
+  int layer_pass;
+  /** Optional vertex-group name, #MAX_VGROUP_NAME. */
+  char vgname[64];
+  /** Custom index for passes. */
+  int pass_index;
+  /** Flags. */
+  int flag;
+  /** Seed. */
+  int seed;
+  /** Spped. */
+  float speed;
+  /** Speed variation. */
+  float speed_variation;
+  /* Projection angle. */
+  float angle;
+  /* Projection axis. */
+  int angle_axis;
+  /** Spiral speed. */
+  float spiral_factor;
+
+  /** Current frame. */
+  int cfra;
+  /** Speed data per frame. */
+  float *speed_per_frame;
+  int speed_per_frame_len;
+  /** Bezier curves to follow. */
+  int curves_len;
+  struct GPFollowCurve *curves;
+} FollowCurveGpencilModifierData;
+
+typedef enum eFollowCurveGpencil_Flag {
+  GP_FOLLOWCURVE_INVERT_LAYER = (1 << 0),
+  GP_FOLLOWCURVE_INVERT_PASS = (1 << 1),
+  GP_FOLLOWCURVE_INVERT_VGROUP = (1 << 2),
+  GP_FOLLOWCURVE_UNIFORM_SPACE = (1 << 3),
+  GP_FOLLOWCURVE_INVERT_LAYERPASS = (1 << 4),
+  GP_FOLLOWCURVE_INVERT_MATERIAL = (1 << 5),
+  GP_FOLLOWCURVE_SCATTER = (1 << 6),
+  GP_FOLLOWCURVE_DISSOLVE = (1 << 7),
+  GP_FOLLOWCURVE_REPEAT = (1 << 8),
+  GP_FOLLOWCURVE_STROKE_TAIL_FIRST = (1 << 9),
+  GP_FOLLOWCURVE_VARY_DIR = (1 << 10),
+} eFollowCurveGpencil_Flag;
+
+typedef enum eFollowCurveGpencil_Axis {
+  GP_FOLLOWCURVE_AXIS_X = 0,
+  GP_FOLLOWCURVE_AXIS_Y = 1,
+  GP_FOLLOWCURVE_AXIS_Z = 2,
+} eFollowCurveGpencil_Axis;
 
 #ifdef __cplusplus
 }

@@ -64,7 +64,7 @@ static GpencilVirtualModifierData virtualModifierCommonData;
  * each loop over all the geometry being evaluated.
  */
 
-void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Object *ob)
+void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   LISTBASE_FOREACH (GpencilModifierData *, md, &ob->greasepencil_modifiers) {
     switch (md->type) {
@@ -98,14 +98,18 @@ void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Object *ob)
         Mesh *target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target);
         mmd->cache_data = MEM_callocN(sizeof(ShrinkwrapTreeData), __func__);
         if (BKE_shrinkwrap_init_tree(
-                mmd->cache_data, target, mmd->shrink_type, mmd->shrink_mode, false)) {
+                mmd->cache_data, target, mmd->shrink_type, mmd->shrink_mode, false))
+        {
         }
         else {
           MEM_SAFE_FREE(mmd->cache_data);
         }
         break;
       }
-
+      case eGpencilModifierType_FollowCurve: {
+        MOD_gpencil_follow_curve_frame_init(depsgraph, md, scene, ob);
+        break;
+      }
       default:
         break;
     }
@@ -130,6 +134,10 @@ void BKE_gpencil_cache_data_clear(Object *ob)
           BKE_shrinkwrap_free_tree(mmd->cache_data);
           MEM_SAFE_FREE(mmd->cache_data);
         }
+        break;
+      }
+      case eGpencilModifierType_FollowCurve: {
+        MOD_gpencil_follow_curve_frame_clear(md);
         break;
       }
       default:
@@ -201,7 +209,8 @@ bool BKE_gpencil_has_transform_modifiers(Object *ob)
                eGpencilModifierType_Armature,
                eGpencilModifierType_Hook,
                eGpencilModifierType_Lattice,
-               eGpencilModifierType_Offset)) {
+               eGpencilModifierType_Offset))
+      {
         return true;
       }
     }
@@ -435,7 +444,8 @@ const GpencilModifierTypeInfo *BKE_gpencil_modifier_get_info(GpencilModifierType
 {
   /* type unsigned, no need to check < 0 */
   if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 && modifier_gpencil_types[type] != NULL &&
-      modifier_gpencil_types[type]->name[0] != '\0') {
+      modifier_gpencil_types[type]->name[0] != '\0')
+  {
     return modifier_gpencil_types[type];
   }
 
@@ -841,7 +851,7 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   }
 
   /* Init general modifiers data. */
-  BKE_gpencil_cache_data_init(depsgraph, ob);
+  BKE_gpencil_cache_data_init(depsgraph, scene, ob);
 
   /* Clear 'update geometry' flag on all strokes. */
   BKE_gpencil_stroke_init_update_geometry(depsgraph, scene, ob, false);

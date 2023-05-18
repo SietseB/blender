@@ -38,7 +38,14 @@ extern GpencilModifierTypeInfo modifierType_Gpencil_Dash;
 extern GpencilModifierTypeInfo modifierType_Gpencil_Shrinkwrap;
 extern GpencilModifierTypeInfo modifierType_Gpencil_Envelope;
 extern GpencilModifierTypeInfo modifierType_Gpencil_MorphTargets;
+extern GpencilModifierTypeInfo modifierType_Gpencil_FollowCurve;
 
 /* MOD_gpencil_legacy_util.c */
-
 void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[]);
+
+/* MOD_gpencil_legacy_follow_curve.c */
+void MOD_gpencil_follow_curve_frame_init(const struct Depsgraph *depsgraph,
+                                         const struct GpencilModifierData *md,
+                                         const struct Scene *scene,
+                                         struct Object *ob);
+void MOD_gpencil_follow_curve_frame_clear(const struct GpencilModifierData *md);

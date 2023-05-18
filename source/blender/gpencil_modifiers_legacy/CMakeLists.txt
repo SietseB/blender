@@ -38,6 +38,7 @@ set(SRC
   intern/MOD_gpencil_legacy_color.c
   intern/MOD_gpencil_legacy_dash.c
   intern/MOD_gpencil_legacy_envelope.c
+  intern/MOD_gpencil_legacy_follow_curve.c
   intern/MOD_gpencil_legacy_hook.c
   intern/MOD_gpencil_legacy_lattice.c
   intern/MOD_gpencil_legacy_length.c
