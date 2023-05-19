@@ -54,8 +54,6 @@
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
-#define CURVE_RESOLUTION 256
-
 void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
                                          const GpencilModifierData *md,
                                          const Scene *scene,
@@ -134,7 +132,7 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
         if ((nurb->flagu & CU_NURB_CYCLIC) == 0) {
           segments--;
         }
-        follow_curve->points_len = segments * CURVE_RESOLUTION;
+        follow_curve->points_len = segments * mmd->curve_resolution;
         follow_curve->curve = curve;
 
         /* Create array for curve point data. */
@@ -153,10 +151,10 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
                                           bezt_next->vec[0][axis],
                                           bezt_next->vec[1][axis],
                                           POINTER_OFFSET(point_offset, sizeof(float) * axis),
-                                          CURVE_RESOLUTION,
+                                          mmd->curve_resolution,
                                           stride);
           }
-          point_offset = POINTER_OFFSET(point_offset, stride * CURVE_RESOLUTION);
+          point_offset = POINTER_OFFSET(point_offset, stride * mmd->curve_resolution);
         }
 
         /* Transform to world space. */
@@ -213,6 +211,30 @@ static void get_random_float(const int seed, float *random_value)
   RNG *rng = BLI_rng_new(seed);
   for (int i = 0; i < 3; i++) {
     random_value[i] = BLI_rng_get_float(rng);
+  }
+}
+
+static void get_rotation_plane(const int axis, const float angle, float *rotation_plane)
+{
+  switch (axis) {
+    case GP_FOLLOWCURVE_AXIS_X: {
+      /* Plane XY. */
+      rotation_plane[0] = cos(angle);
+      rotation_plane[1] = sin(angle);
+      break;
+    }
+    case GP_FOLLOWCURVE_AXIS_Y: {
+      /* Plane YZ. */
+      rotation_plane[1] = cos(angle);
+      rotation_plane[2] = sin(angle);
+      break;
+    }
+    case GP_FOLLOWCURVE_AXIS_Z: {
+      /* Plane ZX. */
+      rotation_plane[0] = sin(angle);
+      rotation_plane[2] = cos(angle);
+      break;
+    }
   }
 }
 
@@ -284,7 +306,13 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     speed *= -1.0f;
   }
   *start_at_tail = (speed < 0.0f);
-  *angle_initial = mmd->angle + (mmd->spiral_factor > 0) ? (M_PI_2 * random_val[1]) : 0;
+
+  if (fabsf(mmd->spiral_factor) < FLT_EPSILON) {
+    *angle_initial = mmd->angle;
+  }
+  else {
+    *angle_initial = mmd->angle + M_PI_2 * random_val[1];
+  }
 
   int curve_index = (int)(mmd->curves_len * random_val[2]);
   GPFollowCurve *curve = &mmd->curves[curve_index];
@@ -307,7 +335,7 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
 
   /* Take care of scatter when there is no animation. */
   if ((mmd->flag & GP_FOLLOWCURVE_SCATTER) && mmd->speed_per_frame_len == 0 &&
-      mmd->speed == 0.0f && mmd->speed_variation == 0.0f)
+      fabsf(mmd->speed) < FLT_EPSILON && mmd->speed_variation < FLT_EPSILON)
   {
     /* Distribute stroke randomly over curve. */
     float delta = curve->length - gps_length;
@@ -330,7 +358,7 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     /* Fixed speed. */
     dist_travelled = (mmd->cfra - 1) * (mmd->speed + mmd->speed_variation * speed_var_f);
   }
-  dist_travelled = fabs(dist_travelled) + dist_to_curve_initial;
+  dist_travelled = fabsf(dist_travelled) + dist_to_curve_initial;
 
   /* When the animation is not repeated, we can finish here. */
   if ((mmd->flag & GP_FOLLOWCURVE_REPEAT) == 0) {
@@ -358,28 +386,32 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
 static GPFollowCurvePoint *curve_search_point_by_distance(const float dist,
                                                           GPFollowCurvePoint *points,
                                                           const int index_start,
-                                                          const int index_end)
+                                                          const int index_end,
+                                                          float *dist_remaining)
 {
   /* Binary search: stop conditions. */
   if (index_start == index_end) {
+    *dist_remaining = dist - points[index_start].vec_len_accumulative;
     return &points[index_start];
   }
   if (index_start == (index_end - 1)) {
     const float ds = dist - points[index_start].vec_len_accumulative;
     const float de = points[index_end].vec_len_accumulative - dist;
     if (ds < de) {
+      *dist_remaining = ds;
       return &points[index_start];
     }
+    *dist_remaining = de;
     return &points[index_end];
   }
 
   /* Binary search: split the search area by half. */
   const int index_half = (int)((index_start + index_end) * 0.5);
   if (points[index_half].vec_len_accumulative < dist) {
-    return curve_search_point_by_distance(dist, points, index_half, index_end);
+    return curve_search_point_by_distance(dist, points, index_half, index_end, dist_remaining);
   }
   else {
-    return curve_search_point_by_distance(dist, points, index_start, index_half);
+    return curve_search_point_by_distance(dist, points, index_start, index_half, dist_remaining);
   }
 }
 
@@ -406,10 +438,16 @@ static void curve_get_point_by_distance(const float dist,
   }
 
   /* Find closest curve point by binary search. */
+  float dist_remaining;
   GPFollowCurvePoint *curve_p = curve_search_point_by_distance(
-      dist, curve->points, 0, curve->points_len - 1);
-  copy_v3_v3(point, curve_p->co);
+      dist, curve->points, 0, curve->points_len - 1, &dist_remaining);
   copy_v3_v3(point_vec, curve_p->vec_to_next);
+
+  /* Find exact point by interpolating the segment vector. */
+  float delta[3];
+  copy_v3_v3(point, curve_p->co);
+  mul_v3_v3fl(delta, curve_p->vec_to_next, dist_remaining);
+  add_v3_v3(point, delta);
 }
 
 static void initData(GpencilModifierData *md)
@@ -494,22 +532,12 @@ static void deformStroke(GpencilModifierData *md,
   sub_v3_v3v3(profile, gps_end, gps_start);
   normalize_v3(profile);
 
-  /* Get rotation axis for spiral angle. */
-  float rot_axis[3] = {0.0f, 0.0f, 0.0f};
-  switch (mmd->angle_axis) {
-    case GP_FOLLOWCURVE_AXIS_X: {
-      rot_axis[0] = 1.0f;
-      break;
-    }
-    case GP_FOLLOWCURVE_AXIS_Y: {
-      rot_axis[1] = 1.0f;
-      break;
-    }
-    case GP_FOLLOWCURVE_AXIS_Z: {
-      rot_axis[2] = 1.0f;
-      break;
-    }
-  }
+  /* Get rotation plane for spiral angle. */
+  float rotation_plane[3] = {0.0f};
+  get_rotation_plane(mmd->angle_axis, angle_initial, rotation_plane);
+
+  /* Get spiral setting. */
+  const bool use_spiral = (fabsf(mmd->spiral_factor) > FLT_EPSILON);
 
   /* Loop all stroke points and project them on the curve. */
   for (int i = gps_start_index; i >= 0 && i < gps->totpoints; i += gps_dir) {
@@ -529,31 +557,23 @@ static void deformStroke(GpencilModifierData *md,
     }
     curve_get_point_by_distance(curve_dist, curve, curve_p, curve_p_vec);
 
-    /* Project stroke point on curve segment with the radius
-     * and spiral angle applied.
-     * For the rotation see:
-     * https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+    /* Project stroke point on curve segment by finding the orthogonal vector
+     * in the plane of the spiral angle.
      */
-    float ortho_vec[3], p_rotated[3], calc_vec[3];
+    float p_rotated[3];
+    if (use_spiral) {
+      // TODO!!! Take speed into account... (how??)
+      const float angle = angle_initial +
+                          mmd->spiral_factor * M_PI_2 * (curve_dist / curve->length);
+      get_rotation_plane(mmd->angle_axis, angle, rotation_plane);
+    }
+    cross_v3_v3v3(p_rotated, curve_p_vec, rotation_plane);
+
+    /* Apply radius. */
     const float radius = radius_initial + gps_p_radius;
-    // const float angle = angle_initial + mmd->spiral_factor * M_PI_2 * (curve_dist /
-    // curve->length);
-    const float angle = angle_initial + mmd->spiral_factor * M_PI_2 * (gps_p_dist / gps_length);
-    const float cos_angle = cos(angle);
+    mul_v3_fl(p_rotated, radius);
 
-    cross_v3_v3v3(ortho_vec, curve_p_vec, rot_axis);
-    mul_v3_fl(ortho_vec, radius);
-
-    mul_v3_v3fl(p_rotated, ortho_vec, cos_angle);
-
-    cross_v3_v3v3(calc_vec, rot_axis, ortho_vec);
-    mul_v3_fl(calc_vec, sin(angle));
-    add_v3_v3(p_rotated, calc_vec);
-
-    const float factor = (1 - cos_angle) * dot_v3v3(rot_axis, ortho_vec);
-    mul_v3_v3fl(calc_vec, ortho_vec, factor);
-    add_v3_v3(p_rotated, calc_vec);
-
+    /* Add curve point. */
     add_v3_v3(p_rotated, curve_p);
 
     /* Set new coordinates of stroke point. */
@@ -565,6 +585,9 @@ static void deformStroke(GpencilModifierData *md,
       gps->points[i].strength = 0.0f;
     }
   }
+
+  /* Mark stroke for geometry update. */
+  gps->runtime.flag |= GP_STROKE_UPDATE_GEOMETRY;
 
   /* Cleanup. */
   MEM_freeN(gps_segment_length);
@@ -625,6 +648,9 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   col = uiLayoutColumn(layout, false);
   uiItemR(col, ptr, "collection", 0, NULL, ICON_NONE);
 
+  col = uiLayoutColumn(layout, false);
+  uiItemR(col, ptr, "curve_resolution", 0, NULL, ICON_NONE);
+
   col = uiLayoutColumn(layout, true);
   uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
   uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
@@ -636,10 +662,10 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiItemR(col, ptr, "seed", 0, NULL, ICON_NONE);
 
   col = uiLayoutColumn(layout, true);
-  uiItemR(col, ptr, "angle", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-  uiItemR(col, ptr, "spiral_factor", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+  uiItemR(col, ptr, "angle", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "spiral_factor", 0, NULL, ICON_NONE);
 
-  row = uiLayoutRow(layout, true);
+  row = uiLayoutRow(layout, false);
   uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
   col = uiLayoutColumn(layout, true);

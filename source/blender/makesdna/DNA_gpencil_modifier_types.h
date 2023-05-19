@@ -1395,6 +1395,9 @@ typedef struct FollowCurveGpencilModifierData {
   int angle_axis;
   /** Spiral speed. */
   float spiral_factor;
+  /** Curve resolution */
+  int curve_resolution;
+  char _pad[4];
 
   /** Current frame. */
   int cfra;

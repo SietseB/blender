@@ -438,6 +438,7 @@
     .angle = 0.0f, \
     .angle_axis = GP_FOLLOWCURVE_AXIS_Y, \
     .spiral_factor = 0.0f, \
+    .curve_resolution = 1024, \
   }
 
 /* clang-format off */

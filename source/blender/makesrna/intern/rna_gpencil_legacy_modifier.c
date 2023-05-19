@@ -4832,6 +4832,15 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
       prop, NULL, "rna_FollowCurveGpencilModifier_collection_set", NULL, NULL);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_dependency_update");
 
+  prop = RNA_def_property(srna, "curve_resolution", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "curve_resolution");
+  RNA_def_property_range(prop, 0, 4096);
+  RNA_def_property_ui_range(prop, 0, 4096, 32, 0);
+  RNA_def_property_ui_text(
+      prop, "Curve Resolution", "The precision with which a curve is divided into points");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
   prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
   RNA_def_property_float_sdna(prop, NULL, "angle");
   RNA_def_property_range(prop, 0.0f, DEG2RAD(360.0f));
@@ -4848,8 +4857,8 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "spiral_factor", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "spiral_factor");
-  RNA_def_property_range(prop, 0, 1000.0);
-  RNA_def_property_ui_range(prop, 0, 10.0, 0.1, 1);
+  RNA_def_property_range(prop, -1000.0, 1000.0);
+  RNA_def_property_ui_range(prop, -1000.0, 1000.0, 0.1, 1);
   RNA_def_property_ui_text(prop, "Spirals", "Number of spirals a stroke makes around the curve");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
@@ -4871,6 +4880,7 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   prop = RNA_def_property(srna, "seed", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, NULL, "seed");
   RNA_def_property_ui_text(prop, "Seed", "Random seed");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
