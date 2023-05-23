@@ -24,10 +24,17 @@ namespace blender::gpu {
 VKTexture::~VKTexture()
 {
   VK_ALLOCATION_CALLBACKS
+  if (is_allocated()) {
+    const VKDevice &device = VKBackend::get().device_get();
+    vmaDestroyImage(device.mem_allocator_get(), vk_image_, allocation_);
+    vkDestroyImageView(device.device_get(), vk_image_view_, vk_allocation_callbacks);
+  }
+}
 
-  VKContext &context = *VKContext::get();
-  vmaDestroyImage(context.mem_allocator_get(), vk_image_, allocation_);
-  vkDestroyImageView(context.device_get(), vk_image_view_, vk_allocation_callbacks);
+void VKTexture::init(VkImage vk_image, VkImageLayout layout)
+{
+  vk_image_ = vk_image;
+  current_layout_ = layout;
 }
 
 void VKTexture::generate_mipmap() {}
@@ -55,8 +62,6 @@ void VKTexture::clear(eGPUDataFormat format, const void *data)
 
 void VKTexture::swizzle_set(const char /*swizzle_mask*/[4]) {}
 
-void VKTexture::stencil_texture_mode_set(bool /*use_stencil*/) {}
-
 void VKTexture::mip_range_set(int /*min*/, int /*max*/) {}
 
 void *VKTexture::read(int mip, eGPUDataFormat format)
@@ -75,7 +80,7 @@ void *VKTexture::read(int mip, eGPUDataFormat format)
   size_t host_memory_size = sample_len * to_bytesize(format_, format);
 
   staging_buffer.create(
-      context, device_memory_size, GPU_USAGE_DEVICE_ONLY, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+      device_memory_size, GPU_USAGE_DEVICE_ONLY, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
   VkBufferImageCopy region = {};
   region.imageExtent.width = extent[0];
@@ -113,7 +118,7 @@ void VKTexture::update_sub(
   size_t device_memory_size = sample_len * to_bytesize(format_);
 
   staging_buffer.create(
-      context, device_memory_size, GPU_USAGE_DEVICE_ONLY, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+      device_memory_size, GPU_USAGE_DEVICE_ONLY, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
   uint buffer_row_length = context.state_manager_get().texture_unpack_row_length_get();
   if (buffer_row_length) {
@@ -174,7 +179,10 @@ bool VKTexture::init_internal(GPUVertBuf * /*vbo*/)
   return false;
 }
 
-bool VKTexture::init_internal(GPUTexture * /*src*/, int /*mip_offset*/, int /*layer_offset*/)
+bool VKTexture::init_internal(GPUTexture * /*src*/,
+                              int /*mip_offset*/,
+                              int /*layer_offset*/,
+                              bool /*use_stencil*/)
 {
   return false;
 }
@@ -222,6 +230,16 @@ static VkImageUsageFlagBits to_vk_image_usage(const eGPUTextureUsage usage,
     result = static_cast<VkImageUsageFlagBits>(result | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
   }
 
+  /* Disable some usages based on the given format flag to support more devices. */
+  if (format_flag & GPU_FORMAT_SRGB) {
+    /* NVIDIA devices don't create SRGB textures when it storage bit is set. */
+    result = static_cast<VkImageUsageFlagBits>(result & ~VK_IMAGE_USAGE_STORAGE_BIT);
+  }
+  if (format_flag & (GPU_FORMAT_DEPTH | GPU_FORMAT_STENCIL)) {
+    /* NVIDIA devices don't create depth textures when it storage bit is set. */
+    result = static_cast<VkImageUsageFlagBits>(result & ~VK_IMAGE_USAGE_STORAGE_BIT);
+  }
+
   return result;
 }
 
@@ -234,6 +252,7 @@ bool VKTexture::allocate()
   mip_size_get(0, extent);
 
   VKContext &context = *VKContext::get();
+  const VKDevice &device = VKBackend::get().device_get();
   VkImageCreateInfo image_info = {};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = to_vk_image_type(type_);
@@ -256,7 +275,7 @@ bool VKTexture::allocate()
   VkResult result;
   if (G.debug & G_DEBUG_GPU) {
     VkImageFormatProperties image_format = {};
-    result = vkGetPhysicalDeviceImageFormatProperties(context.physical_device_get(),
+    result = vkGetPhysicalDeviceImageFormatProperties(device.physical_device_get(),
                                                       image_info.format,
                                                       image_info.imageType,
                                                       image_info.tiling,
@@ -272,7 +291,7 @@ bool VKTexture::allocate()
   VmaAllocationCreateInfo allocCreateInfo = {};
   allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
   allocCreateInfo.priority = 1.0f;
-  result = vmaCreateImage(context.mem_allocator_get(),
+  result = vmaCreateImage(device.mem_allocator_get(),
                           &image_info,
                           &allocCreateInfo,
                           &vk_image_,
@@ -281,7 +300,7 @@ bool VKTexture::allocate()
   if (result != VK_SUCCESS) {
     return false;
   }
-  debug::object_label(&context, vk_image_, name_);
+  debug::object_label(vk_image_, name_);
 
   /* Promote image to the correct layout. */
   layout_ensure(context, VK_IMAGE_LAYOUT_GENERAL);
@@ -298,9 +317,27 @@ bool VKTexture::allocate()
   image_view_info.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
   result = vkCreateImageView(
-      context.device_get(), &image_view_info, vk_allocation_callbacks, &vk_image_view_);
-  debug::object_label(&context, vk_image_view_, name_);
+      device.device_get(), &image_view_info, vk_allocation_callbacks, &vk_image_view_);
+  debug::object_label(vk_image_view_, name_);
   return result == VK_SUCCESS;
+}
+
+// TODO: move texture/image bindings to shader.
+void VKTexture::bind(int unit, VKSampler &sampler)
+{
+  if (!is_allocated()) {
+    allocate();
+  }
+  VKContext &context = *VKContext::get();
+  VKShader *shader = static_cast<VKShader *>(context.shader);
+  const VKShaderInterface &shader_interface = shader->interface_get();
+  const std::optional<VKDescriptorSet::Location> location =
+      shader_interface.descriptor_set_location(
+          shader::ShaderCreateInfo::Resource::BindType::SAMPLER, unit);
+  if (location) {
+    VKDescriptorSetTracker &descriptor_set = shader->pipeline_get().descriptor_set_get();
+    descriptor_set.bind(*this, *location, sampler);
+  }
 }
 
 void VKTexture::image_bind(int binding)
@@ -311,9 +348,13 @@ void VKTexture::image_bind(int binding)
   VKContext &context = *VKContext::get();
   VKShader *shader = static_cast<VKShader *>(context.shader);
   const VKShaderInterface &shader_interface = shader->interface_get();
-  const VKDescriptorSet::Location location = shader_interface.descriptor_set_location(
-      shader::ShaderCreateInfo::Resource::BindType::IMAGE, binding);
-  shader->pipeline_get().descriptor_set_get().image_bind(*this, location);
+  const std::optional<VKDescriptorSet::Location> location =
+      shader_interface.descriptor_set_location(shader::ShaderCreateInfo::Resource::BindType::IMAGE,
+                                               binding);
+  if (location) {
+    VKDescriptorSetTracker &descriptor_set = shader->pipeline_get().descriptor_set_get();
+    descriptor_set.image_bind(*this, *location);
+  }
 }
 
 /* -------------------------------------------------------------------- */

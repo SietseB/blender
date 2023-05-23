@@ -15,17 +15,15 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
-
 #include "BKE_context.h"
 #include "BKE_layer.h"
 #include "BKE_linestyle.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_paint.h"
 
 #include "NOD_texture.h"
 #include "node_common.h"
-#include "node_exec.h"
+#include "node_exec.hh"
 #include "node_texture_util.hh"
 #include "node_util.hh"
 
@@ -107,8 +105,8 @@ static void localize(bNodeTree *localtree, bNodeTree * /*ntree*/)
     node_next = node->next;
 
     if (node->flag & NODE_MUTED || node->type == NODE_REROUTE) {
-      nodeInternalRelink(localtree, node);
-      ntreeFreeLocalNode(localtree, node);
+      blender::bke::nodeInternalRelink(localtree, node);
+      blender::bke::ntreeFreeLocalNode(localtree, node);
     }
   }
 }
@@ -124,7 +122,7 @@ static void update(bNodeTree *ntree)
 static bool texture_node_tree_socket_type_valid(bNodeTreeType * /*ntreetype*/,
                                                 bNodeSocketType *socket_type)
 {
-  return nodeIsStaticSocketType(socket_type) &&
+  return blender::bke::nodeIsStaticSocketType(socket_type) &&
          ELEM(socket_type->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA);
 }
 

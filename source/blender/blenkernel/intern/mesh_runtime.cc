@@ -190,7 +190,7 @@ void Mesh::tag_loose_verts_none() const
   try_tag_verts_no_face_none(*this);
 }
 
-void Mesh::loose_edges_tag_none() const
+void Mesh::tag_loose_edges_none() const
 {
   using namespace blender::bke;
   this->runtime->loose_edges_cache.ensure([&](LooseEdgeCache &r_data) {
@@ -221,6 +221,17 @@ blender::Span<MLoopTri> Mesh::looptris() const
   return this->runtime->looptris_cache.data();
 }
 
+blender::Span<int> Mesh::looptri_polys() const
+{
+  using namespace blender;
+  this->runtime->looptri_polys_cache.ensure([&](blender::Array<int> &r_data) {
+    const OffsetIndices polys = this->polys();
+    r_data.reinitialize(poly_to_tri_count(polys.size(), this->totloop));
+    bke::mesh::looptris_calc_poly_indices(polys, r_data);
+  });
+  return this->runtime->looptri_polys_cache.data();
+}
+
 int BKE_mesh_runtime_looptri_len(const Mesh *mesh)
 {
   /* Allow returning the size without calculating the cache. */
@@ -230,6 +241,11 @@ int BKE_mesh_runtime_looptri_len(const Mesh *mesh)
 const MLoopTri *BKE_mesh_runtime_looptri_ensure(const Mesh *mesh)
 {
   return mesh->looptris().data();
+}
+
+const int *BKE_mesh_runtime_looptri_polys_ensure(const Mesh *mesh)
+{
+  return mesh->looptri_polys().data();
 }
 
 void BKE_mesh_runtime_verttri_from_looptri(MVertTri *r_verttri,
@@ -281,6 +297,7 @@ void BKE_mesh_runtime_clear_geometry(Mesh *mesh)
   mesh->runtime->loose_verts_cache.tag_dirty();
   mesh->runtime->verts_no_face_cache.tag_dirty();
   mesh->runtime->looptris_cache.tag_dirty();
+  mesh->runtime->looptri_polys_cache.tag_dirty();
   mesh->runtime->subsurf_face_dot_tags.clear_and_shrink();
   mesh->runtime->subsurf_optimal_display_edges.clear_and_shrink();
   if (mesh->runtime->shrinkwrap_data) {
@@ -297,9 +314,21 @@ void BKE_mesh_tag_edges_split(struct Mesh *mesh)
   free_bvh_cache(*mesh->runtime);
   reset_normals(*mesh->runtime);
   free_subdiv_ccg(*mesh->runtime);
-  mesh->runtime->loose_edges_cache.tag_dirty();
-  mesh->runtime->loose_verts_cache.tag_dirty();
-  mesh->runtime->verts_no_face_cache.tag_dirty();
+  if (mesh->runtime->loose_edges_cache.is_cached() &&
+      mesh->runtime->loose_edges_cache.data().count != 0)
+  {
+    mesh->runtime->loose_edges_cache.tag_dirty();
+  }
+  if (mesh->runtime->loose_verts_cache.is_cached() &&
+      mesh->runtime->loose_verts_cache.data().count != 0)
+  {
+    mesh->runtime->loose_verts_cache.tag_dirty();
+  }
+  if (mesh->runtime->verts_no_face_cache.is_cached() &&
+      mesh->runtime->verts_no_face_cache.data().count != 0)
+  {
+    mesh->runtime->verts_no_face_cache.tag_dirty();
+  }
   mesh->runtime->subsurf_face_dot_tags.clear_and_shrink();
   mesh->runtime->subsurf_optimal_display_edges.clear_and_shrink();
   if (mesh->runtime->shrinkwrap_data) {

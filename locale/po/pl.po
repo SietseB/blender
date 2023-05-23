@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 3.6.0 Alpha (b'd1219b727c7c')\n"
+"Project-Id-Version: Blender 3.6.0 Beta (b'24ca886ac042')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-28 17:39:28\n"
+"POT-Creation-Date: 2023-05-22 16:40:40\n"
 "PO-Revision-Date: 2017-08-26 11:13+0200\n"
 "Last-Translator: Mikołaj Juda <mikolaj.juda@gmail.com>\n"
 "Language: pl\n"
@@ -1874,12 +1874,12 @@ msgid "Threshold"
 msgstr "Próg"
 
 
-msgid "Smooth"
-msgstr "Wygładzanie"
-
-
 msgid "Blur"
 msgstr "Rozmycie"
+
+
+msgid "Smooth"
+msgstr "Wygładzanie"
 
 
 msgid "Iterations"
@@ -2312,10 +2312,6 @@ msgstr "Grupa wierzchołków sztywności zgięć"
 
 msgid "Vertex group for fine control over bending stiffness"
 msgstr "Grupa wierzchołków, która pozwala kontrolować sztywność zginania"
-
-
-msgid "Mass Vertex Group"
-msgstr "Masa grupy wierzchołków"
 
 
 msgid "Vertex Group for pinning of vertices"
@@ -4421,10 +4417,6 @@ msgstr "Lokalizacja"
 
 msgid "Map To"
 msgstr "Mapuj na"
-
-
-msgid "The transformation type to affect of the constrained object"
-msgstr "Typ transformacji do zmiany w obiekcie"
 
 
 msgid "Map To X From"
@@ -6574,12 +6566,20 @@ msgid "Continue"
 msgstr "Kontynuacja"
 
 
+msgid "Temperature"
+msgstr "Temperatura"
+
+
 msgid "Gray Scale"
 msgstr "Odcienie szarości"
 
 
 msgid "Sepia"
 msgstr "Sepia"
+
+
+msgid "Mass Vertex Group"
+msgstr "Masa grupy wierzchołków"
 
 
 msgid "Timeline and playback controls"
@@ -6621,10 +6621,6 @@ msgstr "Szczegóły"
 
 msgid "Priority"
 msgstr "Priorytet"
-
-
-msgid "Temperature"
-msgstr "Temperatura"
 
 
 msgctxt "Image"
@@ -6975,10 +6971,6 @@ msgid "Render height has to be 576 pixels for DV-PAL!"
 msgstr "Wysokość renderu musi wynosić 576 pikseli dla DV-PAL!"
 
 
-msgid "FFMPEG only supports 48khz / stereo audio for DV!"
-msgstr "FFMPEG obsługuje wyłącznie 48khz / dźwięk stereo dla DV!"
-
-
 msgid "Error initializing video stream"
 msgstr "Błąd inicjacji strumienia filmowego"
 
@@ -7183,10 +7175,6 @@ msgid "<Missing ID block>"
 msgstr "<Brak bloku ID>"
 
 
-msgid "No RNA pointer available to retrieve values for this fcurve"
-msgstr "Brak dostępnego wskaźnika RNA, z którego można odzyskać wartości dla tej krzywej-F"
-
-
 msgid "No F-Curve to add keyframes to"
 msgstr "Brak krzywej-F, do której można dodać klatki kluczowe"
 
@@ -7217,10 +7205,6 @@ msgstr "Ustanowienie ścieżki do właściwości nie powiodło się, spróbuj r�
 
 msgid "No active Keying Set"
 msgstr "Brak aktywnego Zestawu Kluczowania"
-
-
-msgid "Could not update flags for this fcurve, as RNA path is invalid for the given ID (ID = %s, path = %s)"
-msgstr "Nie można było uaktualnić flag dla tej krzywej-F ponieważ ścieżka RNA jest nieprawidłowa dla danego ID (ID = %s, path = %s)"
 
 
 msgid "F-Curve with path '%s[%d]' cannot be keyframed, ensure that it is not locked or sampled, and try removing F-Modifiers"
@@ -9823,10 +9807,6 @@ msgid "unknown error writing file"
 msgstr "nieznany błąd zapisu pliku"
 
 
-msgid "unknown error stating file"
-msgstr "nieznany błąd stating file"
-
-
 msgid "Could not reopen file"
 msgstr "Ponowne otwarcie pliku nie powiodło się"
 
@@ -10538,22 +10518,6 @@ msgstr "Nie odnaleziono modyfikatora '%s' w krzywej F"
 
 msgid "Already a control point at frame %.6f"
 msgstr "Punkt kontrolny już w klatce %.6f"
-
-
-msgid "FCurve has already sample points"
-msgstr "Krzywa F już posiada próbkowane punkty"
-
-
-msgid "FCurve has no keyframes"
-msgstr "Krzywa F nie posiada klatek kluczowych"
-
-
-msgid "FCurve has already keyframes"
-msgstr "Krzywa F już posiada klatki kluczowe"
-
-
-msgid "FCurve has no sample points"
-msgstr "Krzywa F nie posiada próbkowanych punktów"
 
 
 msgid "Invalid frame range (%d - %d)"
@@ -11326,10 +11290,6 @@ msgid "Japanese (日本語)"
 msgstr "Japoński (日本語)"
 
 
-msgid "Dutch (Nederlandse taal)"
-msgstr "Niderlandzki (Nederlandse taal)"
-
-
 msgid "Italian (Italiano)"
 msgstr "Włoski (Italiano)"
 
@@ -11442,10 +11402,6 @@ msgid "Hebrew (תירִבְעִ)"
 msgstr "Hebrajski (תירִבְעִ)"
 
 
-msgid "Estonian (Eestlane)"
-msgstr "Estoński (Eestlane)"
-
-
 msgid "Esperanto (Esperanto)"
 msgstr "Esperanto (Esperanto)"
 
@@ -11464,10 +11420,6 @@ msgstr "Uzbecki (Oʻzbek)"
 
 msgid "Uzbek Cyrillic (Ўзбек)"
 msgstr "Uzbecki Cyrylica (Ўзбек)"
-
-
-msgid "Hindi (मानक हिन्दी)"
-msgstr "Hinduski (मानक हिन्दी)"
 
 
 msgid "Complete"

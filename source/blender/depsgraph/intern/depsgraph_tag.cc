@@ -30,7 +30,7 @@
 #include "BKE_anim_data.h"
 #include "BKE_global.h"
 #include "BKE_idtype.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -217,7 +217,11 @@ void depsgraph_tag_to_component_opcode(const ID *id,
       *operation_code = OperationCode::NTREE_OUTPUT;
       break;
 
-    case ID_RECALC_PROVISION_26:
+    case ID_RECALC_HIERARCHY:
+      *component_type = NodeType::HIERARCHY;
+      *operation_code = OperationCode::HIERARCHY;
+      break;
+
     case ID_RECALC_PROVISION_27:
     case ID_RECALC_PROVISION_28:
     case ID_RECALC_PROVISION_29:
@@ -749,7 +753,9 @@ const char *DEG_update_tag_as_string(IDRecalcFlag flag)
     case ID_RECALC_NTREE_OUTPUT:
       return "ID_RECALC_NTREE_OUTPUT";
 
-    case ID_RECALC_PROVISION_26:
+    case ID_RECALC_HIERARCHY:
+      return "ID_RECALC_HIERARCHY";
+
     case ID_RECALC_PROVISION_27:
     case ID_RECALC_PROVISION_28:
     case ID_RECALC_PROVISION_29:

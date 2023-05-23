@@ -852,15 +852,15 @@ float ED_scene_grid_scale(const Scene *scene, const char **r_grid_unit)
   return 1.0f;
 }
 
-float ED_view3d_grid_scale(const Scene *scene, View3D *v3d, const char **r_grid_unit)
+float ED_view3d_grid_scale(const Scene *scene, const View3D *v3d, const char **r_grid_unit)
 {
   return v3d->grid * ED_scene_grid_scale(scene, r_grid_unit);
 }
 
 #define STEPS_LEN 8
 static void view3d_grid_steps_ex(const Scene *scene,
-                                 View3D *v3d,
-                                 RegionView3D *rv3d,
+                                 const View3D *v3d,
+                                 const RegionView3D *rv3d,
                                  float r_grid_steps[STEPS_LEN],
                                  void const **r_usys_pt,
                                  int *r_len)
@@ -912,8 +912,8 @@ static void view3d_grid_steps_ex(const Scene *scene,
 }
 
 void ED_view3d_grid_steps(const Scene *scene,
-                          View3D *v3d,
-                          RegionView3D *rv3d,
+                          const View3D *v3d,
+                          const RegionView3D *rv3d,
                           float r_grid_steps[STEPS_LEN])
 {
   view3d_grid_steps_ex(scene, v3d, rv3d, r_grid_steps, nullptr, nullptr);
@@ -1453,7 +1453,7 @@ static void draw_grid_unit_name(
       char numstr[32] = "";
       UI_FontThemeColor(font_id, TH_TEXT_HI);
       if (v3d->grid != 1.0f) {
-        BLI_snprintf(numstr, sizeof(numstr), "%s x %.4g", grid_unit, v3d->grid);
+        SNPRINTF(numstr, "%s x %.4g", grid_unit, v3d->grid);
       }
 
       *yoffset -= VIEW3D_OVERLAY_LINEHEIGHT;
@@ -1973,7 +1973,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(Depsgraph *depsgraph,
    * When using workbench the color differences haven't been reported as a bug. But users also use
    * the viewport rendering to render Eevee scenes. In the later situation the saved colors are
    * totally wrong. */
-  const bool do_color_management = (ibuf->rect_float == nullptr);
+  const bool do_color_management = (ibuf->float_buffer.data == nullptr);
   ED_view3d_draw_offscreen(depsgraph,
                            scene,
                            drawtype,
@@ -1991,11 +1991,11 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(Depsgraph *depsgraph,
                            ofs,
                            nullptr);
 
-  if (ibuf->rect_float) {
-    GPU_offscreen_read_color(ofs, GPU_DATA_FLOAT, ibuf->rect_float);
+  if (ibuf->float_buffer.data) {
+    GPU_offscreen_read_color(ofs, GPU_DATA_FLOAT, ibuf->float_buffer.data);
   }
-  else if (ibuf->rect) {
-    GPU_offscreen_read_color(ofs, GPU_DATA_UBYTE, ibuf->rect);
+  else if (ibuf->byte_buffer.data) {
+    GPU_offscreen_read_color(ofs, GPU_DATA_UBYTE, ibuf->byte_buffer.data);
   }
 
   /* unbind */
@@ -2011,7 +2011,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(Depsgraph *depsgraph,
     GPU_framebuffer_bind(old_fb);
   }
 
-  if (ibuf->rect_float && ibuf->rect) {
+  if (ibuf->float_buffer.data && ibuf->byte_buffer.data) {
     IMB_rect_from_float(ibuf);
   }
 
@@ -2578,11 +2578,11 @@ void ED_scene_draw_fps(const Scene *scene, int xoffset, int *yoffset)
   /* Is this more than half a frame behind? */
   if (fps + 0.5f < float(FPS)) {
     UI_FontThemeColor(font_id, TH_REDALERT);
-    BLI_snprintf(printable, sizeof(printable), IFACE_("fps: %.2f"), fps);
+    SNPRINTF(printable, IFACE_("fps: %.2f"), fps);
   }
   else {
     UI_FontThemeColor(font_id, TH_TEXT_HI);
-    BLI_snprintf(printable, sizeof(printable), IFACE_("fps: %i"), int(fps + 0.5f));
+    SNPRINTF(printable, IFACE_("fps: %i"), int(fps + 0.5f));
   }
 
   BLF_enable(font_id, BLF_SHADOW);

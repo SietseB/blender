@@ -164,13 +164,7 @@ class GHOST_ContextVK : public GHOST_Context {
   const int m_context_minor_version;
   const int m_debug;
 
-  VkInstance m_instance;
-  VkPhysicalDevice m_physical_device;
-  VkDevice m_device;
   VkCommandPool m_command_pool;
-
-  uint32_t m_queue_family_graphic;
-  uint32_t m_queue_family_present;
 
   VkQueue m_graphic_queue;
   VkQueue m_present_queue;
@@ -187,16 +181,23 @@ class GHOST_ContextVK : public GHOST_Context {
   std::vector<VkSemaphore> m_image_available_semaphores;
   std::vector<VkSemaphore> m_render_finished_semaphores;
   std::vector<VkFence> m_in_flight_fences;
-  std::vector<VkFence> m_in_flight_images;
   /** frame modulo swapchain_len. Used as index for sync objects. */
   int m_currentFrame = 0;
+  /**
+   * Last frame where the vulkan handles where retrieved from. This attribute is used to determine
+   * if a new image from the swap chain needs to be acquired.
+   *
+   * In a regular vulkan application this is done in the same method, but due to GHOST API this
+   * isn't possible. Swap chains are triggered by the window manager and the GPUBackend isn't
+   * informed about these changes.
+   */
+  int m_lastFrame = -1;
   /** Image index in the swapchain. Used as index for render objects. */
   uint32_t m_currentImage = 0;
   /** Used to unique framebuffer ids to return when swapchain is recreated. */
   uint32_t m_swapchain_id = 0;
 
   const char *getPlatformSpecificSurfaceExtension() const;
-  GHOST_TSuccess pickPhysicalDevice(std::vector<const char *> required_exts);
   GHOST_TSuccess createSwapchain();
   GHOST_TSuccess destroySwapchain();
   GHOST_TSuccess createCommandPools();

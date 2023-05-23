@@ -26,7 +26,7 @@
 #include "BKE_colortools.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
@@ -222,8 +222,8 @@ static RenderResult *render_result_from_bake(
   /* Fill render passes from bake pixel array, to be read by the render engine. */
   for (int ty = 0; ty < h; ty++) {
     size_t offset = ty * w * 4;
-    float *primitive = primitive_pass->rect + offset;
-    float *differential = differential_pass->rect + offset;
+    float *primitive = primitive_pass->buffer.data + offset;
+    float *differential = differential_pass->buffer.data + offset;
 
     size_t bake_offset = (y + ty) * image->width + x;
     const BakePixel *bake_pixel = pixels + bake_offset;
@@ -290,7 +290,7 @@ static void render_result_to_bake(RenderEngine *engine, RenderResult *rr)
     const size_t offset = ty * w;
     const size_t bake_offset = (y + ty) * image->width + x;
 
-    const float *pass_rect = rpass->rect + offset * channels_num;
+    const float *pass_rect = rpass->buffer.data + offset * channels_num;
     const BakePixel *bake_pixel = pixels + bake_offset;
     float *bake_result = result + bake_offset * channels_num;
 
@@ -522,13 +522,13 @@ void RE_engine_update_stats(RenderEngine *engine, const char *stats, const char 
   engine->text[0] = '\0';
 
   if (stats && stats[0] && info && info[0]) {
-    BLI_snprintf(engine->text, sizeof(engine->text), "%s | %s", stats, info);
+    SNPRINTF(engine->text, "%s | %s", stats, info);
   }
   else if (info && info[0]) {
-    BLI_strncpy(engine->text, info, sizeof(engine->text));
+    STRNCPY(engine->text, info);
   }
   else if (stats && stats[0]) {
-    BLI_strncpy(engine->text, stats, sizeof(engine->text));
+    STRNCPY(engine->text, stats);
   }
 }
 
@@ -1079,7 +1079,7 @@ bool RE_engine_render(Render *re, bool do_all)
 
   /* set render info */
   re->i.cfra = re->scene->r.cfra;
-  BLI_strncpy(re->i.scene_name, re->scene->id.name + 2, sizeof(re->i.scene_name));
+  STRNCPY(re->i.scene_name, re->scene->id.name + 2);
 
   engine->flag |= RE_ENGINE_RENDERING;
 

@@ -310,6 +310,7 @@ void mesh_render_data_update_looptris(MeshRenderData *mr,
     /* Mesh */
     if ((iter_type & MR_ITER_LOOPTRI) || (data_flag & MR_DATA_LOOPTRI)) {
       mr->looptris = mr->me->looptris();
+      mr->looptri_polys = mr->me->looptri_polys();
     }
   }
   else {
@@ -453,7 +454,8 @@ MeshRenderData *mesh_render_data_create(Object *object,
 
     mr->vert_crease_ofs = CustomData_get_offset(&mr->bm->vdata, CD_CREASE);
     mr->edge_crease_ofs = CustomData_get_offset(&mr->bm->edata, CD_CREASE);
-    mr->bweight_ofs = CustomData_get_offset(&mr->bm->edata, CD_BWEIGHT);
+    mr->bweight_ofs = CustomData_get_offset_named(
+        &mr->bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
 #ifdef WITH_FREESTYLE
     mr->freestyle_edge_ofs = CustomData_get_offset(&mr->bm->edata, CD_FREESTYLE_EDGE);
     mr->freestyle_face_ofs = CustomData_get_offset(&mr->bm->pdata, CD_FREESTYLE_FACE);

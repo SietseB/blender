@@ -13,9 +13,7 @@
 
 #include "DNA_node_types.h"
 
-#include "BKE_node.h"
-
-#include "BLT_translation.h"
+#include "BKE_node.hh"
 
 #include "NOD_geometry.h"
 #include "NOD_geometry_exec.hh"

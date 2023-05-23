@@ -11,9 +11,7 @@
 
 #include "DNA_node_types.h"
 
-#include "BKE_node.h"
-
-#include "BLT_translation.h"
+#include "BKE_node.hh"
 
 #include "NOD_multi_function.hh"
 #include "NOD_socket_declarations.hh"

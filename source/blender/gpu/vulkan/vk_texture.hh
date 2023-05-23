@@ -12,6 +12,8 @@
 
 namespace blender::gpu {
 
+class VKSampler;
+
 class VKTexture : public Texture {
   VkImage vk_image_ = VK_NULL_HANDLE;
   VkImageView vk_image_view_ = VK_NULL_HANDLE;
@@ -25,13 +27,15 @@ class VKTexture : public Texture {
 
  public:
   VKTexture(const char *name) : Texture(name) {}
+
   virtual ~VKTexture() override;
+
+  void init(VkImage vk_image, VkImageLayout layout);
 
   void generate_mipmap() override;
   void copy_to(Texture *tex) override;
   void clear(eGPUDataFormat format, const void *data) override;
   void swizzle_set(const char swizzle_mask[4]) override;
-  void stencil_texture_mode_set(bool use_stencil) override;
   void mip_range_set(int min, int max) override;
   void *read(int mip, eGPUDataFormat format) override;
   void update_sub(
@@ -44,10 +48,12 @@ class VKTexture : public Texture {
   /* TODO(fclem): Legacy. Should be removed at some point. */
   uint gl_bindcode_get() const override;
 
+  void bind(int unit, VKSampler &sampler);
   void image_bind(int location);
+
   VkImage vk_image_handle() const
   {
-    BLI_assert(is_allocated());
+    BLI_assert(vk_image_ != VK_NULL_HANDLE);
     return vk_image_;
   }
   VkImageView vk_image_view_handle() const
@@ -61,7 +67,7 @@ class VKTexture : public Texture {
  protected:
   bool init_internal() override;
   bool init_internal(GPUVertBuf *vbo) override;
-  bool init_internal(GPUTexture *src, int mip_offset, int layer_offset) override;
+  bool init_internal(GPUTexture *src, int mip_offset, int layer_offset, bool use_stencil) override;
 
  private:
   /** Is this texture already allocated on device. */

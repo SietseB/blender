@@ -5,18 +5,16 @@
 
 #include "BKE_mesh.hh"
 
-#include "BLT_translation.h"
-
 #include "node_geometry_util.hh"
 
 namespace blender::nodes::node_geo_input_mesh_face_area_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_output<decl::Float>(CTX_N_(BLT_I18NCONTEXT_AMOUNT, "Area"))
+  b.add_output<decl::Float>("Area")
       .translation_context(BLT_I18NCONTEXT_AMOUNT)
       .field_source()
-      .description(N_("The surface area of each of the mesh's faces"));
+      .description("The surface area of each of the mesh's faces");
 }
 
 static VArray<float> construct_face_area_varray(const Mesh &mesh, const eAttrDomain domain)

@@ -11,13 +11,13 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_global.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 
 #include "MEM_guardedalloc.h"
 
-#include "node_exec.h"
+#include "node_exec.hh"
 #include "node_util.hh"
 
 static int node_exec_socket_use_stack(bNodeSocket *sock)

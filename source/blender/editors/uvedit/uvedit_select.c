@@ -793,6 +793,24 @@ static BMLoop *uvedit_loop_find_other_boundary_loop_with_visible_face(const Scen
 /** \name Find Nearest Elements
  * \{ */
 
+UvNearestHit uv_nearest_hit_init_dist_px(const View2D *v2d, const float dist_px)
+{
+  UvNearestHit hit = {0};
+  hit.dist_sq = square_f(U.pixelsize * dist_px);
+  hit.scale[0] = UI_view2d_scale_get_x(v2d);
+  hit.scale[1] = UI_view2d_scale_get_y(v2d);
+  return hit;
+}
+
+UvNearestHit uv_nearest_hit_init_max(const View2D *v2d)
+{
+  UvNearestHit hit = {0};
+  hit.dist_sq = FLT_MAX;
+  hit.scale[0] = UI_view2d_scale_get_x(v2d);
+  hit.scale[1] = UI_view2d_scale_get_y(v2d);
+  return hit;
+}
+
 bool uv_find_nearest_edge(
     Scene *scene, Object *obedit, const float co[2], const float penalty, UvNearestHit *hit)
 {
@@ -2427,7 +2445,7 @@ static bool uv_mouse_select_multi(bContext *C,
   const ARegion *region = CTX_wm_region(C);
   Scene *scene = CTX_data_scene(C);
   const ToolSettings *ts = scene->toolsettings;
-  UvNearestHit hit = UV_NEAREST_HIT_INIT_DIST_PX(&region->v2d, 75.0f);
+  UvNearestHit hit = uv_nearest_hit_init_dist_px(&region->v2d, 75.0f);
   int selectmode, sticky;
   bool found_item = false;
   /* 0 == don't flush, 1 == sel, -1 == deselect;  only use when selection sync is enabled. */
@@ -2743,7 +2761,7 @@ static int uv_mouse_select_loop_generic_multi(bContext *C,
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   const ToolSettings *ts = scene->toolsettings;
-  UvNearestHit hit = UV_NEAREST_HIT_INIT_MAX(&region->v2d);
+  UvNearestHit hit = uv_nearest_hit_init_max(&region->v2d);
   bool found_item = false;
   /* 0 == don't flush, 1 == sel, -1 == deselect;  only use when selection sync is enabled. */
   int flush = 0;
@@ -2953,7 +2971,7 @@ static int uv_select_linked_internal(bContext *C, wmOperator *op, const wmEvent 
   bool deselect = false;
   bool select_faces = (ts->uv_flag & UV_SYNC_SELECTION) && (ts->selectmode & SCE_SELECT_FACE);
 
-  UvNearestHit hit = UV_NEAREST_HIT_INIT_MAX(&region->v2d);
+  UvNearestHit hit = uv_nearest_hit_init_max(&region->v2d);
 
   if (pick) {
     extend = RNA_boolean_get(op->ptr, "extend");
@@ -5433,8 +5451,10 @@ static void uv_isolate_selected_islands(const Scene *scene,
     BM_elem_flag_enable(efa, BM_ELEM_TAG);
     BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
       if (!uvedit_edge_select_test(scene, l, offsets)) {
-        UvElement *element = BM_uv_element_get(elementmap, efa, l);
-        is_island_not_selected[element->island] = true;
+        UvElement *element = BM_uv_element_get(elementmap, l);
+        if (element) {
+          is_island_not_selected[element->island] = true;
+        }
       }
     }
   }
@@ -5445,9 +5465,9 @@ static void uv_isolate_selected_islands(const Scene *scene,
       continue;
     }
     BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-      UvElement *element = BM_uv_element_get(elementmap, efa, l);
+      UvElement *element = BM_uv_element_get(elementmap, l);
       /* Deselect all elements of islands which are not completely selected. */
-      if (is_island_not_selected[element->island] == true) {
+      if (element && is_island_not_selected[element->island]) {
         BM_ELEM_CD_SET_BOOL(l, offsets.select_vert, false);
         BM_ELEM_CD_SET_BOOL(l, offsets.select_edge, false);
       }

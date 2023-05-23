@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_array_utils.hh"
+
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_bvhutils.h"
@@ -48,10 +50,10 @@ namespace blender::nodes::node_geo_sample_nearest_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Geometry"))
+  b.add_input<decl::Geometry>("Geometry")
       .supported_type({GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD});
-  b.add_input<decl::Vector>(N_("Sample Position")).implicit_field(implicit_field_inputs::position);
-  b.add_output<decl::Int>(N_("Index")).dependent_field({1});
+  b.add_input<decl::Vector>("Sample Position").implicit_field(implicit_field_inputs::position);
+  b.add_output<decl::Int>("Index").dependent_field({1});
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -147,11 +149,10 @@ static void get_closest_mesh_polys(const Mesh &mesh,
   Array<int> looptri_indices(positions.size());
   get_closest_mesh_looptris(mesh, positions, mask, looptri_indices, r_distances_sq, r_positions);
 
-  const Span<MLoopTri> looptris = mesh.looptris();
+  const Span<int> looptri_polys = mesh.looptri_polys();
 
   for (const int i : mask) {
-    const MLoopTri &looptri = looptris[looptri_indices[i]];
-    r_poly_indices[i] = looptri.poly;
+    r_poly_indices[i] = looptri_polys[looptri_indices[i]];
   }
 }
 

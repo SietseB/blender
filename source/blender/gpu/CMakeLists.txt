@@ -29,6 +29,7 @@ set(INC
   # For *_info.hh includes.
   ../compositor/realtime_compositor
   ../draw/engines/eevee_next
+  ../draw/engines/select
   ../draw/engines/workbench
   ../draw/intern
 
@@ -76,6 +77,7 @@ set(SRC
   intern/gpu_platform.cc
   intern/gpu_query.cc
   intern/gpu_select.c
+  intern/gpu_select_next.cc
   intern/gpu_select_pick.c
   intern/gpu_select_sample_query.cc
   intern/gpu_shader.cc
@@ -208,17 +210,21 @@ set(VULKAN_SRC
   vulkan/vk_debug.cc
   vulkan/vk_descriptor_pools.cc
   vulkan/vk_descriptor_set.cc
+  vulkan/vk_device.cc
   vulkan/vk_drawlist.cc
   vulkan/vk_fence.cc
   vulkan/vk_framebuffer.cc
+  vulkan/vk_immediate.cc
   vulkan/vk_index_buffer.cc
   vulkan/vk_memory.cc
   vulkan/vk_memory_layout.cc
   vulkan/vk_pipeline.cc
+  vulkan/vk_pipeline_state.cc
   vulkan/vk_pixel_buffer.cc
   vulkan/vk_push_constants.cc
   vulkan/vk_query.cc
   vulkan/vk_resource_tracker.cc
+  vulkan/vk_sampler.cc
   vulkan/vk_shader.cc
   vulkan/vk_shader_interface.cc
   vulkan/vk_shader_log.cc
@@ -226,6 +232,7 @@ set(VULKAN_SRC
   vulkan/vk_storage_buffer.cc
   vulkan/vk_texture.cc
   vulkan/vk_uniform_buffer.cc
+  vulkan/vk_vertex_attribute_object.cc
   vulkan/vk_vertex_buffer.cc
 
   vulkan/vk_backend.hh
@@ -238,17 +245,21 @@ set(VULKAN_SRC
   vulkan/vk_debug.hh
   vulkan/vk_descriptor_pools.hh
   vulkan/vk_descriptor_set.hh
+  vulkan/vk_device.hh
   vulkan/vk_drawlist.hh
   vulkan/vk_fence.hh
   vulkan/vk_framebuffer.hh
+  vulkan/vk_immediate.hh
   vulkan/vk_index_buffer.hh
   vulkan/vk_memory.hh
   vulkan/vk_memory_layout.hh
   vulkan/vk_pipeline.hh
+  vulkan/vk_pipeline_state.hh
   vulkan/vk_pixel_buffer.hh
   vulkan/vk_push_constants.hh
   vulkan/vk_query.hh
   vulkan/vk_resource_tracker.hh
+  vulkan/vk_sampler.hh
   vulkan/vk_shader.hh
   vulkan/vk_shader_interface.hh
   vulkan/vk_shader_log.hh
@@ -256,6 +267,7 @@ set(VULKAN_SRC
   vulkan/vk_storage_buffer.hh
   vulkan/vk_texture.hh
   vulkan/vk_uniform_buffer.hh
+  vulkan/vk_vertex_attribute_object.hh
   vulkan/vk_vertex_buffer.hh
 )
 
@@ -274,6 +286,7 @@ set(METAL_SRC
   metal/mtl_shader.mm
   metal/mtl_shader_generator.mm
   metal/mtl_shader_interface.mm
+  metal/mtl_shader_log.mm
   metal/mtl_state.mm
   metal/mtl_storage_buffer.mm
   metal/mtl_texture.mm
@@ -299,6 +312,7 @@ set(METAL_SRC
   metal/mtl_shader_generator.hh
   metal/mtl_shader_interface.hh
   metal/mtl_shader_interface_type.hh
+  metal/mtl_shader_log.hh
   metal/mtl_shader_shared.h
   metal/mtl_state.hh
   metal/mtl_storage_buffer.hh
@@ -452,7 +466,6 @@ set(GLSL_SRC
 
   shaders/material/gpu_shader_material_add_shader.glsl
   shaders/material/gpu_shader_material_ambient_occlusion.glsl
-  shaders/material/gpu_shader_material_anisotropic.glsl
   shaders/material/gpu_shader_material_attribute.glsl
   shaders/material/gpu_shader_material_background.glsl
   shaders/material/gpu_shader_material_bevel.glsl
@@ -837,11 +850,14 @@ if(WITH_GTESTS)
       tests/gpu_testing.cc
 
       tests/framebuffer_test.cc
+      tests/immediate_test.cc
       tests/index_buffer_test.cc
       tests/push_constants_test.cc
       tests/shader_test.cc
+      tests/state_blend_test.cc
       tests/storage_buffer_test.cc
       tests/texture_test.cc
+      tests/vertex_buffer_test.cc
 
       tests/gpu_testing.hh
     )

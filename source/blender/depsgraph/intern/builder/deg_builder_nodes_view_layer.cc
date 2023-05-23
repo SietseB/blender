@@ -28,7 +28,7 @@
 
 #include "BKE_layer.h"
 #include "BKE_main.h"
-#include "BKE_node.h"
+#include "BKE_node.hh"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -78,6 +78,9 @@ void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
   /* Scene ID block. */
   IDNode *id_node = add_id_node(&scene->id);
   id_node->linked_state = linked_state;
+
+  add_operation_node(&scene->id, NodeType::HIERARCHY, OperationCode::HIERARCHY);
+
   /* Time source. */
   add_time_source();
   /* Setup currently building context. */

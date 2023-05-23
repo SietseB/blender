@@ -1351,7 +1351,7 @@ static wmOperator *wm_operator_create(wmWindowManager *wm,
 
   /* Adding new operator could be function, only happens here now. */
   op->type = ot;
-  BLI_strncpy(op->idname, ot->idname, OP_MAX_TYPENAME);
+  STRNCPY(op->idname, ot->idname);
 
   /* Initialize properties, either copy or create. */
   op->ptr = MEM_cnew<PointerRNA>("wmOperatorPtrRNA");
@@ -2202,7 +2202,7 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
   }
 }
 
-static bool wm_eventmatch(const wmEvent *winevent, const wmKeyMapItem *kmi)
+BLI_INLINE bool wm_eventmatch(const wmEvent *winevent, const wmKeyMapItem *kmi)
 {
   if (kmi->flag & KMI_INACTIVE) {
     return false;
@@ -2895,19 +2895,19 @@ static const char *keymap_handler_log_action_str(const eHandlerActionFlag action
 
 static const char *keymap_handler_log_kmi_event_str(const wmKeyMapItem *kmi,
                                                     char *buf,
-                                                    size_t buf_maxlen)
+                                                    size_t buf_maxncpy)
 {
   /* Short representation of the key that was pressed,
    * include this since it may differ from the event in minor details
    * which can help looking up the key-map definition. */
-  WM_keymap_item_to_string(kmi, false, buf, buf_maxlen);
+  WM_keymap_item_to_string(kmi, false, buf, buf_maxncpy);
   return buf;
 }
 
 static const char *keymap_handler_log_kmi_op_str(bContext *C,
                                                  const wmKeyMapItem *kmi,
                                                  char *buf,
-                                                 size_t buf_maxlen)
+                                                 size_t buf_maxncpy)
 {
   /* The key-map item properties can further help distinguish this item from others. */
   char *kmi_props = nullptr;
@@ -2920,7 +2920,7 @@ static const char *keymap_handler_log_kmi_op_str(bContext *C,
       kmi_props = IDP_reprN(kmi->properties, nullptr);
     }
   }
-  BLI_snprintf(buf, buf_maxlen, "%s(%s)", kmi->idname, kmi_props ? kmi_props : "");
+  BLI_snprintf(buf, buf_maxncpy, "%s(%s)", kmi->idname, kmi_props ? kmi_props : "");
   if (kmi_props != nullptr) {
     MEM_freeN(kmi_props);
   }
@@ -4401,11 +4401,13 @@ static void WM_event_set_handler_flag(wmEventHandler *handler, const int flag)
 }
 #endif
 
-wmEventHandler_Op *WM_event_add_modal_handler(bContext *C, wmOperator *op)
+wmEventHandler_Op *WM_event_add_modal_handler_ex(wmWindow *win,
+                                                 ScrArea *area,
+                                                 ARegion *region,
+                                                 wmOperator *op)
 {
   wmEventHandler_Op *handler = MEM_cnew<wmEventHandler_Op>(__func__);
   handler->head.type = WM_HANDLER_TYPE_OP;
-  wmWindow *win = CTX_wm_window(C);
 
   /* Operator was part of macro. */
   if (op->opm) {
@@ -4418,8 +4420,8 @@ wmEventHandler_Op *WM_event_add_modal_handler(bContext *C, wmOperator *op)
     handler->op = op;
   }
 
-  handler->context.area = CTX_wm_area(C); /* Means frozen screen context for modal handlers! */
-  handler->context.region = CTX_wm_region(C);
+  handler->context.area = area; /* Means frozen screen context for modal handlers! */
+  handler->context.region = region;
   handler->context.region_type = handler->context.region ? handler->context.region->regiontype :
                                                            -1;
 
@@ -4430,6 +4432,14 @@ wmEventHandler_Op *WM_event_add_modal_handler(bContext *C, wmOperator *op)
   }
 
   return handler;
+}
+
+wmEventHandler_Op *WM_event_add_modal_handler(bContext *C, wmOperator *op)
+{
+  wmWindow *win = CTX_wm_window(C);
+  ScrArea *area = CTX_wm_area(C);
+  ARegion *region = CTX_wm_region(C);
+  return WM_event_add_modal_handler_ex(win, area, region, op);
 }
 
 void WM_event_modal_handler_area_replace(wmWindow *win, const ScrArea *old_area, ScrArea *new_area)
@@ -4509,7 +4519,7 @@ static void wm_event_get_keymap_from_toolsystem_ex(wmWindowManager *wm,
 {
   memset(km_result, 0x0, sizeof(*km_result));
 
-  const char *keymap_id_list[ARRAY_SIZE(km_result->keymaps)];
+  const char *keymap_id_list[BOUNDED_ARRAY_TYPE_SIZE<decltype(km_result->keymaps)>()];
   int keymap_id_list_len = 0;
 
   /* NOTE(@ideasman42): If `win` is nullptr, this function may not behave as expected.
@@ -5994,6 +6004,11 @@ wmKeyMapItem *WM_event_match_keymap_item_from_handlers(
     }
   }
   return nullptr;
+}
+
+bool WM_event_match(const wmEvent *winevent, const wmKeyMapItem *kmi)
+{
+  return wm_eventmatch(winevent, kmi);
 }
 
 /** \} */

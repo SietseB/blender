@@ -345,7 +345,7 @@ typedef struct ThemeSpace {
   unsigned char nodeclass_geometry[4], nodeclass_attribute[4];
 
   unsigned char node_zone_simulation[4];
-  char _pad8[4];
+  unsigned char simulated_frames[4];
 
   /** For sequence editor. */
   unsigned char movie[4], movieclip[4], mask[4], image[4], scene[4], audio[4];
@@ -565,6 +565,7 @@ typedef struct bUserMenuItem_Op {
   bUserMenuItem item;
   char op_idname[64];
   struct IDProperty *prop;
+  char op_prop_enum[64];
   char opcontext; /* #wmOperatorCallContext */
   char _pad0[7];
 } bUserMenuItem_Op;
@@ -681,9 +682,10 @@ typedef struct UserDef_Experimental {
   char use_override_templates;
   char enable_eevee_next;
   char use_sculpt_texture_paint;
+  char enable_overlay_next;
   char enable_workbench_next;
   char use_new_volume_nodes;
-  char _pad[6];
+  char _pad[5];
   /** `makesdna` does not allow empty structs. */
 } UserDef_Experimental;
 

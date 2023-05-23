@@ -376,7 +376,7 @@ static StructRNA *rna_RenderEngine_register(Main *bmain,
   }
 
   /* create a new engine type */
-  et = MEM_mallocN(sizeof(RenderEngineType), "python render engine");
+  et = MEM_mallocN(sizeof(RenderEngineType), "Python render engine");
   memcpy(et, &dummy_et, sizeof(dummy_et));
 
   et->rna_ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, et->idname, &RNA_RenderEngine);
@@ -415,7 +415,7 @@ static StructRNA *rna_RenderEngine_refine(PointerRNA *ptr)
 
 static void rna_RenderEngine_tempdir_get(PointerRNA *UNUSED(ptr), char *value)
 {
-  BLI_strncpy(value, BKE_tempdir_session(), FILE_MAX);
+  strcpy(value, BKE_tempdir_session());
 }
 
 static int rna_RenderEngine_tempdir_length(PointerRNA *UNUSED(ptr))
@@ -503,13 +503,15 @@ static int rna_RenderPass_rect_get_length(const PointerRNA *ptr,
 static void rna_RenderPass_rect_get(PointerRNA *ptr, float *values)
 {
   RenderPass *rpass = (RenderPass *)ptr->data;
-  memcpy(values, rpass->rect, sizeof(float) * rpass->rectx * rpass->recty * rpass->channels);
+  memcpy(
+      values, rpass->buffer.data, sizeof(float) * rpass->rectx * rpass->recty * rpass->channels);
 }
 
 void rna_RenderPass_rect_set(PointerRNA *ptr, const float *values)
 {
   RenderPass *rpass = (RenderPass *)ptr->data;
-  memcpy(rpass->rect, values, sizeof(float) * rpass->rectx * rpass->recty * rpass->channels);
+  memcpy(
+      rpass->buffer.data, values, sizeof(float) * rpass->rectx * rpass->recty * rpass->channels);
 }
 
 static RenderPass *rna_RenderPass_find_by_type(RenderLayer *rl, int passtype, const char *view)

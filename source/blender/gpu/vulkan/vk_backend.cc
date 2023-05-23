@@ -52,24 +52,20 @@ void VKBackend::platform_exit()
   GPG.clear();
 }
 
-void VKBackend::delete_resources() {}
+void VKBackend::delete_resources()
+{
+  if (device_.is_initialized()) {
+    device_.deinit();
+  }
+}
 
 void VKBackend::samplers_update() {}
 
 void VKBackend::compute_dispatch(int groups_x_len, int groups_y_len, int groups_z_len)
 {
   VKContext &context = *VKContext::get();
-  VKShader *shader = static_cast<VKShader *>(context.shader);
+  context.bind_compute_pipeline();
   VKCommandBuffer &command_buffer = context.command_buffer_get();
-  VKPipeline &pipeline = shader->pipeline_get();
-  VKDescriptorSetTracker &descriptor_set = pipeline.descriptor_set_get();
-  VKPushConstants &push_constants = pipeline.push_constants_get();
-
-  push_constants.update(context);
-  descriptor_set.update(context);
-  command_buffer.bind(*descriptor_set.active_descriptor_set(),
-                      shader->vk_pipeline_layout_get(),
-                      VK_PIPELINE_BIND_POINT_COMPUTE);
   command_buffer.dispatch(groups_x_len, groups_y_len, groups_z_len);
 }
 
@@ -151,9 +147,10 @@ shaderc::Compiler &VKBackend::get_shaderc_compiler()
   return shaderc_compiler_;
 }
 
-void VKBackend::capabilities_init(VKContext &context)
+void VKBackend::capabilities_init()
 {
-  const VkPhysicalDeviceLimits limits = context.physical_device_limits_get();
+  const VkPhysicalDeviceLimits &limits =
+      VKBackend::get().device_get().physical_device_limits_get();
 
   /* Reset all capabilities from previous context. */
   GCaps = {};

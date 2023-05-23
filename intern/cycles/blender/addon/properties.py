@@ -209,6 +209,21 @@ enum_guiding_distribution = (
     ('VMM', "VMM", "Use von Mises-Fisher models as directional distribution", 2),
 )
 
+enum_guiding_directional_sampling_types = (
+    ('MIS',
+     "Diffuse Product MIS",
+     "Guided diffuse BSDF component based on the incoming light distribution and the cosine product (closed form product)",
+     0),
+    ('RIS',
+     "Re-sampled Importance Sampling",
+     "Perform RIS sampling to guided based on the product of the incoming light distribution and the BSDF",
+     1),
+    ('ROUGHNESS',
+     "Roughness-based",
+     "Adjust the guiding probability based on the roughness of the material components",
+     2),
+)
+
 
 def enum_openimagedenoise_denoiser(self, context):
     import _cycles
@@ -568,6 +583,13 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         default='PARALLAX_AWARE_VMM',
     )
 
+    guiding_directional_sampling_type: EnumProperty(
+        name="Directional Sampling Type",
+        description="Type of the directional sampling used for guiding",
+        items=enum_guiding_directional_sampling_types,
+        default='RIS',
+    )
+
     use_surface_guiding: BoolProperty(
         name="Surface Guiding",
         description="Use guiding when sampling directions on a surface",
@@ -615,6 +637,13 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Use MIS Weights",
         description="Use the MIS weight to weight the contribution of directly visible light sources during guiding",
         default=True,
+    )
+
+    guiding_roughness_threshold: FloatProperty(
+        name="Guiding Roughness Threshold",
+        description="The minimal roughness value of a material to apply guiding",
+        min=0.0, max=1.0,
+        default=0.05,
     )
 
     max_bounces: IntProperty(
@@ -1552,10 +1581,9 @@ class CyclesPreferences(bpy.types.AddonPreferences):
     )
 
     use_oneapirt: BoolProperty(
-        name="Embree on GPU (Experimental)",
-        description="Embree GPU execution will allow to use hardware ray tracing on Intel GPUs, which will provide better performance. "
-                    "However this support is experimental and some scenes may render incorrectly",
-        default=False,
+        name="Embree on GPU",
+        description="Embree on GPU enables the use of hardware ray tracing on Intel GPUs, providing better overall performance",
+        default=True,
     )
 
     kernel_optimization_level: EnumProperty(
@@ -1697,13 +1725,10 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                     col.label(text=iface_("and AMD Radeon Pro %s driver or newer") % driver_version,
                               icon='BLANK1', translate=False)
                 elif sys.platform.startswith("linux"):
-                    if True:
-                        col.label(text="HIP temporarily disabled due to compiler bugs", icon='BLANK1')
-                    else:
-                        driver_version = "22.10"
-                        col.label(text="Requires AMD GPU with Vega or RDNA architecture", icon='BLANK1')
-                        col.label(text=iface_("and AMD driver version %s or newer") % driver_version, icon='BLANK1',
-                                  translate=False)
+                    driver_version = "22.10"
+                    col.label(text="Requires AMD GPU with Vega or RDNA architecture", icon='BLANK1')
+                    col.label(text=iface_("and AMD driver version %s or newer") % driver_version, icon='BLANK1',
+                              translate=False)
             elif device_type == 'ONEAPI':
                 import sys
                 if sys.platform.startswith("win"):
@@ -1785,7 +1810,6 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
         elif compute_device_type == 'ONEAPI' and _cycles.with_embree_gpu:
             row = layout.row()
-            row.use_property_split = True
             row.prop(self, "use_oneapirt")
 
     def draw(self, context):

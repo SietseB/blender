@@ -73,7 +73,9 @@ static int unpack_libraries_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
 
+  WM_cursor_wait(true);
   BKE_packedfile_unpack_all_libraries(bmain, op->reports);
+  WM_cursor_wait(false);
 
   return OPERATOR_FINISHED;
 }
@@ -225,7 +227,9 @@ static int unpack_all_exec(bContext *C, wmOperator *op)
   int method = RNA_enum_get(op->ptr, "method");
 
   if (method != PF_KEEP) {
+    WM_cursor_wait(true);
     BKE_packedfile_unpack_all(bmain, op->reports, method); /* XXX PF_ASK can't work here */
+    WM_cursor_wait(false);
   }
   G.fileflags &= ~G_FILE_AUTOPACK;
 
@@ -249,10 +253,10 @@ static int unpack_all_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
   }
 
   if (count == 1) {
-    BLI_strncpy(title, IFACE_("Unpack 1 File"), sizeof(title));
+    STRNCPY_UTF8(title, IFACE_("Unpack 1 File"));
   }
   else {
-    BLI_snprintf(title, sizeof(title), IFACE_("Unpack %d Files"), count);
+    SNPRINTF(title, IFACE_("Unpack %d Files"), count);
   }
 
   pup = UI_popup_menu_begin(C, title, ICON_NONE);
@@ -329,7 +333,9 @@ static int unpack_item_exec(bContext *C, wmOperator *op)
   }
 
   if (method != PF_KEEP) {
+    WM_cursor_wait(true);
     BKE_packedfile_id_unpack(bmain, id, op->reports, method); /* XXX PF_ASK can't work here */
+    WM_cursor_wait(false);
   }
 
   G.fileflags &= ~G_FILE_AUTOPACK;

@@ -16,6 +16,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math_base.hh"
 #include "BLI_math_vector_types.hh"
+#include "BLI_string.h"
 
 #include "BLO_readfile.h"
 
@@ -67,13 +68,14 @@ class obj_importer_test : public BlendfileLoadingBaseTest {
                         int expect_mat_count,
                         int expect_image_count = 0)
   {
-    if (!blendfile_load("io_tests/blend_geometry/all_quads.blend")) {
+    if (!blendfile_load("io_tests" SEP_STR "blend_geometry" SEP_STR "all_quads.blend")) {
       ADD_FAILURE();
       return;
     }
 
-    std::string obj_path = blender::tests::flags_test_asset_dir() + "/io_tests/obj/" + path;
-    strncpy(params.filepath, obj_path.c_str(), FILE_MAX - 1);
+    std::string obj_path = blender::tests::flags_test_asset_dir() +
+                           SEP_STR "io_tests" SEP_STR "obj" SEP_STR + path;
+    STRNCPY(params.filepath, obj_path.c_str());
     const size_t read_buffer_size = 650;
     importer_main(bfile->main, bfile->curscene, bfile->cur_view_layer, params, read_buffer_size);
 

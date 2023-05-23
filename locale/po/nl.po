@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 3.6.0 Alpha (b'd1219b727c7c')\n"
+"Project-Id-Version: Blender 3.6.0 Beta (b'24ca886ac042')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-28 17:39:28\n"
+"POT-Creation-Date: 2023-05-22 16:40:40\n"
 "PO-Revision-Date: 2021-12-05 20:05+0100\n"
 "Language: nl\n"
 "MIME-Version: 1.0\n"
@@ -678,16 +678,12 @@ msgid "Fill"
 msgstr "Vul"
 
 
-msgid "Smooth"
-msgstr "Glad"
-
-
-msgid "Twist"
-msgstr "Draai"
-
-
 msgid "Draw"
 msgstr "Potlood"
+
+
+msgid "Smooth"
+msgstr "Glad"
 
 
 msgid "Show Lines"
@@ -1917,10 +1913,6 @@ msgid "Box"
 msgstr "Doos"
 
 
-msgid "Bend"
-msgstr "Buig"
-
-
 msgid "Force Falloff"
 msgstr "Kracht Afvlakking"
 
@@ -2402,6 +2394,10 @@ msgstr "Nummer"
 
 msgid "Random Size"
 msgstr "Willekeurige Grootte"
+
+
+msgid "Twist"
+msgstr "Draai"
 
 
 msgid "Particle type"
@@ -2944,6 +2940,11 @@ msgstr "Genereer"
 
 msgid "World"
 msgstr "Wereld"
+
+
+msgctxt "Operator"
+msgid "Bend"
+msgstr "Buig"
 
 
 msgid "Origin"
@@ -3768,6 +3769,10 @@ msgid "To Sphere"
 msgstr "Naar Bal"
 
 
+msgid "Bend"
+msgstr "Buig"
+
+
 msgid "Edge Slide"
 msgstr "Glij over Rand"
 
@@ -3980,11 +3985,6 @@ msgstr "Markeer Bestand"
 msgctxt "Operator"
 msgid "Next Folder"
 msgstr "Volgende Map"
-
-
-msgctxt "Operator"
-msgid "Parent File"
-msgstr "Ouder Bestand"
 
 
 msgctxt "Operator"
@@ -5959,11 +5959,6 @@ msgstr "Split Lijnen"
 
 
 msgctxt "Operator"
-msgid "Bend"
-msgstr "Buig"
-
-
-msgctxt "Operator"
 msgid "Create Orientation"
 msgstr "Maak Oriëntatie"
 
@@ -6741,6 +6736,10 @@ msgid "Seconds"
 msgstr "Seconden"
 
 
+msgid "Temperature"
+msgstr "Temperatuur"
+
+
 msgid "Find/Replace"
 msgstr "Vind/Vervang"
 
@@ -7199,101 +7198,6 @@ msgstr "Teken Normalen"
 
 msgid "Show Weights"
 msgstr "Toon Gewichten"
-
-
-msgctxt "Operator"
-msgid "Camera:"
-msgstr "Camera:"
-
-
-msgctxt "Operator"
-msgid "Collection:"
-msgstr "Collectie:"
-
-
-msgctxt "Operator"
-msgid "Curve:"
-msgstr "Kromme:"
-
-
-msgctxt "Operator"
-msgid "File:"
-msgstr "Bestand:"
-
-
-msgctxt "Operator"
-msgid "Font:"
-msgstr "Lettertype:"
-
-
-msgctxt "Operator"
-msgid "Image:"
-msgstr "Afbeelding:"
-
-
-msgctxt "Operator"
-msgid "Material:"
-msgstr "Materiaal:"
-
-
-msgctxt "Operator"
-msgid "Object:"
-msgstr "Object:"
-
-
-msgctxt "Operator"
-msgid "Preferences:"
-msgstr "Instellingen:"
-
-
-msgctxt "Operator"
-msgid "Render:"
-msgstr "Render:"
-
-
-msgctxt "Operator"
-msgid "Rigidbody:"
-msgstr "Star Lichaam:"
-
-
-msgctxt "Operator"
-msgid "Scene:"
-msgstr "Scene:"
-
-
-msgctxt "Operator"
-msgid "Sculpt:"
-msgstr "Beeldhouwen:"
-
-
-msgctxt "Operator"
-msgid "Sound:"
-msgstr "Geluid:"
-
-
-msgctxt "Operator"
-msgid "Surface:"
-msgstr "Oppervlak:"
-
-
-msgctxt "Operator"
-msgid "Text:"
-msgstr "Tekst:"
-
-
-msgctxt "Operator"
-msgid "Transform:"
-msgstr "Transformeer:"
-
-
-msgctxt "Operator"
-msgid "Workspace:"
-msgstr "Werkomgeving:"
-
-
-msgctxt "Operator"
-msgid "World:"
-msgstr "Wereld:"
 
 
 msgid "Search"
@@ -7794,10 +7698,6 @@ msgstr "Seconde"
 
 msgid "Auto-Step"
 msgstr "Auto-Stap"
-
-
-msgid "Temperature"
-msgstr "Temperatuur"
 
 
 msgid "Paths:"
@@ -9387,10 +9287,6 @@ msgid "Active Keyframe"
 msgstr "Actieve Sleutelframe"
 
 
-msgid "into"
-msgstr "in"
-
-
 msgid "Today"
 msgstr "Vandaag"
 
@@ -9497,10 +9393,6 @@ msgstr "kan afbeelding niet opslaan tijdens renderen"
 
 msgid "Now"
 msgstr "Nu"
-
-
-msgid " (Vector)"
-msgstr " (Punt)"
 
 
 msgctxt "Action"

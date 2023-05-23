@@ -56,10 +56,14 @@ ccl_device_forceinline float3 integrate_surface_ray_offset(KernelGlobals kg,
    *   or dot(sd->Ng, ray_D)  is small. Detect such cases and skip test?
    * - Instead of ray offset, can we tweak P to lie within the triangle?
    */
-  const uint3 tri_vindex = kernel_data_fetch(tri_vindex, sd->prim);
-  const packed_float3 tri_a = kernel_data_fetch(tri_verts, tri_vindex.x),
-                      tri_b = kernel_data_fetch(tri_verts, tri_vindex.y),
-                      tri_c = kernel_data_fetch(tri_verts, tri_vindex.z);
+  float3 verts[3];
+  if (sd->type == PRIMITIVE_TRIANGLE) {
+    triangle_vertices(kg, sd->prim, verts);
+  }
+  else {
+    kernel_assert(sd->type == PRIMITIVE_MOTION_TRIANGLE);
+    motion_triangle_vertices(kg, sd->object, sd->prim, sd->time, verts);
+  }
 
   float3 local_ray_P = ray_P;
   float3 local_ray_D = ray_D;
@@ -70,7 +74,7 @@ ccl_device_forceinline float3 integrate_surface_ray_offset(KernelGlobals kg,
     local_ray_D = transform_direction(&itfm, local_ray_D);
   }
 
-  if (ray_triangle_intersect_self(local_ray_P, local_ray_D, tri_a, tri_b, tri_c)) {
+  if (ray_triangle_intersect_self(local_ray_P, local_ray_D, verts)) {
     return ray_P;
   }
   else {
@@ -368,6 +372,7 @@ ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(
 
   float2 bsdf_sampled_roughness = make_float2(1.0f, 1.0f);
   float bsdf_eta = 1.0f;
+  float mis_pdf = 1.0f;
 
 #if defined(__PATH_GUIDING__) && PATH_GUIDING_LEVEL >= 4
   if (kernel_data.integrator.use_surface_guiding) {
@@ -379,9 +384,11 @@ ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(
                                                       &bsdf_eval,
                                                       &bsdf_wo,
                                                       &bsdf_pdf,
+                                                      &mis_pdf,
                                                       &unguided_bsdf_pdf,
                                                       &bsdf_sampled_roughness,
-                                                      &bsdf_eta);
+                                                      &bsdf_eta,
+                                                      rng_state);
 
     if (bsdf_pdf == 0.0f || bsdf_eval_is_zero(&bsdf_eval)) {
       return LABEL_NONE;
@@ -406,7 +413,7 @@ ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(
     if (bsdf_pdf == 0.0f || bsdf_eval_is_zero(&bsdf_eval)) {
       return LABEL_NONE;
     }
-
+    mis_pdf = bsdf_pdf;
     unguided_bsdf_pdf = bsdf_pdf;
   }
 
@@ -441,7 +448,7 @@ ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(
 
   /* Update path state */
   if (!(label & LABEL_TRANSPARENT)) {
-    INTEGRATOR_STATE_WRITE(state, path, mis_ray_pdf) = bsdf_pdf;
+    INTEGRATOR_STATE_WRITE(state, path, mis_ray_pdf) = mis_pdf;
     INTEGRATOR_STATE_WRITE(state, path, mis_origin_n) = sd->N;
     INTEGRATOR_STATE_WRITE(state, path, min_ray_pdf) = fminf(
         unguided_bsdf_pdf, INTEGRATOR_STATE(state, path, min_ray_pdf));
