@@ -13,6 +13,7 @@
 #include "BLI_hash.h"
 #include "BLI_math_vector.h"
 #include "BLI_rand.h"
+#include "BLI_string.h"
 
 #include "BLT_translation.h"
 
@@ -54,6 +55,20 @@
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
+static void initData(GpencilModifierData *md)
+{
+  FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
+
+  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(mmd, modifier));
+
+  MEMCPY_STRUCT_AFTER(mmd, DNA_struct_default_get(FollowCurveGpencilModifierData), modifier);
+}
+
+static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
+{
+  BKE_gpencil_modifier_copydata_generic(md, target);
+}
+
 void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
                                          const GpencilModifierData *md,
                                          const Scene *scene,
@@ -90,21 +105,14 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
     }
   }
 
-  /* Count Bezier curves in collection. */
+  /* Count Bezier curves in object. */
   mmd->curves_len = 0;
-  if (mmd->collection) {
-    LISTBASE_FOREACH (CollectionObject *, cob, &mmd->collection->gobject) {
-      if (cob->ob == NULL || cob->ob->type != OB_CURVES_LEGACY) {
-        continue;
-      }
-
-      /* Loop splines. */
-      Curve *curve = (Curve *)cob->ob->data;
-      LISTBASE_FOREACH (Nurb *, nurb, &curve->nurb) {
-        if (nurb->type == CU_BEZIER) {
-          mmd->curves_len++;
-          break;
-        }
+  if (mmd->object && mmd->object->type == OB_CURVES_LEGACY) {
+    /* Loop splines. */
+    Curve *curve = (Curve *)mmd->object->data;
+    LISTBASE_FOREACH (Nurb *, nurb, &curve->nurb) {
+      if (nurb->type == CU_BEZIER) {
+        mmd->curves_len++;
       }
     }
   }
@@ -114,77 +122,75 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
   if (mmd->curves_len > 0) {
     mmd->curves = MEM_calloc_arrayN(mmd->curves_len, sizeof(GPFollowCurve), __func__);
 
-    LISTBASE_FOREACH (CollectionObject *, cob, &mmd->collection->gobject) {
-      Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, cob->ob);
-      Curve *curve = (Curve *)ob_eval->data;
-      int curve_index = -1;
+    Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, mmd->object);
+    Curve *curve = (Curve *)ob_eval->data;
+    int curve_index = -1;
 
-      /* Loop splines. */
-      LISTBASE_FOREACH (Nurb *, nurb, &curve->nurb) {
-        if (nurb->type != CU_BEZIER) {
-          continue;
-        }
-        curve_index++;
-        GPFollowCurve *follow_curve = &mmd->curves[curve_index];
-
-        /* Count points in spline segments. */
-        int segments = nurb->pntsu;
-        if ((nurb->flagu & CU_NURB_CYCLIC) == 0) {
-          segments--;
-        }
-        follow_curve->points_len = segments * mmd->curve_resolution;
-        follow_curve->curve = curve;
-
-        /* Create array for curve point data. */
-        const int stride = sizeof(GPFollowCurvePoint);
-        follow_curve->points = MEM_mallocN((follow_curve->points_len + 1) * stride, __func__);
-        GPFollowCurvePoint *point_offset = follow_curve->points;
-
-        /* Convert spline segments of Bezier curve to points. */
-        for (int i = 0; i < segments; i++) {
-          int i_next = (i + 1) % nurb->pntsu;
-          BezTriple *bezt = &nurb->bezt[i];
-          BezTriple *bezt_next = &nurb->bezt[i_next];
-          for (int axis = 0; axis < 3; axis++) {
-            BKE_curve_forward_diff_bezier(bezt->vec[1][axis],
-                                          bezt->vec[2][axis],
-                                          bezt_next->vec[0][axis],
-                                          bezt_next->vec[1][axis],
-                                          POINTER_OFFSET(point_offset, sizeof(float) * axis),
-                                          mmd->curve_resolution,
-                                          stride);
-          }
-          point_offset = POINTER_OFFSET(point_offset, stride * mmd->curve_resolution);
-        }
-
-        /* Transform to world space. */
-        for (int i = 0; i < follow_curve->points_len; i++) {
-          GPFollowCurvePoint *point = &follow_curve->points[i];
-          mul_m4_v3(ob_eval->object_to_world, point->co);
-        }
-
-        /* Calculate the vectors from one point to the next.
-         * And the (accumulative) length of these vectors.
-         */
-        float len_accumulative = 0;
-        for (int i = 0; i < follow_curve->points_len - 1; i++) {
-          GPFollowCurvePoint *point = &follow_curve->points[i];
-          GPFollowCurvePoint *point_next = &follow_curve->points[i + 1];
-          sub_v3_v3v3(point->vec_to_next, point_next->co, point->co);
-          point->vec_len = len_v3(point->vec_to_next);
-          point->vec_len_accumulative = len_accumulative;
-          len_accumulative += point->vec_len;
-          normalize_v3(point->vec_to_next);
-
-          if (i == follow_curve->points_len - 2) {
-            copy_v3_v3(point_next->vec_to_next, point->vec_to_next);
-            point_next->vec_len = 0;
-            point_next->vec_len_accumulative = len_accumulative;
-          }
-        }
-
-        follow_curve->length = len_accumulative;
+    /* Loop splines. */
+    LISTBASE_FOREACH (Nurb *, nurb, &curve->nurb) {
+      if (nurb->type != CU_BEZIER) {
+        continue;
       }
+      curve_index++;
+      GPFollowCurve *follow_curve = &mmd->curves[curve_index];
+
+      /* Count points in spline segments. */
+      int segments = nurb->pntsu;
+      if ((nurb->flagu & CU_NURB_CYCLIC) == 0) {
+        segments--;
+      }
+      follow_curve->points_len = segments * mmd->curve_resolution;
+      follow_curve->curve = curve;
+
+      /* Create array for curve point data. */
+      const int stride = sizeof(GPFollowCurvePoint);
+      follow_curve->points = MEM_mallocN((follow_curve->points_len + 1) * stride, __func__);
+      GPFollowCurvePoint *point_offset = follow_curve->points;
+
+      /* Convert spline segments of Bezier curve to points. */
+      for (int i = 0; i < segments; i++) {
+        int i_next = (i + 1) % nurb->pntsu;
+        BezTriple *bezt = &nurb->bezt[i];
+        BezTriple *bezt_next = &nurb->bezt[i_next];
+        for (int axis = 0; axis < 3; axis++) {
+          BKE_curve_forward_diff_bezier(bezt->vec[1][axis],
+                                        bezt->vec[2][axis],
+                                        bezt_next->vec[0][axis],
+                                        bezt_next->vec[1][axis],
+                                        POINTER_OFFSET(point_offset, sizeof(float) * axis),
+                                        mmd->curve_resolution,
+                                        stride);
+        }
+        point_offset = POINTER_OFFSET(point_offset, stride * mmd->curve_resolution);
+      }
+
+      /* Transform to world space. */
+      for (int i = 0; i < follow_curve->points_len; i++) {
+        GPFollowCurvePoint *point = &follow_curve->points[i];
+        mul_m4_v3(ob_eval->object_to_world, point->co);
+      }
+
+      /* Calculate the vectors from one point to the next.
+       * And the (accumulative) length of these vectors.
+       */
+      float len_accumulative = 0;
+      for (int i = 0; i < follow_curve->points_len - 1; i++) {
+        GPFollowCurvePoint *point = &follow_curve->points[i];
+        GPFollowCurvePoint *point_next = &follow_curve->points[i + 1];
+        sub_v3_v3v3(point->vec_to_next, point_next->co, point->co);
+        point->vec_len = len_v3(point->vec_to_next);
+        point->vec_len_accumulative = len_accumulative;
+        len_accumulative += point->vec_len;
+        normalize_v3(point->vec_to_next);
+
+        if (i == follow_curve->points_len - 2) {
+          copy_v3_v3(point_next->vec_to_next, point->vec_to_next);
+          point_next->vec_len = 0;
+          point_next->vec_len_accumulative = len_accumulative;
+        }
+      }
+
+      follow_curve->length = len_accumulative;
     }
   }
 }
@@ -202,16 +208,18 @@ void MOD_gpencil_follow_curve_frame_clear(const GpencilModifierData *md)
     MEM_SAFE_FREE(curve->points);
   }
   MEM_SAFE_FREE(mmd->curves);
+  mmd->curves_len = 0;
 }
 
 #undef CURVE_RESOLUTION
 
-static void get_random_float(const int seed, float *random_value)
+static void get_random_float(const int seed, const int count, float *random_value)
 {
   RNG *rng = BLI_rng_new(seed);
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < count; i++) {
     random_value[i] = BLI_rng_get_float(rng);
   }
+  BLI_rng_free(rng);
 }
 
 static void get_rotation_plane(const int axis, const float angle, float *rotation_plane)
@@ -241,6 +249,7 @@ static void get_rotation_plane(const int axis, const float angle, float *rotatio
 static void get_distance_of_point_to_line(const float *point,
                                           const float *line_start,
                                           const float *line_vec,
+                                          const float *plane,
                                           float *dist_on_line,
                                           float *radius)
 {
@@ -261,10 +270,13 @@ static void get_distance_of_point_to_line(const float *point,
   mul_v3_v3fl(vec_t, line_vec, dist);
   add_v3_v3v3(p_on_line, line_start, vec_t);
 
-  /* Get the radius (= the shortest distance of the point to the line) and the direction. */
+  /* Get the direction of the radius (on which side of the line). */
+  sub_v3_v3v3(vec_dir, point, p_on_line);
+  cross_v3_v3v3(vec_t, vec_dir, line_vec);
+  float direction = (dot_v3v3(vec_t, plane) < 0.0f) ? -1.0f : 1.0f;
+
+  /* Get the radius (= the shortest distance of the point to the line). */
   sub_v3_v3(p_on_line, point);
-  mul_v3_v3v3(vec_dir, point, line_vec);
-  float direction = (dot_v3v3(vec_dir, line_vec) < 0) ? -1.0f : 1.0f;
   *radius = len_v3(p_on_line) * direction;
 }
 
@@ -285,6 +297,7 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
                                                             const bGPDframe *gpf,
                                                             const bGPDstroke *gps,
                                                             const float gps_length,
+                                                            const float *side_plane,
                                                             float *dist_on_curve,
                                                             float *radius_initial,
                                                             float *angle_initial,
@@ -292,13 +305,13 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
-  /* Get initial random values for this stroke. */
+  /* Get random values for this stroke. */
   float random_val[3];
   int seed = mmd->seed;
   seed += BLI_hash_string(ob->id.name + 2);
   seed += BLI_hash_string(md->name);
   seed += BLI_findindex(&gpf->strokes, gps);
-  get_random_float(seed, random_val);
+  get_random_float(seed, 3, random_val);
 
   const float speed_var_f = (random_val[0] - 0.5f) * 2.0f;
   float speed = mmd->speed + mmd->speed_variation * speed_var_f;
@@ -306,25 +319,32 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     speed *= -1.0f;
   }
   *start_at_tail = (speed < 0.0f);
+  *angle_initial = mmd->angle;
 
-  if (fabsf(mmd->spiral_factor) < FLT_EPSILON) {
-    *angle_initial = mmd->angle;
-  }
-  else {
-    *angle_initial = mmd->angle + M_PI_2 * random_val[1];
-  }
+  /* Get stroke starting point. */
+  const bool tail_first = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0);
+  float *stroke_start = (tail_first) ? (&gps->points[gps->totpoints - 1].x) : (&gps->points[0].x);
 
-  int curve_index = (int)(mmd->curves_len * random_val[2]);
+  /* Get the curve this stroke belongs to (= the nearest stroke). */
+  int curve_index = 0;
+  if (mmd->curves_len > 1) {
+    float dist_min = FLT_MAX;
+    for (int i = 0; i < mmd->curves_len; i++) {
+      const float dist = len_squared_v3v3(stroke_start, mmd->curves[i].points[0].co);
+      if (dist < dist_min) {
+        dist_min = dist;
+        curve_index = i;
+      }
+    }
+  }
   GPFollowCurve *curve = &mmd->curves[curve_index];
 
   /* Get initial distance from stroke to curve. */
-  const bool tail_first = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0);
   float dist_to_curve_initial;
-  float *stroke_start = (tail_first) ? (&gps->points[gps->totpoints - 1].x) : (&gps->points[0].x);
-
   get_distance_of_point_to_line(stroke_start,
                                 curve->points[0].co,
                                 curve->points[0].vec_to_next,
+                                side_plane,
                                 &dist_to_curve_initial,
                                 radius_initial);
 
@@ -342,6 +362,11 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     *dist_on_curve = gps_length + delta * random_val[1];
 
     return curve;
+  }
+
+  /* Scatter when animated: vary the starting point of the stroke. */
+  if (mmd->flag & GP_FOLLOWCURVE_SCATTER) {
+    dist_to_curve_initial -= curve->length * 0.5 * random_val[2];
   }
 
   /* Get the distance the stroke travelled so far, up to current keyframe. */
@@ -367,17 +392,17 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     return curve;
   }
 
-  /* When animated, we search for the curve the stroke is currently projected on. */
-  while (dist_travelled > (curve->length + gps_length)) {
-    /* Step over current curve. */
-    dist_travelled -= curve->length + gps_length;
-
-    /* Select next curve randomly. */
-    seed += 1731;
-    get_random_float(seed, random_val);
-    curve_index = (int)(mmd->curves_len * random_val[2]);
-    curve = &mmd->curves[curve_index];
+  /* When the animation is repeated, we take the modulo to get the current distance
+   * on the curve.
+   */
+  const float curve_gps_length = curve->length + gps_length;
+  if ((dist_travelled > curve_gps_length) && (fabsf(mmd->spirals) > FLT_EPSILON)) {
+    /* When spiraling, pick a random start angle (for variation). */
+    seed += ((int)(dist_travelled / curve_gps_length) * 1731);
+    get_random_float(seed, 1, random_val);
+    *angle_initial = mmd->angle + M_PI * 2 * random_val[0];
   }
+  dist_travelled = fmodf(dist_travelled, curve_gps_length);
 
   *dist_on_curve = dist_travelled;
   return curve;
@@ -415,26 +440,25 @@ static GPFollowCurvePoint *curve_search_point_by_distance(const float dist,
   }
 }
 
-static void curve_get_point_by_distance(const float dist,
+static void curve_get_point_by_distance(const float dist_init,
                                         GPFollowCurve *curve,
                                         float *point,
                                         float *point_vec)
 {
-  /* Check boundaries. */
+  /* When outside curve boundaries, find the mirrored curve point. */
+  float mirror_at[3];
+  bool mirrored = false;
+  float dist = dist_init;
+
   if (dist < 0.0f) {
-    /* Before curve start, project point on vector of first curve point. */
-    copy_v3_v3(point_vec, curve->points[0].vec_to_next);
-    mul_v3_v3fl(point, point_vec, dist);
-    add_v3_v3(point, curve->points[0].co);
-    return;
+    dist = MIN2(-dist, curve->length);
+    mirrored = true;
+    copy_v3_v3(mirror_at, curve->points[0].co);
   }
   else if (dist > curve->length) {
-    /* After curve end, project point on vector of last curve point. */
-    const int index = curve->points_len - 1;
-    copy_v3_v3(point_vec, curve->points[index].vec_to_next);
-    mul_v3_v3fl(point, point_vec, (dist - curve->length));
-    add_v3_v3(point, curve->points[index].co);
-    return;
+    dist = MAX2(2 * curve->length - dist, 0.0f);
+    mirrored = true;
+    copy_v3_v3(mirror_at, curve->points[curve->points_len - 1].co);
   }
 
   /* Find closest curve point by binary search. */
@@ -448,20 +472,12 @@ static void curve_get_point_by_distance(const float dist,
   copy_v3_v3(point, curve_p->co);
   mul_v3_v3fl(delta, curve_p->vec_to_next, dist_remaining);
   add_v3_v3(point, delta);
-}
 
-static void initData(GpencilModifierData *md)
-{
-  FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
-
-  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(mmd, modifier));
-
-  MEMCPY_STRUCT_AFTER(mmd, DNA_struct_default_get(FollowCurveGpencilModifierData), modifier);
-}
-
-static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
-{
-  BKE_gpencil_modifier_copydata_generic(md, target);
+  /* Mirror curve point. */
+  if (mirrored) {
+    sub_v3_v3v3(delta, mirror_at, point);
+    add_v3_v3v3(point, mirror_at, delta);
+  }
 }
 
 /* deform stroke */
@@ -497,6 +513,23 @@ static void deformStroke(GpencilModifierData *md,
   float *gps_segment_length = MEM_malloc_arrayN(gps->totpoints, sizeof(float), __func__);
   float gps_length = stroke_get_length(gps, gps_segment_length);
 
+  /* Get plane for sprial radius direction (on which side of the curve is a stroke point.) */
+  float side_plane[3] = {0.0f};
+  switch (mmd->angle_axis) {
+    case GP_FOLLOWCURVE_AXIS_X: {
+      side_plane[0] = 1.0f;
+      break;
+    }
+    case GP_FOLLOWCURVE_AXIS_Y: {
+      side_plane[1] = 1.0f;
+      break;
+    }
+    case GP_FOLLOWCURVE_AXIS_Z: {
+      side_plane[2] = 1.0f;
+      break;
+    }
+  }
+
   /* Get current curve to project the stroke on. */
   float dist_on_curve, radius_initial, angle_initial;
   bool curve_start_at_tail;
@@ -505,6 +538,7 @@ static void deformStroke(GpencilModifierData *md,
                                                                gpf,
                                                                gps,
                                                                gps_length,
+                                                               side_plane,
                                                                &dist_on_curve,
                                                                &radius_initial,
                                                                &angle_initial,
@@ -537,7 +571,7 @@ static void deformStroke(GpencilModifierData *md,
   get_rotation_plane(mmd->angle_axis, angle_initial, rotation_plane);
 
   /* Get spiral setting. */
-  const bool use_spiral = (fabsf(mmd->spiral_factor) > FLT_EPSILON);
+  const bool use_spiral = (fabsf(mmd->spirals) > FLT_EPSILON);
 
   /* Loop all stroke points and project them on the curve. */
   for (int i = gps_start_index; i >= 0 && i < gps->totpoints; i += gps_dir) {
@@ -547,7 +581,8 @@ static void deformStroke(GpencilModifierData *md,
 
     /* Get distance and radius of point to stroke profile. */
     float gps_p_dist, gps_p_radius;
-    get_distance_of_point_to_line(gps_p, gps_start, profile, &gps_p_dist, &gps_p_radius);
+    get_distance_of_point_to_line(
+        gps_p, gps_start, profile, side_plane, &gps_p_dist, &gps_p_radius);
 
     /* Find closest point on curve given a distance. */
     float curve_p[3], curve_p_vec[3];
@@ -562,9 +597,7 @@ static void deformStroke(GpencilModifierData *md,
      */
     float p_rotated[3];
     if (use_spiral) {
-      // TODO!!! Take speed into account... (how??)
-      const float angle = angle_initial +
-                          mmd->spiral_factor * M_PI_2 * (curve_dist / curve->length);
+      const float angle = angle_initial + mmd->spirals * M_PI * 2 * (curve_dist / curve->length);
       get_rotation_plane(mmd->angle_axis, angle, rotation_plane);
     }
     cross_v3_v3v3(p_rotated, curve_p_vec, rotation_plane);
@@ -603,7 +636,7 @@ static void bakeModifier(Main *UNUSED(bmain),
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
-  if (mmd->collection == NULL) {
+  if (mmd->object == NULL || mmd->curves_len == 0) {
     return;
   }
 
@@ -614,17 +647,20 @@ static bool isDisabled(GpencilModifierData *md, int UNUSED(userRenderParams))
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
-  return !mmd->collection;
+  return (mmd->object == NULL);
 }
 
 static void updateDepsgraph(GpencilModifierData *md,
                             const ModifierUpdateDepsgraphContext *ctx,
                             const int UNUSED(mode))
 {
-  FollowCurveGpencilModifierData *lmd = (FollowCurveGpencilModifierData *)md;
-  if (lmd->collection != NULL) {
-    DEG_add_collection_geometry_relation(ctx->node, lmd->collection, "Follow Curve Modifier");
+  FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
+  if (mmd->object != NULL) {
+    DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_GEOMETRY, "Follow Curve Modifier");
+    DEG_add_object_relation(
+        ctx->node, mmd->object, DEG_OB_COMP_TRANSFORM, "Follow Curve Modifier");
   }
+  DEG_add_object_relation(ctx->node, ctx->object, DEG_OB_COMP_TRANSFORM, "Follow Curve Modifier");
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -632,7 +668,7 @@ static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, 
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
   walk(userData, ob, (ID **)&mmd->material, IDWALK_CB_USER);
-  walk(userData, ob, (ID **)&mmd->collection, IDWALK_CB_NOP);
+  walk(userData, ob, (ID **)&mmd->object, IDWALK_CB_NOP);
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -646,7 +682,7 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiLayoutSetPropSep(layout, true);
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "collection", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "object", 0, NULL, ICON_NONE);
 
   col = uiLayoutColumn(layout, false);
   uiItemR(col, ptr, "curve_resolution", 0, NULL, ICON_NONE);
@@ -663,7 +699,7 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   col = uiLayoutColumn(layout, true);
   uiItemR(col, ptr, "angle", 0, NULL, ICON_NONE);
-  uiItemR(col, ptr, "spiral_factor", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "spirals", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(layout, false);
   uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);

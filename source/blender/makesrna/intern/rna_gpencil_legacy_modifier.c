@@ -491,15 +491,15 @@ static void rna_HookGpencilModifier_object_set(PointerRNA *ptr,
   BKE_object_modifier_gpencil_hook_reset(ob, hmd);
 }
 
-static void rna_FollowCurveGpencilModifier_collection_set(PointerRNA *ptr,
-                                                          PointerRNA value,
-                                                          struct ReportList *UNUSED(reports))
+static void rna_FollowCurveGpencilModifier_object_set(PointerRNA *ptr,
+                                                      PointerRNA value,
+                                                      struct ReportList *UNUSED(reports))
 {
   FollowCurveGpencilModifierData *fcmd = ptr->data;
-  Collection *collection = (Collection *)value.data;
+  Object *object = (Object *)value.data;
 
-  fcmd->collection = collection;
-  id_lib_extern((ID *)collection);
+  fcmd->object = object;
+  id_lib_extern((ID *)object);
 }
 
 static void rna_TintGpencilModifier_object_set(PointerRNA *ptr,
@@ -4825,17 +4825,17 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
-  prop = RNA_def_property(srna, "collection", PROP_POINTER, PROP_NONE);
-  RNA_def_property_ui_text(prop, "Collection", "Collection with Bezier curves to follow");
+  prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Object", "Object with Bezier curves to follow");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
   RNA_def_property_pointer_funcs(
-      prop, NULL, "rna_FollowCurveGpencilModifier_collection_set", NULL, NULL);
+      prop, NULL, "rna_FollowCurveGpencilModifier_object_set", NULL, NULL);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_dependency_update");
 
   prop = RNA_def_property(srna, "curve_resolution", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "curve_resolution");
-  RNA_def_property_range(prop, 0, 4096);
-  RNA_def_property_ui_range(prop, 0, 4096, 32, 0);
+  RNA_def_property_range(prop, 32, 4096);
+  RNA_def_property_ui_range(prop, 32, 4096, 32, 0);
   RNA_def_property_ui_text(
       prop, "Curve Resolution", "The precision with which a curve is divided into points");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
@@ -4855,10 +4855,10 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
-  prop = RNA_def_property(srna, "spiral_factor", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "spiral_factor");
-  RNA_def_property_range(prop, -1000.0, 1000.0);
-  RNA_def_property_ui_range(prop, -1000.0, 1000.0, 0.1, 1);
+  prop = RNA_def_property(srna, "spirals", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "spirals");
+  RNA_def_property_range(prop, -100.0, 100.0);
+  RNA_def_property_ui_range(prop, -100.0, 100.0, 0.1, 1);
   RNA_def_property_ui_text(prop, "Spirals", "Number of spirals a stroke makes around the curve");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 

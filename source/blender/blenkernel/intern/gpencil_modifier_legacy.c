@@ -906,6 +906,36 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   MOD_lineart_clear_cache(&gpd->runtime.lineart_cache);
 }
 
+static void gpencil_modifier_renumber_by_type_name(GpencilModifierData *md)
+{
+  if (BLI_strcaseeq(md->type_name, "MorphTargets")) {
+    md->type = eGpencilModifierType_MorphTargets;
+    return;
+  }
+  if (BLI_strcaseeq(md->type_name, "FollowCurve")) {
+    md->type = eGpencilModifierType_FollowCurve;
+    return;
+  }
+}
+
+static void gpencil_modifier_set_type_name(GpencilModifierData *md)
+{
+  if (md->type_name[0] != '\0') {
+    return;
+  }
+
+  switch (md->type) {
+    case eGpencilModifierType_MorphTargets: {
+      BLI_strncpy(md->type_name, "MorphTargets", sizeof(md->type_name));
+      break;
+    }
+    case eGpencilModifierType_FollowCurve: {
+      BLI_strncpy(md->type_name, "FollowCurve", sizeof(md->type_name));
+      break;
+    }
+  }
+}
+
 void BKE_gpencil_modifier_blend_write(BlendWriter *writer, ListBase *modbase)
 {
   if (modbase == NULL) {
@@ -917,6 +947,9 @@ void BKE_gpencil_modifier_blend_write(BlendWriter *writer, ListBase *modbase)
     if (mti == NULL) {
       return;
     }
+
+    /* Set modifier type name, because it's more robust than just a type number. */
+    gpencil_modifier_set_type_name(md);
 
     BLO_write_struct_by_name(writer, mti->struct_name, md);
 
@@ -987,6 +1020,11 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb)
 
   LISTBASE_FOREACH (GpencilModifierData *, md, lb) {
     md->error = NULL;
+
+    /* Renumber modifiers based on their type name. */
+    if (md->type_name[0] != '\0') {
+      gpencil_modifier_renumber_by_type_name(md);
+    }
 
     /* if modifiers disappear, or for upward compatibility */
     if (NULL == BKE_gpencil_modifier_get_info(md->type)) {

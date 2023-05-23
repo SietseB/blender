@@ -426,7 +426,7 @@
 
 #define _DNA_DEFAULT_FollowCurveGpencilModifierData \
   { \
-    .collection = NULL, \
+    .object = NULL, \
     .material = NULL, \
     .layername = "", \
     .layer_pass = 0, \
@@ -437,7 +437,7 @@
     .speed_variation = 0.0f, \
     .angle = 0.0f, \
     .angle_axis = GP_FOLLOWCURVE_AXIS_Y, \
-    .spiral_factor = 0.0f, \
+    .spirals = 0.0f, \
     .curve_resolution = 1024, \
   }
 

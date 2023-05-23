@@ -80,7 +80,8 @@ typedef struct GpencilModifierData {
   short ui_expand_flag;
   /** MAX_NAME. */
   char name[64];
-
+  /* Type name. */
+  char type_name[32];
   char *error;
 } GpencilModifierData;
 
@@ -1368,8 +1369,8 @@ typedef struct GPFollowCurve {
 typedef struct FollowCurveGpencilModifierData {
   GpencilModifierData modifier;
 
-  /** Collection with curves to follow. */
-  struct Collection *collection;
+  /** Object with curves to follow. */
+  struct Object *object;
 
   /** Material for filtering. */
   struct Material *material;
@@ -1393,8 +1394,8 @@ typedef struct FollowCurveGpencilModifierData {
   float angle;
   /* Projection axis. */
   int angle_axis;
-  /** Spiral speed. */
-  float spiral_factor;
+  /** Number of spirals around a curve. */
+  float spirals;
   /** Curve resolution */
   int curve_resolution;
   char _pad[4];
