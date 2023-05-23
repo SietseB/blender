@@ -51,7 +51,6 @@
 #include "DEG_depsgraph_query.h"
 
 #include "gpencil_intern.h"
-#include "paint_intern.h"
 
 /* ************************************************ */
 /* General Brush Editing Context */
@@ -59,6 +58,12 @@
 #define GP_FIND_NEAREST_BUFFER_CHUNK 1024
 #define GP_FIND_NEAREST_EPSILON 1e-6f
 #define GP_STROKE_HASH_BITSHIFT 16
+
+/* Weight paint gradient types. */
+enum {
+  WPAINT_GRADIENT_TYPE_LINEAR,
+  WPAINT_GRADIENT_TYPE_RADIAL,
+};
 
 /* Grid of Colors for Smear. */
 typedef struct tGP_Grid {
