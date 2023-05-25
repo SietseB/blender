@@ -54,14 +54,6 @@ typedef struct bGPDspoint_Runtime {
   struct bGPDspoint *pt_orig;
   /** Original index array position */
   int idx_orig;
-
-  /** Ondine additions */
-  /** Coordinates in 2d space */
-  float flat_x, flat_y;
-  /** Distance to camera */
-  float dist_to_cam;
-  /** Pressure adjusted to distance to camera */
-  float pressure_3d;
   char _pad0[4];
 } bGPDspoint_Runtime;
 
@@ -111,6 +103,28 @@ typedef enum eGPDspoint_Flag {
   /* stroke point is temp tagged (for some editing operation) */
   GP_SPOINT_TEMP_TAG2 = (1 << 3),
 } eGPSPoint_Flag;
+
+typedef struct bGPDspoint2D {
+  DNA_DEFINE_CXX_METHODS(bGPDspoint2D)
+
+  /* 2D stroke point data:
+   * - x
+   * - y
+   * - pressure_3d
+   * - strength
+   * - dist_to_camera
+   */
+  float data[5];
+  char _pad0[4];
+} bGPDspoint2D;
+
+typedef enum eGPDspoint2D_Fields {
+  ONDINE_X = 0,
+  ONDINE_Y = 1,
+  ONDINE_PRESSURE3D = 2,
+  ONDINE_STRENGTH = 3,
+  ONDINE_DIST_TO_CAM = 4,
+} eGPDspoint2D_Fields;
 
 /* ***************************************** */
 /* GP stroke point delta's for storing morph target data. */
@@ -394,6 +408,9 @@ typedef struct bGPDstroke {
   ListBase morphs;
 
   /** Ondine watercolor additions */
+  /** Array of 2D data-points for stroke. */
+  bGPDspoint2D *points_2d;
+
   /** Seed for randomization of stroke density, noise etc. */
   int seed;
   char _pad5[4];
@@ -402,7 +419,6 @@ typedef struct bGPDstroke {
    * well! */
 
   bGPDstroke_Runtime runtime;
-  void *_pad6;
 } bGPDstroke;
 
 /** #bGPDstroke.flag */

@@ -1466,6 +1466,21 @@ static bool rna_GPencil_morph_changes_layer_order_get(PointerRNA *ptr)
 
 #else
 
+static void rna_def_gpencil_stroke_point_2d(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GPencilStrokePoint2D", NULL);
+  RNA_def_struct_sdna(srna, "bGPDspoint2D");
+  RNA_def_struct_ui_text(srna, "Ondine Stroke Point", "2D stroke point for Ondine rendering");
+
+  prop = RNA_def_property(srna, "data", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "data");
+  RNA_def_property_array(prop, 5);
+  RNA_def_property_ui_text(prop, "Coordinates", "");
+}
+
 static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -1532,18 +1547,6 @@ static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Vertex Color", "Color used to mix with point color to get final color");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* Ondine addtions */
-  /* x,y in 2d space - only used during rendering, not in the UI */
-  prop = RNA_def_property(srna, "flat_x", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "runtime.flat_x");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  prop = RNA_def_property(srna, "flat_y", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "runtime.flat_y");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  prop = RNA_def_property(srna, "pressure_3d", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "runtime.pressure_3d");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
 static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -2118,6 +2121,13 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Init Time", "Initial time of the stroke");
 
   /* Ondine additions */
+  /* Points for 2D rendering */
+  prop = RNA_def_property(srna, "points_2d", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "points_2d", "totpoints");
+  RNA_def_property_struct_type(prop, "GPencilStrokePoint2D");
+  RNA_def_property_ui_text(
+      prop, "Stroke Points 2D", "Stroke data points for 2D rendering (Ondine)");
+
   /* Seed */
   prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "seed");
@@ -3626,6 +3636,16 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop, "Clear Background", "Clear the background when drawing this object");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* clear background */
+  prop = RNA_def_property(srna, "true_depth", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_TRUE_DEPTH);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(
+      prop,
+      "True Depth",
+      "Render with true depth. Pixels closer to the camera will hide pixels farther away.");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* gouache style */
   prop = RNA_def_property(srna, "gouache_style", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_GOUACHE_STYLE);
@@ -3793,6 +3813,7 @@ void RNA_def_gpencil(BlenderRNA *brna)
 
   rna_def_gpencil_stroke(brna);
   rna_def_gpencil_stroke_point(brna);
+  rna_def_gpencil_stroke_point_2d(brna);
   rna_def_gpencil_triangle(brna);
   rna_def_gpencil_curve(brna);
   rna_def_gpencil_curve_point(brna);

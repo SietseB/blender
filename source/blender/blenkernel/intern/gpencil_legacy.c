@@ -268,6 +268,9 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
         /* Relink geometry. */
         BLO_read_data_address(reader, &gps->triangles);
 
+        /* Reset 2D points array. */
+        gps->points_2d = NULL;
+
         /* Relink stroke edit curve. */
         BLO_read_data_address(reader, &gps->editcurve);
         if (gps->editcurve != NULL) {
@@ -469,6 +472,9 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
   }
   if (&gps->morphs != NULL) {
     BKE_gpencil_free_stroke_morphs(gps);
+  }
+  if (gps->points_2d) {
+    MEM_freeN(gps->points_2d);
   }
 
   MEM_freeN(gps);
@@ -887,6 +893,7 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
   else {
     gps->points = NULL;
   }
+  gps->points_2d = NULL;
 
   /* initialize triangle memory to dummy data */
   gps->triangles = NULL;
@@ -976,6 +983,7 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
   gps_dst = MEM_dupallocN(gps_src);
   gps_dst->prev = gps_dst->next = NULL;
   gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
+  gps_dst->points_2d = NULL;
 
   if (dup_points) {
     gps_dst->points = MEM_dupallocN(gps_src->points);
@@ -1363,6 +1371,9 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
   }
   if (&gps->morphs) {
     BKE_gpencil_free_stroke_morphs(gps);
+  }
+  if (gps->points_2d) {
+    MEM_freeN(gps->points_2d);
   }
   MEM_freeN(gps->triangles);
   BLI_freelinkN(&gpf->strokes, gps);
@@ -2354,7 +2365,8 @@ bool BKE_gpencil_merge_materials(Object *ob,
               continue;
             }
             if (((gpl->flag & GP_LAYER_UNLOCK_COLOR) == 0) &&
-                (gp_style->flag & GP_MATERIAL_LOCKED)) {
+                (gp_style->flag & GP_MATERIAL_LOCKED))
+            {
               continue;
             }
           }
@@ -2805,7 +2817,8 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
 
       /* If layer solo mode and Paint mode, only keyframes with data are displayed. */
       if (GPENCIL_PAINT_MODE(gpd) && (gpl->flag & GP_LAYER_SOLO_MODE) &&
-          (act_gpf->framenum != cfra)) {
+          (act_gpf->framenum != cfra))
+      {
         gpl->opacity = prev_opacity;
         continue;
       }

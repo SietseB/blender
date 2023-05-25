@@ -322,6 +322,11 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
       /* Calculate distance to camera. */
       gps->runtime.render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
 
+      /* Create array for 2D point data. */
+      MEM_SAFE_FREE(gps->points_2d);
+      gps->points_2d = (bGPDspoint2D *)MEM_malloc_arrayN(
+          gps->totpoints, sizeof(bGPDspoint2D), __func__);
+
       /* Init min/max calculations. */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
       strength = (float)strength / 1000;
@@ -342,11 +347,13 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
         co = math::transform_point(obmat, co);
 
         /* Convert to 2D space. */
+        bGPDspoint2D &pt_2d = gps->points_2d[i];
         const float2 screen_co = gpencil_3D_point_to_2D(co);
-        pt.runtime.flat_x = screen_co.x;
-        pt.runtime.flat_y = screen_co.y;
+        pt_2d.data[ONDINE_X] = screen_co.x;
+        pt_2d.data[ONDINE_Y] = screen_co.y;
+        pt_2d.data[ONDINE_STRENGTH] = pt.strength;
         dist_to_cam = dist_signed_squared_to_plane_v3(co, cam_plane);
-        pt.runtime.dist_to_cam = dist_to_cam;
+        pt_2d.data[ONDINE_DIST_TO_CAM] = dist_to_cam;
 
         /* Keep track of closest/furthest point to camera. */
         if (dist_to_cam < max_dist_to_cam) {
@@ -359,26 +366,26 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
         }
 
         /* Keep track of minimum y point. */
-        if (pt.runtime.flat_y <= min_y) {
-          if ((pt.runtime.flat_y < min_y) || (pt.runtime.flat_x > max_x)) {
+        if (pt_2d.data[ONDINE_Y] <= min_y) {
+          if ((pt_2d.data[ONDINE_Y] < min_y) || (pt_2d.data[ONDINE_X] > max_x)) {
             min_i1 = i;
-            min_y = pt.runtime.flat_y;
-            max_x = pt.runtime.flat_x;
+            min_y = pt_2d.data[ONDINE_Y];
+            max_x = pt_2d.data[ONDINE_X];
           }
         }
 
         /* Get bounding box. */
-        if (bbox_minx > pt.runtime.flat_x) {
-          bbox_minx = pt.runtime.flat_x;
+        if (bbox_minx > pt_2d.data[ONDINE_X]) {
+          bbox_minx = pt_2d.data[ONDINE_X];
         }
-        if (bbox_miny > pt.runtime.flat_y) {
-          bbox_miny = pt.runtime.flat_y;
+        if (bbox_miny > pt_2d.data[ONDINE_Y]) {
+          bbox_miny = pt_2d.data[ONDINE_Y];
         }
-        if (bbox_maxx < pt.runtime.flat_x) {
-          bbox_maxx = pt.runtime.flat_x;
+        if (bbox_maxx < pt_2d.data[ONDINE_X]) {
+          bbox_maxx = pt_2d.data[ONDINE_X];
         }
-        if (bbox_maxy < pt.runtime.flat_y) {
-          bbox_maxy = pt.runtime.flat_y;
+        if (bbox_maxy < pt_2d.data[ONDINE_Y]) {
+          bbox_maxy = pt_2d.data[ONDINE_Y];
         }
       }
 
@@ -407,13 +414,15 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
           pressure_is_set = true;
           for (const int i : IndexRange(gps->totpoints)) {
             bGPDspoint &pt = gps->points[i];
+            bGPDspoint2D &pt_2d = gps->points_2d[i];
+
             /* Adjust pressure based on camera distance. */
-            pt.runtime.pressure_3d = pt.pressure *
-                                     (1.0f -
-                                      ((min_dist_to_cam - pt.runtime.dist_to_cam) / delta_dist) *
-                                          stroke_width_factor);
-            if (pt.runtime.pressure_3d > max_pressure) {
-              max_pressure = pt.runtime.pressure_3d;
+            pt_2d.data[ONDINE_PRESSURE3D] =
+                pt.pressure *
+                (1.0f - ((min_dist_to_cam - pt_2d.data[ONDINE_DIST_TO_CAM]) / delta_dist) *
+                            stroke_width_factor);
+            if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
+              max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
             }
           }
         }
@@ -421,9 +430,10 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
       if (!pressure_is_set) {
         for (const int i : IndexRange(gps->totpoints)) {
           bGPDspoint &pt = gps->points[i];
-          pt.runtime.pressure_3d = pt.pressure;
-          if (pt.runtime.pressure_3d > max_pressure) {
-            max_pressure = pt.runtime.pressure_3d;
+          bGPDspoint2D &pt_2d = gps->points_2d[i];
+          pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure;
+          if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
+            max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
           }
         }
       }
@@ -436,10 +446,11 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
         int lenp = gps->totpoints - 1;
         int min_i0 = (min_i1 == 0) ? lenp : min_i1 - 1;
         int min_i2 = (min_i1 == lenp) ? 0 : min_i1 + 1;
-        float det = (gps->points[min_i1].runtime.flat_x - gps->points[min_i0].runtime.flat_x) *
-                        (gps->points[min_i2].runtime.flat_y - gps->points[min_i0].runtime.flat_y) -
-                    (gps->points[min_i2].runtime.flat_x - gps->points[min_i0].runtime.flat_x) *
-                        (gps->points[min_i1].runtime.flat_y - gps->points[min_i0].runtime.flat_y);
+        float det =
+            (gps->points_2d[min_i1].data[ONDINE_X] - gps->points_2d[min_i0].data[ONDINE_X]) *
+                (gps->points_2d[min_i2].data[ONDINE_Y] - gps->points_2d[min_i0].data[ONDINE_Y]) -
+            (gps->points_2d[min_i2].data[ONDINE_X] - gps->points_2d[min_i0].data[ONDINE_X]) *
+                (gps->points_2d[min_i1].data[ONDINE_Y] - gps->points_2d[min_i0].data[ONDINE_Y]);
         if (det > 0) {
           gps->runtime.render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
         }
