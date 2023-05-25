@@ -1672,7 +1672,7 @@ static bool gpencil_check_cursor_region(bContext *C, const int mval_i[2])
     return false;
   }
 
-  /* TODO: add more spacetypes */
+  /* TODO: add more space-types. */
   if (!ELEM(area->spacetype, SPACE_VIEW3D)) {
     return false;
   }
