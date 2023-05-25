@@ -862,6 +862,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pparticle_len_max = 65;
   gpd->pparticle_hairiness = 0.3f;
   gpd->dry_stroke_edge_jitter = 0.25f;
+  gpd->true_depth_threshold = 0.9f;
 
   return gpd;
 }
@@ -1171,6 +1172,7 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->pparticle_len_max = gpd_src->pparticle_len_max;
   gpd_dst->pparticle_hairiness = gpd_src->pparticle_hairiness;
   gpd_dst->dry_stroke_edge_jitter = gpd_src->dry_stroke_edge_jitter;
+  gpd_dst->true_depth_threshold = gpd_src->true_depth_threshold;
 }
 
 void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)

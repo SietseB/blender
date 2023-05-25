@@ -12,13 +12,13 @@
 extern "C" {
 #endif
 
-void gpencil_ondine_render_set_data(Object *ob, const float mat[4][4]);
-void gpencil_ondine_render_set_zdepth(Object *ob);
+void gpencil_ondine_render_set_data(struct Object *ob, const float mat[4][4]);
+void gpencil_ondine_render_set_zdepth(struct Object *ob);
 
-void gpencil_ondine_set_render_data(Object *ob, const float4x4 mat);
-void gpencil_ondine_set_zdepth(Object *ob);
-bool gpencil_ondine_render_init(bContext *C);
-void gpencil_ondine_set_unique_stroke_seeds(bContext *C);
+void gpencil_ondine_set_render_data(struct Object *ob, const float4x4 mat);
+void gpencil_ondine_set_zdepth(struct Object *ob);
+bool gpencil_ondine_render_init(struct bContext *C);
+void gpencil_ondine_set_unique_stroke_seeds(struct bContext *C);
 
 #ifdef __cplusplus
 }

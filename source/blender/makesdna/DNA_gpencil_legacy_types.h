@@ -972,6 +972,7 @@ typedef struct bGPdata {
   float stroke_overlap_darkening;
   float layer_overlap_darkening;
   float dry_stroke_edge_jitter;
+  float true_depth_threshold;
 
   /* Pigment flow particle settings */
   float pparticle_speed_min;
@@ -979,6 +980,7 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
+  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */

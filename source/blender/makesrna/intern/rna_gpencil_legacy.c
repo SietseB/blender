@@ -3636,7 +3636,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop, "Clear Background", "Clear the background when drawing this object");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-  /* clear background */
+  /* true depth */
   prop = RNA_def_property(srna, "true_depth", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_TRUE_DEPTH);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
@@ -3644,6 +3644,16 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop,
       "True Depth",
       "Render with true depth. Pixels closer to the camera will hide pixels farther away.");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* true depth threshold */
+  prop = RNA_def_property(srna, "true_depth_threshold", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "true_depth_threshold");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.9f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.02f, 2);
+  RNA_def_property_ui_text(
+      prop, "Hide Threshold", "Alpha threshold for hiding underlying pixels completely");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* gouache style */
