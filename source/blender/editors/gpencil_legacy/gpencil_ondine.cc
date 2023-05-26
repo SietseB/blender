@@ -119,13 +119,14 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
 
     /* Store camera position and normal vector. */
+    float cam_mat[3][3];
     camera_loc_ = cam_ob->loc;
-    mul_v3_m4v3(camera_normal_vec_, cam_ob->object_to_world, vec_z);
-    normalize_v3(camera_normal_vec_);
+    transpose_m3_m4(cam_mat, cam_ob->world_to_object);
+    copy_v3_v3(camera_normal_vec_, cam_mat[2]);
 
     /* Store camera rotation. */
-    camera_rot_sin_ = (float)abs(sin(cam_ob->rot[0]));
-    camera_rot_cos_ = (float)abs(cos(cam_ob->rot[0]));
+    camera_rot_sin_ = fabsf(sin(cam_ob->rot[0]));
+    camera_rot_cos_ = fabsf(cos(cam_ob->rot[0]));
   }
   else {
     unit_m4(persmat_);
@@ -259,10 +260,8 @@ void GpencilOndine::set_zdepth(Object *object)
   gpd->runtime.render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
 }
 
-void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obmat)
+void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matrix_world)
 {
-  float cam_plane[4];
-
   /* Grease pencil object? */
   if (object->type != OB_GPENCIL_LEGACY) {
     return;
@@ -273,9 +272,6 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
   if ((gpd->ondine_flag & GP_ONDINE_WATERCOLOR) == 0) {
     return;
   }
-
-  /* Calculate camera plane. */
-  plane_from_point_normal_v3(cam_plane, camera_loc_, camera_normal_vec_);
 
   /* Iterate all layers of GP watercolor object. */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
@@ -319,9 +315,6 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
       /* Set stroke and fill color, in linear sRGB. */
       set_stroke_colors(gpl, gps, gp_style);
 
-      /* Calculate distance to camera. */
-      gps->runtime.render_dist_to_camera = dist_signed_to_plane_v3(gps->boundbox_min, cam_plane);
-
       /* Create array for 2D point data. */
       MEM_SAFE_FREE(gps->points_2d);
       gps->points_2d = (bGPDspoint2D *)MEM_malloc_arrayN(
@@ -342,9 +335,10 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
       /* Convert 3D stroke points to 2D. */
       for (const int i : IndexRange(gps->totpoints)) {
         /* Apply object world matrix (given by object instances). */
+        float3 co;
         bGPDspoint &pt = gps->points[i];
-        float3 co = {pt.x, pt.y, pt.z};
-        co = math::transform_point(obmat, co);
+        copy_v3_v3(co, &pt.x);
+        co = math::transform_point(matrix_world, co);
 
         /* Convert to 2D space. */
         bGPDspoint2D &pt_2d = gps->points_2d[i];
@@ -352,7 +346,11 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
         pt_2d.data[ONDINE_X] = screen_co.x;
         pt_2d.data[ONDINE_Y] = screen_co.y;
         pt_2d.data[ONDINE_STRENGTH] = pt.strength;
-        dist_to_cam = dist_signed_squared_to_plane_v3(co, cam_plane);
+
+        /* Get distance to camera.
+         * Somehow we have to apply the object world matrix here again, I don't know why... */
+        mul_m4_v3(object->object_to_world, co);
+        dist_to_cam = math::dot(co - camera_loc_, camera_normal_vec_);
         pt_2d.data[ONDINE_DIST_TO_CAM] = dist_to_cam;
 
         /* Keep track of closest/furthest point to camera. */
@@ -366,26 +364,26 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
         }
 
         /* Keep track of minimum y point. */
-        if (pt_2d.data[ONDINE_Y] <= min_y) {
-          if ((pt_2d.data[ONDINE_Y] < min_y) || (pt_2d.data[ONDINE_X] > max_x)) {
+        if (screen_co.y <= min_y) {
+          if ((pt_2d.data[ONDINE_Y] < min_y) || (screen_co.x > max_x)) {
             min_i1 = i;
-            min_y = pt_2d.data[ONDINE_Y];
-            max_x = pt_2d.data[ONDINE_X];
+            min_y = screen_co.y;
+            max_x = screen_co.x;
           }
         }
 
         /* Get bounding box. */
-        if (bbox_minx > pt_2d.data[ONDINE_X]) {
-          bbox_minx = pt_2d.data[ONDINE_X];
+        if (bbox_minx > screen_co.x) {
+          bbox_minx = screen_co.x;
         }
-        if (bbox_miny > pt_2d.data[ONDINE_Y]) {
-          bbox_miny = pt_2d.data[ONDINE_Y];
+        if (bbox_miny > screen_co.y) {
+          bbox_miny = screen_co.y;
         }
-        if (bbox_maxx < pt_2d.data[ONDINE_X]) {
-          bbox_maxx = pt_2d.data[ONDINE_X];
+        if (bbox_maxx < screen_co.x) {
+          bbox_maxx = screen_co.x;
         }
-        if (bbox_maxy < pt_2d.data[ONDINE_Y]) {
-          bbox_maxy = pt_2d.data[ONDINE_Y];
+        if (bbox_maxy < screen_co.y) {
+          bbox_maxy = screen_co.y;
         }
       }
 
@@ -461,6 +459,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 obma
       gps->runtime.render_bbox[1] = bbox_miny;
       gps->runtime.render_bbox[2] = bbox_maxx;
       gps->runtime.render_bbox[3] = bbox_maxy;
+      gps->runtime.render_dist_to_camera = max_dist_to_cam;
     }
   }
 }
