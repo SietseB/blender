@@ -1647,13 +1647,13 @@ def km_view3d(params):
             op_menu_pie(
                 "VIEW3D_MT_shading_pie" if not params.use_v3d_shade_ex_pie else
                 "VIEW3D_MT_shading_ex_pie",
-                {"type": 'Z', "value": params.pie_value}),
+                {"type": 'Z', "value": params.pie_value, "alt": True}),
             *(() if not params.use_pie_click_drag else
-              (("view3d.toggle_shading", {"type": 'Z', "value": 'CLICK'},
+              (("view3d.toggle_shading", {"type": 'Z', "value": 'CLICK', "alt": True},
                 {"properties": [("type", 'WIREFRAME')]}),)),
-            ("view3d.toggle_shading", {"type": 'Z', "value": 'PRESS', "shift": True},
-             {"properties": [("type", 'WIREFRAME')]}),
-            ("view3d.toggle_xray", {"type": 'Z', "value": 'PRESS', "alt": True}, None),
+            #("view3d.toggle_shading", {"type": 'Z', "value": 'PRESS', "shift": True},
+            # {"properties": [("type", 'WIREFRAME')]}),
+            ("view3d.toggle_xray", {"type": 'Z', "value": 'PRESS', "ctrl": True, "alt": True}, None),
             ("wm.context_toggle", {"type": 'Z', "value": 'PRESS', "alt": True, "shift": True},
              {"properties": [("data_path", "space_data.overlay.show_overlays")]}),
         ])
@@ -1708,11 +1708,11 @@ def km_view3d(params):
             ("wm.context_set_enum", {"type": 'PERIOD', "value": 'PRESS', "alt": True},
              {"properties": [("data_path", 'tool_settings.transform_pivot_point'), ("value", 'ACTIVE_ELEMENT')]}),
             # Old shading.
-            ("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS'},
-             {"properties": [
-                 ("data_path", 'space_data.shading.type'), ("value_1", 'WIREFRAME'), ("value_2", 'SOLID'),
-             ]}),
-            ("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS', "shift": True},
+            #("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS'},
+            # {"properties": [
+            #     ("data_path", 'space_data.shading.type'), ("value_1", 'WIREFRAME'), ("value_2", 'SOLID'),
+            # ]}),
+            ("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS', "shift": True, "alt": True},
              {"properties": [
                  ("data_path", 'space_data.shading.type'), ("value_1", 'RENDERED'), ("value_2", 'SOLID'),
              ]}),
