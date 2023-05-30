@@ -10,14 +10,14 @@
 #include "kernel/film/denoising_passes.h"
 #include "kernel/film/light_passes.h"
 
+#include "kernel/light/sample.h"
+
 #include "kernel/integrator/mnee.h"
 
 #include "kernel/integrator/guiding.h"
 #include "kernel/integrator/shadow_linking.h"
 #include "kernel/integrator/subsurface.h"
 #include "kernel/integrator/volume_stack.h"
-
-#include "kernel/light/sample.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -113,13 +113,15 @@ ccl_device_forceinline void integrate_surface_emission(KernelGlobals kg,
                                                        ccl_global float *ccl_restrict
                                                            render_buffer)
 {
+  const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
+
 #ifdef __LIGHT_LINKING__
-  if (!light_link_object_match(kg, light_link_receiver_forward(kg, state), sd->object)) {
+  if (!light_link_object_match(kg, light_link_receiver_forward(kg, state), sd->object) &&
+      !(path_flag & PATH_RAY_CAMERA))
+  {
     return;
   }
 #endif
-
-  const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
 
 #ifdef __SHADOW_LINKING__
   /* Indirect emission of shadow-linked emissive surfaces is done via shadow rays to dedicated
@@ -219,8 +221,8 @@ integrate_direct_light_shadow_init_common(KernelGlobals kg,
         state, path, bounce);
   }
 
-  /* Write Lightgroup, +1 as lightgroup is int but we need to encode into a uint8_t. */
-  INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, lightgroup) = light_group;
+  /* Write Light-group, +1 as light-group is int but we need to encode into a uint8_t. */
+  INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, lightgroup) = light_group + 1;
 
 #ifdef __PATH_GUIDING__
   INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, unlit_throughput) = unlit_throughput;
@@ -284,8 +286,8 @@ ccl_device_forceinline void integrate_surface_direct_light(KernelGlobals kg,
 
   const bool is_transmission = dot(ls.D, sd->N) < 0.0f;
 
-#ifdef __MNEE__
   int mnee_vertex_count = 0;
+#ifdef __MNEE__
   IF_KERNEL_FEATURE(MNEE)
   {
     if (ls.lamp != LAMP_NONE) {
@@ -349,7 +351,7 @@ ccl_device_forceinline void integrate_surface_direct_light(KernelGlobals kg,
   const int light_group = ls.type != LIGHT_BACKGROUND ? ls.group :
                                                         kernel_data.background.lightgroup;
   IntegratorShadowState shadow_state = integrate_direct_light_shadow_init_common(
-      kg, state, &ray, bsdf_eval_sum(&bsdf_eval), mnee_vertex_count, light_group);
+      kg, state, &ray, bsdf_eval_sum(&bsdf_eval), light_group, mnee_vertex_count);
 
   if (is_transmission) {
 #ifdef __VOLUME__

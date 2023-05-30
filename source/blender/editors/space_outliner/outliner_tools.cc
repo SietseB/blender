@@ -165,6 +165,7 @@ static void get_element_operation_type(
       case ID_PT:
       case ID_VO:
       case ID_SIM:
+      case ID_GP:
         is_standard_id = true;
         break;
       case ID_WM:
@@ -2114,7 +2115,7 @@ static void constraint_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/
     WM_event_add_notifier(C, NC_OBJECT | ND_CONSTRAINT, ob);
   }
   else if (event == OL_CONSTRAINTOP_DISABLE) {
-    constraint->flag = CONSTRAINT_OFF;
+    constraint->flag |= CONSTRAINT_OFF;
     ED_object_constraint_update(bmain, ob);
     WM_event_add_notifier(C, NC_OBJECT | ND_CONSTRAINT, ob);
   }

@@ -1537,6 +1537,16 @@ static void sculptsession_free_pbvh(Object *object)
     ss->pbvh = nullptr;
   }
 
+  ss->vert_to_poly_offsets = {};
+  ss->vert_to_poly_indices = {};
+  ss->pmap = {};
+  ss->edge_to_poly_offsets = {};
+  ss->edge_to_poly_indices = {};
+  ss->epmap = {};
+  ss->vert_to_edge_offsets = {};
+  ss->vert_to_edge_indices = {};
+  ss->vemap = {};
+
   MEM_SAFE_FREE(ss->preview_vert_list);
   ss->preview_vert_count = 0;
 
@@ -2434,9 +2444,10 @@ int BKE_sculptsession_vertex_count(const SculptSession *ss)
   return 0;
 }
 
-/** Returns pointer to a CustomData associated with a given domain, if
+/**
+ * Returns pointer to a CustomData associated with a given domain, if
  * one exists.  If not nullptr is returned (this may happen with e.g.
- * multires and ATTR_DOMAIN_POINT).
+ * multires and #ATTR_DOMAIN_POINT).
  */
 static CustomData *sculpt_get_cdata(Object *ob, eAttrDomain domain)
 {

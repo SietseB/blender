@@ -2417,6 +2417,8 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
         }
       case OB_GPENCIL_LEGACY:
         return ICON_OUTLINER_OB_GREASEPENCIL;
+      case OB_GREASE_PENCIL:
+        return ICON_OUTLINER_OB_GREASEPENCIL;
     }
 
     return ICON_NONE;

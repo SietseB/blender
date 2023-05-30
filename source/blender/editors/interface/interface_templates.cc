@@ -1108,7 +1108,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
       case ID_PA:
         return N_("Browse Particle Settings to be linked");
       case ID_GD_LEGACY:
-        return N_("Browse Grease Pencil Data to be linked");
+        return N_("Browse Grease Pencil (legacy) Data to be linked");
       case ID_MC:
         return N_("Browse Movie Clip to be linked");
       case ID_MSK:
@@ -1131,6 +1131,8 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Volume Data to be linked");
       case ID_SIM:
         return N_("Browse Simulation to be linked");
+      case ID_GP:
+        return N_("Browse Grease Pencil Data to be linked");
 
       /* Use generic text. */
       case ID_LI:
@@ -6774,7 +6776,7 @@ void uiTemplateComponentMenu(uiLayout *layout,
   /* set rna directly, uiDefBlockButN doesn't do this */
   but->rnapoin = *ptr;
   but->rnaprop = RNA_struct_find_property(ptr, propname);
-  but->rnaindex = 0;
+  but->rnaindex = -1;
 
   UI_block_align_end(block);
 }

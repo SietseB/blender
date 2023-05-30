@@ -4,9 +4,12 @@
 #pragma once
 
 #include "kernel/integrator/path_state.h"
-#include "kernel/integrator/shade_surface.h"
+
 #include "kernel/light/distant.h"
 #include "kernel/light/light.h"
+#include "kernel/light/sample.h"
+
+#include "kernel/integrator/shade_surface.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -215,7 +218,7 @@ ccl_device void shadow_linking_shade(KernelGlobals kg,
 
   /* Branch off shadow kernel. */
   IntegratorShadowState shadow_state = integrate_direct_light_shadow_init_common(
-      kg, state, &ray, bsdf_spectrum, 0, light_group);
+      kg, state, &ray, bsdf_spectrum, light_group, 0);
 
   /* The light is accumulated from the shade_surface kernel, which will make the clamping decision
    * based on the actual value of the bounce. For the dedicated shadow ray we want to follow the

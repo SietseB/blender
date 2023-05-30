@@ -1290,7 +1290,7 @@ static bool ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_pt
     /* Ghost now can call this function for life resizes,
      * but it should return if WM didn't initialize yet.
      * Can happen on file read (especially full size window). */
-    if ((wm->initialized & WM_WINDOW_IS_INIT) == 0) {
+    if ((wm->init_flag & WM_INIT_FLAG_WINDOW) == 0) {
       return true;
     }
     if (!ghostwin) {
@@ -1454,7 +1454,7 @@ static bool ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_pt
             WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 
 #if defined(__APPLE__) || defined(WIN32)
-            /* OSX and Win32 don't return to the mainloop while resize */
+            /* MACOS and WIN32 don't return to the main-loop while resize. */
             wm_window_timer(C);
             wm_event_do_handlers(C);
             wm_event_do_notifiers(C);
