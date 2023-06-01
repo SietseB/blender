@@ -439,6 +439,9 @@
     .angle_axis = GP_FOLLOWCURVE_AXIS_Y, \
     .spirals = 0.0f, \
     .curve_resolution = 1024, \
+    .object_axis = GP_FOLLOWCURVE_AXIS_Z, \
+    .object_center = 0.5f, \
+    .completion = 1.0f, \
   }
 
 /* clang-format off */

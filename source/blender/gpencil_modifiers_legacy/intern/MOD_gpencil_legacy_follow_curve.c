@@ -69,9 +69,9 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
   BKE_gpencil_modifier_copydata_generic(md, target);
 }
 
-void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
+void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
                                          const GpencilModifierData *md,
-                                         const Scene *scene,
+                                         Scene *scene,
                                          Object *ob)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
@@ -118,11 +118,11 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
   }
 
   /* Convert Bezier curves to points. */
+  Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, mmd->object);
   mmd->curves = NULL;
   if (mmd->curves_len > 0) {
     mmd->curves = MEM_calloc_arrayN(mmd->curves_len, sizeof(GPFollowCurve), __func__);
 
-    Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, mmd->object);
     Curve *curve = (Curve *)ob_eval->data;
     int curve_index = -1;
 
@@ -191,6 +191,79 @@ void MOD_gpencil_follow_curve_frame_init(const Depsgraph *depsgraph,
       }
 
       follow_curve->length = len_accumulative;
+    }
+  }
+
+  /* When projecting the entire GP object to the curve, create an object profile. */
+  mmd->flag &= ~GP_FOLLOWCURVE_CURVE_TAIL_FIRST;
+  if ((mmd->flag & GP_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
+    /* Object bounding box is unfortunately unreliable, so we collect the min and max coordinates
+     * ourselves. */
+    float x_min = FLT_MAX, y_min = FLT_MAX, z_min = FLT_MAX;
+    float x_max = -FLT_MAX, y_max = -FLT_MAX, z_max = -FLT_MAX;
+
+    bGPdata *gpd = (bGPdata *)ob->data;
+    LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+      bGPDframe *gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
+      if (gpf == NULL) {
+        continue;
+      }
+
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+        x_min = min_ff(x_min, gps->boundbox_min[0]);
+        y_min = min_ff(y_min, gps->boundbox_min[1]);
+        z_min = min_ff(z_min, gps->boundbox_min[2]);
+        x_max = max_ff(x_max, gps->boundbox_max[0]);
+        y_max = max_ff(y_max, gps->boundbox_max[1]);
+        z_max = max_ff(z_max, gps->boundbox_max[2]);
+      }
+    }
+
+    /* Calculate profile using GP object bounding box. */
+    zero_v3(mmd->profile_vec);
+
+    switch (mmd->object_axis) {
+      case GP_FOLLOWCURVE_AXIS_X: {
+        mmd->profile_start[0] = x_min;
+        mmd->profile_start[1] = y_min + (y_max - y_min) * mmd->object_center;
+        mmd->profile_start[2] = z_min + (z_max - z_min) * mmd->object_center;
+        mmd->profile_vec[0] = x_max - x_min;
+        break;
+      }
+
+      case GP_FOLLOWCURVE_AXIS_Y: {
+        mmd->profile_start[0] = x_min + (x_max - x_min) * mmd->object_center;
+        mmd->profile_start[1] = y_min;
+        mmd->profile_start[2] = z_min + (z_max - z_min) * mmd->object_center;
+        mmd->profile_vec[1] = y_max - y_min;
+        break;
+      }
+
+      case GP_FOLLOWCURVE_AXIS_Z: {
+        mmd->profile_start[0] = x_min + (x_max - x_min) * mmd->object_center;
+        mmd->profile_start[1] = y_min + (y_max - y_min) * mmd->object_center;
+        mmd->profile_start[2] = z_min;
+        mmd->profile_vec[2] = z_max - z_min;
+        break;
+      }
+    }
+    mul_m4_v3(ob->object_to_world, mmd->profile_start);
+    float profile_length = len_v3(mmd->profile_vec);
+    normalize_v3(mmd->profile_vec);
+
+    if (mmd->curves_len > 0) {
+      /* Set profile scale so that the GP object covers the curve over the full length. */
+      mmd->profile_scale = (profile_length != 0.0f) ? mmd->curves[0].length / profile_length :
+                                                      1.0f;
+
+      /* Find nearest curve point to profile start: curve head or tail. */
+      const float dist_head = fabsf(
+          len_squared_v3v3(mmd->curves[0].points[0].co, mmd->profile_start));
+      const float dist_tail = fabsf(len_squared_v3v3(
+          mmd->curves[0].points[mmd->curves[0].points_len - 1].co, mmd->profile_start));
+      if (dist_tail < dist_head) {
+        mmd->flag |= GP_FOLLOWCURVE_CURVE_TAIL_FIRST;
+      }
     }
   }
 }
@@ -292,6 +365,36 @@ static float stroke_get_length(const bGPDstroke *gps, float *segment_len)
   return length;
 }
 
+static GPFollowCurve *object_stroke_get_current_curve_and_distance(
+    const FollowCurveGpencilModifierData *mmd,
+    const bGPDstroke *gps,
+    const float *side_plane,
+    float *dist_on_curve,
+    float *radius_initial,
+    float *angle_initial,
+    bool *start_at_tail)
+{
+  /* Get distance of stroke start to object profile. */
+  float dist_on_profile;
+  get_distance_of_point_to_line(&gps->points[0].x,
+                                mmd->profile_start,
+                                mmd->profile_vec,
+                                side_plane,
+                                &dist_on_profile,
+                                radius_initial);
+  *radius_initial = 0.0f;
+  *dist_on_curve = 0.0f;
+
+  /* Set initial spiral angle. */
+  *angle_initial = mmd->angle;
+
+  /* Start at tail of curve? */
+  *start_at_tail = ((mmd->flag & GP_FOLLOWCURVE_CURVE_TAIL_FIRST) != 0);
+
+  /* Objects can follow only one curve, so return the first. */
+  return &mmd->curves[0];
+}
+
 static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifierData *md,
                                                             const Object *ob,
                                                             const bGPDframe *gpf,
@@ -304,6 +407,12 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
                                                             bool *start_at_tail)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
+
+  /* Handle stroke projection when projecting the entire GP object on a curve. */
+  if ((mmd->flag & GP_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
+    return object_stroke_get_current_curve_and_distance(
+        mmd, gps, side_plane, dist_on_curve, radius_initial, angle_initial, start_at_tail);
+  }
 
   /* Get random values for this stroke. */
   float random_val[3];
@@ -322,8 +431,9 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
   *angle_initial = mmd->angle;
 
   /* Get stroke starting point. */
-  const bool tail_first = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0);
-  float *stroke_start = (tail_first) ? (&gps->points[gps->totpoints - 1].x) : (&gps->points[0].x);
+  const bool stroke_tail_first = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0);
+  float *stroke_start = (stroke_tail_first) ? (&gps->points[gps->totpoints - 1].x) :
+                                              (&gps->points[0].x);
 
   /* Get the curve this stroke belongs to (= the nearest stroke). */
   int curve_index = 0;
@@ -340,17 +450,17 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
   GPFollowCurve *curve = &mmd->curves[curve_index];
 
   /* Get initial distance from stroke to curve. */
-  float dist_to_curve_initial;
+  float dist_on_curve_initial;
   get_distance_of_point_to_line(stroke_start,
                                 curve->points[0].co,
                                 curve->points[0].vec_to_next,
                                 side_plane,
-                                &dist_to_curve_initial,
+                                &dist_on_curve_initial,
                                 radius_initial);
 
   /* We always start at the beginning of a curve, so limit the distance to zero or less. */
-  if (dist_to_curve_initial > 0.0f) {
-    dist_to_curve_initial = 0.0f;
+  if (dist_on_curve_initial > 0.0f) {
+    dist_on_curve_initial = 0.0f;
   }
 
   /* Take care of scatter when there is no animation. */
@@ -366,7 +476,7 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
 
   /* Scatter when animated: vary the starting point of the stroke. */
   if (mmd->flag & GP_FOLLOWCURVE_SCATTER) {
-    dist_to_curve_initial -= curve->length * 0.5 * random_val[2];
+    dist_on_curve_initial -= curve->length * 0.5 * random_val[2];
   }
 
   /* Get the distance the stroke travelled so far, up to current keyframe. */
@@ -383,7 +493,7 @@ static GPFollowCurve *stroke_get_current_curve_and_distance(const GpencilModifie
     /* Fixed speed. */
     dist_travelled = (mmd->cfra - 1) * (mmd->speed + mmd->speed_variation * speed_var_f);
   }
-  dist_travelled = fabsf(dist_travelled) + dist_to_curve_initial;
+  dist_travelled = fabsf(dist_travelled) + dist_on_curve_initial;
 
   /* When the animation is not repeated, we can finish here. */
   if ((mmd->flag & GP_FOLLOWCURVE_REPEAT) == 0) {
@@ -513,6 +623,9 @@ static void deformStroke(GpencilModifierData *md,
   float *gps_segment_length = MEM_malloc_arrayN(gps->totpoints, sizeof(float), __func__);
   float gps_length = stroke_get_length(gps, gps_segment_length);
 
+  /* Get 'entire object' settings. */
+  const bool entire_object = ((mmd->flag & GP_FOLLOWCURVE_ENTIRE_OBJECT) != 0);
+
   /* Get plane for sprial radius direction (on which side of the curve is a stroke point.) */
   float side_plane[3] = {0.0f};
   switch (mmd->angle_axis) {
@@ -545,7 +658,8 @@ static void deformStroke(GpencilModifierData *md,
                                                                &curve_start_at_tail);
 
   /* Get the direction of the stroke points. */
-  const bool gps_start_at_tail = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0);
+  const bool gps_start_at_tail = ((mmd->flag & GP_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0) &&
+                                 ((mmd->flag & GP_FOLLOWCURVE_ENTIRE_OBJECT) == 0);
   const int gps_dir = (gps_start_at_tail) ? -1 : 1;
   const int gps_start_index = (gps_start_at_tail) ? (gps->totpoints - 1) : 0;
   const int gps_end_index = (gps_start_at_tail) ? 0 : (gps->totpoints - 1);
@@ -553,18 +667,20 @@ static void deformStroke(GpencilModifierData *md,
   copy_v3_v3(gps_start, &gps->points[gps_start_index].x);
   copy_v3_v3(gps_end, &gps->points[gps_end_index].x);
 
-  /* Create stroke profile. For now this is just a straight line between the
-   * first and last point of the stroke.
-   *
-   * Stroke   __/\  _/\  /\____
-   *              \/   \/
-   *
-   * Profile  _________________
-   *
-   */
-  float profile[3];
-  sub_v3_v3v3(profile, gps_end, gps_start);
-  normalize_v3(profile);
+  /* Create profile: a line along which the stroke is projected on the curve. */
+  if (!entire_object) {
+    /* Create stroke profile. For now this is just a straight line between the
+     * first and last point of the stroke.
+     *
+     * Stroke   __/\  _/\  /\____
+     *              \/   \/
+     *
+     * Profile  _________________
+     *
+     */
+    sub_v3_v3v3(mmd->profile_vec, gps_end, gps_start);
+    normalize_v3(mmd->profile_vec);
+  }
 
   /* Get rotation plane for spiral angle. */
   float rotation_plane[3] = {0.0f};
@@ -579,14 +695,16 @@ static void deformStroke(GpencilModifierData *md,
     float gps_p[3];
     copy_v3_v3(gps_p, &gps->points[i].x);
 
-    /* Get distance and radius of point to stroke profile. */
+    /* Get distance and radius of point to profile. */
     float gps_p_dist, gps_p_radius;
     get_distance_of_point_to_line(
-        gps_p, gps_start, profile, side_plane, &gps_p_dist, &gps_p_radius);
+        gps_p, mmd->profile_start, mmd->profile_vec, side_plane, &gps_p_dist, &gps_p_radius);
 
     /* Find closest point on curve given a distance. */
     float curve_p[3], curve_p_vec[3];
-    float curve_dist = dist_on_curve - gps_p_dist;
+    float curve_dist = (entire_object) ? (gps_p_dist * mmd->profile_scale +
+                                          (mmd->completion - 1.0f) * curve->length) :
+                                         (dist_on_curve - gps_p_dist);
     if (curve_start_at_tail) {
       curve_dist = curve->length - curve_dist;
     }
@@ -679,6 +797,8 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   PointerRNA ob_ptr;
   PointerRNA *ptr = gpencil_modifier_panel_get_property_pointers(panel, &ob_ptr);
 
+  bool entire_object = RNA_boolean_get(ptr, "entire_object");
+
   uiLayoutSetPropSep(layout, true);
 
   col = uiLayoutColumn(layout, false);
@@ -687,28 +807,41 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   col = uiLayoutColumn(layout, false);
   uiItemR(col, ptr, "curve_resolution", 0, NULL, ICON_NONE);
 
-  col = uiLayoutColumn(layout, true);
-  uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-  uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+  uiItemS(layout);
+  col = uiLayoutColumn(layout, false);
+  uiItemR(col, ptr, "entire_object", 0, NULL, ICON_NONE);
+  if (entire_object) {
+    row = uiLayoutRow(col, false);
+    uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+    uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+    uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+    uiItemS(layout);
+  }
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "vary_dir", 0, NULL, ICON_NONE);
-
-  col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "seed", 0, NULL, ICON_NONE);
-
-  col = uiLayoutColumn(layout, true);
   uiItemR(col, ptr, "angle", 0, NULL, ICON_NONE);
   uiItemR(col, ptr, "spirals", 0, NULL, ICON_NONE);
-
-  row = uiLayoutRow(layout, false);
+  row = uiLayoutRow(col, false);
   uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
+  if (!entire_object) {
+    uiItemS(layout);
+    col = uiLayoutColumn(layout, false);
+    uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+    uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+    uiItemR(col, ptr, "seed", 0, NULL, ICON_NONE);
+  }
+
   col = uiLayoutColumn(layout, true);
-  uiItemR(col, ptr, "tail_first", 0, NULL, ICON_NONE);
-  uiItemR(col, ptr, "repeat", 0, NULL, ICON_NONE);
+  if (!entire_object) {
+    uiItemR(col, ptr, "vary_dir", 0, NULL, ICON_NONE);
+    uiItemS(layout);
+    col = uiLayoutColumn(layout, false);
+    uiItemR(col, ptr, "tail_first", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "repeat", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "scatter", 0, NULL, ICON_NONE);
+  }
   uiItemR(col, ptr, "dissolve", 0, NULL, ICON_NONE);
-  uiItemR(col, ptr, "scatter", 0, NULL, ICON_NONE);
 
   gpencil_modifier_panel_end(layout, ptr);
 }

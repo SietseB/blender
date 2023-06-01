@@ -4827,7 +4827,7 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
-  RNA_def_property_ui_text(prop, "Object", "Object with Bezier curves to follow");
+  RNA_def_property_ui_text(prop, "Curve Object", "Object with Bezier curves to follow");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
   RNA_def_property_pointer_funcs(
       prop, NULL, "rna_FollowCurveGpencilModifier_object_set", NULL, NULL);
@@ -4838,7 +4838,7 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_range(prop, 32, 4096);
   RNA_def_property_ui_range(prop, 32, 4096, 32, 0);
   RNA_def_property_ui_text(
-      prop, "Curve Resolution", "The precision with which a curve is divided into points");
+      prop, "Resolution", "The precision with which a curve is divided into points");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
@@ -4846,13 +4846,14 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "angle");
   RNA_def_property_range(prop, 0.0f, DEG2RAD(360.0f));
   RNA_def_property_ui_range(prop, 0.0f, DEG2RAD(359.5f), 10.0f, 1);
-  RNA_def_property_ui_text(prop, "Angle", "Angle of the stroke projection on the curve(s)");
+  RNA_def_property_ui_text(
+      prop, "Rotation Angle", "Rotation angle of the stroke projected on the curve(s)");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   prop = RNA_def_property(srna, "axis", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "angle_axis");
   RNA_def_property_enum_items(prop, modifier_follow_curve_axis_items);
-  RNA_def_property_ui_text(prop, "Axis", "Axis for the projection angle");
+  RNA_def_property_ui_text(prop, "Axis", "Axis for the rotation angle");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
@@ -4922,6 +4923,35 @@ static void rna_def_modifier_gpencilfollowcurve(BlenderRNA *brna)
                            "Randomly vary the direction of stroke projection on curves (both "
                            "head-to-tail and tail-to-head)");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "entire_object", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FOLLOWCURVE_ENTIRE_OBJECT);
+  RNA_def_property_ui_text(
+      prop, "Entire Object", "Let the entire Grease Pencil object follow the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "object_axis", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "object_axis");
+  RNA_def_property_enum_items(prop, modifier_follow_curve_axis_items);
+  RNA_def_property_ui_text(
+      prop, "Object Axis", "Object axis used to project the object on the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "object_center", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "object_center");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Center", "Center of the object projected on the curve");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "completion", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "completion");
+  RNA_def_property_range(prop, -0.1f, 2.1f);
+  RNA_def_property_ui_range(prop, -0.1f, 2.1f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Completion", "Completion of the projection on the curve");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   RNA_define_lib_overridable(false);

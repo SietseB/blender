@@ -3643,7 +3643,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "True Depth",
-      "Render with true depth. Pixels closer to the camera will hide pixels farther away.");
+      "Render with true depth. Pixels closer to the camera will hide pixels farther away");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* true depth threshold */

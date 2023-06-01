@@ -44,8 +44,8 @@ extern GpencilModifierTypeInfo modifierType_Gpencil_FollowCurve;
 void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[]);
 
 /* MOD_gpencil_legacy_follow_curve.c */
-void MOD_gpencil_follow_curve_frame_init(const struct Depsgraph *depsgraph,
+void MOD_gpencil_follow_curve_frame_init(struct Depsgraph *depsgraph,
                                          const struct GpencilModifierData *md,
-                                         const struct Scene *scene,
+                                         struct Scene *scene,
                                          struct Object *ob);
 void MOD_gpencil_follow_curve_frame_clear(const struct GpencilModifierData *md);

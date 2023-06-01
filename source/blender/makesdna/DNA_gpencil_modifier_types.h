@@ -1399,8 +1399,20 @@ typedef struct FollowCurveGpencilModifierData {
   float spirals;
   /** Curve resolution */
   int curve_resolution;
-  char _pad[4];
+  /** Object profile axis. */
+  int object_axis;
+  /** Object profile center. */
+  float object_center;
+  /** Projection completion. */
+  float completion;
 
+  /** Stroke or object profile vector. */
+  float profile_vec[3];
+  /** Stroke or object profile starting point. */
+  float profile_start[3];
+  /** Scale of profile for mapping it fully to the curve. */
+  float profile_scale;
+  char _pad0[4];
   /** Current frame. */
   int cfra;
   /** Speed data per frame. */
@@ -1423,6 +1435,8 @@ typedef enum eFollowCurveGpencil_Flag {
   GP_FOLLOWCURVE_REPEAT = (1 << 8),
   GP_FOLLOWCURVE_STROKE_TAIL_FIRST = (1 << 9),
   GP_FOLLOWCURVE_VARY_DIR = (1 << 10),
+  GP_FOLLOWCURVE_ENTIRE_OBJECT = (1 << 11),
+  GP_FOLLOWCURVE_CURVE_TAIL_FIRST = (1 << 12),
 } eFollowCurveGpencil_Flag;
 
 typedef enum eFollowCurveGpencil_Axis {
