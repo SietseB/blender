@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2023 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -92,7 +93,7 @@ void legacy_gpencil_frame_to_grease_pencil_drawing(const bGPDframe &gpf,
 
   int stroke_i = 0;
   LISTBASE_FOREACH_INDEX (bGPDstroke *, gps, &gpf.strokes, stroke_i) {
-    /* TODO: check if gps->editcurve is not nullptr and parse bezier curve instead. */
+    /* TODO: check if `gps->editcurve` is not nullptr and parse bezier curve instead. */
 
     /* Write curve attributes. */
     stroke_cyclic.span[stroke_i] = (gps->flag & GP_STROKE_CYCLIC) != 0;
@@ -176,11 +177,9 @@ void legacy_gpencil_to_grease_pencil(Main &bmain, GreasePencil &grease_pencil, b
 {
   using namespace blender::bke::greasepencil;
 
-  int num_layers = 0;
   int num_drawings = 0;
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd.layers) {
     num_drawings += BLI_listbase_count(&gpl->frames);
-    num_layers++;
   }
 
   grease_pencil.drawing_array_size = num_drawings;

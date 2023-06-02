@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2023 Blender Foundation */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup depsgraph
@@ -422,10 +423,6 @@ void Cache::add_receiver_object(const EmitterData &emitter_data,
 {
   BLI_assert(is_valid_input_id(receiver.id));
 
-  if (!can_link_to_emitter(receiver)) {
-    return;
-  }
-
   light_linking_.link_object(
       emitter_data, eCollectionLightLinkingState(collection_light_linking.link_state), receiver);
 }
@@ -435,10 +432,6 @@ void Cache::add_blocker_object(const EmitterData &emitter_data,
                                const Object &blocker)
 {
   BLI_assert(is_valid_input_id(blocker.id));
-
-  if (!can_link_to_emitter(blocker)) {
-    return;
-  }
 
   shadow_linking_.link_object(
       emitter_data, eCollectionLightLinkingState(collection_light_linking.link_state), blocker);

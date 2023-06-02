@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup creator
@@ -543,7 +545,7 @@ static int arg_handle_print_version(int UNUSED(argc),
                                     void *UNUSED(data))
 {
   print_version_full();
-  exit(0);
+  exit(EXIT_SUCCESS);
   BLI_assert_unreachable();
   return 0;
 }
@@ -553,7 +555,7 @@ static void print_help(bArgs *ba, bool all)
   struct BuildDefs defs;
   build_defs_init(&defs, all);
 
-/* All printing must go via `PRINT` macro.  */
+/* All printing must go via `PRINT` macro. */
 #  define printf __ERROR__
 
 #  define PRINT(...) BLI_args_printf(ba, __VA_ARGS__)
@@ -816,7 +818,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 
   print_help(ba, false);
 
-  exit(0);
+  exit(EXIT_SUCCESS);
   BLI_assert_unreachable();
 
   return 0;
@@ -1381,7 +1383,7 @@ static int arg_handle_env_system_set(int argc, const char **argv, void *UNUSED(d
 
   if (argc < 2) {
     fprintf(stderr, "%s requires one argument\n", argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
     BLI_assert_unreachable();
   }
 
@@ -1428,7 +1430,7 @@ static int arg_handle_playback_mode(int argc, const char **argv, void *UNUSED(da
     /* This function knows to skip this argument ('-a'). */
     WM_main_playanim(argc, argv);
 
-    exit(0);
+    exit(EXIT_SUCCESS);
   }
 
   return -2;
@@ -2039,8 +2041,7 @@ static int arg_handle_python_file_run(int argc, const char **argv, void *data)
     BPY_CTX_SETUP(ok = BPY_run_filepath(C, filepath, NULL));
     if (!ok && app_state.exit_code_on_error.python) {
       fprintf(stderr, "\nError: script failed, file: '%s', exiting.\n", argv[1]);
-      BPY_python_end();
-      exit(app_state.exit_code_on_error.python);
+      WM_exit(C, app_state.exit_code_on_error.python);
     }
     return 1;
   }
@@ -2079,8 +2080,7 @@ static int arg_handle_python_text_run(int argc, const char **argv, void *data)
 
     if (!ok && app_state.exit_code_on_error.python) {
       fprintf(stderr, "\nError: script failed, text: '%s', exiting.\n", argv[1]);
-      BPY_python_end();
-      exit(app_state.exit_code_on_error.python);
+      WM_exit(C, app_state.exit_code_on_error.python);
     }
 
     return 1;
@@ -2109,8 +2109,7 @@ static int arg_handle_python_expr_run(int argc, const char **argv, void *data)
     BPY_CTX_SETUP(ok = BPY_run_string_exec(C, NULL, argv[1]));
     if (!ok && app_state.exit_code_on_error.python) {
       fprintf(stderr, "\nError: script failed, expr: '%s', exiting.\n", argv[1]);
-      BPY_python_end();
-      exit(app_state.exit_code_on_error.python);
+      WM_exit(C, app_state.exit_code_on_error.python);
     }
     return 1;
   }
@@ -2549,6 +2548,8 @@ void main_args_setup(bContext *C, bArgs *ba, bool all)
   BLI_args_add_case(ba, "-setaudio", 1, NULL, 0, CB(arg_handle_audio_set), NULL);
 
   /* Pass: Processing Arguments. */
+  /* NOTE: Use #WM_exit for these callbacks, not `exit()`
+   * so temporary files are properly cleaned up. */
   BLI_args_pass_set(ba, ARG_PASS_FINAL);
   BLI_args_add(ba, "-f", "--render-frame", CB(arg_handle_render_frame), C);
   BLI_args_add(ba, "-a", "--render-anim", CB(arg_handle_render_animation), C);

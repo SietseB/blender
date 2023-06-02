@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -227,7 +228,7 @@ void BKE_screen_foreach_id_screen_area(LibraryForeachIDData *data, ScrArea *area
 
           /* Embedded ID pointers are not remapped (besides exceptions), ensure it still matches
            * actual data. Note that `snode->id` was already processed (and therefore potentially
-           * remapped) above.*/
+           * remapped) above. */
           if (!is_readonly) {
             snode->nodetree = (snode->id == NULL) ? NULL : ntreeFromID(snode->id);
             if (path != NULL) {

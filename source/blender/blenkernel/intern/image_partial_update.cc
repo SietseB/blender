@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2021 Blender Foundation. */
+/* SPDX-FileCopyrightText: 2021 Blender Foundation.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /**
  * \file
  * \ingroup bke
@@ -419,7 +420,15 @@ struct PartialUpdateRegisterImpl {
    */
   bool can_construct(ChangesetID changeset_id)
   {
-    return changeset_id >= first_changeset_id;
+    if (changeset_id < first_changeset_id) {
+      return false;
+    }
+
+    if (changeset_id > last_changeset_id) {
+      return false;
+    }
+
+    return true;
   }
 
   /**

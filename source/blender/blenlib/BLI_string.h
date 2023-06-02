@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -434,6 +435,15 @@ void BLI_str_rstrip(char *str) ATTR_NONNULL(1);
  * \return The number of zeros stripped.
  */
 int BLI_str_rstrip_float_zero(char *str, char pad) ATTR_NONNULL(1);
+
+/**
+ * Strip trailing digits.
+ *   ABC123 -> ABC
+ *
+ * \param str:
+ * \return The number of digits stripped.
+ */
+int BLI_str_rstrip_digits(char *str) ATTR_NONNULL();
 
 /**
  * Return index of a string in a string array.

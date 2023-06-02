@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2007 Blender Foundation */
+/* SPDX-FileCopyrightText: 2007 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -349,7 +350,6 @@ void WM_init(bContext *C, int argc, const char **argv)
     }
   }
 
-  BKE_material_copybuf_clear();
   ED_render_clear_mtex_copybuf();
 
   wm_history_file_read();
@@ -621,7 +621,6 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
     DRW_subdiv_free();
   }
 
-  BKE_material_copybuf_free();
   ANIM_fcurves_copybuf_free();
   ANIM_drivers_copybuf_free();
   ANIM_driver_vars_copybuf_free();
@@ -713,7 +712,7 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
 
 void WM_exit(bContext *C, const int exit_code)
 {
-  const bool do_user_exit_actions = G.background ? (exit_code == EXIT_SUCCESS) : false;
+  const bool do_user_exit_actions = G.background ? false : (exit_code == EXIT_SUCCESS);
   WM_exit_ex(C, true, do_user_exit_actions);
 
   printf("\nBlender quit\n");

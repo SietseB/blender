@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -629,21 +630,19 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
     t->options |= CTX_NO_PET;
   }
 
-  if (t->obedit_type == OB_MESH) {
-    if (op && (prop = RNA_struct_find_property(op->ptr, "use_automerge_and_split")) &&
-        RNA_property_is_set(op->ptr, prop))
-    {
-      if (RNA_property_boolean_get(op->ptr, prop)) {
-        t->flag |= T_AUTOMERGE | T_AUTOSPLIT;
-      }
+  if (op && (prop = RNA_struct_find_property(op->ptr, "use_automerge_and_split")) &&
+      RNA_property_is_set(op->ptr, prop))
+  {
+    if (RNA_property_boolean_get(op->ptr, prop)) {
+      t->flag |= T_AUTOMERGE | T_AUTOSPLIT;
     }
-    else {
-      char automerge = t->scene->toolsettings->automerge;
-      if (automerge & AUTO_MERGE) {
-        t->flag |= T_AUTOMERGE;
-        if (automerge & AUTO_MERGE_AND_SPLIT) {
-          t->flag |= T_AUTOSPLIT;
-        }
+  }
+  else if (t->obedit_type == OB_MESH) {
+    char automerge = t->scene->toolsettings->automerge;
+    if (automerge & AUTO_MERGE) {
+      t->flag |= T_AUTOMERGE;
+      if (automerge & AUTO_MERGE_AND_SPLIT) {
+        t->flag |= T_AUTOSPLIT;
       }
     }
   }

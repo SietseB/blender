@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-FileCopyrightText: 2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #include "testing/testing.h"
 
@@ -123,7 +125,7 @@ TEST(string, StrCopyUTF8_TerminateEncodingEarly)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name String Concatinate
+/** \name String Concatenate
  * \{ */
 
 TEST(string, StrCat)

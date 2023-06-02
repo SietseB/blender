@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -1165,17 +1166,6 @@ void transform_mode_init(TransInfo *t, wmOperator *op, const int mode)
       break;
     case TFM_TIME_SCALE:
       initTimeScale(t);
-      break;
-    case TFM_TIME_DUPLICATE:
-      /* same as TFM_TIME_EXTEND, but we need the mode info for later
-       * so that duplicate-culling will work properly
-       */
-      if (ELEM(t->spacetype, SPACE_GRAPH, SPACE_NLA)) {
-        initTranslation(t);
-      }
-      else {
-        initTimeTranslate(t);
-      }
       break;
     case TFM_TIME_EXTEND:
       /* now that transdata has been made, do like for TFM_TIME_TRANSLATE (for most Animation

@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2022 Blender Foundation */
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -112,9 +113,9 @@ class VKFrameBuffer : public FrameBuffer {
   }
 
   /**
-   * Is this framebuffer immutable?
+   * Is this frame-buffer immutable?
    *
-   * Framebuffers that are owned by GHOST are immutable and
+   * Frame-buffers that are owned by GHOST are immutable and
    * don't have any attachments assigned. It should be assumed that there is a single color texture
    * in slot 0.
    */

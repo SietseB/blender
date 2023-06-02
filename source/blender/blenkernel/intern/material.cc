@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
+/* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -76,8 +77,6 @@
 
 static CLG_LogRef LOG = {"bke.material"};
 
-static void material_clear_data(ID *id);
-
 static void material_init_data(ID *id)
 {
   Material *material = (Material *)id;
@@ -133,25 +132,6 @@ static void material_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const 
   BLI_listbase_clear(&material_dst->gpumaterial);
 
   /* TODO: Duplicate Engine Settings and set runtime to nullptr. */
-}
-
-/**
- * Ensure pointers to allocated memory is cleared
- * (the kind of data that would have to be copied).
- *
- * \note Keep in sync with #material_free_data.
- */
-static void material_clear_data(ID *id)
-{
-  Material *material = (Material *)id;
-
-  BLI_listbase_clear(&material->gpumaterial);
-  material->texpaintslot = nullptr;
-  material->gp_style = nullptr;
-  material->nodetree = nullptr;
-  material->preview = nullptr;
-
-  id->icon_id = 0;
 }
 
 static void material_free_data(ID *id)
@@ -1929,85 +1909,6 @@ void ramp_blend(int type, float r_col[3], const float fac, const float col[3])
         r_col[2] = r_col[2] + fac * (2.0f * (col[2]) - 1.0f);
       }
       break;
-  }
-}
-
-/**
- * \brief copy/paste buffer, if we had a proper py api that would be better
- * \note matcopybuf.nodetree does _NOT_ use ID's
- * \todo matcopybuf.nodetree's  node->id's are NOT validated, this will crash!
- */
-static Material matcopybuf;
-static short matcopied = 0;
-
-void BKE_material_copybuf_clear(void)
-{
-  if (matcopied) {
-    BKE_material_copybuf_free();
-  }
-  matcopybuf = blender::dna::shallow_zero_initialize();
-  matcopied = 0;
-}
-
-void BKE_material_copybuf_free(void)
-{
-  BLI_assert(matcopybuf.id.icon_id == 0);
-  if (matcopybuf.nodetree) {
-    BLI_assert(!matcopybuf.nodetree->id.py_instance); /* Or call #BKE_libblock_free_data_py. */
-  }
-  material_free_data(&matcopybuf.id);
-  matcopied = 0;
-}
-
-void BKE_material_copybuf_copy(Main *bmain, Material *ma)
-{
-  if (matcopied) {
-    BKE_material_copybuf_free();
-  }
-
-  matcopybuf = blender::dna::shallow_copy(*ma);
-
-  /* Not essential, but we never want to use any ID values from the source,
-   * this ensures that never happens. */
-  memset(&matcopybuf.id, 0, sizeof(ID));
-
-  /* Ensure dangling pointers are never copied back into a material. */
-  material_clear_data(&matcopybuf.id);
-
-  if (ma->nodetree != nullptr) {
-    matcopybuf.nodetree = blender::bke::ntreeCopyTree_ex(ma->nodetree, bmain, false);
-  }
-
-  /* TODO: Duplicate Engine Settings and set runtime to nullptr. */
-  matcopied = 1;
-}
-
-void BKE_material_copybuf_paste(Main *bmain, Material *ma)
-{
-  ID id;
-
-  if (matcopied == 0) {
-    return;
-  }
-
-  const bool has_node_tree = (ma->nodetree || matcopybuf.nodetree);
-
-  /* Handles freeing nodes and and other run-time data (previews) for e.g. */
-  material_free_data(&ma->id);
-
-  id = (ma->id);
-  *ma = blender::dna::shallow_copy(matcopybuf);
-  (ma->id) = id;
-
-  if (matcopybuf.nodetree != nullptr) {
-    ma->nodetree = blender::bke::ntreeCopyTree_ex(matcopybuf.nodetree, bmain, false);
-  }
-
-  if (has_node_tree) {
-    /* Important to run this when the embedded tree if freed,
-     * otherwise the depsgraph holds a reference to the (now freed) `ma->nodetree`.
-     * Also run this when a new node-tree is set to ensure it's accounted for. */
-    DEG_relations_tag_update(bmain);
   }
 }
 
