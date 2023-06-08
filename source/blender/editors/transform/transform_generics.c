@@ -186,8 +186,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
   copy_v2_v2_int(t->mouse.imval, mval);
   copy_v2_v2_int(t->con.imval, mval);
 
-  t->transform = NULL;
-  t->handleEvent = NULL;
+  t->mode_info = NULL;
 
   t->data_len_all = 0;
 
@@ -659,7 +658,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
     t->flag |= T_NO_CURSOR_WRAP;
   }
 
-  if (op && (t->flag & T_MODAL) && !(t->flag & T_RELEASE_CONFIRM) &&
+  if (op && (t->flag & T_MODAL) &&
       (prop = RNA_struct_find_property(op->ptr, "allow_navigation")) &&
       RNA_property_boolean_get(op->ptr, prop))
   {

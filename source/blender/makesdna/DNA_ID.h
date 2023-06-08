@@ -874,12 +874,23 @@ enum {
    */
   LIB_TAG_UNDO_OLD_ID_REUSED_UNCHANGED = 1 << 17,
   /**
-   * ID has be re-read in-place, the ID address is the same as in the old BMain, but the content is
+   * ID is being re-used from the old Main (instead of read from memfile), during memfile undo
+   * processing, because it is a 'NO_UNDO' type of ID.
+   *
+   * \note: Also means that such ID does not need to be lib-linked during undo readfile process. It
+   * does need to be relinked in a different way however, doing a `session_uuid`-based lookup into
+   * the newly read main database.
+   *
+   * RESET_AFTER_USE
+   */
+  LIB_TAG_UNDO_OLD_ID_REUSED_NOUNDO = 1 << 18,
+  /**
+   * ID has be re-read in-place, the ID address is the same as in the old main, but the content is
    * different.
    *
    * RESET_AFTER_USE
    */
-  LIB_TAG_UNDO_OLD_ID_REREAD_IN_PLACE = 1 << 18,
+  LIB_TAG_UNDO_OLD_ID_REREAD_IN_PLACE = 1 << 19,
 
   /* ------------------------------------------------------------------------------------------- */
   /**
@@ -1020,7 +1031,7 @@ typedef enum IDRecalcFlag {
    * changed, and the shader is to be recompiled.
    * For objects it means that the draw batch cache is to be redone. */
   ID_RECALC_SHADING = (1 << 7),
-  /* TODO(sergey): Consider adding an explicit ID_RECALC_SHADING_PARAMATERS
+  /* TODO(sergey): Consider adding an explicit ID_RECALC_SHADING_PARAMETERS
    * which can be used for cases when only socket value changed, to speed up
    * redraw update in that case. */
 

@@ -5803,7 +5803,7 @@ void GPENCIL_OT_stroke_cutter(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "flat_caps", 0, "Flat Caps", "");
 }
 
-bool ED_object_gpencil_exit(struct Main *bmain, Object *ob)
+bool ED_object_gpencil_exit(Main *bmain, Object *ob)
 {
   bool ok = false;
   if (ob) {

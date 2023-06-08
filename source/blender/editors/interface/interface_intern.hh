@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "BLI_compiler_attrs.h"
 #include "BLI_rect.h"
 #include "BLI_vector.hh"
@@ -238,8 +240,7 @@ struct uiBut {
   /* RNA data */
   PointerRNA rnapoin = {};
   PropertyRNA *rnaprop = nullptr;
-  /** The index (arrays only), otherwise set to -1. */
-  int rnaindex = -1;
+  int rnaindex = 0;
 
   /* Operator data */
   wmOperatorType *optype = nullptr;
@@ -267,8 +268,7 @@ struct uiBut {
   double *editval = nullptr;
   float *editvec = nullptr;
 
-  uiButPushedStateFunc pushed_state_func = nullptr;
-  const void *pushed_state_arg = nullptr;
+  std::function<bool(const uiBut &)> pushed_state_func;
 
   /** Little indicator (e.g., counter) displayed on top of some icons. */
   IconTextOverlay icon_overlay_text = {};

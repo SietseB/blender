@@ -140,7 +140,7 @@ static void remove_materials(Material ***materials, short *materials_num)
 }
 
 /**
- * Removess parts of the geometry that can't be stored in the simulation state:
+ * Removes parts of the geometry that can't be stored in the simulation state:
  * - Anonymous attributes can't be stored because it is not known which of them will or will not be
  *   used in the future.
  * - Materials can't be stored directly, because they are linked ID data blocks that can't be
@@ -1153,7 +1153,7 @@ void NOD_geometry_simulation_output_remove_item(NodeGeometrySimulationOutput *si
   MEM_SAFE_FREE(old_items);
 }
 
-void NOD_geometry_simulation_output_clear_items(struct NodeGeometrySimulationOutput *sim)
+void NOD_geometry_simulation_output_clear_items(NodeGeometrySimulationOutput *sim)
 {
   for (NodeSimulationItem &item : sim->items_span_for_write()) {
     MEM_SAFE_FREE(item.name);

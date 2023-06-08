@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "DNA_object_types.h"
+
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_index_mask.hh"
 
@@ -78,7 +80,7 @@ static IndexMask vert_selection_from_edge(const Span<int2> edges,
                                           IndexMaskMemory &memory)
 {
   Array<bool> array(verts_num, false);
-  edge_mask.foreach_index_optimized<int>([&](const int i) {
+  edge_mask.foreach_index_optimized<int>(GrainSize(4096), [&](const int i) {
     array[edges[i][0]] = true;
     array[edges[i][1]] = true;
   });
@@ -197,6 +199,40 @@ static void copy_loose_edge_hint(const Mesh &src, Mesh &dst)
   }
 }
 
+/** Gather vertex group data and array attributes in separate loops. */
+static void gather_vert_attributes(const Mesh &mesh_src,
+                                   const bke::AnonymousAttributePropagationInfo &propagation_info,
+                                   const IndexMask &vert_mask,
+                                   Mesh &mesh_dst)
+{
+  Set<std::string> names;
+  LISTBASE_FOREACH (bDeformGroup *, group, &mesh_src.vertex_group_names) {
+    names.add(group->name);
+  }
+
+  const Span<MDeformVert> src = mesh_src.deform_verts();
+  MutableSpan<MDeformVert> dst = mesh_dst.deform_verts_for_write();
+  threading::parallel_invoke(
+      src.size() > 1024,
+      [&]() {
+        if (!src.is_empty() && !dst.is_empty()) {
+          vert_mask.foreach_index(GrainSize(512), [&](const int64_t src_i, const int64_t dst_i) {
+            dst[dst_i].dw = static_cast<MDeformWeight *>(MEM_dupallocN(src[src_i].dw));
+            dst[dst_i].totweight = src[src_i].totweight;
+            dst[dst_i].flag = src[src_i].flag;
+          });
+        }
+      },
+      [&]() {
+        bke::gather_attributes(mesh_src.attributes(),
+                               ATTR_DOMAIN_POINT,
+                               propagation_info,
+                               names,
+                               vert_mask,
+                               mesh_dst.attributes_for_write());
+      });
+}
+
 std::optional<Mesh *> mesh_copy_selection(
     const Mesh &src_mesh,
     const fn::Field<bool> &selection_field,
@@ -276,7 +312,10 @@ std::optional<Mesh *> mesh_copy_selection(
   if (vert_mask.is_empty()) {
     return nullptr;
   }
-  if (vert_mask.size() == src_mesh.totvert) {
+  const bool same_verts = vert_mask.size() == src_mesh.totvert;
+  const bool same_edges = edge_mask.size() == src_mesh.totedge;
+  const bool same_polys = poly_mask.size() == src_mesh.totpoly;
+  if (same_verts && same_edges && same_polys) {
     return std::nullopt;
   }
 
@@ -318,8 +357,7 @@ std::optional<Mesh *> mesh_copy_selection(
                     dst_corner_edges);
       },
       [&]() {
-        bke::gather_attributes(
-            src_attributes, ATTR_DOMAIN_POINT, propagation_info, {}, vert_mask, dst_attributes);
+        gather_vert_attributes(src_mesh, propagation_info, vert_mask, *dst_mesh);
         bke::gather_attributes(src_attributes,
                                ATTR_DOMAIN_EDGE,
                                propagation_info,
@@ -408,6 +446,12 @@ std::optional<Mesh *> mesh_copy_selection_keep_verts(
       break;
   }
 
+  const bool same_edges = edge_mask.size() == src_mesh.totedge;
+  const bool same_polys = poly_mask.size() == src_mesh.totpoly;
+  if (same_edges && same_polys) {
+    return std::nullopt;
+  }
+
   Mesh *dst_mesh = create_mesh_no_attributes(
       src_mesh, src_mesh.totvert, edge_mask.size(), poly_mask.size(), 0);
   bke::MutableAttributeAccessor dst_attributes = dst_mesh->attributes_for_write();
@@ -486,6 +530,11 @@ std::optional<Mesh *> mesh_copy_selection_keep_edges(
     default:
       BLI_assert_unreachable();
       break;
+  }
+
+  const bool same_polys = poly_mask.size() == src_mesh.totpoly;
+  if (same_polys) {
+    return std::nullopt;
   }
 
   Mesh *dst_mesh = create_mesh_no_attributes(

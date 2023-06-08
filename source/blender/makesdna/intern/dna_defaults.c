@@ -331,7 +331,7 @@ SDNA_DEFAULT_DECL_STRUCT(FollowCurveGpencilModifierData);
 #undef SDNA_DEFAULT_DECL_STRUCT
 
 /* Reuse existing definitions. */
-extern const struct UserDef U_default;
+extern const UserDef U_default;
 #define DNA_DEFAULT_UserDef U_default
 
 extern const bTheme U_theme_default;
