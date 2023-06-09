@@ -110,11 +110,16 @@ typedef struct NoiseGpencilModifierData {
   float noise_scale;
   float noise_offset;
   short noise_mode;
-  char _pad[2];
+  char _pad0[2];
   /** How many frames before recalculate randoms. */
   int step;
   /** Custom index for passes. */
   int layer_pass;
+  /** HSV factors. */
+  float hsv[3];
+  /** Modify stroke, fill or both. */
+  char modify_color;
+  char _pad1[3];
   /** Random seed */
   int seed;
   struct CurveMapping *curve_intensity;
@@ -133,6 +138,7 @@ typedef enum eNoiseGpencil_Flag {
   GP_NOISE_MOD_UV = (1 << 9), /* Deprecated (only for versioning). */
   GP_NOISE_INVERT_LAYERPASS = (1 << 10),
   GP_NOISE_INVERT_MATERIAL = (1 << 11),
+  GP_NOISE_USE_COLOR = (1 << 12),
 } eNoiseGpencil_Flag;
 
 typedef enum eNoiseRandomGpencil_Mode {

@@ -148,6 +148,8 @@
     .layer_pass = 0, \
     .seed = 1, \
     .curve_intensity = NULL, \
+    .modify_color = GP_MODIFY_COLOR_BOTH, \
+    .hsv = {1.0f, 1.0f, 1.0f}, \
   }
 
 #define _DNA_DEFAULT_OffsetGpencilModifierData \
