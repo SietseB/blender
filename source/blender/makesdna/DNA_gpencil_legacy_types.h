@@ -319,7 +319,7 @@ typedef struct bGPDstroke_Runtime {
   float render_stroke_color[3];
   float render_fill_opacity;
   float render_stroke_opacity;
-  float render_stroke_width;
+  float render_stroke_radius;
   float render_thickness;
   float render_dist_to_camera;
   short render_flag;
@@ -469,6 +469,7 @@ typedef enum eGPDstroke_RenderFlag {
   GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
   GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
   GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 2),
+  GP_ONDINE_STROKE_IS_OUT_OF_VIEW = (1 << 3),
 } eGPDstroke_RenderFlag;
 
 /* Arrows ----------------------- */

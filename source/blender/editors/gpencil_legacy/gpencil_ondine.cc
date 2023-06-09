@@ -197,13 +197,11 @@ float2 GpencilOndine::gpencil_3D_point_to_2D(const float3 co)
   return r_co;
 }
 
-float GpencilOndine::stroke_point_radius_get(bGPdata *gpd,
-                                             bGPDstroke *gps,
+float GpencilOndine::stroke_point_radius_get(bGPDstroke *gps,
                                              const int p_index,
                                              const float thickness)
 {
-  float defaultpixsize = 1000.0f / gpd->pixfactor;
-  float stroke_radius = (thickness / defaultpixsize) / 2.0f;
+  float stroke_radius = (thickness / defaultpixsize_) / 2.0f;
 
   bGPDspoint *pt1 = &gps->points[p_index];
   float3 p1, p2;
@@ -280,15 +278,16 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       continue;
     }
 
-    /* Prepare layer matrix. */
-    BKE_gpencil_layer_transform_matrix_get(depsgraph_, object, gpl, diff_mat_.ptr());
-    diff_mat_ = diff_mat_ * float4x4(gpl->layer_invmat);
-
     /* Active keyframe? */
     bGPDframe *gpf = gpl->actframe;
     if ((gpf == nullptr) || (gpf->strokes.first == nullptr)) {
       continue;
     }
+
+    /* Prepare layer matrix and pixel size. */
+    BKE_gpencil_layer_transform_matrix_get(depsgraph_, object, gpl, diff_mat_.ptr());
+    diff_mat_ = diff_mat_ * float4x4(gpl->layer_invmat);
+    defaultpixsize_ = 1000.0f / gpd->pixfactor;
 
     /* Iterate all strokes of layer. */
     LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
@@ -330,7 +329,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       float bbox_maxx = -FLT_MAX, bbox_maxy = -FLT_MAX;
       float dist_to_cam = 0.0f;
       float min_dist_to_cam = -FLT_MAX, max_dist_to_cam = FLT_MAX;
-      int min_dist_point_index = 0, max_dist_point_index = 0;
+      int min_dist_point_index = 0;
 
       /* Convert 3D stroke points to 2D. */
       for (const int i : IndexRange(gps->totpoints)) {
@@ -350,15 +349,14 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         /* Get distance to camera.
          * Somehow we have to apply the object world matrix here again, I don't know why... */
         mul_m4_v3(object->object_to_world, co);
-        dist_to_cam = math::dot(co - camera_loc_, camera_normal_vec_);
+        dist_to_cam = MIN2(0.0f, math::dot(co - camera_loc_, camera_normal_vec_));
         pt_2d.data[ONDINE_DIST_TO_CAM] = dist_to_cam;
 
         /* Keep track of closest/furthest point to camera. */
         if (dist_to_cam < max_dist_to_cam) {
           max_dist_to_cam = dist_to_cam;
-          max_dist_point_index = i;
         }
-        if ((dist_to_cam > min_dist_to_cam) && (dist_to_cam <= 0)) {
+        if (dist_to_cam > min_dist_to_cam) {
           min_dist_to_cam = dist_to_cam;
           min_dist_point_index = i;
         }
@@ -389,38 +387,43 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
 
       /* Calculate stroke width. */
       bool pressure_is_set = false;
+      bool out_of_view = true;
       float max_pressure = 0.001f;
-      gps->runtime.render_stroke_width = 0.0f;
+      gps->runtime.render_stroke_radius = 0.0f;
       if (has_stroke) {
         /* Get stroke thickness, taking object scale and layer line change into account. */
         float thickness = gps->thickness + gpl->line_change;
         thickness *= mat4_to_scale(object->object_to_world);
         CLAMP_MIN(thickness, 1.0f);
-        float max_stroke_width = stroke_point_radius_get(
-                                     gpd, gps, min_dist_point_index, thickness) *
-                                 2.0f;
-        float min_stroke_width = stroke_point_radius_get(
-                                     gpd, gps, max_dist_point_index, thickness) *
-                                 2.0f;
-        gps->runtime.render_stroke_width = max_stroke_width;
+        const float max_stroke_radius = stroke_point_radius_get(
+            gps, min_dist_point_index, thickness);
+        gps->runtime.render_stroke_radius = max_stroke_radius;
 
         /* Adjust point pressure based on distance to camera.
          * That way a stroke will get thinner when it is further away from the camera. */
-        float stroke_width_factor = (max_stroke_width - min_stroke_width) / max_stroke_width;
-        float delta_dist = min_dist_to_cam - max_dist_to_cam;
-        if (delta_dist != 0.0f) {
+        if ((min_dist_to_cam - max_dist_to_cam) > FLT_EPSILON) {
           pressure_is_set = true;
+
           for (const int i : IndexRange(gps->totpoints)) {
             bGPDspoint &pt = gps->points[i];
             bGPDspoint2D &pt_2d = gps->points_2d[i];
 
-            /* Adjust pressure based on camera distance. */
-            pt_2d.data[ONDINE_PRESSURE3D] =
-                pt.pressure *
-                (1.0f - ((min_dist_to_cam - pt_2d.data[ONDINE_DIST_TO_CAM]) / delta_dist) *
-                            stroke_width_factor);
+            /* Adjust pressure based on camera distance.
+             * Bit slow, but the most accurate way. */
+            float radius = stroke_point_radius_get(gps, i, thickness);
+            pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure * MIN2(1.0f, radius / max_stroke_radius);
             if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
               max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
+            }
+
+            /* Point in view of camera? */
+            radius = max_stroke_radius * pt_2d.data[ONDINE_PRESSURE3D];
+            if ((pt_2d.data[ONDINE_X] + radius) >= 0.0f &&
+                (pt_2d.data[ONDINE_X] - radius) <= render_x_ &&
+                (pt_2d.data[ONDINE_Y] + radius) >= 0.0f &&
+                (pt_2d.data[ONDINE_Y] - radius) <= render_y_)
+            {
+              out_of_view = false;
             }
           }
         }
@@ -430,12 +433,24 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
           bGPDspoint &pt = gps->points[i];
           bGPDspoint2D &pt_2d = gps->points_2d[i];
           pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure;
-          if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
-            max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
+
+          /* Point in view of camera? */
+          if (pt_2d.data[ONDINE_X] >= 0.0f && pt_2d.data[ONDINE_X] <= render_x_ &&
+              pt_2d.data[ONDINE_Y] >= 0.0f && pt_2d.data[ONDINE_Y] <= render_y_)
+          {
+            out_of_view = false;
           }
         }
+        max_pressure = gps->points_2d[0].data[ONDINE_PRESSURE3D];
       }
       gps->runtime.render_max_pressure = max_pressure;
+
+      if (out_of_view) {
+        gps->runtime.render_flag |= GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
+      }
+      else {
+        gps->runtime.render_flag &= ~GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
+      }
 
       /* Determine wether a fill is clockwise or counterclockwise. */
       /* See: https://en.wikipedia.org/wiki/Curve_orientation */

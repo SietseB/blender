@@ -15,10 +15,7 @@ class GpencilOndine {
   void set_zdepth(Object *object);
   void set_render_data(Object *object, const blender::float4x4 obmat);
   void set_stroke_colors(bGPDlayer *gpl, bGPDstroke *gps, MaterialGPencilStyle *gp_style);
-  float stroke_point_radius_get(bGPdata *gpd,
-                                bGPDstroke *gps,
-                                const int p_index,
-                                const float thickness);
+  float stroke_point_radius_get(bGPDstroke *gps, const int p_index, const float thickness);
   float2 gpencil_3D_point_to_2D(const float3 co);
   void set_unique_stroke_seeds(bContext *C);
 
@@ -43,6 +40,7 @@ class GpencilOndine {
   blender::float3 camera_normal_vec_;
   float camera_rot_sin_;
   float camera_rot_cos_;
+  float defaultpixsize_;
 
   blender::float2 offset_;
 

@@ -725,13 +725,13 @@ def km_screen(params):
         ("ed.undo", {"type": 'Z', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
         ("ed.redo", {"type": 'Z', "value": 'PRESS', "shift": True, "ctrl": True, "repeat": True}, None),
         # Render
-        ("render.render", {"type": 'F12', "value": 'PRESS'},
+        ("render.render", {"type": 'F12', "value": 'PRESS', "alt": True},
          {"properties": [("use_viewport", True)]}),
-        ("render.render", {"type": 'F12', "value": 'PRESS', "ctrl": True},
+        ("render.render", {"type": 'F12', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("animation", True), ("use_viewport", True)]}),
         ("render.view_cancel", {"type": 'ESC', "value": 'PRESS'}, None),
-        ("render.view_show", {"type": 'F11', "value": 'PRESS'}, None),
-        ("render.play_rendered_anim", {"type": 'F11', "value": 'PRESS', "ctrl": True}, None),
+        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True}, None),
+        ("render.play_rendered_anim", {"type": 'F11', "value": 'PRESS', "ctrl": True, "alt": True}, None),
     ])
 
     if not params.legacy:

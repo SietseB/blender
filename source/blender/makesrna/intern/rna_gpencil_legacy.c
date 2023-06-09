@@ -2155,8 +2155,8 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "runtime.render_stroke_opacity");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
-  prop = RNA_def_property(srna, "render_stroke_width", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, NULL, "runtime.render_stroke_width");
+  prop = RNA_def_property(srna, "render_stroke_radius", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "runtime.render_stroke_radius");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
   prop = RNA_def_property(srna, "render_thickness", PROP_FLOAT, PROP_NONE);
@@ -2182,6 +2182,11 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   prop = RNA_def_property(srna, "render_fill_is_clockwise", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(
       prop, NULL, "runtime.render_flag", GP_ONDINE_STROKE_FILL_IS_CLOCKWISE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+  prop = RNA_def_property(srna, "render_out_of_view", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, NULL, "runtime.render_flag", GP_ONDINE_STROKE_IS_OUT_OF_VIEW);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
   prop = RNA_def_property(srna, "render_bbox", PROP_FLOAT, PROP_NONE);
