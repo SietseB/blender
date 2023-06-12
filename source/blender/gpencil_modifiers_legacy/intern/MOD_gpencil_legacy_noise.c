@@ -101,8 +101,11 @@ static float *noise_table(int len, int offset, int seed)
   return table;
 }
 
-BLI_INLINE float table_sample(float *table, float x)
+static float table_sample(float *table, float x, const float default_val)
 {
+  if (table == NULL) {
+    return default_val;
+  }
   return interpf(table[(int)ceilf(x)], table[(int)floor(x)], fractf(x));
 }
 
@@ -128,6 +131,7 @@ static void deformStroke(GpencilModifierData *md,
   const bool use_color = (mmd->flag & GP_NOISE_USE_COLOR) != 0;
   const int cfra = (int)DEG_get_ctime(depsgraph);
   const bool is_keyframe = (mmd->noise_mode == GP_NOISE_RANDOM_KEYFRAME);
+  const bool use_random_smooth = ((mmd->flag & GP_NOISE_USE_RANDOM_SMOOTH) != 0) && !is_keyframe;
   const float noise_offset = fractf(mmd->noise_offset);
 
   if (!is_stroke_affected_by_modifier(ob,
@@ -146,7 +150,8 @@ static void deformStroke(GpencilModifierData *md,
     return;
   }
 
-  int seed = mmd->seed;
+  float smooth_factor;
+  int seed = mmd->seed, seed_next;
   /* FIXME(fclem): This is really slow. We should get the stroke index in another way. */
   int stroke_seed = BLI_findindex(&gpf->strokes, gps);
   seed += stroke_seed;
@@ -158,6 +163,8 @@ static void deformStroke(GpencilModifierData *md,
   if (use_random) {
     if (!is_keyframe) {
       seed += cfra / mmd->step;
+      seed_next = seed + 1;
+      smooth_factor = (float)(cfra % mmd->step) / mmd->step;
     }
     else {
       /* If change every keyframe, use the last keyframe. */
@@ -172,25 +179,53 @@ static void deformStroke(GpencilModifierData *md,
   float *noise_table_position = (mmd->factor > 0.0f) ?
                                     noise_table(len, (int)floor(mmd->noise_offset), seed + 2) :
                                     NULL;
+  float *noise_table_position_next = (mmd->factor > 0.0f && use_random_smooth) ?
+                                         noise_table(
+                                             len, (int)floor(mmd->noise_offset), seed_next + 2) :
+                                         NULL;
   float *noise_table_strength = (mmd->factor_strength > 0.0f) ?
                                     noise_table(len, (int)floor(mmd->noise_offset), seed + 3) :
                                     NULL;
+  float *noise_table_strength_next = (mmd->factor_strength > 0.0f) ?
+                                         noise_table(
+                                             len, (int)floor(mmd->noise_offset), seed_next + 3) :
+                                         NULL;
   float *noise_table_thickness = (mmd->factor_thickness > 0.0f) ?
                                      noise_table(len, (int)floor(mmd->noise_offset), seed) :
                                      NULL;
+  float *noise_table_thickness_next = (mmd->factor_thickness > 0.0f) ?
+                                          noise_table(
+                                              len, (int)floor(mmd->noise_offset), seed_next) :
+                                          NULL;
   float *noise_table_uvs = (mmd->factor_uvs > 0.0f) ?
                                noise_table(len, (int)floor(mmd->noise_offset), seed + 4) :
                                NULL;
+  float *noise_table_uvs_next = (mmd->factor_uvs > 0.0f) ?
+                                    noise_table(
+                                        len, (int)floor(mmd->noise_offset), seed_next + 4) :
+                                    NULL;
 
   float *noise_table_color_h = (use_color && use_random) ?
                                    noise_table(len, (int)floor(mmd->noise_offset), seed + 5) :
                                    NULL;
+  float *noise_table_color_h_next = (use_color && use_random) ?
+                                        noise_table(
+                                            len, (int)floor(mmd->noise_offset), seed_next + 5) :
+                                        NULL;
   float *noise_table_color_s = (use_color && use_random) ?
                                    noise_table(len, (int)floor(mmd->noise_offset), seed + 6) :
                                    NULL;
+  float *noise_table_color_s_next = (use_color && use_random) ?
+                                        noise_table(
+                                            len, (int)floor(mmd->noise_offset), seed_next + 6) :
+                                        NULL;
   float *noise_table_color_v = (use_color && use_random) ?
                                    noise_table(len, (int)floor(mmd->noise_offset), seed + 7) :
                                    NULL;
+  float *noise_table_color_v_next = (use_color && use_random) ?
+                                        noise_table(
+                                            len, (int)floor(mmd->noise_offset), seed_next + 7) :
+                                        NULL;
 
   /* Calculate stroke normal. */
   if (gps->totpoints > 2) {
@@ -239,30 +274,61 @@ static void deformStroke(GpencilModifierData *md,
       cross_v3_v3v3(vec2, vec1, normal);
       normalize_v3(vec2);
 
-      float noise = table_sample(noise_table_position, i * noise_scale + noise_offset);
+      float pos_next[3];
+      copy_v3_v3(pos_next, &pt->x);
+      float noise = table_sample(noise_table_position, i * noise_scale + noise_offset, 0.0f);
       madd_v3_v3fl(&pt->x, vec2, (noise * 2.0f - 1.0f) * weight * mmd->factor * 0.1f);
+      if (use_random_smooth) {
+        float noise = table_sample(
+            noise_table_position_next, i * noise_scale + noise_offset, 0.0f);
+        madd_v3_v3fl(pos_next, vec2, (noise * 2.0f - 1.0f) * weight * mmd->factor * 0.1f);
+        interp_v3_v3v3(&pt->x, &pt->x, pos_next, smooth_factor);
+      }
     }
 
     if (mmd->factor_thickness > 0.0f) {
-      float noise = table_sample(noise_table_thickness, i * noise_scale + noise_offset);
+      float pressure_next = pt->pressure;
+      float noise = table_sample(noise_table_thickness, i * noise_scale + noise_offset, 0.0f);
       pt->pressure *= max_ff(1.0f + (noise * 2.0f - 1.0f) * weight * mmd->factor_thickness, 0.0f);
       CLAMP_MIN(pt->pressure, GPENCIL_STRENGTH_MIN);
+      if (use_random_smooth) {
+        float noise = table_sample(
+            noise_table_thickness_next, i * noise_scale + noise_offset, 0.0f);
+        pressure_next *= max_ff(1.0f + (noise * 2.0f - 1.0f) * weight * mmd->factor_thickness,
+                                0.0f);
+        CLAMP_MIN(pressure_next, GPENCIL_STRENGTH_MIN);
+        pt->pressure = interpf(pressure_next, pt->pressure, smooth_factor);
+      }
     }
 
     if (mmd->factor_strength > 0.0f) {
-      float noise = table_sample(noise_table_strength, i * noise_scale + noise_offset);
+      float strength_next = pt->strength;
+      float noise = table_sample(noise_table_strength, i * noise_scale + noise_offset, 0.0f);
       pt->strength *= max_ff(1.0f - noise * weight * mmd->factor_strength, 0.0f);
       CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+      if (use_random_smooth) {
+        float noise = table_sample(noise_table_strength, i * noise_scale + noise_offset, 0.0f);
+        strength_next *= max_ff(1.0f - noise * weight * mmd->factor_strength, 0.0f);
+        CLAMP(strength_next, GPENCIL_STRENGTH_MIN, 1.0f);
+        pt->strength = interpf(strength_next, pt->strength, smooth_factor);
+      }
     }
 
     if (mmd->factor_uvs > 0.0f) {
-      float noise = table_sample(noise_table_uvs, i * noise_scale + noise_offset);
+      float uv_rot_next = pt->uv_rot;
+      float noise = table_sample(noise_table_uvs, i * noise_scale + noise_offset, 0.0f);
       pt->uv_rot += (noise * 2.0f - 1.0f) * weight * mmd->factor_uvs * M_PI_2;
       CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
+      if (use_random_smooth) {
+        float noise = table_sample(noise_table_uvs_next, i * noise_scale + noise_offset, 0.0f);
+        uv_rot_next += (noise * 2.0f - 1.0f) * weight * mmd->factor_uvs * M_PI_2;
+        CLAMP(uv_rot_next, -M_PI_2, M_PI_2);
+        pt->uv_rot = interpf(uv_rot_next, pt->uv_rot, smooth_factor);
+      }
     }
 
     if (use_color) {
-      float noise, hsv[3];
+      float noise[3], noise_interp, noise_next, hsv[3], hsv_next[3];
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
       /* Fill. */
       if (mmd->modify_color != GP_MODIFY_COLOR_STROKE) {
@@ -274,20 +340,36 @@ static void deformStroke(GpencilModifierData *md,
         }
 
         rgb_to_hsv_v(gps->vert_color_fill, hsv);
-        noise = (use_random) ? table_sample(noise_table_color_h, i * noise_scale + noise_offset) :
-                               1.0f;
-        hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise * weight);
-        noise = (use_random) ?
-                    (table_sample(noise_table_color_s, i * noise_scale + noise_offset) * 2.0f -
-                     1.0f) :
-                    1.0f;
-        hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise * weight), 0.0f, 1.0f);
-        noise = (use_random) ?
-                    (table_sample(noise_table_color_v, i * noise_scale + noise_offset) * 2.0f -
-                     1.0f) :
-                    1.0f;
-        hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise * weight), 0.0f, 1.0f);
+        rgb_to_hsv_v(gps->vert_color_fill, hsv_next);
+        noise[0] = table_sample(noise_table_color_h, i * noise_scale + noise_offset, 1.0f);
+        hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise[0] * weight);
+        noise[1] = -1.0f +
+                   2.0f * table_sample(noise_table_color_s, i * noise_scale + noise_offset, 1.0f);
+        hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise[1] * weight), 0.0f, 1.0f);
+        noise[2] = -1.0f +
+                   2.0f * table_sample(noise_table_color_v, i * noise_scale + noise_offset, 1.0f);
+        hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise[2] * weight), 0.0f, 1.0f);
         hsv_to_rgb_v(hsv, gps->vert_color_fill);
+
+        if (use_random_smooth) {
+          noise_next = table_sample(
+              noise_table_color_h_next, i * noise_scale + noise_offset, 1.0f);
+          noise_interp = interpf(noise_next, noise[0], smooth_factor);
+          hsv_next[0] = fractf(hsv_next[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise_interp * weight);
+          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_s_next,
+                                                   i * noise_scale + noise_offset,
+                                                   1.0f);
+          noise_interp = interpf(noise_next, noise[1], smooth_factor);
+          hsv_next[1] = clamp_f(
+              hsv_next[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
+          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_v_next,
+                                                   i * noise_scale + noise_offset,
+                                                   1.0f);
+          noise_interp = interpf(noise_next, noise[2], smooth_factor);
+          hsv_next[2] = clamp_f(
+              hsv_next[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
+          hsv_to_rgb_v(hsv_next, gps->vert_color_fill);
+        }
       }
 
       /* Stroke. */
@@ -300,20 +382,36 @@ static void deformStroke(GpencilModifierData *md,
         }
 
         rgb_to_hsv_v(pt->vert_color, hsv);
-        noise = (use_random) ? table_sample(noise_table_color_h, i * noise_scale + noise_offset) :
-                               1.0f;
-        hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise * weight);
-        noise = (use_random) ?
-                    (table_sample(noise_table_color_s, i * noise_scale + noise_offset) * 2.0f -
-                     1.0f) :
-                    1.0f;
-        hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise * weight), 0.0f, 1.0f);
-        noise = (use_random) ?
-                    (table_sample(noise_table_color_v, i * noise_scale + noise_offset) * 2.0f -
-                     1.0f) :
-                    1.0f;
-        hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise * weight), 0.0f, 1.0f);
+        rgb_to_hsv_v(pt->vert_color, hsv_next);
+        noise[0] = table_sample(noise_table_color_h, i * noise_scale + noise_offset, 1.0f);
+        hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise[0] * weight);
+        noise[1] = -1.0f +
+                   2.0f * table_sample(noise_table_color_s, i * noise_scale + noise_offset, 1.0f);
+        hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise[1] * weight), 0.0f, 1.0f);
+        noise[2] = -1.0f +
+                   2.0f * table_sample(noise_table_color_v, i * noise_scale + noise_offset, 1.0f);
+        hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise[2] * weight), 0.0f, 1.0f);
         hsv_to_rgb_v(hsv, pt->vert_color);
+
+        if (use_random_smooth) {
+          noise_next = table_sample(
+              noise_table_color_h_next, i * noise_scale + noise_offset, 1.0f);
+          noise_interp = interpf(noise_next, noise[0], smooth_factor);
+          hsv_next[0] = fractf(hsv_next[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise_interp * weight);
+          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_s_next,
+                                                   i * noise_scale + noise_offset,
+                                                   1.0f);
+          noise_interp = interpf(noise_next, noise[1], smooth_factor);
+          hsv_next[1] = clamp_f(
+              hsv_next[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
+          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_v_next,
+                                                   i * noise_scale + noise_offset,
+                                                   1.0f);
+          noise_interp = interpf(noise_next, noise[2], smooth_factor);
+          hsv_next[2] = clamp_f(
+              hsv_next[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
+          hsv_to_rgb_v(hsv_next, pt->vert_color);
+        }
       }
     }
   }
@@ -325,6 +423,13 @@ static void deformStroke(GpencilModifierData *md,
   MEM_SAFE_FREE(noise_table_color_h);
   MEM_SAFE_FREE(noise_table_color_s);
   MEM_SAFE_FREE(noise_table_color_v);
+  MEM_SAFE_FREE(noise_table_position_next);
+  MEM_SAFE_FREE(noise_table_strength_next);
+  MEM_SAFE_FREE(noise_table_thickness_next);
+  MEM_SAFE_FREE(noise_table_uvs_next);
+  MEM_SAFE_FREE(noise_table_color_h_next);
+  MEM_SAFE_FREE(noise_table_color_s_next);
+  MEM_SAFE_FREE(noise_table_color_v_next);
 }
 
 static void bakeModifier(struct Main *UNUSED(bmain),
@@ -387,6 +492,7 @@ static void random_panel_draw(const bContext *UNUSED(C), Panel *panel)
   const int mode = RNA_enum_get(ptr, "random_mode");
   if (mode != GP_NOISE_RANDOM_KEYFRAME) {
     uiItemR(layout, ptr, "step", 0, NULL, ICON_NONE);
+    uiItemR(layout, ptr, "use_random_smooth", 0, NULL, ICON_NONE);
   }
 }
 

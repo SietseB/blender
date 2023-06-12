@@ -139,6 +139,7 @@ typedef enum eNoiseGpencil_Flag {
   GP_NOISE_INVERT_LAYERPASS = (1 << 10),
   GP_NOISE_INVERT_MATERIAL = (1 << 11),
   GP_NOISE_USE_COLOR = (1 << 12),
+  GP_NOISE_USE_RANDOM_SMOOTH = (1 << 13),
 } eNoiseGpencil_Flag;
 
 typedef enum eNoiseRandomGpencil_Mode {

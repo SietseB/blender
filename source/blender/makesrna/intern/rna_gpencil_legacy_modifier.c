@@ -1173,6 +1173,12 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Mode", "Where to perform randomization");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
+  prop = RNA_def_property(srna, "use_random_smooth", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_USE_RANDOM_SMOOTH);
+  RNA_def_property_ui_text(
+      prop, "Smooth Transition", "Interpolate between random steps for smooth transition");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
   prop = RNA_def_property(srna, "use_color", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_USE_COLOR);
   RNA_def_property_ui_text(prop, "Color", "Apply noise to the color of strokes and fills");
