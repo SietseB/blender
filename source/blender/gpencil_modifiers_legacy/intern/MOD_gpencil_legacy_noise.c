@@ -227,6 +227,43 @@ static void deformStroke(GpencilModifierData *md,
                                             len, (int)floor(mmd->noise_offset), seed_next + 7) :
                                         NULL;
 
+  /* Fill color. */
+  float noise[3], noise_interp, noise_next, hsv[3], hsv_next[3];
+  MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
+  if (use_color && mmd->modify_color != GP_MODIFY_COLOR_STROKE) {
+    /* If not using vertex color, use the material color. */
+    if ((gp_style != NULL) && (gps->vert_color_fill[3] == 0.0f) && (gp_style->fill_rgba[3] > 0.0f))
+    {
+      copy_v4_v4(gps->vert_color_fill, gp_style->fill_rgba);
+      gps->vert_color_fill[3] = 1.0f;
+    }
+
+    rgb_to_hsv_v(gps->vert_color_fill, hsv);
+    copy_v3_v3(hsv_next, hsv);
+    noise[0] = table_sample(noise_table_color_h, noise_offset, 1.0f);
+    hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise[0]);
+    noise[1] = -1.0f + 2.0f * table_sample(noise_table_color_s, noise_offset, 1.0f);
+    hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise[1]), 0.0f, 1.0f);
+    noise[2] = -1.0f + 2.0f * table_sample(noise_table_color_v, noise_offset, 1.0f);
+    hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise[2]), 0.0f, 1.0f);
+    hsv_to_rgb_v(hsv, gps->vert_color_fill);
+
+    if (use_random_smooth) {
+      noise_next = table_sample(noise_table_color_h_next, noise_offset, 1.0f);
+      noise_interp = interpf(noise_next, noise[0], smooth_factor);
+      hsv_next[0] = fractf(hsv_next[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise_interp);
+      noise_next = -1.0f + 2.0f * table_sample(noise_table_color_s_next, noise_offset, 1.0f);
+      noise_interp = interpf(noise_next, noise[1], smooth_factor);
+      hsv_next[1] = clamp_f(
+          hsv_next[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise_interp), 0.0f, 1.0f);
+      noise_next = -1.0f + 2.0f * table_sample(noise_table_color_v_next, noise_offset, 1.0f);
+      noise_interp = interpf(noise_next, noise[2], smooth_factor);
+      hsv_next[2] = clamp_f(
+          hsv_next[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise_interp), 0.0f, 1.0f);
+      hsv_to_rgb_v(hsv_next, gps->vert_color_fill);
+    }
+  }
+
   /* Calculate stroke normal. */
   if (gps->totpoints > 2) {
     BKE_gpencil_stroke_normal(gps, normal);
@@ -328,50 +365,6 @@ static void deformStroke(GpencilModifierData *md,
     }
 
     if (use_color) {
-      float noise[3], noise_interp, noise_next, hsv[3], hsv_next[3];
-      MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
-      /* Fill. */
-      if (mmd->modify_color != GP_MODIFY_COLOR_STROKE) {
-        /* If not using vertex color, use the material color. */
-        if ((gp_style != NULL) && (gps->vert_color_fill[3] == 0.0f) &&
-            (gp_style->fill_rgba[3] > 0.0f)) {
-          copy_v4_v4(gps->vert_color_fill, gp_style->fill_rgba);
-          gps->vert_color_fill[3] = 1.0f;
-        }
-
-        rgb_to_hsv_v(gps->vert_color_fill, hsv);
-        rgb_to_hsv_v(gps->vert_color_fill, hsv_next);
-        noise[0] = table_sample(noise_table_color_h, i * noise_scale + noise_offset, 1.0f);
-        hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise[0] * weight);
-        noise[1] = -1.0f +
-                   2.0f * table_sample(noise_table_color_s, i * noise_scale + noise_offset, 1.0f);
-        hsv[1] = clamp_f(hsv[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise[1] * weight), 0.0f, 1.0f);
-        noise[2] = -1.0f +
-                   2.0f * table_sample(noise_table_color_v, i * noise_scale + noise_offset, 1.0f);
-        hsv[2] = clamp_f(hsv[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise[2] * weight), 0.0f, 1.0f);
-        hsv_to_rgb_v(hsv, gps->vert_color_fill);
-
-        if (use_random_smooth) {
-          noise_next = table_sample(
-              noise_table_color_h_next, i * noise_scale + noise_offset, 1.0f);
-          noise_interp = interpf(noise_next, noise[0], smooth_factor);
-          hsv_next[0] = fractf(hsv_next[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise_interp * weight);
-          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_s_next,
-                                                   i * noise_scale + noise_offset,
-                                                   1.0f);
-          noise_interp = interpf(noise_next, noise[1], smooth_factor);
-          hsv_next[1] = clamp_f(
-              hsv_next[1] * (1.0f + (mmd->hsv[1] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
-          noise_next = -1.0f + 2.0f * table_sample(noise_table_color_v_next,
-                                                   i * noise_scale + noise_offset,
-                                                   1.0f);
-          noise_interp = interpf(noise_next, noise[2], smooth_factor);
-          hsv_next[2] = clamp_f(
-              hsv_next[2] * (1.0f + (mmd->hsv[2] - 1.0f) * noise_interp * weight), 0.0f, 1.0f);
-          hsv_to_rgb_v(hsv_next, gps->vert_color_fill);
-        }
-      }
-
       /* Stroke. */
       if (mmd->modify_color != GP_MODIFY_COLOR_FILL) {
         /* If not using vertex color, use the material color. */
@@ -382,7 +375,7 @@ static void deformStroke(GpencilModifierData *md,
         }
 
         rgb_to_hsv_v(pt->vert_color, hsv);
-        rgb_to_hsv_v(pt->vert_color, hsv_next);
+        copy_v3_v3(hsv_next, hsv);
         noise[0] = table_sample(noise_table_color_h, i * noise_scale + noise_offset, 1.0f);
         hsv[0] = fractf(hsv[0] + (mmd->hsv[0] - 1.0f) * 0.5f * noise[0] * weight);
         noise[1] = -1.0f +
