@@ -114,9 +114,9 @@ typedef struct bGPDspoint2D {
    * - pressure_3d
    * - strength
    * - dist_to_camera
+   * - color[3]
    */
-  float data[5];
-  char _pad0[4];
+  float data[8];
 } bGPDspoint2D;
 
 typedef enum eGPDspoint2D_Fields {
@@ -125,6 +125,7 @@ typedef enum eGPDspoint2D_Fields {
   ONDINE_PRESSURE3D = 2,
   ONDINE_STRENGTH = 3,
   ONDINE_DIST_TO_CAM = 4,
+  ONDINE_COLOR = 5,
 } eGPDspoint2D_Fields;
 
 /* ***************************************** */

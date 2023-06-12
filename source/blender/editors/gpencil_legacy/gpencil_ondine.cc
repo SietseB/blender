@@ -220,24 +220,38 @@ float GpencilOndine::stroke_point_radius_get(bGPDstroke *gps,
   return MAX2(radius, 1.0f);
 }
 
-void GpencilOndine::set_stroke_colors(bGPDlayer *gpl,
-                                      bGPDstroke *gps,
-                                      MaterialGPencilStyle *gp_style)
+void GpencilOndine::get_vertex_color(const bGPDlayer *gpl,
+                                     const MaterialGPencilStyle *gp_style,
+                                     bGPDstroke *gps,
+                                     const int point_index,
+                                     float *color)
 {
-  float col[3];
+  copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
+  interp_v3_v3v3(stroke_color_,
+                 stroke_color_,
+                 gps->points[point_index].vert_color,
+                 gps->points[point_index].vert_color[3]);
+  interp_v3_v3v3(color, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
+}
+
+void GpencilOndine::set_stroke_color(const bGPDlayer *gpl,
+                                     bGPDstroke *gps,
+                                     const MaterialGPencilStyle *gp_style)
+{
+  float color[3];
 
   /* Get stroke color. */
   copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
   interp_v3_v3v3(
       stroke_color_, stroke_color_, gps->points[0].vert_color, gps->points[0].vert_color[3]);
-  interp_v3_v3v3(col, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  copy_v3_v3(gps->runtime.render_stroke_color, col);
+  interp_v3_v3v3(color, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
+  copy_v3_v3(gps->runtime.render_stroke_color, color);
 
   /* Get fill color. */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
   interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
-  interp_v3_v3v3(col, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
-  copy_v3_v3(gps->runtime.render_fill_color, col);
+  interp_v3_v3v3(color, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
+  copy_v3_v3(gps->runtime.render_fill_color, color);
   gps->runtime.render_fill_opacity = fill_color_[3] * gpl->opacity;
 }
 
@@ -312,7 +326,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       }
 
       /* Set stroke and fill color, in linear sRGB. */
-      set_stroke_colors(gpl, gps, gp_style);
+      set_stroke_color(gpl, gps, gp_style);
 
       /* Create array for 2D point data. */
       MEM_SAFE_FREE(gps->points_2d);
@@ -345,6 +359,9 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         pt_2d.data[ONDINE_X] = screen_co.x;
         pt_2d.data[ONDINE_Y] = screen_co.y;
         pt_2d.data[ONDINE_STRENGTH] = pt.strength;
+
+        /* Set vertex color. */
+        get_vertex_color(gpl, gp_style, gps, i, &pt_2d.data[ONDINE_COLOR]);
 
         /* Get distance to camera.
          * Somehow we have to apply the object world matrix here again, I don't know why... */
@@ -433,6 +450,9 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
           bGPDspoint &pt = gps->points[i];
           bGPDspoint2D &pt_2d = gps->points_2d[i];
           pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure;
+          if (pt.pressure > max_pressure) {
+            max_pressure = pt.pressure;
+          }
 
           /* Point in view of camera? */
           if (pt_2d.data[ONDINE_X] >= 0.0f && pt_2d.data[ONDINE_X] <= render_x_ &&
@@ -441,7 +461,13 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
             out_of_view = false;
           }
         }
-        max_pressure = gps->points_2d[0].data[ONDINE_PRESSURE3D];
+      }
+      /* Normalize pressure. */
+      if (max_pressure > 1.0f) {
+        for (const int i : IndexRange(gps->totpoints)) {
+          gps->points_2d[i].data[ONDINE_PRESSURE3D] /= max_pressure;
+        }
+        max_pressure = 1.0f;
       }
       gps->runtime.render_max_pressure = max_pressure;
 

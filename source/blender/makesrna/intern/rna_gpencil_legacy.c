@@ -1479,7 +1479,7 @@ static void rna_def_gpencil_stroke_point_2d(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "data", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "data");
-  RNA_def_property_array(prop, 5);
+  RNA_def_property_array(prop, 8);
   RNA_def_property_ui_text(prop, "Coordinates", "");
 }
 
@@ -2128,7 +2128,7 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
   RNA_def_property_collection_sdna(prop, NULL, "points_2d", "totpoints");
   RNA_def_property_struct_type(prop, "GPencilStrokePoint2D");
   RNA_def_property_ui_text(
-      prop, "Stroke Points 2D", "Stroke data points for 2D rendering (Ondine)");
+      prop, "Stroke Points 2D", "Stroke points data for 2D rendering (Ondine)");
 
   /* Seed */
   prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
