@@ -589,15 +589,10 @@ static int gpencil_layer_duplicate_object_exec(bContext *C, wmOperator *op)
       gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
       gpl_dst->brush_jitter = gpl_src->brush_jitter;
       gpl_dst->texture_image = gpl_src->texture_image;
-      gpl_dst->texture_shadow_image = gpl_src->texture_shadow_image;
       gpl_dst->texture_density = gpl_src->texture_density;
       gpl_dst->texture_scale = gpl_src->texture_scale;
-      gpl_dst->texture_color_variation = gpl_src->texture_color_variation;
       gpl_dst->texture_angle = gpl_src->texture_angle;
       gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
-      copy_v3_v3(gpl_dst->texture_shadow_color, gpl_src->texture_shadow_color);
-      gpl_dst->texture_shadow_angle = gpl_src->texture_shadow_angle;
-      gpl_dst->texture_shadow_distance = gpl_src->texture_shadow_distance;
       gpl_dst->texture_pos_seed = gpl_src->texture_pos_seed;
 
       /* Create all frames. */

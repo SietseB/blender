@@ -830,20 +830,7 @@ class GreasePencilLayerTexturePanel:
             col.separator()
             col.prop(gpl, "texture_scale_variation", slider=True)
             col.prop(gpl, "texture_angle_variation", slider=True)
-            col.prop(gpl, "texture_color_variation", slider=True)
             col.prop(gpl, "texture_pos_seed")
-
-            layout.separator()
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.label(text="Shadow Image")
-            col.template_ID(gpl, "texture_shadow_image", open="image.open")
-            layout.separator(factor=0.2)
-            col = layout.column()
-            col.enabled = gpl.texture_shadow_image is not None
-            col.prop(gpl, "texture_shadow_color")
-            col.prop(gpl, "texture_shadow_angle", slider=True)
-            col.prop(gpl, "texture_shadow_distance", slider=True)
             
 
 class GreasePencilLayerMasksPanel:
