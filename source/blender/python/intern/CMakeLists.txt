@@ -180,23 +180,23 @@ if(WITH_COMPOSITOR_CPU)
   add_definitions(-DWITH_COMPOSITOR_CPU)
 endif()
 
-if(WITH_CYCLES)
-  list(APPEND INC
-    ../../../../intern/cycles/blender
-  )
-  list(APPEND LIB
-    bf_intern_cycles
-  )
-  add_definitions(-DWITH_CYCLES)
-endif()
+#if(WITH_CYCLES)
+#  list(APPEND INC
+#    ../../../../intern/cycles/blender
+#  )
+#  list(APPEND LIB
+#    bf_intern_cycles
+#  )
+#  add_definitions(-DWITH_CYCLES)
+#endif()
 
-if(WITH_CYCLES_OSL)
-  add_definitions(-DWITH_CYCLES_OSL)
-endif()
+#if(WITH_CYCLES_OSL)
+#  add_definitions(-DWITH_CYCLES_OSL)
+#endif()
 
-if(WITH_CYCLES_EMBREE)
-  add_definitions(-DWITH_CYCLES_EMBREE)
-endif()
+#if(WITH_CYCLES_EMBREE)
+#  add_definitions(-DWITH_CYCLES_EMBREE)
+#endif()
 
 if(WITH_FREESTYLE)
   list(APPEND INC

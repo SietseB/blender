@@ -487,7 +487,7 @@ option(WITH_CPU_SIMD              "Enable SIMD instruction if they're detected o
 mark_as_advanced(WITH_CPU_SIMD)
 
 # Cycles
-option(WITH_CYCLES                   "Enable Cycles Render Engine" OFF)
+option(WITH_CYCLES                   "Enable Cycles Render Engine" ON)
 option(WITH_CYCLES_OSL               "Build Cycles with OpenShadingLanguage support" OFF)
 option(WITH_CYCLES_PATH_GUIDING      "Build Cycles with path guiding support" OFF)
 option(WITH_CYCLES_EMBREE            "Build Cycles with Embree support" OFF)
@@ -512,14 +512,14 @@ mark_as_advanced(WITH_CYCLES_PRECOMPUTE)
 
 # NVIDIA CUDA & OptiX
 if(NOT APPLE)
-  option(WITH_CYCLES_DEVICE_CUDA       "Enable Cycles NVIDIA CUDA compute support" OFF)
+  option(WITH_CYCLES_DEVICE_CUDA       "Enable Cycles NVIDIA CUDA compute support" ON)
   option(WITH_CYCLES_DEVICE_OPTIX      "Enable Cycles NVIDIA OptiX support" OFF)
   mark_as_advanced(WITH_CYCLES_DEVICE_CUDA)
 
-  option(WITH_CYCLES_CUDA_BINARIES     "Build Cycles NVIDIA CUDA binaries" OFF)
+  option(WITH_CYCLES_CUDA_BINARIES     "Build Cycles NVIDIA CUDA binaries" ON)
   set(CYCLES_CUDA_BINARIES_ARCH sm_30 sm_35 sm_37 sm_50 sm_52 sm_60 sm_61 sm_70 sm_75 sm_86 sm_89 compute_75 CACHE STRING "CUDA architectures to build binaries for")
   option(WITH_CYCLES_CUDA_BUILD_SERIAL "Build cubins one after another (useful on machines with limited RAM)" OFF)
-  option(WITH_CUDA_DYNLOAD             "Dynamically load CUDA libraries at runtime (for developers, makes cuda-gdb work)" ON)
+  option(WITH_CUDA_DYNLOAD             "Dynamically load CUDA libraries at runtime (for developers, makes cuda-gdb work)" OFF)
 
   set(OPTIX_ROOT_DIR                   "" CACHE PATH "Path to the OptiX SDK root directory, for building Cycles OptiX kernels.")
   set(CYCLES_RUNTIME_OPTIX_ROOT_DIR    "" CACHE PATH "Path to the OptiX SDK root directory. When set, this path will be used at runtime to compile OptiX kernels.")
