@@ -15,8 +15,10 @@
 
 #include "BLI_kdopbvh.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
 #include "BLI_math_color.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_rotation.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -151,10 +153,6 @@ static void texture_blend_write(BlendWriter *writer, ID *id, const void *id_addr
   BLO_write_id_struct(writer, Tex, id_address, &tex->id);
   BKE_id_blend_write(writer, &tex->id);
 
-  if (tex->adt) {
-    BKE_animdata_blend_write(writer, tex->adt);
-  }
-
   /* direct data */
   if (tex->coba) {
     BLO_write_struct(writer, ColorBand, tex->coba);
@@ -181,8 +179,6 @@ static void texture_blend_write(BlendWriter *writer, ID *id, const void *id_addr
 static void texture_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Tex *tex = (Tex *)id;
-  BLO_read_data_address(reader, &tex->adt);
-  BKE_animdata_blend_read_data(reader, tex->adt);
 
   BLO_read_data_address(reader, &tex->coba);
 
@@ -347,7 +343,7 @@ void BKE_texture_mapping_init(TexMapping *texmap)
   }
 }
 
-ColorMapping *BKE_texture_colormapping_add(void)
+ColorMapping *BKE_texture_colormapping_add()
 {
   ColorMapping *colormap = MEM_cnew<ColorMapping>("ColorMapping");
 
@@ -407,7 +403,7 @@ void BKE_texture_mtex_default(MTex *mtex)
 
 /* ------------------------------------------------------------------------- */
 
-MTex *BKE_texture_mtex_add(void)
+MTex *BKE_texture_mtex_add()
 {
   MTex *mtex;
 
@@ -635,7 +631,7 @@ void BKE_texture_pointdensity_init_data(PointDensity *pd)
   BKE_curvemapping_changed(pd->falloff_curve, false);
 }
 
-PointDensity *BKE_texture_pointdensity_add(void)
+PointDensity *BKE_texture_pointdensity_add()
 {
   PointDensity *pd = static_cast<PointDensity *>(
       MEM_callocN(sizeof(PointDensity), "pointdensity"));

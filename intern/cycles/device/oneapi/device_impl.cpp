@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: Apache-2.0
- * Copyright 2021-2022 Intel Corporation */
+/* SPDX-FileCopyrightText: 2021-2022 Intel Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0 */
 
 #ifdef WITH_ONEAPI
 
@@ -758,10 +759,10 @@ bool OneapiDevice::enqueue_kernel(KernelContext *kernel_context,
 
 /* Compute-runtime (ie. NEO) version is what gets returned by sycl/L0 on Windows
  * since Windows driver 101.3268. */
-/* The same min compute-runtime version is currently required across Windows and Linux.
- * For Windows driver 101.4032, compute-runtime version is 24931. */
-static const int lowest_supported_driver_version_win = 1014032;
-static const int lowest_supported_driver_version_neo = 24931;
+/* The same min compute-runtime version is currently used across Windows and Linux.
+ * For Windows driver 101.4314, compute-runtime version is 25977. */
+static const int lowest_supported_driver_version_win = 1014314;
+static const int lowest_supported_driver_version_neo = 25812;
 
 int OneapiDevice::parse_driver_build_version(const sycl::device &device)
 {

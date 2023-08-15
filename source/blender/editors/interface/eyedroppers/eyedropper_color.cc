@@ -29,25 +29,25 @@
 
 #include "NOD_composite.h"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
-#include "UI_interface.h"
+#include "UI_interface.hh"
 
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
-#include "RNA_define.h"
+#include "RNA_define.hh"
 
 #include "interface_intern.hh"
 
-#include "ED_clip.h"
-#include "ED_image.h"
-#include "ED_node.h"
-#include "ED_screen.h"
+#include "ED_clip.hh"
+#include "ED_image.hh"
+#include "ED_node.hh"
+#include "ED_screen.hh"
 
 #include "RE_pipeline.h"
 
@@ -182,7 +182,7 @@ static bool eyedropper_cryptomatte_sample_renderlayer_fl(RenderLayer *render_lay
       const int y = int(fpos[1] * render_pass->recty);
       const int offset = 4 * (y * render_pass->rectx + x);
       zero_v3(r_col);
-      r_col[0] = render_pass->buffer.data[offset];
+      r_col[0] = render_pass->ibuf->float_buffer.data[offset];
       return true;
     }
   }

@@ -17,21 +17,20 @@
 #include "DNA_userdef_types.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
 
-#include "WM_types.h"
+#include "WM_types.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 
-#include "UI_interface.h"
+#include "UI_interface.hh"
 
 #include "BLT_translation.h"
 
-#include "ED_screen.h"
+#include "ED_screen.hh"
 
 #include "IMB_colormanagement.h"
 
@@ -214,9 +213,8 @@ static void ui_update_color_picker_buts_rgb(uiBut *from_but,
       }
 
       rgb_float_to_uchar(rgb_hex_uchar, rgb_hex);
-      SNPRINTF(col, "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
-
-      strcpy(bt->poin, col);
+      const int col_len = SNPRINTF_RLEN(col, "%02X%02X%02X", UNPACK3_EX((uint), rgb_hex_uchar, ));
+      memcpy(bt->poin, col, col_len + 1);
     }
     else if (bt->str[1] == ' ') {
       if (bt->str[0] == 'R') {

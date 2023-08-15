@@ -16,7 +16,11 @@
 #include "BLI_endian_switch.h"
 #include "BLI_ghash.h"
 #include "BLI_index_range.hh"
-#include "BLI_math.h"
+#include "BLI_math_geom.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_rotation.h"
+#include "BLI_math_solvers.h"
+#include "BLI_math_vector.h"
 #include "BLI_math_vector_types.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -159,9 +163,6 @@ static void curve_blend_write(BlendWriter *writer, ID *id, const void *id_addres
 
   /* direct data */
   BLO_write_pointer_array(writer, cu->totcol, cu->mat);
-  if (cu->adt) {
-    BKE_animdata_blend_write(writer, cu->adt);
-  }
 
   if (cu->vfont) {
     BLO_write_raw(writer, cu->len + 1, cu->str);
@@ -207,8 +208,6 @@ static void switch_endian_knots(Nurb *nu)
 static void curve_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Curve *cu = (Curve *)id;
-  BLO_read_data_address(reader, &cu->adt);
-  BKE_animdata_blend_read_data(reader, cu->adt);
 
   /* Protect against integer overflow vulnerability. */
   CLAMP(cu->len_char32, 0, INT_MAX - 4);
@@ -2166,7 +2165,10 @@ static void bevel_list_apply_tilt(BevList *bl)
     bevp2++;
   }
 }
-/* smooth quats, this function should be optimized, it can get slow with many iterations. */
+/**
+ * Smooth quaternions, this function should be optimized,
+ * it can get slow with many iterations.
+ */
 static void bevel_list_smooth(BevList *bl, int smooth_iter)
 {
   BevPoint *bevp2, *bevp1, *bevp0;
@@ -2199,7 +2201,7 @@ static void bevel_list_smooth(BevList *bl, int smooth_iter)
     copy_qt_qt(bevp0_quat, bevp0->quat);
 
     while (nr--) {
-      /* interpolate quats */
+      /* Interpolate quaternions. */
       float zaxis[3] = {0, 0, 1}, cross[3], q2[4];
       interp_qt_qtqt(q, bevp0_quat, bevp2->quat, 0.5);
       normalize_qt(q);
@@ -2314,7 +2316,7 @@ static void make_bevel_list_3D_minimum_twist(BevList *bl)
     bevp_last = bevp_first;
     bevp_last--;
 
-    /* quats and vec's are normalized, should not need to re-normalize */
+    /* Quaternions and vectors are normalized, should not need to re-normalize. */
     mul_qt_v3(bevp_first->quat, vec_1);
     mul_qt_v3(bevp_last->quat, vec_2);
     normalize_v3(vec_1);
@@ -3386,7 +3388,7 @@ static void calchandlesNurb_intern(Nurb *nu, eBezTriple_Flag handle_sel_flag, bo
         next = nullptr;
       }
     }
-    else {
+    else if (next != nullptr) {
       next++;
     }
 

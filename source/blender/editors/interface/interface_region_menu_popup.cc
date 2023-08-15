@@ -17,10 +17,9 @@
 
 #include "DNA_userdef_types.h"
 
-#include "BLI_listbase.h"
-#include "BLI_math.h"
-
 #include "BLI_ghash.h"
+#include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -29,16 +28,16 @@
 #include "BKE_report.h"
 #include "BKE_screen.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 
-#include "UI_interface.h"
+#include "UI_interface.hh"
 
 #include "BLT_translation.h"
 
-#include "ED_screen.h"
+#include "ED_screen.hh"
 
 #include "interface_intern.hh"
 #include "interface_regions_intern.hh"
@@ -721,7 +720,10 @@ void UI_popup_block_ex(bContext *C,
 }
 
 #if 0 /* UNUSED */
-void uiPupBlockOperator(bContext *C, uiBlockCreateFunc func, wmOperator *op, wmOperatorCallContext opcontext)
+void uiPupBlockOperator(bContext *C,
+                        uiBlockCreateFunc func,
+                        wmOperator *op,
+                        wmOperatorCallContext opcontext)
 {
   wmWindow *window = CTX_wm_window(C);
   uiPopupBlockHandle *handle;

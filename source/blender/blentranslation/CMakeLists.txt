@@ -5,11 +5,8 @@
 set(INC
   .
   ../blenkernel
-  ../blenlib
   ../imbuf
-  ../makesdna
   ../makesrna
-  ../../../intern/guardedalloc
   ../../../intern/locale
 )
 
@@ -17,8 +14,8 @@ set(INC_SYS
 )
 
 set(SRC
-  intern/blt_lang.c
-  intern/blt_translation.c
+  intern/blt_lang.cc
+  intern/blt_translation.cc
 
   BLT_lang.h
   BLT_translation.h
@@ -26,7 +23,9 @@ set(SRC
 
 set(LIB
   bf_blenkernel
-  bf_blenlib
+  PRIVATE bf::blenlib
+  PRIVATE bf::dna
+  PRIVATE bf::intern::guardedalloc
 )
 
 if(WITH_INTERNATIONAL)

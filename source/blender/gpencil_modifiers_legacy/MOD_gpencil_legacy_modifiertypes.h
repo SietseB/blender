@@ -10,6 +10,10 @@
 
 #include "BKE_gpencil_modifier_legacy.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ****************** Type structures for all modifiers ****************** */
 
 extern GpencilModifierTypeInfo modifierType_Gpencil_None;
@@ -42,7 +46,8 @@ extern GpencilModifierTypeInfo modifierType_Gpencil_Envelope;
 extern GpencilModifierTypeInfo modifierType_Gpencil_MorphTargets;
 extern GpencilModifierTypeInfo modifierType_Gpencil_FollowCurve;
 
-/* MOD_gpencil_legacy_util.c */
+/* `MOD_gpencil_legacy_util.cc` */
+
 void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[]);
 
 /* MOD_gpencil_legacy_follow_curve.c */
@@ -51,3 +56,7 @@ void MOD_gpencil_follow_curve_frame_init(struct Depsgraph *depsgraph,
                                          struct Scene *scene,
                                          struct Object *ob);
 void MOD_gpencil_follow_curve_frame_clear(const struct GpencilModifierData *md);
+
+#ifdef __cplusplus
+}
+#endif

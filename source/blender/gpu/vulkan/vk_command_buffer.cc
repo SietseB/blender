@@ -13,6 +13,7 @@
 #include "vk_index_buffer.hh"
 #include "vk_memory.hh"
 #include "vk_pipeline.hh"
+#include "vk_storage_buffer.hh"
 #include "vk_texture.hh"
 #include "vk_vertex_buffer.hh"
 
@@ -307,6 +308,12 @@ void VKCommandBuffer::dispatch(int groups_x_len, int groups_y_len, int groups_z_
   vkCmdDispatch(vk_command_buffer_, groups_x_len, groups_y_len, groups_z_len);
 }
 
+void VKCommandBuffer::dispatch(VKStorageBuffer &command_buffer)
+{
+  ensure_no_active_framebuffer();
+  vkCmdDispatchIndirect(vk_command_buffer_, command_buffer.vk_handle(), 0);
+}
+
 void VKCommandBuffer::submit()
 {
   ensure_no_active_framebuffer();
@@ -369,7 +376,7 @@ void VKCommandBuffer::ensure_active_framebuffer()
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass = state.framebuffer_->vk_render_pass_get();
     render_pass_begin_info.framebuffer = state.framebuffer_->vk_framebuffer_get();
-    render_pass_begin_info.renderArea = state.framebuffer_->vk_render_area_get();
+    render_pass_begin_info.renderArea = state.framebuffer_->vk_render_areas_get()[0];
     /* We don't use clear ops, but vulkan wants to have at least one. */
     VkClearValue clear_value = {};
     render_pass_begin_info.clearValueCount = 1;

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2009-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Originally written by Matt Ebb
@@ -172,8 +174,8 @@ class PlayRenderedAnim(Operator):
 
         try:
             subprocess.Popen(cmd)
-        except Exception as e:
-            err_msg = tip_("Couldn't run external animation player with command %r\n%s") % (cmd, e)
+        except BaseException as ex:
+            err_msg = tip_("Couldn't run external animation player with command %r\n%s") % (cmd, ex)
             self.report(
                 {'ERROR'},
                 err_msg,

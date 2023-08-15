@@ -36,8 +36,11 @@ void main()
     /* Reset shift to not tag for update more than once per sync cycle. */
     tilemaps_buf[tilemap_index].grid_shift = ivec2(0);
 
-    if (tilemap.projection_type != SHADOW_PROJECTION_CUBEFACE) {
-      int clip_index = tilemap.clip_data_index;
+    int clip_index = tilemap.clip_data_index;
+    if (clip_index == -1) {
+      /* Noop. This is the case for unused tilemaps that are getting pushed to the free heap. */
+    }
+    else if (tilemap.projection_type != SHADOW_PROJECTION_CUBEFACE) {
       ShadowTileMapClip clip_data = tilemaps_clip_buf[clip_index];
       float clip_near_new = orderedIntBitsToFloat(clip_data.clip_near);
       float clip_far_new = orderedIntBitsToFloat(clip_data.clip_far);
@@ -57,7 +60,8 @@ void main()
 
   ivec2 tile_co = ivec2(gl_GlobalInvocationID.xy);
   ivec2 tile_shifted = tile_co + tilemap.grid_shift;
-  ivec2 tile_wrapped = ivec2(tile_shifted % SHADOW_TILEMAP_RES);
+  /* Ensure value is shifted into positive range to avoid modulo on negative. */
+  ivec2 tile_wrapped = ivec2((ivec2(SHADOW_TILEMAP_RES) + tile_shifted) % SHADOW_TILEMAP_RES);
 
   /* If this tile was shifted in and contains old information, update it.
    * Note that cubemap always shift all tiles on update. */
@@ -72,7 +76,7 @@ void main()
   uint lod_size = uint(SHADOW_TILEMAP_RES);
   for (int lod = 0; lod <= lod_max; lod++, lod_size >>= 1u) {
     bool thread_active = all(lessThan(tile_co, ivec2(lod_size)));
-    ShadowTileDataPacked tile;
+    ShadowTileDataPacked tile = 0;
     int tile_load = shadow_tile_offset(tile_wrapped, tilemap.tiles_index, lod);
     if (thread_active) {
       tile = init_tile_data(tiles_buf[tile_load], do_update);

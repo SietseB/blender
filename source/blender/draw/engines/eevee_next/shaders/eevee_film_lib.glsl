@@ -655,6 +655,9 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
     }
     else {
       out_depth = imageLoad(depth_img, texel_film).r;
+      if (film_buf.display_id != -1 && film_buf.display_id == film_buf.normal_id) {
+        out_color = imageLoad(color_accum_img, ivec3(texel_film, film_buf.display_id));
+      }
     }
   }
 
@@ -717,8 +720,8 @@ void film_process_data(ivec2 texel_film, out vec4 out_color, out float out_depth
     film_store_color(dst, film_buf.diffuse_color_id, diffuse_color_accum, out_color);
     film_store_color(dst, film_buf.specular_color_id, specular_color_accum, out_color);
     film_store_color(dst, film_buf.environment_id, environment_accum, out_color);
-    film_store_value(dst, film_buf.shadow_id, shadow_accum, out_color);
-    film_store_value(dst, film_buf.ambient_occlusion_id, ao_accum, out_color);
+    film_store_color(dst, film_buf.shadow_id, vec4(vec3(shadow_accum), 1.0), out_color);
+    film_store_color(dst, film_buf.ambient_occlusion_id, vec4(vec3(ao_accum), 1.0), out_color);
     film_store_value(dst, film_buf.mist_id, mist_accum, out_color);
   }
 

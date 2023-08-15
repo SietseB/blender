@@ -6,25 +6,20 @@ set(INC
   .
   ../blenfont
   ../blenkernel
-  ../blenlib
   ../blentranslation
   ../depsgraph
   ../draw
   ../editors/include
   ../gpu
   ../imbuf
-  ../makesdna
   ../makesrna
   ../nodes
   ../render
   ../sequencer
   ../windowmanager
   ../../../intern/clog
-  ../../../intern/guardedalloc
   ../bmesh
 
-  # for writefile.c: dna_type_offsets.h
-  ${CMAKE_BINARY_DIR}/source/blender/makesdna/intern
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -40,19 +35,18 @@ set(SRC
   intern/readfile.cc
   intern/readfile_tempload.cc
   intern/undofile.cc
-  intern/versioning_250.c
-  intern/versioning_260.c
-  intern/versioning_270.c
+  intern/versioning_250.cc
+  intern/versioning_260.cc
+  intern/versioning_270.cc
   intern/versioning_280.cc
   intern/versioning_290.cc
   intern/versioning_300.cc
   intern/versioning_400.cc
   intern/versioning_common.cc
-  intern/versioning_cycles.c
   intern/versioning_defaults.cc
-  intern/versioning_dna.c
-  intern/versioning_legacy.c
-  intern/versioning_userdef.c
+  intern/versioning_dna.cc
+  intern/versioning_legacy.cc
+  intern/versioning_userdef.cc
   intern/writefile.cc
 
   BLO_blend_defs.h
@@ -67,7 +61,9 @@ set(SRC
 
 set(LIB
   bf_blenkernel
-  bf_blenlib
+  PRIVATE bf::blenlib
+  PRIVATE bf::dna
+  PRIVATE bf::intern::guardedalloc
 )
 
 if(WITH_BUILDINFO)
@@ -98,8 +94,6 @@ endif()
 
 blender_add_lib(bf_blenloader "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
-# needed so writefile.c can use dna_type_offsets.h
-add_dependencies(bf_blenloader bf_dna)
 # RNA_prototypes.h
 add_dependencies(bf_blenloader bf_rna)
 

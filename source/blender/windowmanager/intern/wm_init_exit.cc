@@ -8,9 +8,9 @@
  * Manage initializing resources and correctly shutting down.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
@@ -61,7 +61,7 @@
 #include "BKE_mask.h"     /* free mask clipboard */
 #include "BKE_material.h" /* BKE_material_copybuf_clear */
 #include "BKE_studiolight.h"
-#include "BKE_subdiv.h"
+#include "BKE_subdiv.hh"
 #include "BKE_tracking.h" /* free tracking clipboard */
 
 #include "RE_engine.h"
@@ -80,38 +80,38 @@
 #include "GHOST_C-api.h"
 #include "GHOST_Path-api.hh"
 
-#include "RNA_define.h"
+#include "RNA_define.hh"
 
-#include "WM_api.h"
-#include "WM_message.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_message.hh"
+#include "WM_types.hh"
 
-#include "wm.h"
-#include "wm_cursors.h"
+#include "wm.hh"
+#include "wm_cursors.hh"
 #include "wm_event_system.h"
-#include "wm_files.h"
+#include "wm_files.hh"
 #include "wm_platform_support.h"
-#include "wm_surface.h"
-#include "wm_window.h"
+#include "wm_surface.hh"
+#include "wm_window.hh"
 
-#include "ED_anim_api.h"
-#include "ED_armature.h"
-#include "ED_asset.h"
-#include "ED_gpencil_legacy.h"
-#include "ED_keyframes_edit.h"
-#include "ED_keyframing.h"
-#include "ED_node.h"
-#include "ED_render.h"
-#include "ED_screen.h"
-#include "ED_space_api.h"
-#include "ED_undo.h"
-#include "ED_util.h"
-#include "ED_view3d.h"
+#include "ED_anim_api.hh"
+#include "ED_armature.hh"
+#include "ED_asset.hh"
+#include "ED_gpencil_legacy.hh"
+#include "ED_keyframes_edit.hh"
+#include "ED_keyframing.hh"
+#include "ED_node.hh"
+#include "ED_render.hh"
+#include "ED_screen.hh"
+#include "ED_space_api.hh"
+#include "ED_undo.hh"
+#include "ED_util.hh"
+#include "ED_view3d.hh"
 
 #include "BLF_api.h"
 #include "BLT_lang.h"
-#include "UI_interface.h"
-#include "UI_resources.h"
+#include "UI_interface.hh"
+#include "UI_resources.hh"
 
 #include "GPU_context.h"
 #include "GPU_init_exit.h"
@@ -159,12 +159,12 @@ void WM_init_state_start_with_console_set(bool value)
  * so that it does not break anything that can run in headless mode (as in
  * without display server attached).
  */
-static bool opengl_is_init = false;
+static bool gpu_is_init = false;
 
-void WM_init_opengl(void)
+void WM_init_gpu()
 {
   /* Must be called only once. */
-  BLI_assert(opengl_is_init == false);
+  BLI_assert(gpu_is_init == false);
 
   if (G.background) {
     /* Ghost is still not initialized elsewhere in background mode. */
@@ -176,13 +176,13 @@ void WM_init_opengl(void)
   }
 
   /* Needs to be first to have an OpenGL context bound. */
-  DRW_opengl_context_create();
+  DRW_gpu_context_create();
 
   GPU_init();
 
   GPU_pass_cache_init();
 
-  opengl_is_init = true;
+  gpu_is_init = true;
 }
 
 static void sound_jack_sync_callback(Main *bmain, int mode, double time)
@@ -257,7 +257,7 @@ void WM_init(bContext *C, int argc, const char **argv)
   /* Init icons before reading .blend files for preview icons, which can
    * get triggered by the depsgraph. This is also done in background mode
    * for scripts that do background processing with preview icons. */
-  BKE_icons_init(BIFICONID_LAST);
+  BKE_icons_init(BIFICONID_LAST_STATIC);
 
   /* Reports can't be initialized before the window-manager,
    * but keep before file reading, since that may report errors */
@@ -317,7 +317,7 @@ void WM_init(bContext *C, int argc, const char **argv)
     /* Sets 3D mouse dead-zone. */
     WM_ndof_deadzone_set(U.ndof_deadzone);
 #endif
-    WM_init_opengl();
+    WM_init_gpu();
 
     if (!WM_platform_support_perform_checks()) {
       /* No attempt to avoid memory leaks here. */
@@ -415,7 +415,7 @@ void WM_init_splash(bContext *C)
 }
 
 /* free strings of open recent files */
-static void free_openrecent(void)
+static void free_openrecent()
 {
   LISTBASE_FOREACH (RecentFile *, recent, &G.recent_files) {
     MEM_freeN(recent->filepath);
@@ -426,7 +426,7 @@ static void free_openrecent(void)
 
 #ifdef WIN32
 /* Read console events until there is a key event. Also returns on any error. */
-static void wait_for_console_key(void)
+static void wait_for_console_key()
 {
   HANDLE hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
 
@@ -590,7 +590,7 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
     wm_free_reports(wm);
   }
 
-  SEQ_clipboard_free(); /* sequencer.c */
+  SEQ_clipboard_free(); /* `sequencer.cc` */
   BKE_tracking_clipboard_free();
   BKE_mask_clipboard_free();
   BKE_vfont_clipboard_free();
@@ -603,7 +603,7 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
 
   BKE_subdiv_exit();
 
-  if (opengl_is_init) {
+  if (gpu_is_init) {
     BKE_image_free_unused_gpu_textures();
   }
 
@@ -617,7 +617,7 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
 
   /* Free the GPU subdivision data after the database to ensure that subdivision structs used by
    * the modifiers were garbage collected. */
-  if (opengl_is_init) {
+  if (gpu_is_init) {
     DRW_subdiv_free();
   }
 
@@ -664,13 +664,13 @@ void WM_exit_ex(bContext *C, const bool do_python, const bool do_user_exit_actio
 
   /* Delete GPU resources and context. The UI also uses GPU resources and so
    * is also deleted with the context active. */
-  if (opengl_is_init) {
-    DRW_opengl_context_enable_ex(false);
+  if (gpu_is_init) {
+    DRW_gpu_context_enable_ex(false);
     UI_exit();
     GPU_pass_cache_free();
     GPU_exit();
-    DRW_opengl_context_disable_ex(false);
-    DRW_opengl_context_destroy();
+    DRW_gpu_context_disable_ex(false);
+    DRW_gpu_context_destroy();
   }
   else {
     UI_exit();
@@ -728,7 +728,7 @@ void WM_exit(bContext *C, const int exit_code)
   exit(exit_code);
 }
 
-void WM_script_tag_reload(void)
+void WM_script_tag_reload()
 {
   UI_interface_tag_script_reload();
 }

@@ -39,14 +39,15 @@
 
 #include "BLI_array_utils.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_color.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
 #include "BKE_anim_data.h"
 #include "BKE_attribute.h"
-#include "BKE_brush.h"
+#include "BKE_brush.hh"
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
@@ -160,7 +161,7 @@ static void material_free_data(ID *id)
 static void material_foreach_id(ID *id, LibraryForeachIDData *data)
 {
   Material *material = (Material *)id;
-  /* Nodetrees **are owned by IDs**, treat them as mere sub-data and not real ID! */
+  /* Node-trees **are owned by IDs**, treat them as mere sub-data and not real ID! */
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
       data, BKE_library_foreach_ID_embedded(data, (ID **)&material->nodetree));
   if (material->texpaintslot != nullptr) {
@@ -183,10 +184,6 @@ static void material_blend_write(BlendWriter *writer, ID *id, const void *id_add
   /* write LibData */
   BLO_write_id_struct(writer, Material, id_address, &ma->id);
   BKE_id_blend_write(writer, &ma->id);
-
-  if (ma->adt) {
-    BKE_animdata_blend_write(writer, ma->adt);
-  }
 
   /* nodetree is integral part of material, no libdata */
   if (ma->nodetree) {
@@ -212,8 +209,6 @@ static void material_blend_write(BlendWriter *writer, ID *id, const void *id_add
 static void material_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Material *ma = (Material *)id;
-  BLO_read_data_address(reader, &ma->adt);
-  BKE_animdata_blend_read_data(reader, ma->adt);
 
   ma->texpaintslot = nullptr;
 
@@ -301,6 +296,27 @@ void BKE_gpencil_material_attr_init(Material *ma)
     gp_style->mix_factor = 0.5f;
 
     gp_style->flag |= GP_MATERIAL_STROKE_SHOW;
+  }
+}
+
+static void nodetree_mark_previews_dirty_reccursive(bNodeTree *tree)
+{
+  if (tree == nullptr) {
+    return;
+  }
+  tree->runtime->previews_refresh_state++;
+  for (bNode *node : tree->all_nodes()) {
+    if (node->type == NODE_GROUP) {
+      bNodeTree *nested_tree = reinterpret_cast<bNodeTree *>(node->id);
+      nodetree_mark_previews_dirty_reccursive(nested_tree);
+    }
+  }
+}
+
+void BKE_material_make_node_previews_dirty(Material *ma)
+{
+  if (ma && ma->nodetree) {
+    nodetree_mark_previews_dirty_reccursive(ma->nodetree);
   }
 }
 
@@ -773,15 +789,15 @@ Material *BKE_object_material_get_eval(Object *ob, short act)
   return nullptr;
 }
 
-int BKE_object_material_count_eval(Object *ob)
+int BKE_object_material_count_eval(const Object *ob)
 {
   BLI_assert(DEG_is_evaluated_object(ob));
   if (ob->type == OB_EMPTY) {
     return 0;
   }
   BLI_assert(ob->data != nullptr);
-  ID *id = get_evaluated_object_data_with_materials(ob);
-  const short *len_p = BKE_id_material_len_p(id);
+  const ID *id = get_evaluated_object_data_with_materials(const_cast<Object *>(ob));
+  const short *len_p = BKE_id_material_len_p(const_cast<ID *>(id));
   return len_p ? *len_p : 0;
 }
 
@@ -1377,12 +1393,9 @@ bool BKE_object_material_slot_remove(Main *bmain, Object *ob)
 
 static bNode *nodetree_uv_node_recursive(bNode *node)
 {
-  bNode *inode;
-  bNodeSocket *sock;
-
-  for (sock = static_cast<bNodeSocket *>(node->inputs.first); sock; sock = sock->next) {
+  LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
     if (sock->link) {
-      inode = sock->link->fromnode;
+      bNode *inode = sock->link->fromnode;
       if (inode->typeinfo->nclass == NODE_CLASS_INPUT && inode->typeinfo->type == SH_NODE_UVMAP) {
         return inode;
       }
@@ -2015,32 +2028,32 @@ static void material_default_holdout_init(Material *ma)
   nodeSetActive(ntree, output);
 }
 
-Material *BKE_material_default_empty(void)
+Material *BKE_material_default_empty()
 {
   return &default_material_empty;
 }
 
-Material *BKE_material_default_holdout(void)
+Material *BKE_material_default_holdout()
 {
   return &default_material_holdout;
 }
 
-Material *BKE_material_default_surface(void)
+Material *BKE_material_default_surface()
 {
   return &default_material_surface;
 }
 
-Material *BKE_material_default_volume(void)
+Material *BKE_material_default_volume()
 {
   return &default_material_volume;
 }
 
-Material *BKE_material_default_gpencil(void)
+Material *BKE_material_default_gpencil()
 {
   return &default_material_gpencil;
 }
 
-void BKE_material_defaults_free_gpu(void)
+void BKE_material_defaults_free_gpu()
 {
   for (int i = 0; default_materials[i]; i++) {
     Material *ma = default_materials[i];
@@ -2052,7 +2065,7 @@ void BKE_material_defaults_free_gpu(void)
 
 /* Module functions called on startup and exit. */
 
-void BKE_materials_init(void)
+void BKE_materials_init()
 {
   for (int i = 0; default_materials[i]; i++) {
     material_init_data(&default_materials[i]->id);
@@ -2064,7 +2077,7 @@ void BKE_materials_init(void)
   material_default_gpencil_init(&default_material_gpencil);
 }
 
-void BKE_materials_exit(void)
+void BKE_materials_exit()
 {
   for (int i = 0; default_materials[i]; i++) {
     material_free_data(&default_materials[i]->id);

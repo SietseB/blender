@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2016 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2016 Blender Foundation.
 
 # - Find TBB library
 # Find the native TBB includes and library
@@ -14,9 +15,13 @@
 # also defined, but not for general use are
 #  TBB_LIBRARY, where to find the TBB library.
 
-# If TBB_ROOT_DIR was defined in the environment, use it.
-IF(NOT TBB_ROOT_DIR AND NOT $ENV{TBB_ROOT_DIR} STREQUAL "")
+# If `TBB_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED TBB_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{TBB_ROOT_DIR})
   SET(TBB_ROOT_DIR $ENV{TBB_ROOT_DIR})
+ELSE()
+  SET(TBB_ROOT_DIR "")
 ENDIF()
 
 SET(_tbb_SEARCH_DIRS

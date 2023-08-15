@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Use '--write-blend=/tmp/test.blend' to view output
@@ -663,6 +665,33 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
           -outdir "${TEST_OUT_DIR}/workbench"
         )
       endforeach()
+
+      if(WITH_HYDRA)
+        # Hydra Storm
+        foreach(render_test ${render_tests})
+          add_python_test(
+            storm_hydra_${render_test}_test
+            ${CMAKE_CURRENT_LIST_DIR}/storm_render_tests.py
+            -blender "${TEST_BLENDER_EXE}"
+            -testdir "${TEST_SRC_DIR}/render/${render_test}"
+            -idiff "${OPENIMAGEIO_IDIFF}"
+            -outdir "${TEST_OUT_DIR}/storm_hydra"
+            -export_method "HYDRA"
+          )
+        endforeach()
+
+        foreach(render_test ${render_tests})
+          add_python_test(
+            storm_usd_${render_test}_test
+            ${CMAKE_CURRENT_LIST_DIR}/storm_render_tests.py
+            -blender "${TEST_BLENDER_EXE}"
+            -testdir "${TEST_SRC_DIR}/render/${render_test}"
+            -idiff "${OPENIMAGEIO_IDIFF}"
+            -outdir "${TEST_OUT_DIR}/storm_usd"
+            -export_method "USD"
+          )
+        endforeach()
+      endif()
     endif()
   endif()
 endif()
@@ -706,6 +735,7 @@ set(geo_node_tests
   curves/interpolate_curves
   geometry
   instance
+  repeat_zone
   mesh_primitives
   mesh
   mesh/extrude
@@ -743,6 +773,22 @@ foreach(geo_node_test ${geo_node_tests})
     message(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
   endif()
 endforeach()
+
+
+if(EXISTS "${TEST_SRC_DIR}/modeling/geometry_nodes/simulation/")
+  file(GLOB files "${TEST_SRC_DIR}/modeling/geometry_nodes/simulation/*.blend")
+  foreach(file ${files})
+    get_filename_component(filename ${file} NAME_WE)
+    add_blender_test(
+      geo_node_simulation_test_${filename}
+      ${file}
+      --python ${TEST_PYTHON_DIR}/geo_node_sim_test.py
+      )
+  endforeach()
+else()
+  message(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/simulation/ not found, disabling tests")
+endif()
+
 
 if(WITH_OPENGL_DRAW_TESTS)
   if(NOT OPENIMAGEIO_IDIFF)

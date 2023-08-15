@@ -268,7 +268,7 @@ struct AssetEntryWriter {
 
   void add_catalog_id(const CatalogID &catalog_id)
   {
-    char catalog_id_str[UUID_STRING_LEN];
+    char catalog_id_str[UUID_STRING_SIZE];
     BLI_uuid_format(catalog_id_str, catalog_id);
     attributes.append_as(std::pair(ATTRIBUTE_ENTRIES_CATALOG_ID, new StringValue(catalog_id_str)));
   }
@@ -486,7 +486,7 @@ struct AssetLibraryIndex {
   /**
    * \brief Absolute path where the indices of `library` are stored.
    *
-   * \NOTE: includes trailing directory separator.
+   * \note includes trailing directory separator.
    */
   std::string indices_base_path;
 

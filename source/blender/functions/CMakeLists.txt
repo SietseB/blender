@@ -4,9 +4,6 @@
 
 set(INC
   .
-  ../blenlib
-  ../makesdna
-  ../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -50,7 +47,9 @@ set(SRC
 )
 
 set(LIB
-  bf_blenlib
+  PRIVATE bf::blenlib
+  PRIVATE bf::dna
+  PRIVATE bf::intern::guardedalloc
 )
 
 if(WITH_TBB)
@@ -72,6 +71,8 @@ endif()
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 if(WITH_GTESTS)
+  set(TEST_INC
+  )
   set(TEST_SRC
     tests/FN_field_test.cc
     tests/FN_lazy_function_test.cc

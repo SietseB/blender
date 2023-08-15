@@ -1,7 +1,6 @@
-/* SPDX-FileCopyrightText: 2022 Blender Foundation.
+/* SPDX-FileCopyrightText: 2022 Blender Foundation
  *
- * SPDX-License-Identifier: GPL-2.0-or-later
- *  */
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eevee
@@ -10,6 +9,7 @@
  */
 
 #include "BKE_global.h"
+#include "BLI_math_rotation.h"
 #include "BLI_rect.h"
 
 #include "eevee_instance.hh"
@@ -198,7 +198,7 @@ void ShadowTileMapPool::end_sync(ShadowModule &module)
        * of the setup steps to release the pages. */
       ShadowTileMapData tilemap_data = {};
       tilemap_data.tiles_index = index;
-      tilemap_data.clip_data_index = 0;
+      tilemap_data.clip_data_index = -1;
       tilemap_data.grid_shift = int2(SHADOW_TILEMAP_RES);
       tilemap_data.projection_type = SHADOW_PROJECTION_CUBEFACE;
 
@@ -709,6 +709,32 @@ void ShadowModule::begin_sync()
     PassMain &pass = tilemap_usage_ps_;
     pass.init();
 
+    if (inst_.is_baking()) {
+      SurfelBuf &surfels_buf = inst_.irradiance_cache.bake.surfels_buf_;
+      CaptureInfoBuf &capture_info_buf = inst_.irradiance_cache.bake.capture_info_buf_;
+      float surfel_coverage_area = inst_.irradiance_cache.bake.surfel_density_;
+
+      /* Directional shadows. */
+      float texel_size = ShadowDirectional::tile_size_get(0) / float(SHADOW_PAGE_RES);
+      int directional_level = std::max(0, int(std::ceil(log2(surfel_coverage_area / texel_size))));
+      /* Punctual shadows. */
+      float projection_ratio = tilemap_pixel_radius() / (surfel_coverage_area / 2.0);
+
+      PassMain::Sub &sub = pass.sub("Surfels");
+      sub.shader_set(inst_.shaders.static_shader_get(SHADOW_TILEMAP_TAG_USAGE_SURFELS));
+      sub.bind_ssbo("tilemaps_buf", &tilemap_pool.tilemaps_data);
+      sub.bind_ssbo("tiles_buf", &tilemap_pool.tiles_data);
+      sub.bind_ssbo("surfel_buf", &surfels_buf);
+      sub.bind_ssbo("capture_info_buf", &capture_info_buf);
+      sub.push_constant("directional_level", directional_level);
+      sub.push_constant("tilemap_projection_ratio", projection_ratio);
+      inst_.lights.bind_resources(&sub);
+      sub.dispatch(&inst_.irradiance_cache.bake.dispatch_per_surfel_);
+
+      /* Skip opaque and transparent tagging for light baking. */
+      return;
+    }
+
     {
       /** Use depth buffer to tag needed shadow pages for opaque geometry. */
       PassMain::Sub &sub = pass.sub("Opaque");
@@ -769,7 +795,7 @@ void ShadowModule::sync_object(const ObjectHandle &handle,
     curr_casters_.append(resource_handle.raw);
   }
 
-  if (is_alpha_blend) {
+  if (is_alpha_blend && !inst_.is_baking()) {
     tilemap_usage_transparent_ps_->draw(box_batch_, resource_handle);
   }
 }

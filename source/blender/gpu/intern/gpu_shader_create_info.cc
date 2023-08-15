@@ -198,38 +198,49 @@ void ShaderCreateInfo::validate_merge(const ShaderCreateInfo &other_info)
       }
     };
 
-    auto print_error_msg = [&](const Resource &res) {
-      std::cout << name_ << ": Validation failed : Overlapping ";
+    auto print_error_msg = [&](const Resource &res, Vector<Resource> &resources) {
+      auto print_resource_name = [&](const Resource &res) {
+        switch (res.bind_type) {
+          case Resource::BindType::UNIFORM_BUFFER:
+            std::cout << "Uniform Buffer " << res.uniformbuf.name;
+            break;
+          case Resource::BindType::STORAGE_BUFFER:
+            std::cout << "Storage Buffer " << res.storagebuf.name;
+            break;
+          case Resource::BindType::SAMPLER:
+            std::cout << "Sampler " << res.sampler.name;
+            break;
+          case Resource::BindType::IMAGE:
+            std::cout << "Image " << res.image.name;
+            break;
+          default:
+            std::cout << "Unknown Type";
+            break;
+        }
+      };
 
-      switch (res.bind_type) {
-        case Resource::BindType::UNIFORM_BUFFER:
-          std::cout << "Uniform Buffer " << res.uniformbuf.name;
-          break;
-        case Resource::BindType::STORAGE_BUFFER:
-          std::cout << "Storage Buffer " << res.storagebuf.name;
-          break;
-        case Resource::BindType::SAMPLER:
-          std::cout << "Sampler " << res.sampler.name;
-          break;
-        case Resource::BindType::IMAGE:
-          std::cout << "Image " << res.image.name;
-          break;
-        default:
-          std::cout << "Unknown Type";
-          break;
+      for (const Resource &_res : resources) {
+        if (&res != &_res && res.bind_type == _res.bind_type && res.slot == _res.slot) {
+          std::cout << name_ << ": Validation failed : Overlapping ";
+          print_resource_name(res);
+          std::cout << " and ";
+          print_resource_name(_res);
+          std::cout << " at (" << res.slot << ") while merging " << other_info.name_ << std::endl;
+        }
       }
-      std::cout << " (" << res.slot << ") while merging " << other_info.name_ << std::endl;
     };
 
     for (auto &res : batch_resources_) {
       if (register_resource(res) == false) {
-        print_error_msg(res);
+        print_error_msg(res, batch_resources_);
+        print_error_msg(res, pass_resources_);
       }
     }
 
     for (auto &res : pass_resources_) {
       if (register_resource(res) == false) {
-        print_error_msg(res);
+        print_error_msg(res, batch_resources_);
+        print_error_msg(res, pass_resources_);
       }
     }
   }
@@ -444,7 +455,7 @@ bool gpu_shader_create_info_compile_all()
       GPUShader *shader = GPU_shader_create_from_info(
           reinterpret_cast<const GPUShaderCreateInfo *>(info));
       if (shader == nullptr) {
-        printf("Compilation %s Failed\n", info->name_.c_str());
+        std::cerr << "Compilation " << info->name_.c_str() << " Failed\n";
       }
       else {
         success++;
@@ -482,12 +493,12 @@ bool gpu_shader_create_info_compile_all()
           }
 
           if (input == nullptr) {
-            std::cout << "Error: " << info->name_;
-            std::cout << ": Resource « " << name << " » not found in the shader interface\n";
+            std::cerr << "Error: " << info->name_;
+            std::cerr << ": Resource « " << name << " » not found in the shader interface\n";
           }
           else if (input->location == -1) {
-            std::cout << "Warning: " << info->name_;
-            std::cout << ": Resource « " << name << " » is optimized out\n";
+            std::cerr << "Warning: " << info->name_;
+            std::cerr << ": Resource « " << name << " » is optimized out\n";
           }
         }
 #endif

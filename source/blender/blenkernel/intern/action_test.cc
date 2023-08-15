@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_string.h"
+
 #include "BKE_action.h"
 
 #include "DNA_action_types.h"
@@ -53,10 +55,10 @@ TEST(action_groups, ReconstructGroupsWithReordering)
   bActionGroup groupB = {nullptr};
   bActionGroup groupC = {nullptr};
   bActionGroup groupD = {nullptr};
-  strcpy(groupA.name, "groupA");
-  strcpy(groupB.name, "groupB");
-  strcpy(groupC.name, "groupC");
-  strcpy(groupD.name, "groupD");
+  STRNCPY(groupA.name, "groupA");
+  STRNCPY(groupB.name, "groupB");
+  STRNCPY(groupC.name, "groupC");
+  STRNCPY(groupD.name, "groupD");
 
   BLI_addtail(&action.groups, &groupA);
   BLI_addtail(&action.groups, &groupB);
@@ -145,7 +147,7 @@ void add_keyframe(FCurve *fcu, float x, float y)
   BezTriple the_keyframe;
   memset(&the_keyframe, 0, sizeof(the_keyframe));
 
-  /* Copied from insert_vert_fcurve() in keyframing.c. */
+  /* Copied from insert_vert_fcurve() in `keyframing.cc`. */
   the_keyframe.vec[0][0] = x - 1.0f;
   the_keyframe.vec[0][1] = y;
   the_keyframe.vec[1][0] = x;

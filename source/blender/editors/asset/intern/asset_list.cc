@@ -7,8 +7,9 @@
  *
  * Abstractions to manage runtime asset lists with a global cache for multiple UI elements to
  * access.
- * Internally this uses the #FileList API and structures from `filelist.c`. This is just because it
- * contains most necessary logic already and there's not much time for a more long-term solution.
+ * Internally this uses the #FileList API and structures from `filelist.cc`.
+ * This is just because it contains most necessary logic already and
+ * there's not much time for a more long-term solution.
  */
 
 #include <optional>
@@ -17,6 +18,7 @@
 #include "AS_asset_library.hh"
 
 #include "BKE_context.h"
+#include "BKE_screen.h"
 
 #include "BLI_map.hh"
 #include "BLI_utility_mixins.hh"
@@ -25,16 +27,16 @@
 
 #include "BKE_preferences.h"
 
-#include "WM_api.h"
+#include "WM_api.hh"
 
 /* XXX uses private header of file-space. */
-#include "../space_file/file_indexer.h"
-#include "../space_file/filelist.h"
+#include "../space_file/file_indexer.hh"
+#include "../space_file/filelist.hh"
 
-#include "ED_asset_handle.h"
 #include "ED_asset_indexer.h"
 #include "ED_asset_list.h"
 #include "ED_asset_list.hh"
+#include "ED_screen.hh"
 #include "asset_library_reference.hh"
 
 namespace blender::ed::asset {
@@ -84,7 +86,7 @@ class PreviewTimer {
   void ensureRunning(const bContext *C)
   {
     if (!timer_) {
-      timer_ = WM_event_add_timer_notifier(
+      timer_ = WM_event_timer_add_notifier(
           CTX_wm_manager(C), CTX_wm_window(C), NC_ASSET | ND_ASSET_LIST_PREVIEW, 0.01);
     }
   }
@@ -92,7 +94,7 @@ class PreviewTimer {
   void stop(const bContext *C)
   {
     if (timer_) {
-      WM_event_remove_timer_notifier(CTX_wm_manager(C), CTX_wm_window(C), timer_);
+      WM_event_timer_remove_notifier(CTX_wm_manager(C), CTX_wm_window(C), timer_);
       timer_ = nullptr;
     }
   }
@@ -109,6 +111,8 @@ class AssetList : NonCopyable {
   AssetList(AssetList &&other) = default;
   ~AssetList() = default;
 
+  static bool listen(const wmNotifier &notifier);
+
   void setup();
   void fetch(const bContext &C);
   void ensurePreviewsJob(const bContext *C);
@@ -118,9 +122,10 @@ class AssetList : NonCopyable {
 
   bool needsRefetch() const;
   bool isLoaded() const;
+  bool isAssetPreviewLoading(const AssetHandle &asset) const;
   asset_system::AssetLibrary *asset_library() const;
+  void iterate(AssetListHandleIterFn fn) const;
   void iterate(AssetListIterFn fn) const;
-  bool listen(const wmNotifier &notifier) const;
   int size() const;
   void tagMainDataDirty() const;
   void remapID(ID *id_old, ID *id_new) const;
@@ -190,12 +195,17 @@ bool AssetList::isLoaded() const
   return filelist_is_ready(filelist_);
 }
 
+bool AssetList::isAssetPreviewLoading(const AssetHandle &asset) const
+{
+  return filelist_file_is_preview_pending(filelist_, asset.file_data);
+}
+
 asset_system::AssetLibrary *AssetList::asset_library() const
 {
   return reinterpret_cast<asset_system::AssetLibrary *>(filelist_asset_library(filelist_));
 }
 
-void AssetList::iterate(AssetListIterFn fn) const
+void AssetList::iterate(AssetListHandleIterFn fn) const
 {
   FileList *files = filelist_;
   int numfiles = filelist_files_ensure(files);
@@ -212,6 +222,16 @@ void AssetList::iterate(AssetListIterFn fn) const
       break;
     }
   }
+}
+
+void AssetList::iterate(AssetListIterFn fn) const
+{
+  iterate([&fn](AssetHandle handle) {
+    asset_system::AssetRepresentation &asset =
+        reinterpret_cast<blender::asset_system::AssetRepresentation &>(*handle.file_data->asset);
+
+    return fn(asset);
+  });
 }
 
 void AssetList::ensurePreviewsJob(const bContext *C)
@@ -259,7 +279,7 @@ AssetHandle AssetList::asset_get_by_index(int index) const
 /**
  * \return True if the asset-list needs a UI redraw.
  */
-bool AssetList::listen(const wmNotifier &notifier) const
+bool AssetList::listen(const wmNotifier &notifier)
 {
   switch (notifier.category) {
     case NC_ID: {
@@ -415,6 +435,20 @@ AssetListStorage::AssetListMap &AssetListStorage::global_storage()
 
 /** \} */
 
+void asset_reading_region_listen_fn(const wmRegionListenerParams *params)
+{
+  const wmNotifier *wmn = params->notifier;
+  ARegion *region = params->region;
+
+  switch (wmn->category) {
+    case NC_ASSET:
+      if (wmn->data == ND_ASSET_LIST_READING) {
+        ED_region_tag_refresh_ui(region);
+      }
+      break;
+  }
+}
+
 }  // namespace blender::ed::asset
 
 /* -------------------------------------------------------------------- */
@@ -464,6 +498,14 @@ bool ED_assetlist_storage_has_list_for_library(const AssetLibraryReference *libr
   return AssetListStorage::lookup_list(*library_reference) != nullptr;
 }
 
+void ED_assetlist_iterate(const AssetLibraryReference &library_reference, AssetListHandleIterFn fn)
+{
+  AssetList *list = AssetListStorage::lookup_list(library_reference);
+  if (list) {
+    list->iterate(fn);
+  }
+}
+
 void ED_assetlist_iterate(const AssetLibraryReference &library_reference, AssetListIterFn fn)
 {
   AssetList *list = AssetListStorage::lookup_list(library_reference);
@@ -482,11 +524,26 @@ asset_system::AssetLibrary *ED_assetlist_library_get_once_available(
   return list->asset_library();
 }
 
-AssetHandle ED_assetlist_asset_get_by_index(const AssetLibraryReference *library_reference,
-                                            int asset_index)
+AssetHandle ED_assetlist_asset_handle_get_by_index(const AssetLibraryReference *library_reference,
+                                                   int asset_index)
 {
   const AssetList *list = AssetListStorage::lookup_list(*library_reference);
   return list->asset_get_by_index(asset_index);
+}
+
+asset_system::AssetRepresentation *ED_assetlist_asset_get_by_index(
+    const AssetLibraryReference &library_reference, int asset_index)
+{
+  AssetHandle asset_handle = ED_assetlist_asset_handle_get_by_index(&library_reference,
+                                                                    asset_index);
+  return reinterpret_cast<asset_system::AssetRepresentation *>(asset_handle.file_data->asset);
+}
+
+bool ED_assetlist_asset_image_is_loading(const AssetLibraryReference *library_reference,
+                                         const AssetHandle *asset_handle)
+{
+  const AssetList *list = AssetListStorage::lookup_list(*library_reference);
+  return list->isAssetPreviewLoading(*asset_handle);
 }
 
 ImBuf *ED_assetlist_asset_image_get(const AssetHandle *asset_handle)
@@ -499,14 +556,9 @@ ImBuf *ED_assetlist_asset_image_get(const AssetHandle *asset_handle)
   return filelist_geticon_image_ex(asset_handle->file_data);
 }
 
-bool ED_assetlist_listen(const AssetLibraryReference *library_reference,
-                         const wmNotifier *notifier)
+bool ED_assetlist_listen(const wmNotifier *notifier)
 {
-  AssetList *list = AssetListStorage::lookup_list(*library_reference);
-  if (list) {
-    return list->listen(*notifier);
-  }
-  return false;
+  return AssetList::listen(*notifier);
 }
 
 int ED_assetlist_size(const AssetLibraryReference *library_reference)

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_userdef_types.h"
 
@@ -24,7 +26,7 @@ int MTLCommandBufferManager::num_active_cmd_bufs = 0;
 /** \name MTLCommandBuffer initialization and render coordination.
  * \{ */
 
-void MTLCommandBufferManager::prepare(bool supports_render)
+void MTLCommandBufferManager::prepare(bool /*supports_render*/)
 {
   render_pass_state_.reset_state();
 }
@@ -113,7 +115,7 @@ bool MTLCommandBufferManager::submit(bool wait)
   id<MTLCommandBuffer> cmd_buffer_ref = active_command_buffer_;
   [cmd_buffer_ref retain];
 
-  [cmd_buffer_ref addCompletedHandler:^(id<MTLCommandBuffer> cb) {
+  [cmd_buffer_ref addCompletedHandler:^(id<MTLCommandBuffer> /*cb*/) {
     /* Upon command buffer completion, decrement MTLSafeFreeList reference count
      * to allow buffers no longer in use by this CommandBuffer to be freed. */
     cmd_free_buffer_list->decrement_reference();
@@ -497,7 +499,7 @@ bool MTLCommandBufferManager::do_break_submission()
  * \{ */
 
 /* Debug. */
-void MTLCommandBufferManager::push_debug_group(const char *name, int index)
+void MTLCommandBufferManager::push_debug_group(const char *name, int /*index*/)
 {
   /* Only perform this operation if capturing. */
   MTLCaptureManager *capture_manager = [MTLCaptureManager sharedCaptureManager];

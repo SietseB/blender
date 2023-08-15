@@ -1,7 +1,6 @@
-/* SPDX-FileCopyrightText: 2021 Blender Foundation.
+/* SPDX-FileCopyrightText: 2021 Blender Foundation
  *
- * SPDX-License-Identifier: GPL-2.0-or-later
- *  */
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup eevee
@@ -76,11 +75,10 @@ class HiZBuffer {
     DRW_shgroup_uniform_block_ref(grp, "hiz_buf", &data_);
   }
 
-  /* TODO(fclem): Hardcoded bind slots. */
   template<typename T> void bind_resources(draw::detail::PassBase<T> *pass)
   {
-    pass->bind_texture("hiz_tx", &hiz_tx_);
-    pass->bind_ubo("hiz_buf", &data_);
+    pass->bind_texture(HIZ_TEX_SLOT, &hiz_tx_);
+    pass->bind_ubo(HIZ_BUF_SLOT, &data_);
   }
 };
 

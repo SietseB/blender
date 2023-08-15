@@ -76,7 +76,10 @@ typedef struct BlendFileReadWMSetupData {
   /** The existing WM when filereading process is started. */
   struct wmWindowManager *old_wm;
 
+  /** The startup file is being read. */
   bool is_read_homefile;
+  /** The factory startup file is being read. */
+  bool is_factory_startup;
 } BlendFileReadWMSetupData;
 
 struct BlendFileReadParams {
@@ -201,6 +204,8 @@ void BLO_blendfiledata_free(BlendFileData *bfd);
 typedef struct BLODataBlockInfo {
   char name[64]; /* MAX_NAME */
   struct AssetMetaData *asset_data;
+  /** Ownership over #asset_data above can be "stolen out" of this struct, for more permanent
+   * storage. In that case, set this to false to avoid double freeing of the stolen data. */
   bool free_asset_data;
   /**
    * Optimization: Tag data-blocks for which we know there is no preview.

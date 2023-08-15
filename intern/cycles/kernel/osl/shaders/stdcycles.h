@@ -1,15 +1,17 @@
-/* SPDX-License-Identifier: BSD-3-Clause
+/* SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
  *
- * Adapted from Open Shading Language
- * Copyright (c) 2009-2010 Sony Pictures Imageworks Inc., et al.
- * All Rights Reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- * Modifications Copyright 2011-2022 Blender Foundation. */
+ * Adapted code from Open Shading Language. */
 
 #ifndef CCL_STDCYCLESOSL_H
 #define CCL_STDCYCLESOSL_H
 
 #include "stdosl.h"
+
+// Constants
+#define FLT_MAX 3.402823466e+38  // max value
 
 // Declaration of built-in functions and closures, stdosl.h does not make
 // these available so we have to redefine them.
@@ -21,19 +23,13 @@ closure color phong_ramp(normal N, float exponent, color colors[8]) BUILTIN;
 closure color diffuse_toon(normal N, float size, float smooth) BUILTIN;
 closure color glossy_toon(normal N, float size, float smooth) BUILTIN;
 closure color ashikhmin_velvet(normal N, float sigma) BUILTIN;
+closure color sheen(normal N, float roughness) BUILTIN;
 closure color ambient_occlusion() BUILTIN;
-closure color principled_diffuse(normal N, float roughness) BUILTIN;
-closure color principled_sheen(normal N) BUILTIN;
-closure color principled_clearcoat(normal N, float clearcoat, float clearcoat_roughness) BUILTIN;
 
 /* Needed to pass along the color for multi-scattering saturation adjustment,
  * otherwise could be replaced by microfacet() */
 closure color microfacet_multi_ggx_glass(normal N, float ag, float eta, color C) BUILTIN;
 closure color microfacet_multi_ggx_aniso(normal N, vector T, float ax, float ay, color C) BUILTIN;
-/* Needed to pass along the IOR for the Principled V1 Fresnel calculation,
- * otherwise could be replaced by generalized_schlick_bsdf() */
-closure color microfacet_aniso_fresnel(
-    normal N, vector T, float ax, float ay, color f0, color f90, float eta, string dist) BUILTIN;
 
 // BSSRDF
 closure color bssrdf(string method, normal N, vector radius, color albedo) BUILTIN;

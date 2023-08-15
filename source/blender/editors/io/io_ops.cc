@@ -6,9 +6,9 @@
  * \ingroup collada
  */
 
-#include "io_ops.h" /* own include */
+#include "io_ops.hh" /* own include */
 
-#include "WM_api.h"
+#include "WM_api.hh"
 
 #ifdef WITH_COLLADA
 #  include "io_collada.hh"
@@ -28,7 +28,7 @@
 #include "io_ply_ops.hh"
 #include "io_stl_ops.hh"
 
-void ED_operatortypes_io(void)
+void ED_operatortypes_io()
 {
 #ifdef WITH_COLLADA
   /* Collada operators: */

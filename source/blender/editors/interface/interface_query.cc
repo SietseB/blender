@@ -9,22 +9,23 @@
  */
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_rotation.h"
+#include "BLI_math_vector.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_screen_types.h"
 
-#include "UI_interface.h"
-#include "UI_view2d.h"
+#include "UI_interface.hh"
+#include "UI_view2d.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 
 #include "interface_intern.hh"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
 /* -------------------------------------------------------------------- */
 /** \name Button (#uiBut) State
@@ -38,7 +39,7 @@ bool ui_but_is_editable(const uiBut *but)
                UI_BTYPE_SEPR_LINE,
                UI_BTYPE_ROUNDBOX,
                UI_BTYPE_LISTBOX,
-               UI_BTYPE_PROGRESS_BAR);
+               UI_BTYPE_PROGRESS);
 }
 
 bool ui_but_is_editable_as_text(const uiBut *but)
@@ -144,16 +145,7 @@ bool UI_but_is_tool(const uiBut *but)
 
 bool UI_but_has_tooltip_label(const uiBut *but)
 {
-  /* No tooltip label if the button itself shows a label already. */
-  if (but->drawstr[0] != '\0') {
-    return false;
-  }
-
-  if (UI_but_is_tool(but)) {
-    return !ui_block_is_popover(but->block);
-  }
-
-  return ELEM(but->type, UI_BTYPE_TAB);
+  return (but->drawflag & UI_BUT_HAS_TOOLTIP_LABEL) != 0;
 }
 
 int ui_but_icon(const uiBut *but)
@@ -446,7 +438,7 @@ static bool ui_but_is_listrow_at_index(const uiBut *but, const void *customdata)
          (but->hardmax == find_data->index);
 }
 
-uiBut *ui_list_row_find_from_index(const ARegion *region, const int index, uiBut *listbox)
+uiBut *ui_list_row_find_index(const ARegion *region, const int index, uiBut *listbox)
 {
   BLI_assert(listbox->type == UI_BTYPE_LISTBOX);
   ListRowFindIndexData data = {};

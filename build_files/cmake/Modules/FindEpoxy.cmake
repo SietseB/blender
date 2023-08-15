@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2022 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2022 Blender Foundation.
 
 # This module defines
 #  Epoxy_INCLUDE_DIRS, where to find epoxy/gl.h
@@ -8,8 +9,13 @@
 #                     This can also be an environment variable.
 #  Epoxy_FOUND, If false, do not try to use epoxy.
 
-IF(NOT EPOXY_ROOT_DIR AND NOT $ENV{EPOXY_ROOT_DIR} STREQUAL "")
+# If `EPOXY_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED EPOXY_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{EPOXY_ROOT_DIR})
   SET(EPOXY_ROOT_DIR $ENV{EPOXY_ROOT_DIR})
+ELSE()
+  SET(EPOXY_ROOT_DIR "")
 ENDIF()
 
 FIND_PATH(Epoxy_INCLUDE_DIR

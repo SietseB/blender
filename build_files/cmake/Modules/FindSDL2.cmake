@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2015 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2015 Blender Foundation.
 
 # - Find SDL library
 # Find the native SDL includes and library
@@ -13,9 +14,13 @@
 # also defined, but not for general use are
 #  SDL2_LIBRARY, where to find the SDL library.
 
-# If SDL2_ROOT_DIR was defined in the environment, use it.
-IF(NOT SDL2_ROOT_DIR AND NOT $ENV{SDL2_ROOT_DIR} STREQUAL "")
+# If `SDL2_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED SDL2_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{SDL2_ROOT_DIR})
   SET(SDL2_ROOT_DIR $ENV{SDL2_ROOT_DIR})
+ELSE()
+  SET(SDL2_ROOT_DIR "")
 ENDIF()
 
 SET(_sdl2_SEARCH_DIRS

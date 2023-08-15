@@ -7,20 +7,15 @@ set(INC
   algorithms
   cached_resources
   ../../blenkernel
-  ../../blenlib
   ../../blentranslation
   ../../draw
   ../../gpu
   ../../imbuf
-  ../../makesdna
   ../../makesrna
   ../../nodes
   ../../render
   ../../gpu/intern
-  ../../../../intern/guardedalloc
 
-  # dna_type_offsets.h
-  ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
 )
 
 set(INC_SYS
@@ -68,12 +63,18 @@ set(SRC
   COM_texture_pool.hh
   COM_utilities.hh
 
-  algorithms/intern/algorithm_parallel_reduction.cc
+  algorithms/intern/morphological_distance.cc
+  algorithms/intern/morphological_distance_feather.cc
+  algorithms/intern/parallel_reduction.cc
   algorithms/intern/smaa.cc
+  algorithms/intern/summed_area_table.cc
   algorithms/intern/symmetric_separable_blur.cc
 
+  algorithms/COM_algorithm_morphological_distance.hh
+  algorithms/COM_algorithm_morphological_distance_feather.hh
   algorithms/COM_algorithm_parallel_reduction.hh
   algorithms/COM_algorithm_smaa.hh
+  algorithms/COM_algorithm_summed_area_table.hh
   algorithms/COM_algorithm_symmetric_separable_blur.hh
 
   cached_resources/intern/cached_mask.cc
@@ -97,11 +98,13 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::dna
   bf_gpu
+  PRIVATE bf::intern::guardedalloc
   bf_nodes
   bf_imbuf
   bf_render
-  bf_blenlib
+  PRIVATE bf::blenlib
   bf_blenkernel
 )
 
@@ -112,6 +115,7 @@ set(GLSL_SRC
   shaders/compositor_blur_variable_size.glsl
   shaders/compositor_bokeh_image.glsl
   shaders/compositor_box_mask.glsl
+  shaders/compositor_compute_preview.glsl
   shaders/compositor_convert.glsl
   shaders/compositor_despeckle.glsl
   shaders/compositor_directional_blur.glsl
@@ -134,6 +138,12 @@ set(GLSL_SRC
   shaders/compositor_glare_streaks_filter.glsl
   shaders/compositor_id_mask.glsl
   shaders/compositor_image_crop.glsl
+  shaders/compositor_keying_compute_image.glsl
+  shaders/compositor_keying_compute_matte.glsl
+  shaders/compositor_keying_extract_chroma.glsl
+  shaders/compositor_keying_replace_chroma.glsl
+  shaders/compositor_keying_tweak_matte.glsl
+  shaders/compositor_kuwahara_classic.glsl
   shaders/compositor_map_uv.glsl
   shaders/compositor_morphological_distance.glsl
   shaders/compositor_morphological_distance_feather.glsl
@@ -152,6 +162,11 @@ set(GLSL_SRC
   shaders/compositor_smaa_edge_detection.glsl
   shaders/compositor_smaa_neighborhood_blending.glsl
   shaders/compositor_split_viewer.glsl
+  shaders/compositor_summed_area_table_compute_complete_blocks.glsl
+  shaders/compositor_summed_area_table_compute_complete_x_prologues.glsl
+  shaders/compositor_summed_area_table_compute_complete_y_prologues.glsl
+  shaders/compositor_summed_area_table_compute_incomplete_prologues.glsl
+  shaders/compositor_sun_beams.glsl
   shaders/compositor_symmetric_blur.glsl
   shaders/compositor_symmetric_blur_variable_size.glsl
   shaders/compositor_symmetric_separable_blur.glsl
@@ -189,6 +204,7 @@ set(GLSL_SRC
   shaders/library/gpu_shader_compositor_separate_combine.glsl
   shaders/library/gpu_shader_compositor_set_alpha.glsl
   shaders/library/gpu_shader_compositor_store_output.glsl
+  shaders/library/gpu_shader_compositor_summed_area_table_lib.glsl
   shaders/library/gpu_shader_compositor_texture_utilities.glsl
   shaders/library/gpu_shader_compositor_type_conversion.glsl
 )
@@ -225,6 +241,7 @@ set(SRC_SHADER_CREATE_INFOS
   shaders/infos/compositor_blur_variable_size_info.hh
   shaders/infos/compositor_bokeh_image_info.hh
   shaders/infos/compositor_box_mask_info.hh
+  shaders/infos/compositor_compute_preview_info.hh
   shaders/infos/compositor_convert_info.hh
   shaders/infos/compositor_despeckle_info.hh
   shaders/infos/compositor_directional_blur_info.hh
@@ -236,6 +253,8 @@ set(SRC_SHADER_CREATE_INFOS
   shaders/infos/compositor_glare_info.hh
   shaders/infos/compositor_id_mask_info.hh
   shaders/infos/compositor_image_crop_info.hh
+  shaders/infos/compositor_keying_info.hh
+  shaders/infos/compositor_kuwahara_info.hh
   shaders/infos/compositor_map_uv_info.hh
   shaders/infos/compositor_morphological_distance_feather_info.hh
   shaders/infos/compositor_morphological_distance_info.hh
@@ -252,6 +271,8 @@ set(SRC_SHADER_CREATE_INFOS
   shaders/infos/compositor_screen_lens_distortion_info.hh
   shaders/infos/compositor_smaa_info.hh
   shaders/infos/compositor_split_viewer_info.hh
+  shaders/infos/compositor_summed_area_table_info.hh
+  shaders/infos/compositor_sun_beams_info.hh
   shaders/infos/compositor_symmetric_blur_info.hh
   shaders/infos/compositor_symmetric_blur_variable_size_info.hh
   shaders/infos/compositor_symmetric_separable_blur_info.hh

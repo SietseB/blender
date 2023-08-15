@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2022 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2022 Blender Foundation.
 
 # - Find Brotli library (compression for freetype/woff2).
 # This module defines
@@ -11,9 +12,13 @@
 #  BROTLI_FOUND, If false, do not try to use Brotli.
 #
 
-# If BROTLI_ROOT_DIR was defined in the environment, use it.
-IF(NOT BROTLI_ROOT_DIR AND NOT $ENV{BROTLI_ROOT_DIR} STREQUAL "")
+# If `BROTLI_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED BROTLI_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{BROTLI_ROOT_DIR})
   SET(BROTLI_ROOT_DIR $ENV{BROTLI_ROOT_DIR})
+ELSE()
+  SET(BROTLI_ROOT_DIR "")
 ENDIF()
 
 SET(_BROTLI_SEARCH_DIRS

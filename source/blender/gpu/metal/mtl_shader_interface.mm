@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -113,7 +115,7 @@ uint32_t MTLShaderInterface::add_uniform_block(uint32_t name_offset,
                                                uint32_t buffer_index,
                                                uint32_t location,
                                                uint32_t size,
-                                               ShaderStage stage_mask)
+                                               ShaderStage /*stage_mask*/)
 {
   /* Ensure Size is 16 byte aligned to guarantees alignment rules are satisfied. */
   if ((size % 16) != 0) {
@@ -137,7 +139,7 @@ uint32_t MTLShaderInterface::add_storage_block(uint32_t name_offset,
                                                uint32_t buffer_index,
                                                uint32_t location,
                                                uint32_t size,
-                                               ShaderStage stage_mask)
+                                               ShaderStage /*stage_mask*/)
 {
   /* Ensure Size is 16 byte aligned to guarantees alignment rules are satisfied. */
   if ((size % 16) != 0) {

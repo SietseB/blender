@@ -11,6 +11,10 @@
 #include "GPU_texture.h"
 #include "GPU_vertex_buffer.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include FT_MULTIPLE_MASTERS_H /* Variable font support. */
 
 /** Maximum variation axes per font. */
@@ -206,7 +210,7 @@ typedef struct GlyphBLF {
 
   /**
    * X and Y bearing of the glyph.
-   * The X bearing is from the origin to the glyph left bbox edge.
+   * The X bearing is from the origin to the glyph left bounding-box edge.
    * The Y bearing is from the baseline to the top of the glyph edge.
    */
   int pos[2];
@@ -342,3 +346,7 @@ typedef struct FontBLF {
   /** Mutex lock for glyph cache. */
   ThreadMutex glyph_cache_mutex;
 } FontBLF;
+
+#ifdef __cplusplus
+}
+#endif

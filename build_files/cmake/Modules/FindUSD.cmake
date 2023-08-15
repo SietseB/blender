@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2019 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019 Blender Foundation.
 
 # - Find Universal Scene Description (USD) library
 # Find the native USD includes and libraries
@@ -12,9 +13,13 @@
 #  USD_FOUND, If false, do not try to use USD.
 #
 
-# If USD_ROOT_DIR was defined in the environment, use it.
-IF(NOT USD_ROOT_DIR AND NOT $ENV{USD_ROOT_DIR} STREQUAL "")
+# If `USD_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED USD_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{USD_ROOT_DIR})
   SET(USD_ROOT_DIR $ENV{USD_ROOT_DIR})
+ELSE()
+  SET(USD_ROOT_DIR "")
 ENDIF()
 
 SET(_usd_SEARCH_DIRS

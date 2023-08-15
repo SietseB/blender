@@ -6,7 +6,7 @@
 
 /** \file
  * \ingroup freestyle
- * \brief Interface to 0D elts
+ * \brief Interface to 0D elements.
  */
 
 #include <iostream>
@@ -165,7 +165,7 @@ class Interface0DIteratorNested : public Iterator {
  */
 class Interface0DIterator : public Iterator {
  public:
-  Interface0DIterator(Interface0DIteratorNested *it = NULL)
+  Interface0DIterator(Interface0DIteratorNested *it = nullptr)
   {
     _iterator = it;
   }

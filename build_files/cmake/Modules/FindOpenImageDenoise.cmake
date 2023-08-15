@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2019 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019 Blender Foundation.
 
 # - Find OpenImageDenoise library
 # Find the native OpenImageDenoise includes and library
@@ -14,9 +15,13 @@
 # also defined, but not for general use are
 #  OPENIMAGEDENOISE_LIBRARY, where to find the OpenImageDenoise library.
 
-# If OPENIMAGEDENOISE_ROOT_DIR was defined in the environment, use it.
-IF(NOT OPENIMAGEDENOISE_ROOT_DIR AND NOT $ENV{OPENIMAGEDENOISE_ROOT_DIR} STREQUAL "")
+# If `OPENIMAGEDENOISE_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED OPENIMAGEDENOISE_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{OPENIMAGEDENOISE_ROOT_DIR})
   SET(OPENIMAGEDENOISE_ROOT_DIR $ENV{OPENIMAGEDENOISE_ROOT_DIR})
+ELSE()
+  SET(OPENIMAGEDENOISE_ROOT_DIR "")
 ENDIF()
 
 SET(_openimagedenoise_SEARCH_DIRS

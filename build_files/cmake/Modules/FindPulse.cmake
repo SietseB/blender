@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2021 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2021 Blender Foundation.
 
 # - Find PulseAudio library
 # Find the native PulseAudio includes and library
@@ -14,9 +15,13 @@
 # also defined, but not for general use are
 #  LIBPULSE_LIBRARY, where to find the PulseAudio library.
 
-# If LIBPULSE_ROOT_DIR was defined in the environment, use it.
-IF(NOT LIBPULSE_ROOT_DIR AND NOT $ENV{LIBPULSE_ROOT_DIR} STREQUAL "")
+# If `LIBPULSE_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED LIBPULSE_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{LIBPULSE_ROOT_DIR})
   SET(LIBPULSE_ROOT_DIR $ENV{LIBPULSE_ROOT_DIR})
+ELSE()
+  SET(LIBPULSE_ROOT_DIR "")
 ENDIF()
 
 SET(_pulse_SEARCH_DIRS

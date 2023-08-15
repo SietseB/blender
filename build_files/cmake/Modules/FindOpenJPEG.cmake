@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2011 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2011 Blender Foundation.
 
 # - Find OpenJPEG library
 # Find the native OpenJPEG includes and library
@@ -14,9 +15,13 @@
 # also defined, but not for general use are
 #  OPENJPEG_LIBRARY, where to find the OpenJPEG library.
 
-# If OPENJPEG_ROOT_DIR was defined in the environment, use it.
-IF(NOT OPENJPEG_ROOT_DIR AND NOT $ENV{OPENJPEG_ROOT_DIR} STREQUAL "")
+# If `OPENJPEG_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED OPENJPEG_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{OPENJPEG_ROOT_DIR})
   SET(OPENJPEG_ROOT_DIR $ENV{OPENJPEG_ROOT_DIR})
+ELSE()
+  SET(OPENJPEG_ROOT_DIR "")
 ENDIF()
 
 SET(_openjpeg_SEARCH_DIRS

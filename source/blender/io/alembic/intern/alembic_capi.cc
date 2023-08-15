@@ -43,19 +43,21 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
-#include "ED_undo.h"
+#include "ED_undo.hh"
 
 #include "BLI_compiler_compat.h"
 #include "BLI_fileops.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_matrix.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 #include "BLI_timeit.hh"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "BLT_translation.h"
+
+#include "WM_api.hh"
+#include "WM_types.hh"
 
 using Alembic::Abc::IV3fArrayProperty;
 using Alembic::Abc::ObjectHeader;
@@ -773,7 +775,7 @@ static AbcObjectReader *get_abc_reader(CacheReader *reader, Object *ob, const ch
   IObject iobject = abc_reader->iobject();
 
   if (!iobject.valid()) {
-    *err_str = "Invalid object: verify object path";
+    *err_str = TIP_("Invalid object: verify object path");
     return nullptr;
   }
 
@@ -849,7 +851,8 @@ void ABC_CacheReader_incref(CacheReader *reader)
 CacheReader *CacheReader_open_alembic_object(CacheArchiveHandle *handle,
                                              CacheReader *reader,
                                              Object *object,
-                                             const char *object_path)
+                                             const char *object_path,
+                                             const bool is_sequence)
 {
   if (object_path[0] == '\0') {
     return reader;
@@ -869,6 +872,7 @@ CacheReader *CacheReader_open_alembic_object(CacheArchiveHandle *handle,
   }
 
   ImportSettings settings;
+  settings.is_sequence = is_sequence;
   AbcObjectReader *abc_reader = create_reader(iobject, settings);
   if (abc_reader == nullptr) {
     /* This object is not supported */

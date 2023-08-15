@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2020 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2020 Blender Foundation.
 
 # - Find sse2neon library
 # Find the native sse2neon includes and library
@@ -10,9 +11,13 @@
 #                     This can also be an environment variable.
 #  SSE2NEON_FOUND, If false, do not try to use sse2neon.
 
-# If SSE2NEON_ROOT_DIR was defined in the environment, use it.
-IF(NOT SSE2NEON_ROOT_DIR AND NOT $ENV{SSE2NEON_ROOT_DIR} STREQUAL "")
+# If `SSE2NEON_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED SSE2NEON_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{SSE2NEON_ROOT_DIR})
   SET(SSE2NEON_ROOT_DIR $ENV{SSE2NEON_ROOT_DIR})
+ELSE()
+  SET(SSE2NEON_ROOT_DIR "")
 ENDIF()
 
 SET(_sse2neon_SEARCH_DIRS

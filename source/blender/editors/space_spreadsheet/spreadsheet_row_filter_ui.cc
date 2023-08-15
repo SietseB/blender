@@ -13,16 +13,16 @@
 
 #include "BKE_screen.h"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
-#include "UI_interface.h"
-#include "UI_resources.h"
+#include "UI_interface.hh"
+#include "UI_resources.hh"
 
 #include "BLT_translation.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
 #include "spreadsheet_column.hh"
 #include "spreadsheet_intern.hh"
@@ -107,6 +107,7 @@ static std::string value_string(const SpreadsheetRowFilter &row_filter,
     }
     case SPREADSHEET_VALUE_TYPE_STRING:
       return row_filter.value_string;
+    case SPREADSHEET_VALUE_TYPE_QUATERNION:
     case SPREADSHEET_VALUE_TYPE_UNKNOWN:
       return "";
   }
@@ -191,7 +192,7 @@ static void spreadsheet_filter_panel_draw(const bContext *C, Panel *panel)
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
 
-  uiItemR(layout, filter_ptr, "column_name", 0, IFACE_("Column"), ICON_NONE);
+  uiItemR(layout, filter_ptr, "column_name", UI_ITEM_NONE, IFACE_("Column"), ICON_NONE);
 
   /* Don't draw settings for filters with no corresponding visible column. */
   if (column == nullptr || column_name.is_empty()) {
@@ -200,57 +201,58 @@ static void spreadsheet_filter_panel_draw(const bContext *C, Panel *panel)
 
   switch (static_cast<eSpreadsheetColumnValueType>(column->data_type)) {
     case SPREADSHEET_VALUE_TYPE_INT8:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_int8", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_int8", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_INT32:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_int", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_int", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_INT32_2D:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_int2", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_int2", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_FLOAT:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_float", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_float", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       if (operation == SPREADSHEET_ROW_FILTER_EQUAL) {
-        uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
+        uiItemR(layout, filter_ptr, "threshold", UI_ITEM_NONE, nullptr, ICON_NONE);
       }
       break;
     case SPREADSHEET_VALUE_TYPE_FLOAT2:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_float2", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_float2", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       if (operation == SPREADSHEET_ROW_FILTER_EQUAL) {
-        uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
+        uiItemR(layout, filter_ptr, "threshold", UI_ITEM_NONE, nullptr, ICON_NONE);
       }
       break;
     case SPREADSHEET_VALUE_TYPE_FLOAT3:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_float3", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_float3", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       if (operation == SPREADSHEET_ROW_FILTER_EQUAL) {
-        uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
+        uiItemR(layout, filter_ptr, "threshold", UI_ITEM_NONE, nullptr, ICON_NONE);
       }
       break;
     case SPREADSHEET_VALUE_TYPE_BOOL:
-      uiItemR(layout, filter_ptr, "value_boolean", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_boolean", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_INSTANCES:
-      uiItemR(layout, filter_ptr, "value_string", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_string", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_COLOR:
     case SPREADSHEET_VALUE_TYPE_BYTE_COLOR:
-      uiItemR(layout, filter_ptr, "operation", 0, nullptr, ICON_NONE);
-      uiItemR(layout, filter_ptr, "value_color", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "operation", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_color", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       if (operation == SPREADSHEET_ROW_FILTER_EQUAL) {
-        uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
+        uiItemR(layout, filter_ptr, "threshold", UI_ITEM_NONE, nullptr, ICON_NONE);
       }
       break;
     case SPREADSHEET_VALUE_TYPE_STRING:
-      uiItemR(layout, filter_ptr, "value_string", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "value_string", UI_ITEM_NONE, IFACE_("Value"), ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_UNKNOWN:
-      uiItemL(layout, IFACE_("Unknown column type"), ICON_ERROR);
+    case SPREADSHEET_VALUE_TYPE_QUATERNION:
+      uiItemL(layout, IFACE_("Unsupported column type"), ICON_ERROR);
       break;
   }
 }
@@ -339,10 +341,10 @@ void register_row_filter_panels(ARegionType &region_type)
 {
   {
     PanelType *panel_type = MEM_cnew<PanelType>(__func__);
-    strcpy(panel_type->idname, "SPREADSHEET_PT_row_filters");
-    strcpy(panel_type->label, N_("Filters"));
-    strcpy(panel_type->category, "Filters");
-    strcpy(panel_type->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+    STRNCPY(panel_type->idname, "SPREADSHEET_PT_row_filters");
+    STRNCPY(panel_type->label, N_("Filters"));
+    STRNCPY(panel_type->category, "Filters");
+    STRNCPY(panel_type->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
     panel_type->flag = PANEL_TYPE_NO_HEADER;
     panel_type->draw = spreadsheet_row_filters_layout;
     BLI_addtail(&region_type.paneltypes, panel_type);
@@ -350,10 +352,10 @@ void register_row_filter_panels(ARegionType &region_type)
 
   {
     PanelType *panel_type = MEM_cnew<PanelType>(__func__);
-    strcpy(panel_type->idname, "SPREADSHEET_PT_filter");
-    strcpy(panel_type->label, "");
-    strcpy(panel_type->category, "Filters");
-    strcpy(panel_type->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+    STRNCPY(panel_type->idname, "SPREADSHEET_PT_filter");
+    STRNCPY(panel_type->label, "");
+    STRNCPY(panel_type->category, "Filters");
+    STRNCPY(panel_type->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
     panel_type->flag = PANEL_TYPE_INSTANCED | PANEL_TYPE_HEADER_EXPAND;
     panel_type->draw_header = spreadsheet_filter_panel_draw_header;
     panel_type->draw = spreadsheet_filter_panel_draw;

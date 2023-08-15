@@ -8,7 +8,7 @@
 
 #include "NOD_texture.h"
 #include "node_texture_util.hh"
-#include <math.h>
+#include <cmath>
 
 static bNodeSocketTemplate inputs[] = {
     {SOCK_VECTOR, N_("Coordinate 1"), 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, PROP_NONE},
@@ -41,7 +41,7 @@ static void exec(void *data,
   tex_output(node, execdata, in, out[0], &valuefn, static_cast<TexCallData *>(data));
 }
 
-void register_node_type_tex_distance(void)
+void register_node_type_tex_distance()
 {
   static bNodeType ntype;
 

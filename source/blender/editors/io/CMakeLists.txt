@@ -5,7 +5,6 @@
 set(INC
   ../include
   ../../blenkernel
-  ../../blenlib
   ../../blentranslation
   ../../bmesh
   ../../depsgraph
@@ -17,10 +16,8 @@ set(INC
   ../../io/stl
   ../../io/usd
   ../../io/wavefront_obj
-  ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -45,7 +42,7 @@ set(SRC
   io_collada.hh
   io_gpencil.hh
   io_obj.hh
-  io_ops.h
+  io_ops.hh
   io_ply_ops.hh
   io_stl_ops.hh
   io_usd.hh
@@ -53,7 +50,9 @@ set(SRC
 
 set(LIB
   bf_blenkernel
-  bf_blenlib
+  PRIVATE bf::blenlib
+  PRIVATE bf::dna
+  PRIVATE bf::intern::guardedalloc
 )
 
 if(WITH_OPENCOLLADA)

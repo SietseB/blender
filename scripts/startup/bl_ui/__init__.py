@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # note, properties_animviz is a helper module only.
@@ -9,6 +11,7 @@ if "bpy" in locals():
     del reload
 
 _modules = [
+    "asset_shelf",
     "node_add_menu",
     "node_add_menu_geometry",
     "properties_animviz",
@@ -20,6 +23,7 @@ _modules = [
     "properties_data_curves",
     "properties_data_empty",
     "properties_data_gpencil",
+    "properties_data_grease_pencil",
     "properties_data_light",
     "properties_data_lattice",
     "properties_data_mesh",
@@ -171,7 +175,7 @@ def unregister():
                 unregister_class(cls)
 
 # Define a default UIList, when a list does not need any custom drawing...
-# Keep in sync with its #defined name in UI_interface.h
+# Keep in sync with its #defined name in UI_interface.hh
 
 
 class UI_UL_list(bpy.types.UIList):

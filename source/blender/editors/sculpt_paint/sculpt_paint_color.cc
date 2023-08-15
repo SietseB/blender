@@ -9,19 +9,18 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_hash.h"
-#include "BLI_math.h"
 #include "BLI_math_color_blend.h"
 #include "BLI_task.h"
 #include "BLI_vector.hh"
 
 #include "DNA_meshdata_types.h"
 
-#include "BKE_brush.h"
+#include "BKE_brush.hh"
 #include "BKE_colorband.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
-#include "BKE_paint.h"
-#include "BKE_pbvh.h"
+#include "BKE_paint.hh"
+#include "BKE_pbvh_api.hh"
 
 #include "IMB_colormanagement.h"
 
@@ -143,7 +142,8 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
     bool affect_vertex = false;
     float distance_to_stroke_location = 0.0f;
     if (brush->tip_roundness < 1.0f) {
-      affect_vertex = SCULPT_brush_test_cube(&test, vd.co, data->mat, brush->tip_roundness);
+      affect_vertex = SCULPT_brush_test_cube(
+          &test, vd.co, data->mat, brush->tip_roundness, brush->tip_scale_x);
       distance_to_stroke_location = ss->cache->radius * test.dist;
     }
     else {

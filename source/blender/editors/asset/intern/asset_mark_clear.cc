@@ -18,17 +18,17 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 
-#include "UI_interface_icons.h"
+#include "UI_interface_icons.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
 #include "ED_asset_list.h"
 #include "ED_asset_mark_clear.h"
 #include "ED_asset_type.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
 bool ED_asset_mark_id(ID *id)
 {
@@ -100,7 +100,7 @@ bool ED_asset_can_mark_single_from_context(const bContext *C)
   return ED_asset_type_is_supported(id);
 }
 
-bool ED_asset_copy_to_id(const struct AssetMetaData *asset_data, struct ID *destination)
+bool ED_asset_copy_to_id(const AssetMetaData *asset_data, ID *destination)
 {
   if (!BKE_id_can_be_asset(destination)) {
     return false;

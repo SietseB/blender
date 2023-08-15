@@ -28,7 +28,7 @@
 #include "BLI_alloca.h"
 #include "BLI_heap_simple.h"
 #include "BLI_kdopbvh.h"
-#include "BLI_math.h"
+#include "BLI_math_geom.h"
 #include "BLI_stack.h"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
@@ -145,7 +145,7 @@ typedef struct BVHNearestProjectedData {
   const BVHTree *tree;
   struct DistProjectedAABBPrecalc precalc;
   bool closest_axis[3];
-  float clip_plane[6][4];
+  float clip_plane[7][4];
   int clip_plane_len;
   BVHTree_NearestProjectedCallback callback;
   void *userdata;

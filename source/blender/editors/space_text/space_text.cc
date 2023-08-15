@@ -6,7 +6,7 @@
  * \ingroup sptext
  */
 
-#include <string.h>
+#include <cstring>
 
 #include "DNA_text_types.h"
 
@@ -20,20 +20,20 @@
 #include "BKE_lib_remap.h"
 #include "BKE_screen.h"
 
-#include "ED_screen.h"
-#include "ED_space_api.h"
+#include "ED_screen.hh"
+#include "ED_space_api.hh"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
-#include "UI_interface.h"
-#include "UI_resources.h"
-#include "UI_view2d.h"
+#include "UI_interface.hh"
+#include "UI_resources.hh"
+#include "UI_view2d.hh"
 
 #include "BLO_read_write.h"
 
-#include "RNA_access.h"
-#include "RNA_path.h"
+#include "RNA_access.hh"
+#include "RNA_path.hh"
 
 #include "text_format.hh"
 #include "text_intern.hh" /* own include */
@@ -84,7 +84,7 @@ static SpaceLink *text_create(const ScrArea * /*area*/, const Scene * /*scene*/)
   return (SpaceLink *)stext;
 }
 
-/* not spacelink itself */
+/* Doesn't free the space-link itself. */
 static void text_free(SpaceLink *sl)
 {
   SpaceText *stext = (SpaceText *)sl;
@@ -155,7 +155,7 @@ static void text_listener(const wmSpaceTypeListenerParams *params)
   }
 }
 
-static void text_operatortypes(void)
+static void text_operatortypes()
 {
   WM_operatortype_append(TEXT_OT_new);
   WM_operatortype_append(TEXT_OT_open);
@@ -335,7 +335,7 @@ static void text_drop_paste(bContext * /*C*/, wmDrag *drag, wmDropBox *drop)
 }
 
 /* this region dropbox definition */
-static void text_dropboxes(void)
+static void text_dropboxes()
 {
   ListBase *lb = WM_dropboxmap_find("Text", SPACE_TEXT, RGN_TYPE_WINDOW);
 
@@ -415,7 +415,7 @@ static void text_space_blend_write(BlendWriter *writer, SpaceLink *sl)
 
 /********************* registration ********************/
 
-void ED_spacetype_text(void)
+void ED_spacetype_text()
 {
   SpaceType *st = static_cast<SpaceType *>(MEM_callocN(sizeof(SpaceType), "spacetype text"));
   ARegionType *art;
@@ -481,7 +481,6 @@ void ED_spacetype_text(void)
   /* register formatters */
   ED_text_format_register_py();
   ED_text_format_register_osl();
-  ED_text_format_register_lua();
   ED_text_format_register_pov();
   ED_text_format_register_pov_ini();
 }

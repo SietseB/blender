@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 3.6.0 Beta (b'de4fb0e570b4')\n"
+"Project-Id-Version: Blender 4.0.0 Alpha (b'769fe076683a')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-05 09:47:30\n"
+"POT-Creation-Date: 2023-08-14 09:28:55\n"
 "PO-Revision-Date: 2012-10-31 17:00-0800\n"
 "Last-Translator: Amin Babaeipanah <translate@leomoon.com>\n"
 "Language-Team: LeoMoon Studios <blender@leomoon.com>\n"
@@ -360,6 +360,10 @@ msgid "Area width"
 msgstr "ﻪﻘﻄﻨﻣ ﯼﺎﻨﻬﭘ"
 
 
+msgid "Show Names"
+msgstr "ﺎﻫ‌ﻡﺎﻧ ﺶﯾﺎﻤﻧ"
+
+
 msgid "Vector"
 msgstr "ﺭﺍﺩﺮﺑ"
 
@@ -426,6 +430,10 @@ msgstr "ﺪﯾﺩ ﻥﺍﺪﯿﻣ ﺖﯿﻌﺿﻭ"
 
 msgid "Weight"
 msgstr "ﻥﺯﻭ"
+
+
+msgid "Grease Pencil"
+msgstr "ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ"
 
 
 msgid "Particles"
@@ -622,10 +630,6 @@ msgstr "ﮓﻧﺭ"
 
 msgid "Saturation"
 msgstr "ﻉﺎﺒﺷﺍ"
-
-
-msgid "Path"
-msgstr "ﺮﯿﺴﻣ"
 
 
 msgid "Background Image"
@@ -1324,10 +1328,6 @@ msgid "Rotational Difference"
 msgstr "ﯽﺸﺧﺮﭼ ﺕﻭﺎﻔﺗ"
 
 
-msgid "Force"
-msgstr "ﺭﻭﺯ‌ﻪﺑ"
-
-
 msgid "Max Displace"
 msgstr "ﯽﯾﺎﺠﺑﺎﺟ ﻪﻨﯿﺸﯿﺑ"
 
@@ -1386,6 +1386,10 @@ msgstr "ﻥﺪﯿﺘﻠﻏ"
 
 msgid "Bone rotation around head-tail axis"
 msgstr "ﻡﺩ ﻪﺑ ﺮﺳ ﺭﻮﺤﻣ ﻑﺍﺮﻃﺍ ﻥﺍﻮﺨﺘﺳﺍ ﺶﺧﺮﭼ"
+
+
+msgid "Force"
+msgstr "ﺭﻭﺯ‌ﻪﺑ"
 
 
 msgid "Wind"
@@ -1478,10 +1482,6 @@ msgstr "ﻪﻧﺍﺩ"
 
 msgid "Size"
 msgstr "ﻩﺯﺍﺪﻧﺍ"
-
-
-msgid "Grease Pencil"
-msgstr "ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ"
 
 
 msgid "Save"
@@ -1652,10 +1652,6 @@ msgid "Subtract Color"
 msgstr "ﮓﻧﺭ ﻖﯾﺮﻔﺗ"
 
 
-msgid "Erase"
-msgstr "ﻥﺩﺮﮐ‌ﮎﺎﭘ"
-
-
 msgid "Brush"
 msgstr "ﻮﻣ ﻢﻠﻗ"
 
@@ -1666,14 +1662,6 @@ msgstr "ﮓﻧﺭ ﯽﻨﺤﻨﻣ"
 
 msgid "Sculpt Tool"
 msgstr "ﯼﺭﺎﺠﺣ ﺭﺍﺰﺑﺍ"
-
-
-msgid "Pose"
-msgstr "ﺖﺳﮊ"
-
-
-msgid "Rotate"
-msgstr "ﻥﺍﺭﻭﺩ"
 
 
 msgid "Relax"
@@ -1690,6 +1678,10 @@ msgstr "ﻦﯿﺑﺭﻭﺩ ﻉﺍﻮﻧﺍ"
 
 msgid "Dimensions"
 msgstr "ﺩﺎﻌﺑﺍ"
+
+
+msgid "Path"
+msgstr "ﺮﯿﺴﻣ"
 
 
 msgid "Text on Curve"
@@ -1744,6 +1736,18 @@ msgid "OpenCL"
 msgstr "OpenCL"
 
 
+msgid "Edit"
+msgstr "ﺶﯾﺍﺮﯾﻭ"
+
+
+msgid "Sculpt"
+msgstr "ﻥﺩﺮﮐ ﯼﺭﺎﺠﺣ"
+
+
+msgid "Mesh"
+msgstr "ﺶﻣ"
+
+
 msgid "Active Material"
 msgstr "ﻝﺎﻌﻓ ﻩﺩﺎﻣ"
 
@@ -1770,10 +1774,6 @@ msgstr "ﻪﺤﻔﺻ ﯼﺎﻫ ﺭﻮﺤﻣ"
 
 msgid "Circle"
 msgstr "ﻩﺮﯾﺍﺩ"
-
-
-msgid "Both"
-msgstr "ﻭﺩ ﺮﻫ"
 
 
 msgid "Lock Location"
@@ -1838,6 +1838,10 @@ msgstr "ﺖﮐﺮﺣ ﺮﯿﺴﻣ"
 
 msgid "Parent Vertices"
 msgstr "ﺪﻟﺍﻭ ﺱﻮﺋﺭ"
+
+
+msgid "Pose"
+msgstr "ﺖﺳﮊ"
 
 
 msgid "Euler Rotation"
@@ -2000,10 +2004,6 @@ msgid "Key"
 msgstr "ﺪﯿﻠﮐ"
 
 
-msgid "Edit"
-msgstr "ﺶﯾﺍﺮﯾﻭ"
-
-
 msgid "Distort"
 msgstr "ﻥﺩﺮﮐ‌ﺞﮐ"
 
@@ -2018,10 +2018,6 @@ msgstr "ﻦﺘﻣ"
 
 msgid "Math"
 msgstr "ﯽﺿﺎﯾﺭ"
-
-
-msgid "Mesh"
-msgstr "ﺶﻣ"
 
 
 msgid "Apply"
@@ -2066,10 +2062,6 @@ msgstr "ﻞﯾﺪﺒﺗ"
 
 msgid "Relations"
 msgstr "ﻂﺑﺍﻭﺭ"
-
-
-msgid "Sculpt"
-msgstr "ﻥﺩﺮﮐ ﯼﺭﺎﺠﺣ"
 
 
 msgid "Distortion"
@@ -2336,6 +2328,10 @@ msgid "Scene Size"
 msgstr "ﻪﻨﺤﺻ ﻩﺯﺍﺪﻧﺍ"
 
 
+msgid "Rotate"
+msgstr "ﻥﺍﺭﻭﺩ"
+
+
 msgid "Separate HSVA"
 msgstr "HSVA ﻥﺩﺮﮐ‌ﺍﺪﺟ"
 
@@ -2523,11 +2519,6 @@ msgstr "ﻝﺎﻌﻓ"
 msgctxt "Operator"
 msgid "Move Channels"
 msgstr "ﺎﻫ‌ﻝﺎﻧﺎﮐ ﻝﺎﻘﺘﻧﺍ"
-
-
-msgctxt "Operator"
-msgid "Rename Channels"
-msgstr "ﺎﻫ‌ﻝﺎﻧﺎﮐ ﻡﺎﻧ ﺮﯿﯿﻐﺗ"
 
 
 msgctxt "Operator"
@@ -2801,6 +2792,10 @@ msgstr "ﻥﺩﺮﮐ ﺩﻭﺪﺤﻣ"
 
 msgid "Mouse location"
 msgstr "ﺱﻭﺎﻣ ﻥﺎﮑﻣ"
+
+
+msgid "Both"
+msgstr "ﻭﺩ ﺮﻫ"
 
 
 msgid "Join"
@@ -3102,10 +3097,6 @@ msgstr "ﺽﺮﻓ ﺶﯿﭘ ﺭﺍﺪﻘﻣ ﻪﺑ ﺩﺪﺠﻣ ﻢﯿﻈﻨﺗ"
 
 msgid "All UVs"
 msgstr "ﺎﻫUV ﻪﻤﻫ"
-
-
-msgid "Pack"
-msgstr "ﻪﺘﺴﺑ"
 
 
 msgctxt "Operator"
@@ -3489,10 +3480,6 @@ msgid "Translation Unit"
 msgstr "ﯽﯾﺎﺠﺑﺎﺟ ﺪﺣﺍﻭ"
 
 
-msgid "Edge angle"
-msgstr "ﻪﺒﻟ ﻪﯾﻭﺍﺯ"
-
-
 msgid "Meta Sequence"
 msgstr "ﺎﺘﻣ ﺲﻧﺎﮑﺳ"
 
@@ -3535,10 +3522,6 @@ msgstr "ﺎﻫ‌ﺮﺘﻠﯿﻓ ﺶﯾﺎﻤﻧ"
 
 msgid "Show Green Channel"
 msgstr "ﺰﺒﺳ ﻝﺎﻧﺎﮐ ﺶﯾﺎﻤﻧ"
-
-
-msgid "Show Names"
-msgstr "ﺎﻫ‌ﻡﺎﻧ ﺶﯾﺎﻤﻧ"
 
 
 msgid "Show Red Channel"
@@ -3763,6 +3746,10 @@ msgstr "ﺮﯾﻮﺼﺗ*"
 
 msgid "Aspect Ratio"
 msgstr "ﺮﯾﻮﺼﺗ ﺖﺒﺴﻧ"
+
+
+msgid "Pack"
+msgstr "ﻪﺘﺴﺑ"
 
 
 msgid "Text: External"
@@ -4134,10 +4121,6 @@ msgstr "RGBA ﺖﯾﺎﺑ"
 
 msgid " RGB byte"
 msgstr "RGB ﺖﯾﺎﺑ"
-
-
-msgid " + Z"
-msgstr " + Z"
 
 
 msgid "No images have been changed"

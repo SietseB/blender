@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2020 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2020 Blender Foundation.
 
 # - Find potrace library
 # Find the potrace include and library
@@ -14,9 +15,13 @@
 # also defined, but not for general use are
 #  POTRACE_LIBRARY, where to find the POTRACE library.
 
-# If POTRACE_ROOT_DIR was defined in the environment, use it.
-IF(NOT POTRACE_ROOT_DIR AND NOT $ENV{POTRACE_ROOT_DIR} STREQUAL "")
+# If `POTRACE_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED POTRACE_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{POTRACE_ROOT_DIR})
   SET(POTRACE_ROOT_DIR $ENV{POTRACE_ROOT_DIR})
+ELSE()
+  SET(POTRACE_ROOT_DIR "")
 ENDIF()
 
 SET(_potrace_SEARCH_DIRS

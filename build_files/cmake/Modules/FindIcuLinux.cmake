@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2012 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2012 Blender Foundation.
 
 # - Find static icu libraries
 # Find the native static icu libraries (needed for static boost_locale :/ ).
@@ -12,9 +13,13 @@
 # also defined, but not for general use are
 #  ICU_LIBRARY_xxx, where to find the icu libraries.
 
-# If ICU_ROOT_DIR was defined in the environment, use it.
-IF(NOT ICU_ROOT_DIR AND NOT $ENV{ICU_ROOT_DIR} STREQUAL "")
+# If `ICU_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED ICU_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{ICU_ROOT_DIR})
   SET(ICU_ROOT_DIR $ENV{ICU_ROOT_DIR})
+ELSE()
+  SET(ICU_ROOT_DIR "")
 ENDIF()
 
 if(Boost_USE_STATIC_LIBS)

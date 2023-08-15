@@ -23,6 +23,7 @@
 #include "DNA_world_types.h"
 
 #include "BLI_array.hh"
+#include "BLI_bounds.hh"
 #include "BLI_convexhull_2d.h"
 #include "BLI_map.hh"
 #include "BLI_set.hh"
@@ -44,13 +45,16 @@
 #include "BKE_node_tree_update.h"
 #include "BKE_node_tree_zones.hh"
 #include "BKE_object.h"
+#include "BKE_scene.h"
 #include "BKE_type_conversions.hh"
+
+#include "IMB_imbuf.h"
 
 #include "DEG_depsgraph.h"
 
 #include "BLF_api.h"
 
-#include "BIF_glutil.h"
+#include "BIF_glutil.hh"
 
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
@@ -60,21 +64,21 @@
 #include "GPU_state.h"
 #include "GPU_viewport.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
-#include "ED_gpencil_legacy.h"
-#include "ED_node.h"
+#include "ED_gpencil_legacy.hh"
 #include "ED_node.hh"
-#include "ED_screen.h"
-#include "ED_space_api.h"
+#include "ED_node_preview.hh"
+#include "ED_screen.hh"
+#include "ED_space_api.hh"
 #include "ED_viewer_path.hh"
 
 #include "UI_interface.hh"
-#include "UI_resources.h"
-#include "UI_view2d.h"
+#include "UI_resources.hh"
+#include "UI_view2d.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
 #include "NOD_geometry_exec.hh"
@@ -94,8 +98,9 @@
 #include <fmt/format.h>
 
 namespace geo_log = blender::nodes::geo_eval_log;
-using blender::bke::node_tree_zones::TreeZone;
-using blender::bke::node_tree_zones::TreeZones;
+using blender::bke::bNodeTreeZone;
+using blender::bke::bNodeTreeZones;
+using blender::ed::space_node::NestedTreePreviews;
 
 /**
  * This is passed to many functions which draw the node editor.
@@ -113,7 +118,9 @@ struct TreeDrawContext {
    * Geometry nodes logs various data during execution. The logged data that corresponds to the
    * currently drawn node tree can be retrieved from the log below.
    */
-  geo_log::GeoTreeLog *geo_tree_log = nullptr;
+  blender::Map<const bNodeTreeZone *, geo_log::GeoTreeLog *> geo_log_by_zone;
+
+  NestedTreePreviews *nested_group_infos = nullptr;
   /**
    * True if there is an active realtime compositor using the node tree, false otherwise.
    */
@@ -314,9 +321,8 @@ static Array<uiBlock *> node_uiblocks_init(const bContext &C, const Span<bNode *
 
 float2 node_to_view(const bNode &node, const float2 &co)
 {
-  float2 result;
-  bke::nodeToView(&node, co.x, co.y, &result.x, &result.y);
-  return result * UI_SCALE_FAC;
+  const float2 node_location = bke::nodeToView(&node, co);
+  return node_location * UI_SCALE_FAC;
 }
 
 void node_to_updated_rect(const bNode &node, rctf &r_rect)
@@ -332,11 +338,9 @@ void node_to_updated_rect(const bNode &node, rctf &r_rect)
 
 float2 node_from_view(const bNode &node, const float2 &co)
 {
-  const float x = co.x / UI_SCALE_FAC;
-  const float y = co.y / UI_SCALE_FAC;
-  float2 result;
-  bke::nodeFromView(&node, x, y, &result.x, &result.y);
-  return result;
+  const float2 node_location = co / UI_SCALE_FAC;
+  return bke::nodeFromView(&node, node_location);
+  ;
 }
 
 /**
@@ -352,8 +356,7 @@ static void node_update_basis(const bContext &C,
   RNA_pointer_create(&ntree.id, &RNA_Node, &node, &nodeptr);
 
   const bool node_options = node.typeinfo->draw_buttons && (node.flag & NODE_OPTIONS);
-  const bool inputs_first = node.inputs.first &&
-                            !(node.outputs.first || (node.flag & NODE_PREVIEW) || node_options);
+  const bool inputs_first = node.inputs.first && !(node.outputs.first || node_options);
 
   /* Get "global" coordinates. */
   float2 loc = node_to_view(node, float2(0));
@@ -434,44 +437,6 @@ static void node_update_basis(const bContext &C,
 
   if (add_output_space) {
     dy -= NODE_DY / 4;
-  }
-
-  node.runtime->prvr.xmin = loc.x + NODE_DYS;
-  node.runtime->prvr.xmax = loc.x + NODE_WIDTH(node) - NODE_DYS;
-
-  /* preview rect? */
-  if (node.flag & NODE_PREVIEW) {
-    float aspect = 1.0f;
-
-    if (node.runtime->preview_xsize && node.runtime->preview_ysize) {
-      aspect = float(node.runtime->preview_ysize) / float(node.runtime->preview_xsize);
-    }
-
-    dy -= NODE_DYS / 2;
-    node.runtime->prvr.ymax = dy;
-
-    if (aspect <= 1.0f) {
-      node.runtime->prvr.ymin = dy - aspect * (NODE_WIDTH(node) - NODE_DY);
-    }
-    else {
-      /* Width correction of image. XXX huh? (ton) */
-      float dx = (NODE_WIDTH(node) - NODE_DYS) - (NODE_WIDTH(node) - NODE_DYS) / aspect;
-
-      node.runtime->prvr.ymin = dy - (NODE_WIDTH(node) - NODE_DY);
-
-      node.runtime->prvr.xmin += 0.5f * dx;
-      node.runtime->prvr.xmax -= 0.5f * dx;
-    }
-
-    dy = node.runtime->prvr.ymin - NODE_DYS / 2;
-
-    /* Make sure that maximums are bigger or equal to minimums. */
-    if (node.runtime->prvr.xmax < node.runtime->prvr.xmin) {
-      std::swap(node.runtime->prvr.xmax, node.runtime->prvr.xmin);
-    }
-    if (node.runtime->prvr.ymax < node.runtime->prvr.ymin) {
-      std::swap(node.runtime->prvr.ymax, node.runtime->prvr.ymin);
-    }
   }
 
   /* Buttons rect? */
@@ -568,7 +533,7 @@ static void node_update_basis(const bContext &C,
   }
 
   /* Little bit of space in end. */
-  if (node.inputs.first || (node.flag & (NODE_OPTIONS | NODE_PREVIEW)) == 0) {
+  if (node.inputs.first || (node.flag & NODE_OPTIONS) == 0) {
     dy -= NODE_DYS / 2;
   }
 
@@ -889,6 +854,15 @@ static void create_inspection_string_for_generic_value(const bNodeSocket &socket
     const blender::ColorGeometry4f &color = *static_cast<blender::ColorGeometry4f *>(socket_value);
     ss << fmt::format(TIP_("({}, {}, {}, {}) (Color)"), color.r, color.g, color.b, color.a);
   }
+  else if (socket_type.is<math::Quaternion>()) {
+    const math::Quaternion &rotation = *static_cast<math::Quaternion *>(socket_value);
+    const math::EulerXYZ euler = math::to_euler(rotation);
+    ss << fmt::format(TIP_("({}" BLI_STR_UTF8_DEGREE_SIGN ", {}" BLI_STR_UTF8_DEGREE_SIGN
+                           ", {}" BLI_STR_UTF8_DEGREE_SIGN ") (Rotation)"),
+                      euler.x().degree(),
+                      euler.y().degree(),
+                      euler.z().degree());
+  }
   else if (socket_type.is<bool>()) {
     ss << fmt::format(TIP_("{} (Boolean)"),
                       ((*static_cast<bool *>(socket_value)) ? TIP_("True") : TIP_("False")));
@@ -926,11 +900,14 @@ static void create_inspection_string_for_field_info(const bNodeSocket &socket,
     else if (socket_type.is<blender::ColorGeometry4f>()) {
       ss << TIP_("Color field based on:");
     }
+    else if (socket_type.is<math::Quaternion>()) {
+      ss << TIP_("Rotation field based on:");
+    }
     ss << "\n";
 
     for (const int i : input_tooltips.index_range()) {
       const blender::StringRef tooltip = input_tooltips[i];
-      ss << "\u2022 " << TIP_(tooltip.data());
+      ss << fmt::format(TIP_("\u2022 {}"), TIP_(tooltip.data()));
       if (i < input_tooltips.size() - 1) {
         ss << ".\n";
       }
@@ -941,7 +918,7 @@ static void create_inspection_string_for_field_info(const bNodeSocket &socket,
 static void create_inspection_string_for_geometry_info(const geo_log::GeometryInfoLog &value_log,
                                                        std::stringstream &ss)
 {
-  Span<GeometryComponentType> component_types = value_log.component_types;
+  Span<bke::GeometryComponent::Type> component_types = value_log.component_types;
   if (component_types.is_empty()) {
     ss << TIP_("Empty Geometry");
     return;
@@ -954,9 +931,9 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
   };
 
   ss << TIP_("Geometry:") << "\n";
-  for (GeometryComponentType type : component_types) {
+  for (bke::GeometryComponent::Type type : component_types) {
     switch (type) {
-      case GEO_COMPONENT_TYPE_MESH: {
+      case bke::GeometryComponent::Type::Mesh: {
         const geo_log::GeometryInfoLog::MeshInfo &mesh_info = *value_log.mesh_info;
         char line[256];
         SNPRINTF(line,
@@ -967,7 +944,7 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         ss << line;
         break;
       }
-      case GEO_COMPONENT_TYPE_POINT_CLOUD: {
+      case bke::GeometryComponent::Type::PointCloud: {
         const geo_log::GeometryInfoLog::PointCloudInfo &pointcloud_info =
             *value_log.pointcloud_info;
         char line[256];
@@ -977,7 +954,7 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         ss << line;
         break;
       }
-      case GEO_COMPONENT_TYPE_CURVE: {
+      case bke::GeometryComponent::Type::Curve: {
         const geo_log::GeometryInfoLog::CurveInfo &curve_info = *value_log.curve_info;
         char line[256];
         SNPRINTF(line,
@@ -987,7 +964,7 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         ss << line;
         break;
       }
-      case GEO_COMPONENT_TYPE_INSTANCES: {
+      case bke::GeometryComponent::Type::Instance: {
         const geo_log::GeometryInfoLog::InstancesInfo &instances_info = *value_log.instances_info;
         char line[256];
         SNPRINTF(
@@ -995,11 +972,11 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         ss << line;
         break;
       }
-      case GEO_COMPONENT_TYPE_VOLUME: {
+      case bke::GeometryComponent::Type::Volume: {
         ss << TIP_("\u2022 Volume");
         break;
       }
-      case GEO_COMPONENT_TYPE_EDIT: {
+      case bke::GeometryComponent::Type::Edit: {
         if (value_log.edit_data_info.has_value()) {
           const geo_log::GeometryInfoLog::EditDataInfo &edit_info = *value_log.edit_data_info;
           char line[256];
@@ -1009,6 +986,10 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
                    edit_info.has_deform_matrices ? TIP_("matrices") : TIP_("no matrices"));
           ss << line;
         }
+        break;
+      }
+      case bke::GeometryComponent::Type::GreasePencil: {
+        /* TODO. Do nothing for now. */
         break;
       }
     }
@@ -1032,36 +1013,40 @@ static void create_inspection_string_for_geometry_socket(std::stringstream &ss,
     ss << ".\n\n";
   }
 
-  Span<GeometryComponentType> supported_types = socket_decl->supported_types();
+  Span<bke::GeometryComponent::Type> supported_types = socket_decl->supported_types();
   if (supported_types.is_empty()) {
     ss << TIP_("Supported: All Types");
     return;
   }
 
   ss << TIP_("Supported: ");
-  for (GeometryComponentType type : supported_types) {
+  for (bke::GeometryComponent::Type type : supported_types) {
     switch (type) {
-      case GEO_COMPONENT_TYPE_MESH: {
+      case bke::GeometryComponent::Type::Mesh: {
         ss << TIP_("Mesh");
         break;
       }
-      case GEO_COMPONENT_TYPE_POINT_CLOUD: {
+      case bke::GeometryComponent::Type::PointCloud: {
         ss << TIP_("Point Cloud");
         break;
       }
-      case GEO_COMPONENT_TYPE_CURVE: {
+      case bke::GeometryComponent::Type::Curve: {
         ss << TIP_("Curve");
         break;
       }
-      case GEO_COMPONENT_TYPE_INSTANCES: {
+      case bke::GeometryComponent::Type::Instance: {
         ss << TIP_("Instances");
         break;
       }
-      case GEO_COMPONENT_TYPE_VOLUME: {
+      case bke::GeometryComponent::Type::Volume: {
         ss << CTX_TIP_(BLT_I18NCONTEXT_ID_ID, "Volume");
         break;
       }
-      case GEO_COMPONENT_TYPE_EDIT: {
+      case bke::GeometryComponent::Type::Edit: {
+        break;
+      }
+      case bke::GeometryComponent::Type::GreasePencil: {
+        ss << TIP_("Grease Pencil");
         break;
       }
     }
@@ -1071,8 +1056,8 @@ static void create_inspection_string_for_geometry_socket(std::stringstream &ss,
   }
 }
 
-static std::optional<std::string> create_socket_inspection_string(TreeDrawContext &tree_draw_ctx,
-                                                                  const bNodeSocket &socket)
+static std::optional<std::string> create_socket_inspection_string(
+    geo_log::GeoTreeLog &geo_tree_log, const bNodeSocket &socket)
 {
   using namespace blender::nodes::geo_eval_log;
 
@@ -1080,8 +1065,8 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
     return std::nullopt;
   }
 
-  tree_draw_ctx.geo_tree_log->ensure_socket_values();
-  ValueLog *value_log = tree_draw_ctx.geo_tree_log->find_socket_value_log(socket);
+  geo_tree_log.ensure_socket_values();
+  ValueLog *value_log = geo_tree_log.find_socket_value_log(socket);
   std::stringstream ss;
   if (const geo_log::GenericValueLog *generic_value_log =
           dynamic_cast<const geo_log::GenericValueLog *>(value_log))
@@ -1134,7 +1119,8 @@ static char *node_socket_get_tooltip(const SpaceNode *snode,
   TreeDrawContext tree_draw_ctx;
   if (snode != nullptr) {
     if (ntree.type == NTREE_GEOMETRY) {
-      tree_draw_ctx.geo_tree_log = geo_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
+      tree_draw_ctx.geo_log_by_zone =
+          geo_log::GeoModifierLog::get_tree_log_by_zone_for_node_editor(*snode);
     }
   }
 
@@ -1147,13 +1133,22 @@ static char *node_socket_get_tooltip(const SpaceNode *snode,
     }
   }
 
-  if (ntree.type == NTREE_GEOMETRY && tree_draw_ctx.geo_tree_log != nullptr) {
+  geo_log::GeoTreeLog *geo_tree_log = [&]() -> geo_log::GeoTreeLog * {
+    const bNodeTreeZones *zones = ntree.zones();
+    if (!zones) {
+      return nullptr;
+    }
+    const bNodeTreeZone *zone = zones->get_zone_by_socket(socket);
+    return tree_draw_ctx.geo_log_by_zone.lookup_default(zone, nullptr);
+  }();
+
+  if (ntree.type == NTREE_GEOMETRY && geo_tree_log != nullptr) {
     if (!output.str().empty()) {
       output << ".\n\n";
     }
 
     std::optional<std::string> socket_inspection_str = create_socket_inspection_string(
-        tree_draw_ctx, socket);
+        *geo_tree_log, socket);
     if (socket_inspection_str.has_value()) {
       output << *socket_inspection_str;
     }
@@ -1356,24 +1351,24 @@ static void node_draw_preview_background(rctf *rect)
 }
 
 /* Not a callback. */
-static void node_draw_preview(bNodePreview *preview, rctf *prv)
+static void node_draw_preview(const Scene *scene, ImBuf *preview, rctf *prv)
 {
   float xrect = BLI_rctf_size_x(prv);
   float yrect = BLI_rctf_size_y(prv);
-  float xscale = xrect / float(preview->xsize);
-  float yscale = yrect / float(preview->ysize);
+  float xscale = xrect / float(preview->x);
+  float yscale = yrect / float(preview->y);
   float scale;
 
   /* Uniform scale and offset. */
   rctf draw_rect = *prv;
   if (xscale < yscale) {
-    float offset = 0.5f * (yrect - float(preview->ysize) * xscale);
+    float offset = 0.5f * (yrect - float(preview->y) * xscale);
     draw_rect.ymin += offset;
     draw_rect.ymax -= offset;
     scale = xscale;
   }
   else {
-    float offset = 0.5f * (xrect - float(preview->xsize) * yscale);
+    float offset = 0.5f * (xrect - float(preview->x) * yscale);
     draw_rect.xmin += offset;
     draw_rect.xmax -= offset;
     scale = yscale;
@@ -1385,26 +1380,25 @@ static void node_draw_preview(bNodePreview *preview, rctf *prv)
   /* Premul graphics. */
   GPU_blend(GPU_BLEND_ALPHA);
 
-  IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_3D_IMAGE_COLOR);
-  immDrawPixelsTexTiled(&state,
-                        draw_rect.xmin,
-                        draw_rect.ymin,
-                        preview->xsize,
-                        preview->ysize,
-                        GPU_RGBA8,
-                        true,
-                        preview->rect,
-                        scale,
-                        scale,
-                        nullptr);
+  ED_draw_imbuf(preview,
+                draw_rect.xmin,
+                draw_rect.ymin,
+                false,
+                &scene->view_settings,
+                &scene->display_settings,
+                scale,
+                scale);
 
   GPU_blend(GPU_BLEND_NONE);
 
-  uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-  immUniformThemeColorShadeAlpha(TH_BACK, -15, +100);
-  imm_draw_box_wire_2d(pos, draw_rect.xmin, draw_rect.ymin, draw_rect.xmax, draw_rect.ymax);
-  immUnbindProgram();
+  float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+  UI_draw_roundbox_corner_set(UI_CNR_ALL);
+  const float outline_width = 1.0f;
+  draw_rect.xmin -= outline_width;
+  draw_rect.xmax += outline_width;
+  draw_rect.ymin -= outline_width;
+  draw_rect.ymax += outline_width;
+  UI_draw_roundbox_4fv(&draw_rect, false, BASIS_RAD / 2, black);
 }
 
 /* Common handle function for operator buttons that need to select the node first. */
@@ -1741,9 +1735,18 @@ static void node_add_error_message_button(const TreeDrawContext &tree_draw_ctx,
     return;
   }
 
+  geo_log::GeoTreeLog *geo_tree_log = [&]() -> geo_log::GeoTreeLog * {
+    const bNodeTreeZones *zones = node.owner_tree().zones();
+    if (!zones) {
+      return nullptr;
+    }
+    const bNodeTreeZone *zone = zones->get_zone_by_node(node.identifier);
+    return tree_draw_ctx.geo_log_by_zone.lookup_default(zone, nullptr);
+  }();
+
   Span<geo_log::NodeWarning> warnings;
-  if (tree_draw_ctx.geo_tree_log) {
-    geo_log::GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.identifier);
+  if (geo_tree_log) {
+    geo_log::GeoNodeLog *node_log = geo_tree_log->nodes.lookup_ptr(node.identifier);
     if (node_log != nullptr) {
       warnings = node_log->warnings;
     }
@@ -1781,7 +1784,15 @@ static void node_add_error_message_button(const TreeDrawContext &tree_draw_ctx,
 static std::optional<std::chrono::nanoseconds> node_get_execution_time(
     const TreeDrawContext &tree_draw_ctx, const bNodeTree &ntree, const bNode &node)
 {
-  const geo_log::GeoTreeLog *tree_log = tree_draw_ctx.geo_tree_log;
+  geo_log::GeoTreeLog *tree_log = [&]() -> geo_log::GeoTreeLog * {
+    const bNodeTreeZones *zones = ntree.zones();
+    if (!zones) {
+      return nullptr;
+    }
+    const bNodeTreeZone *zone = zones->get_zone_by_node(node.identifier);
+    return tree_draw_ctx.geo_log_by_zone.lookup_default(zone, nullptr);
+  }();
+
   if (tree_log == nullptr) {
     return std::nullopt;
   }
@@ -1896,7 +1907,7 @@ static char *named_attribute_tooltip(bContext * /*C*/, void *argN, const char * 
   for (const NameWithUsage &attribute : sorted_used_attribute) {
     const StringRefNull name = attribute.name;
     const geo_log::NamedAttributeUsage usage = attribute.usage;
-    ss << "  \u2022 \"" << name << "\": ";
+    ss << fmt::format(TIP_("  \u2022 \"{}\": "), std::string_view(name));
     Vector<std::string> usages;
     if ((usage & geo_log::NamedAttributeUsage::Read) != geo_log::NamedAttributeUsage::None) {
       usages.append(TIP_("read"));
@@ -1939,7 +1950,15 @@ static NodeExtraInfoRow row_from_used_named_attribute(
 static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(
     TreeDrawContext &tree_draw_ctx, const bNode &node)
 {
-  if (tree_draw_ctx.geo_tree_log == nullptr) {
+  geo_log::GeoTreeLog *geo_tree_log = [&]() -> geo_log::GeoTreeLog * {
+    const bNodeTreeZones *zones = node.owner_tree().zones();
+    if (!zones) {
+      return nullptr;
+    }
+    const bNodeTreeZone *zone = zones->get_zone_by_node(node.identifier);
+    return tree_draw_ctx.geo_log_by_zone.lookup_default(zone, nullptr);
+  }();
+  if (geo_tree_log == nullptr) {
     return std::nullopt;
   }
   if (ELEM(node.type,
@@ -1956,8 +1975,8 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(
       }
     }
   }
-  tree_draw_ctx.geo_tree_log->ensure_used_named_attributes();
-  geo_log::GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.identifier);
+  geo_tree_log->ensure_used_named_attributes();
+  geo_log::GeoNodeLog *node_log = geo_tree_log->nodes.lookup_ptr(node.identifier);
   if (node_log == nullptr) {
     return std::nullopt;
   }
@@ -1972,20 +1991,19 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_c
                                                     const bNode &node)
 {
   Vector<NodeExtraInfoRow> rows;
-  if (!(snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS)) {
+  if (!(snode.edittree->type == NTREE_GEOMETRY)) {
+    /* Currently geometry nodes are the only nodes to have extra infos per nodes. */
     return rows;
   }
 
-  if (snode.overlay.flag & SN_OVERLAY_SHOW_NAMED_ATTRIBUTES &&
-      snode.edittree->type == NTREE_GEOMETRY)
-  {
+  if (snode.overlay.flag & SN_OVERLAY_SHOW_NAMED_ATTRIBUTES) {
     if (std::optional<NodeExtraInfoRow> row = node_get_accessed_attributes_row(tree_draw_ctx,
                                                                                node)) {
       rows.append(std::move(*row));
     }
   }
 
-  if (snode.overlay.flag & SN_OVERLAY_SHOW_TIMINGS && snode.edittree->type == NTREE_GEOMETRY &&
+  if (snode.overlay.flag & SN_OVERLAY_SHOW_TIMINGS &&
       (ELEM(node.typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP, NODE_CLASS_ATTRIBUTE) ||
        ELEM(node.type, NODE_FRAME, NODE_GROUP_OUTPUT)))
   {
@@ -2000,17 +2018,24 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_c
     }
   }
 
-  if (snode.edittree->type == NTREE_GEOMETRY) {
-    if (geo_log::GeoTreeLog *tree_log = tree_draw_ctx.geo_tree_log) {
-      tree_log->ensure_debug_messages();
-      const geo_log::GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node.identifier);
-      if (node_log != nullptr) {
-        for (const StringRef message : node_log->debug_messages) {
-          NodeExtraInfoRow row;
-          row.text = message;
-          row.icon = ICON_INFO;
-          rows.append(std::move(row));
-        }
+  geo_log::GeoTreeLog *tree_log = [&]() -> geo_log::GeoTreeLog * {
+    const bNodeTreeZones *tree_zones = node.owner_tree().zones();
+    if (!tree_zones) {
+      return nullptr;
+    }
+    const bNodeTreeZone *zone = tree_zones->get_zone_by_node(node.identifier);
+    return tree_draw_ctx.geo_log_by_zone.lookup_default(zone, nullptr);
+  }();
+
+  if (tree_log) {
+    tree_log->ensure_debug_messages();
+    const geo_log::GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node.identifier);
+    if (node_log != nullptr) {
+      for (const StringRef message : node_log->debug_messages) {
+        NodeExtraInfoRow row;
+        row.text = message;
+        row.icon = ICON_INFO;
+        rows.append(std::move(row));
       }
     }
   }
@@ -2076,13 +2101,22 @@ static void node_draw_extra_info_row(const bNode &node,
   }
 }
 
-static void node_draw_extra_info_panel(TreeDrawContext &tree_draw_ctx,
+static void node_draw_extra_info_panel(const Scene *scene,
+                                       TreeDrawContext &tree_draw_ctx,
                                        const SpaceNode &snode,
                                        const bNode &node,
+                                       ImBuf *preview,
                                        uiBlock &block)
 {
+  if (!(snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS)) {
+    return;
+  }
+  if (preview && !(preview->x > 0 && preview->y > 0)) {
+    /* If the preview has an non-drawable size, just don't draw it. */
+    preview = nullptr;
+  }
   Vector<NodeExtraInfoRow> extra_info_rows = node_get_extra_info(tree_draw_ctx, snode, node);
-  if (extra_info_rows.size() == 0) {
+  if (extra_info_rows.size() == 0 && !preview) {
     return;
   }
 
@@ -2099,10 +2133,37 @@ static void node_draw_extra_info_panel(TreeDrawContext &tree_draw_ctx,
     extra_info_rect.ymax = rct.ymin + 2.0f * UI_SCALE_FAC;
   }
   else {
+    float preview_height = 0;
+    rctf preview_rect;
+
     extra_info_rect.xmin = rct.xmin + 3.0f * UI_SCALE_FAC;
-    extra_info_rect.xmax = rct.xmin + width;
+    extra_info_rect.xmax = extra_info_rect.xmin + width;
     extra_info_rect.ymin = rct.ymax;
     extra_info_rect.ymax = rct.ymax + extra_info_rows.size() * (20.0f * UI_SCALE_FAC);
+    if (preview) {
+      if (preview->x > preview->y) {
+        const float preview_padding = 3.0f * UI_SCALE_FAC;
+        preview_height = (width - 2.0 * preview_padding) * float(preview->y) / float(preview->x) +
+                         2.0 * preview_padding;
+        preview_rect.ymin = extra_info_rect.ymin + preview_padding;
+        preview_rect.ymax = extra_info_rect.ymin + preview_height - preview_padding;
+        preview_rect.xmin = extra_info_rect.xmin + preview_padding;
+        preview_rect.xmax = extra_info_rect.xmax - preview_padding;
+        extra_info_rect.ymax += preview_height;
+      }
+      else {
+        const float preview_padding = 3.0f * UI_SCALE_FAC;
+        preview_height = width;
+        const float preview_width = (width - 2.0 * preview_padding) * float(preview->x) /
+                                        float(preview->y) +
+                                    2.0 * preview_padding;
+        preview_rect.ymin = extra_info_rect.ymin + preview_padding;
+        preview_rect.ymax = extra_info_rect.ymin + preview_height - preview_padding;
+        preview_rect.xmin = extra_info_rect.xmin + preview_padding + (width - preview_width) / 2;
+        preview_rect.xmax = extra_info_rect.xmax - preview_padding - (width - preview_width) / 2;
+        extra_info_rect.ymax += preview_height;
+      }
+    }
 
     if (node.flag & NODE_MUTED) {
       UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.2f, color);
@@ -2118,17 +2179,23 @@ static void node_draw_extra_info_panel(TreeDrawContext &tree_draw_ctx,
 
     /* Draw outline. */
     const float outline_width = 1.0f;
-    extra_info_rect.xmin = rct.xmin + 3.0f * UI_SCALE_FAC - outline_width;
-    extra_info_rect.xmax = rct.xmin + width + outline_width;
-    extra_info_rect.ymin = rct.ymax - outline_width;
-    extra_info_rect.ymax = rct.ymax + outline_width +
-                           extra_info_rows.size() * (20.0f * UI_SCALE_FAC);
+    extra_info_rect.xmin -= outline_width;
+    extra_info_rect.xmax += outline_width;
+    extra_info_rect.ymin -= outline_width;
+    extra_info_rect.ymax += outline_width;
 
     UI_GetThemeColorBlendShade4fv(TH_BACK, TH_NODE, 0.4f, -20, color);
     UI_draw_roundbox_corner_set(
         UI_CNR_ALL & ~UI_CNR_BOTTOM_LEFT &
         ((rct.xmax) > extra_info_rect.xmax ? ~UI_CNR_BOTTOM_RIGHT : UI_CNR_ALL));
     UI_draw_roundbox_4fv(&extra_info_rect, false, BASIS_RAD, color);
+
+    if (preview) {
+      node_draw_preview(scene, preview, &preview_rect);
+    }
+
+    /* Resize the rect to draw the textual infos on top of the preview. */
+    extra_info_rect.ymin += preview_height;
   }
 
   for (int row : extra_info_rows.index_range()) {
@@ -2146,15 +2213,29 @@ static void node_draw_basis(const bContext &C,
                             bNodeInstanceKey key)
 {
   const float iconbutw = NODE_HEADER_ICON_SIZE;
+  const bool show_preview = (snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS) &&
+                            (snode.overlay.flag & SN_OVERLAY_SHOW_PREVIEWS) &&
+                            (node.flag & NODE_PREVIEW) &&
+                            (U.experimental.use_shader_node_previews ||
+                             ntree.type != NTREE_SHADER);
 
   /* Skip if out of view. */
-  if (BLI_rctf_isect(&node.runtime->totr, &v2d.cur, nullptr) == false) {
+  rctf rect_with_preview = node.runtime->totr;
+  if (show_preview) {
+    rect_with_preview.ymax += NODE_WIDTH(node);
+  }
+  if (BLI_rctf_isect(&rect_with_preview, &v2d.cur, nullptr) == false) {
     UI_block_end(&C, &block);
     return;
   }
 
   /* Shadow. */
-  if (!ELEM(node.type, GEO_NODE_SIMULATION_INPUT, GEO_NODE_SIMULATION_OUTPUT)) {
+  if (!ELEM(node.type,
+            GEO_NODE_SIMULATION_INPUT,
+            GEO_NODE_SIMULATION_OUTPUT,
+            GEO_NODE_REPEAT_INPUT,
+            GEO_NODE_REPEAT_OUTPUT))
+  {
     node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
   }
 
@@ -2164,7 +2245,36 @@ static void node_draw_basis(const bContext &C,
 
   GPU_line_width(1.0f);
 
-  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
+  /* Overlay atop the node. */
+  {
+    bool drawn_with_previews = false;
+
+    if (show_preview) {
+      bNodeInstanceHash *previews_compo = static_cast<bNodeInstanceHash *>(
+          CTX_data_pointer_get(&C, "node_previews").data);
+      NestedTreePreviews *previews_shader = tree_draw_ctx.nested_group_infos;
+
+      if (previews_shader) {
+        ImBuf *preview = node_preview_acquire_ibuf(ntree, *previews_shader, node);
+        node_draw_extra_info_panel(CTX_data_scene(&C), tree_draw_ctx, snode, node, preview, block);
+        node_release_preview_ibuf(*previews_shader);
+        drawn_with_previews = true;
+      }
+      else if (previews_compo) {
+        bNodePreview *preview_compositor = static_cast<bNodePreview *>(
+            BKE_node_instance_hash_lookup(previews_compo, key));
+        if (preview_compositor) {
+          node_draw_extra_info_panel(
+              CTX_data_scene(&C), tree_draw_ctx, snode, node, preview_compositor->ibuf, block);
+          drawn_with_previews = true;
+        }
+      }
+    }
+
+    if (drawn_with_previews == false) {
+      node_draw_extra_info_panel(CTX_data_scene(&C), tree_draw_ctx, snode, node, nullptr, block);
+    }
+  }
 
   /* Header. */
   {
@@ -2193,7 +2303,7 @@ static void node_draw_basis(const bContext &C,
   float iconofs = rct.xmax - 0.35f * U.widget_unit;
 
   /* Preview. */
-  if (node.typeinfo->flag & NODE_PREVIEW) {
+  if (node_is_previewable(snode, ntree, node)) {
     iconofs -= iconbutw;
     UI_block_emboss_set(&block, UI_EMBOSS_NONE);
     uiBut *but = uiDefIconBut(&block,
@@ -2434,6 +2544,10 @@ static void node_draw_basis(const bContext &C,
       UI_GetThemeColor4fv(TH_NODE_ZONE_SIMULATION, color_outline);
       color_outline[3] = 1.0f;
     }
+    else if (ELEM(node.type, GEO_NODE_REPEAT_INPUT, GEO_NODE_REPEAT_OUTPUT)) {
+      UI_GetThemeColor4fv(TH_NODE_ZONE_REPEAT, color_outline);
+      color_outline[3] = 1.0f;
+    }
     else {
       UI_GetThemeColorBlendShade4fv(TH_BACK, TH_NODE, 0.4f, -20, color_outline);
     }
@@ -2448,18 +2562,6 @@ static void node_draw_basis(const bContext &C,
   /* Skip slow socket drawing if zoom is small. */
   if (scale > 0.2f) {
     node_draw_sockets(v2d, C, ntree, node, block, true, false);
-  }
-
-  /* Preview. */
-  bNodeInstanceHash *previews =
-      (bNodeInstanceHash *)CTX_data_pointer_get(&C, "node_previews").data;
-  if (node.flag & NODE_PREVIEW && previews) {
-    bNodePreview *preview = (bNodePreview *)BKE_node_instance_hash_lookup(previews, key);
-    if (preview && (preview->xsize && preview->ysize)) {
-      if (preview->rect && !BLI_rctf_is_empty(&node.runtime->prvr)) {
-        node_draw_preview(preview, &node.runtime->prvr);
-      }
-    }
   }
 
   UI_block_end(&C, &block);
@@ -2483,7 +2585,7 @@ static void node_draw_hidden(const bContext &C,
 
   const int color_id = node_get_colorid(tree_draw_ctx, node);
 
-  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
+  node_draw_extra_info_panel(nullptr, tree_draw_ctx, snode, node, nullptr, block);
 
   /* Shadow. */
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
@@ -2969,7 +3071,7 @@ static void frame_node_draw(const bContext &C,
   /* Label and text. */
   frame_node_draw_label(tree_draw_ctx, ntree, node, snode);
 
-  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
+  node_draw_extra_info_panel(nullptr, tree_draw_ctx, snode, node, nullptr, block);
 
   UI_block_end(&C, &block);
   UI_block_draw(&C, &block);
@@ -3056,8 +3158,8 @@ static void add_rect_corner_positions(Vector<float2> &positions, const rctf &rec
 }
 
 static void find_bounds_by_zone_recursive(const SpaceNode &snode,
-                                          const TreeZone &zone,
-                                          const Span<std::unique_ptr<TreeZone>> all_zones,
+                                          const bNodeTreeZone &zone,
+                                          const Span<std::unique_ptr<bNodeTreeZone>> all_zones,
                                           MutableSpan<Vector<float2>> r_bounds_by_zone)
 {
   const float node_padding = UI_UNIT_X;
@@ -3069,7 +3171,7 @@ static void find_bounds_by_zone_recursive(const SpaceNode &snode,
   }
 
   Vector<float2> possible_bounds;
-  for (const TreeZone *child_zone : zone.child_zones) {
+  for (const bNodeTreeZone *child_zone : zone.child_zones) {
     find_bounds_by_zone_recursive(snode, *child_zone, all_zones, r_bounds_by_zone);
     const Span<float2> child_bounds = r_bounds_by_zone[child_zone->index];
     for (const float2 &pos : child_bounds) {
@@ -3103,7 +3205,7 @@ static void find_bounds_by_zone_recursive(const SpaceNode &snode,
       if (link.fromnode == nullptr) {
         continue;
       }
-      if (zone.contains_node_recursively(*link.fromnode) || zone.input_node == link.fromnode) {
+      if (zone.contains_node_recursively(*link.fromnode) && zone.output_node != link.fromnode) {
         const float2 pos = node_link_bezier_points_dragged(snode, link)[3];
         rctf rect;
         BLI_rctf_init_pt_radius(&rect, pos, node_padding);
@@ -3129,20 +3231,27 @@ static void node_draw_zones(TreeDrawContext & /*tree_draw_ctx*/,
                             const SpaceNode &snode,
                             const bNodeTree &ntree)
 {
-  const TreeZones *zones = bke::node_tree_zones::get_tree_zones(ntree);
+  const bNodeTreeZones *zones = ntree.zones();
   if (zones == nullptr) {
     return;
   }
 
   Array<Vector<float2>> bounds_by_zone(zones->zones.size());
   Array<bke::CurvesGeometry> fillet_curve_by_zone(zones->zones.size());
+  /* Bounding box area of zones is used to determine draw order. */
+  Array<float> bounding_box_area_by_zone(zones->zones.size());
 
   for (const int zone_i : zones->zones.index_range()) {
-    const TreeZone &zone = *zones->zones[zone_i];
+    const bNodeTreeZone &zone = *zones->zones[zone_i];
 
     find_bounds_by_zone_recursive(snode, zone, zones->zones, bounds_by_zone);
     const Span<float2> boundary_positions = bounds_by_zone[zone_i];
     const int boundary_positions_num = boundary_positions.size();
+
+    const Bounds<float2> bounding_box = *bounds::min_max(boundary_positions);
+    const float bounding_box_area = (bounding_box.max.x - bounding_box.min.x) *
+                                    (bounding_box.max.y - bounding_box.min.y);
+    bounding_box_area_by_zone[zone_i] = bounding_box_area;
 
     bke::CurvesGeometry boundary_curve(boundary_positions_num, 1);
     boundary_curve.cyclic_for_write().first() = true;
@@ -3168,21 +3277,38 @@ static void node_draw_zones(TreeDrawContext & /*tree_draw_ctx*/,
   float line_width = 1.0f * scale;
   float viewport[4] = {};
   GPU_viewport_size_get_f(viewport);
-  float zone_color[4];
-  UI_GetThemeColor4fv(TH_NODE_ZONE_SIMULATION, zone_color);
+
+  const auto get_theme_id = [&](const int zone_i) {
+    const bNode *node = zones->zones[zone_i]->output_node;
+    if (node->type == GEO_NODE_SIMULATION_OUTPUT) {
+      return TH_NODE_ZONE_SIMULATION;
+    }
+    return TH_NODE_ZONE_REPEAT;
+  };
 
   const uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 
-  /* Draw all the contour lines after to prevent them from getting hidden by overlapping zones. */
+  Vector<int> zone_draw_order;
   for (const int zone_i : zones->zones.index_range()) {
+    zone_draw_order.append(zone_i);
+  }
+  std::sort(zone_draw_order.begin(), zone_draw_order.end(), [&](const int a, const int b) {
+    /* Draw zones with smaller bounding box on top to make them visible. */
+    return bounding_box_area_by_zone[a] > bounding_box_area_by_zone[b];
+  });
+
+  /* Draw all the contour lines after to prevent them from getting hidden by overlapping zones. */
+  for (const int zone_i : zone_draw_order) {
+    float zone_color[4];
+    UI_GetThemeColor4fv(get_theme_id(zone_i), zone_color);
     if (zone_color[3] == 0.0f) {
       break;
     }
     const Span<float3> fillet_boundary_positions = fillet_curve_by_zone[zone_i].positions();
     /* Draw the background. */
     immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-    immUniformThemeColorBlend(TH_BACK, TH_NODE_ZONE_SIMULATION, zone_color[3]);
+    immUniformThemeColorBlend(TH_BACK, get_theme_id(zone_i), zone_color[3]);
 
     immBegin(GPU_PRIM_TRI_FAN, fillet_boundary_positions.size() + 1);
     for (const float3 &p : fillet_boundary_positions) {
@@ -3194,7 +3320,7 @@ static void node_draw_zones(TreeDrawContext & /*tree_draw_ctx*/,
     immUnbindProgram();
   }
 
-  for (const int zone_i : zones->zones.index_range()) {
+  for (const int zone_i : zone_draw_order) {
     const Span<float3> fillet_boundary_positions = fillet_curve_by_zone[zone_i].positions();
     /* Draw the contour lines. */
     immBindBuiltinProgram(GPU_SHADER_3D_POLYLINE_UNIFORM_COLOR);
@@ -3202,7 +3328,7 @@ static void node_draw_zones(TreeDrawContext & /*tree_draw_ctx*/,
     immUniform2fv("viewportSize", &viewport[2]);
     immUniform1f("lineWidth", line_width * U.pixelsize);
 
-    immUniformThemeColorAlpha(TH_NODE_ZONE_SIMULATION, 1.0f);
+    immUniformThemeColorAlpha(get_theme_id(zone_i), 1.0f);
     immBegin(GPU_PRIM_LINE_STRIP, fillet_boundary_positions.size() + 1);
     for (const float3 &p : fillet_boundary_positions) {
       immVertex3fv(pos, p);
@@ -3249,14 +3375,14 @@ static void node_draw_nodetree(const bContext &C,
   GPU_blend(GPU_BLEND_ALPHA);
   nodelink_batch_start(snode);
 
-  LISTBASE_FOREACH (const bNodeLink *, link, &ntree.links) {
+  for (const bNodeLink *link : ntree.all_links()) {
     if (!nodeLinkIsHidden(link) && !bke::nodeLinkIsSelected(link)) {
       node_draw_link(C, region.v2d, snode, *link, false);
     }
   }
 
   /* Draw selected node links after the unselected ones, so they are shown on top. */
-  LISTBASE_FOREACH (const bNodeLink *, link, &ntree.links) {
+  for (const bNodeLink *link : ntree.all_links()) {
     if (!nodeLinkIsHidden(link) && bke::nodeLinkIsSelected(link)) {
       node_draw_link(C, region.v2d, snode, *link, true);
     }
@@ -3315,7 +3441,7 @@ static void snode_setup_v2d(SpaceNode &snode, ARegion &region, const float2 &cen
   snode.runtime->aspect = BLI_rctf_size_x(&v2d.cur) / float(region.winx);
 }
 
-/* Similar to is_compositor_enabled() in draw_manager.c but checks all 3D views. */
+/* Similar to is_compositor_enabled() in `draw_manager.cc` but checks all 3D views. */
 static bool realtime_compositor_is_in_use(const bContext &context)
 {
   const Scene *scene = CTX_data_scene(&context);
@@ -3333,15 +3459,13 @@ static bool realtime_compositor_is_in_use(const bContext &context)
     return true;
   }
 
-  const Main *main = CTX_data_main(&context);
-  LISTBASE_FOREACH (const bScreen *, screen, &main->screens) {
+  wmWindowManager *wm = CTX_wm_manager(&context);
+  LISTBASE_FOREACH (const wmWindow *, win, &wm->windows) {
+    const bScreen *screen = WM_window_get_active_screen(win);
     LISTBASE_FOREACH (const ScrArea *, area, &screen->areabase) {
-      LISTBASE_FOREACH (const SpaceLink *, space, &area->spacedata) {
-        if (space->spacetype != SPACE_VIEW3D) {
-          continue;
-        }
-
-        const View3D &view_3d = *reinterpret_cast<const View3D *>(space);
+      const SpaceLink &space = *static_cast<const SpaceLink *>(area->spacedata.first);
+      if (space.spacetype == SPACE_VIEW3D) {
+        const View3D &view_3d = reinterpret_cast<const View3D &>(space);
 
         if (view_3d.shading.use_compositor == V3D_SHADING_USE_COMPOSITOR_DISABLED) {
           continue;
@@ -3373,10 +3497,11 @@ static void draw_nodetree(const bContext &C,
 
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
-    tree_draw_ctx.geo_tree_log = geo_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
-    if (tree_draw_ctx.geo_tree_log != nullptr) {
-      tree_draw_ctx.geo_tree_log->ensure_node_warnings();
-      tree_draw_ctx.geo_tree_log->ensure_node_run_time();
+    tree_draw_ctx.geo_log_by_zone = geo_log::GeoModifierLog::get_tree_log_by_zone_for_node_editor(
+        *snode);
+    for (geo_log::GeoTreeLog *log : tree_draw_ctx.geo_log_by_zone.values()) {
+      log->ensure_node_warnings();
+      log->ensure_node_run_time();
     }
     const WorkSpace *workspace = CTX_wm_workspace(&C);
     tree_draw_ctx.active_geometry_nodes_viewer = viewer_path::find_geometry_nodes_viewer(
@@ -3384,6 +3509,13 @@ static void draw_nodetree(const bContext &C,
   }
   else if (ntree.type == NTREE_COMPOSIT) {
     tree_draw_ctx.used_by_realtime_compositor = realtime_compositor_is_in_use(C);
+  }
+  else if (ntree.type == NTREE_SHADER && U.experimental.use_shader_node_previews &&
+           BKE_scene_uses_shader_previews(CTX_data_scene(&C)) &&
+           snode->overlay.flag & SN_OVERLAY_SHOW_OVERLAYS &&
+           snode->overlay.flag & SN_OVERLAY_SHOW_PREVIEWS)
+  {
+    tree_draw_ctx.nested_group_infos = get_nested_previews(C, *snode);
   }
 
   node_update_nodetree(C, tree_draw_ctx, ntree, nodes, blocks);

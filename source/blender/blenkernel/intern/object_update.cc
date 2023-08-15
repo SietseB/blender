@@ -17,7 +17,8 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_vector.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
@@ -149,8 +150,8 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       /* Custom attributes should not be removed automatically. They might be used by the render
        * engine or scripts. They can still be removed explicitly using geometry nodes. Crease and
        * vertex groups can be used in arbitrary situations with geometry nodes as well. */
-      cddata_masks.vmask |= CD_MASK_PROP_ALL | CD_MASK_CREASE | CD_MASK_MDEFORMVERT;
-      cddata_masks.emask |= CD_MASK_PROP_ALL | CD_MASK_CREASE;
+      cddata_masks.vmask |= CD_MASK_PROP_ALL | CD_MASK_MDEFORMVERT;
+      cddata_masks.emask |= CD_MASK_PROP_ALL;
       cddata_masks.fmask |= CD_MASK_PROP_ALL;
       cddata_masks.pmask |= CD_MASK_PROP_ALL;
       cddata_masks.lmask |= CD_MASK_PROP_ALL;

@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: 2019-2023 Blender Foundation
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /* Preferences Data File 'U_default'. */
 
@@ -30,6 +32,8 @@ const UserDef U_default = {
     .pref_flag = USER_PREF_FLAG_SAVE,
     .savetime = 2,
     .tempdir = "",
+    /* Overwritten by #BKE_appdir_font_folder_default(..)
+     * unless the system font's cannot be found. */
     .fontdir = "//",
     .renderdir = "//",
     .render_cachedir = "",
@@ -75,6 +79,7 @@ const UserDef U_default = {
 
     .scrollback = 256,
     .node_margin = 80,
+    .node_preview_res = 120,
     .transopts = USER_TR_TOOLTIPS,
     .menuthreshold1 = 5,
     .menuthreshold2 = 2,

@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2016 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright 2016 Blender Foundation
 
 # Libraries configuration for any *nix system including Linux and Unix (excluding APPLE).
 
@@ -180,6 +181,10 @@ Proceeding with PYTHON_SITE_PACKAGES install target, you have been warned!"
       unset(_is_prefix)
     endif()
   endif()
+else()
+  # Python executable is needed as part of the build-process,
+  # note that building without Python is quite unusual.
+  find_program(PYTHON_EXECUTABLE "python3")
 endif()
 
 if(WITH_IMAGE_OPENEXR)
@@ -242,10 +247,14 @@ if(WITH_CODEC_FFMPEG)
       theora theoradec theoraenc
       vorbis vorbisenc vorbisfile ogg
       vpx
-      x264
-      xvidcore)
-    if((DEFINED LIBDIR) AND (EXISTS ${LIBDIR}/ffmpeg/lib/libaom.a))
-      list(APPEND FFMPEG_FIND_COMPONENTS aom)
+      x264)
+    if(DEFINED LIBDIR)
+      if(EXISTS ${LIBDIR}/ffmpeg/lib/libaom.a)
+        list(APPEND FFMPEG_FIND_COMPONENTS aom)
+      endif()
+      if(EXISTS ${LIBDIR}/ffmpeg/lib/libxvidcore.a)
+        list(APPEND FFMPEG_FIND_COMPONENTS xvidcore)
+      endif()
     endif()
   elseif(FFMPEG)
     # Old cache variable used for root dir, convert to new standard.
@@ -316,11 +325,13 @@ endif()
 
 if(WITH_CYCLES AND WITH_CYCLES_DEVICE_ONEAPI)
   set(CYCLES_LEVEL_ZERO ${LIBDIR}/level-zero CACHE PATH "Path to Level Zero installation")
+  mark_as_advanced(CYCLES_LEVEL_ZERO)
   if(EXISTS ${CYCLES_LEVEL_ZERO} AND NOT LEVEL_ZERO_ROOT_DIR)
     set(LEVEL_ZERO_ROOT_DIR ${CYCLES_LEVEL_ZERO})
   endif()
 
   set(CYCLES_SYCL ${LIBDIR}/dpcpp CACHE PATH "Path to oneAPI DPC++ compiler")
+  mark_as_advanced(CYCLES_SYCL)
   if(EXISTS ${CYCLES_SYCL} AND NOT SYCL_ROOT_DIR)
     set(SYCL_ROOT_DIR ${CYCLES_SYCL})
   endif()
@@ -923,6 +934,27 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
     unset(MOLD_BIN)
   endif()
 
+  if(WITH_LINKER_LLD AND _IS_LINKER_DEFAULT)
+    find_program(LLD_BIN "ld.lld")
+    mark_as_advanced(LLD_BIN)
+    if(NOT LLD_BIN)
+      message(STATUS "The \"ld.lld\" binary could not be found, using system linker.")
+      set(WITH_LINKER_LLD OFF)
+    else()
+      if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 12.0)
+        string(APPEND CMAKE_EXE_LINKER_FLAGS    " --ld-path=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " --ld-path=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " --ld-path=\"${LLD_BIN}\"")
+      else()
+        string(APPEND CMAKE_EXE_LINKER_FLAGS    " -fuse-ld=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fuse-ld=\"${LLD_BIN}\"")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " -fuse-ld=\"${LLD_BIN}\"")
+      endif()
+      set(_IS_LINKER_DEFAULT OFF)
+    endif()
+    unset(LLD_BIN)
+  endif()
+
 # Intel C++ Compiler
 elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
   # think these next two are broken
@@ -964,10 +996,15 @@ endif()
 
 if(WITH_COMPILER_CCACHE)
   find_program(CCACHE_PROGRAM ccache)
+  mark_as_advanced(CCACHE_PROGRAM)
   if(CCACHE_PROGRAM)
     # Makefiles and ninja
     set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE_PROGRAM}" CACHE STRING "" FORCE)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}" CACHE STRING "" FORCE)
+    mark_as_advanced(
+      CMAKE_C_COMPILER_LAUNCHER
+      CMAKE_CXX_COMPILER_LAUNCHER
+    )
   else()
     message(WARNING "Ccache NOT found, disabling WITH_COMPILER_CCACHE")
     set(WITH_COMPILER_CCACHE OFF)

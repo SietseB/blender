@@ -1,8 +1,9 @@
-/* SPDX-FileCopyrightText: 2023 Blender Foundation
+/* SPDX-FileCopyrightText: 2021 Tangent Animation. All rights reserved.
+ * SPDX-FileCopyrightText: 2023 Blender Foundation
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
- * Adapted from the Blender Alembic importer implementation.
- * Modifications Copyright 2021 Tangent Animation. All rights reserved. */
+ *
+ * Adapted from the Blender Alembic importer implementation. */
 
 #include "usd_reader_xform.h"
 
@@ -13,6 +14,7 @@
 #include "BKE_object.h"
 
 #include "BLI_math_geom.h"
+#include "BLI_math_matrix.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -51,7 +53,7 @@ void USDXformReader::read_object_data(Main * /* bmain */, const double motionSam
     std::string prim_path = use_parent_xform_ ? prim_.GetParent().GetPath().GetAsString() :
                                                 prim_path_;
 
-    BLI_strncpy(data->object_path, prim_path.c_str(), FILE_MAX);
+    STRNCPY(data->object_path, prim_path.c_str());
 
     data->cache_file = settings_->cache_file;
     id_us_plus(&data->cache_file->id);

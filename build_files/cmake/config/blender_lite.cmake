@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2011-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # turn everything OFF except for python which defaults to ON
@@ -24,6 +26,7 @@ set(WITH_FFTW3               OFF CACHE BOOL "" FORCE)
 set(WITH_FREESTYLE           OFF CACHE BOOL "" FORCE)
 set(WITH_GMP                 OFF CACHE BOOL "" FORCE)
 set(WITH_HARU                OFF CACHE BOOL "" FORCE)
+set(WITH_HYDRA               OFF CACHE BOOL "" FORCE)
 set(WITH_IK_ITASC            OFF CACHE BOOL "" FORCE)
 set(WITH_IK_SOLVER           OFF CACHE BOOL "" FORCE)
 set(WITH_IMAGE_CINEON        OFF CACHE BOOL "" FORCE)
@@ -53,6 +56,7 @@ set(WITH_OPENIMAGEDENOISE    OFF CACHE BOOL "" FORCE)
 set(WITH_OPENMP              OFF CACHE BOOL "" FORCE)
 set(WITH_OPENSUBDIV          OFF CACHE BOOL "" FORCE)
 set(WITH_OPENVDB             OFF CACHE BOOL "" FORCE)
+
 set(WITH_POTRACE             OFF CACHE BOOL "" FORCE)
 set(WITH_PUGIXML             OFF CACHE BOOL "" FORCE)
 set(WITH_PULSEAUDIO          OFF CACHE BOOL "" FORCE)
@@ -69,3 +73,11 @@ if(UNIX AND NOT APPLE)
   set(WITH_X11_XINPUT          OFF CACHE BOOL "" FORCE)
   set(WITH_X11_XF86VMODE       OFF CACHE BOOL "" FORCE)
 endif()
+
+# These should not have any impact but are disabled so they don't
+# appear to be enabled in the list of items (which are mostly OFF).
+set(WITH_CYCLES_DEVICE_OPTIX OFF CACHE BOOL "" FORCE)
+set(WITH_CYCLES_EMBREE       OFF CACHE BOOL "" FORCE)
+set(WITH_CYCLES_OSL          OFF CACHE BOOL "" FORCE)
+set(WITH_CYCLES_PATH_GUIDING OFF CACHE BOOL "" FORCE)
+set(WITH_OPENVDB_BLOSC       OFF CACHE BOOL "" FORCE)

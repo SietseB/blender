@@ -61,6 +61,18 @@ float square_f(float v)
 {
   return v * v;
 }
+vec2 square_f(vec2 v)
+{
+  return v * v;
+}
+vec3 square_f(vec3 v)
+{
+  return v * v;
+}
+vec4 square_f(vec4 v)
+{
+  return v * v;
+}
 
 int cube_i(int v)
 {
@@ -137,6 +149,15 @@ void min_max(float value, inout float min_v, inout float max_v)
 float safe_divide(float a, float b)
 {
   return (b != 0.0) ? (a / b) : 0.0;
+}
+
+/**
+ * Safe reciprocal function. Returns `1/a`.
+ * If `a` equal 0 the result will be 0.
+ */
+float safe_rcp(float a)
+{
+  return (a != 0.0) ? (1.0 / a) : 0.0;
 }
 
 /**

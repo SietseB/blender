@@ -22,6 +22,35 @@ void light_vector_get(LightData ld, vec3 P, out vec3 L, out float dist)
   }
 }
 
+/* Light vector to the closest point in the light shape. */
+void light_shape_vector_get(LightData ld, vec3 P, out vec3 L, out float dist)
+{
+  if (ld.type == LIGHT_RECT || ld.type == LIGHT_ELLIPSE) {
+    L = P - ld._position;
+    vec2 closest_point = vec2(dot(ld._right, L), dot(ld._up, L));
+    vec2 max_pos = vec2(ld._area_size_x, ld._area_size_y);
+    closest_point /= max_pos;
+
+    if (ld.type == LIGHT_ELLIPSE) {
+      closest_point /= max(1.0, length(closest_point));
+    }
+    else {
+      closest_point = clamp(closest_point, -1.0, 1.0);
+    }
+    closest_point *= max_pos;
+
+    vec3 L_prime = ld._right * closest_point.x + ld._up * closest_point.y;
+
+    L = L_prime - L;
+    dist = inversesqrt(len_squared(L));
+    L *= dist;
+    dist = 1.0 / dist;
+  }
+  else {
+    light_vector_get(ld, P, L, dist);
+  }
+}
+
 /* Rotate vector to light's local space. Does not translate. */
 vec3 light_world_to_local(LightData ld, vec3 L)
 {
@@ -106,7 +135,20 @@ float light_diffuse(sampler2DArray utility_tx,
                     vec3 L,
                     float dist)
 {
-  if (is_directional || !is_area_light(ld.type)) {
+  if (ld.type == LIGHT_POINT) {
+    if (dist < ld._radius) {
+      /* Inside, treat as hemispherical light. */
+      return 1.0;
+    }
+    else {
+      /* Outside, treat as disk light spanning the same solid angle. */
+      /* The result is the same as passing the scaled radius to #ltc_evaluate_disk_simple (see
+       * #light_ltc), using simplified math here. */
+      float r_sq = sqr(ld._radius / dist);
+      return r_sq * ltc_diffuse_sphere_integral(utility_tx, dot(N, L), r_sq);
+    }
+  }
+  else if (is_directional || ld.type == LIGHT_SPOT) {
     float radius = ld._radius / dist;
     return ltc_evaluate_disk_simple(utility_tx, radius, dot(N, L));
   }
@@ -147,7 +189,11 @@ float light_ltc(sampler2DArray utility_tx,
                 float dist,
                 vec4 ltc_mat)
 {
-  if (is_directional || ld.type != LIGHT_RECT) {
+  if (ld.type == LIGHT_POINT && dist < ld._radius) {
+    /* Inside the sphere light, integrate over the hemisphere. */
+    return 1.0;
+  }
+  else if (is_directional || ld.type != LIGHT_RECT) {
     vec3 Px = ld._right;
     vec3 Py = ld._up;
 
@@ -156,8 +202,18 @@ float light_ltc(sampler2DArray utility_tx,
     }
 
     vec3 points[3];
-    points[0] = Px * -ld._area_size_x + Py * -ld._area_size_y;
-    points[1] = Px * ld._area_size_x + Py * -ld._area_size_y;
+    if (ld.type == LIGHT_POINT) {
+      /* The sine of the half-angle spanned by a sphere light is equal to the tangent of the
+       * half-angle spanned by a disk light with the same radius. */
+      float radius = ld._radius * inversesqrt(1.0 - sqr(ld._radius / dist));
+
+      points[0] = Px * -radius + Py * -radius;
+      points[1] = Px * radius + Py * -radius;
+    }
+    else {
+      points[0] = Px * -ld._area_size_x + Py * -ld._area_size_y;
+      points[1] = Px * ld._area_size_x + Py * -ld._area_size_y;
+    }
     points[2] = -points[0];
 
     points[0] += L * dist;

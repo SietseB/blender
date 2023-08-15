@@ -9,9 +9,10 @@
 #include <array>
 #include <type_traits>
 
-#include "BLI_math.h"
 #include "BLI_math_color_blend.h"
+#include "BLI_math_interp.h"
 #include "BLI_math_matrix.hh"
+#include "BLI_math_vector.h"
 #include "BLI_rect.h"
 #include "BLI_task.hh"
 #include "BLI_vector.hh"
@@ -317,7 +318,7 @@ class WrapRepeatUV : public BaseUVWrapping {
   }
 };
 
-// TODO: should we use math_vectors for this.
+/* TODO: should we use math_vectors for this. */
 template<typename StorageType, int NumChannels>
 class Pixel : public std::array<StorageType, NumChannels> {
  public:

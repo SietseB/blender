@@ -1,5 +1,6 @@
+# SPDX-FileCopyrightText: 2022 Blender Foundation
+#
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2022 Blender Foundation.
 
 # - Find MoltenVK libraries
 # Find the MoltenVK includes and libraries
@@ -12,9 +13,13 @@
 #  MOLTENVK_FOUND, If false, do not try to use MoltenVK.
 #
 
-# If MOLTENVK_ROOT_DIR was defined in the environment, use it.
-IF(NOT MOLTENVK_ROOT_DIR AND NOT $ENV{MOLTENVK_ROOT_DIR} STREQUAL "")
+# If `MOLTENVK_ROOT_DIR` was defined in the environment, use it.
+IF(DEFINED MOLTENVK_ROOT_DIR)
+  # Pass.
+ELSEIF(DEFINED ENV{MOLTENVK_ROOT_DIR})
   SET(MOLTENVK_ROOT_DIR $ENV{MOLTENVK_ROOT_DIR})
+ELSE()
+  SET(MOLTENVK_ROOT_DIR "")
 ENDIF()
 
 SET(_moltenvk_SEARCH_DIRS

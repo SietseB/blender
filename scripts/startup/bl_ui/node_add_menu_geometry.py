@@ -1,4 +1,7 @@
+# SPDX-FileCopyrightText: 2022-2023 Blender Foundation
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 import bpy
 from bpy.types import Menu
 from bl_ui import node_add_menu
@@ -527,6 +530,7 @@ class NODE_MT_category_GEO_UTILITIES(Menu):
         layout.menu("NODE_MT_category_GEO_UTILITIES_ROTATION")
         layout.separator()
         node_add_menu.add_node_type(layout, "FunctionNodeRandomValue")
+        node_add_menu.add_repeat_zone(layout, label="Repeat Zone")
         node_add_menu.add_node_type(layout, "GeometryNodeSwitch")
         node_add_menu.draw_assets_for_catalog(layout, self.bl_label)
 
@@ -568,6 +572,20 @@ class NODE_MT_category_GEO_UTILITIES_MATH(Menu):
         node_add_menu.add_node_type(layout, "ShaderNodeMapRange")
         node_add_menu.add_node_type(layout, "ShaderNodeMath")
         node_add_menu.add_node_type(layout, "ShaderNodeMix")
+        node_add_menu.draw_assets_for_catalog(layout, self.bl_label)
+
+
+class NODE_MT_category_tool(Menu):
+    bl_idname = "NODE_MT_category_tool"
+    bl_label = "Tool"
+
+    def draw(self, _context):
+        layout = self.layout
+        node_add_menu.add_node_type(layout, "GeometryNodeTool3DCursor")
+        node_add_menu.add_node_type(layout, "GeometryNodeToolFaceSet")
+        node_add_menu.add_node_type(layout, "GeometryNodeToolSelection")
+        node_add_menu.add_node_type(layout, "GeometryNodeToolSetFaceSet")
+        node_add_menu.add_node_type(layout, "GeometryNodeToolSetSelection")
         node_add_menu.draw_assets_for_catalog(layout, self.bl_label)
 
 
@@ -645,7 +663,8 @@ class NODE_MT_geometry_node_add_all(Menu):
     bl_idname = "NODE_MT_geometry_node_add_all"
     bl_label = ""
 
-    def draw(self, _context):
+    def draw(self, context):
+        snode = context.space_data
         layout = self.layout
         layout.menu("NODE_MT_geometry_node_GEO_ATTRIBUTE")
         layout.menu("NODE_MT_geometry_node_GEO_INPUT")
@@ -665,6 +684,9 @@ class NODE_MT_geometry_node_add_all(Menu):
         layout.menu("NODE_MT_category_GEO_TEXTURE")
         layout.menu("NODE_MT_category_GEO_UTILITIES")
         layout.separator()
+        if snode.geometry_nodes_type == 'TOOL':
+            layout.menu("NODE_MT_category_tool")
+            layout.separator()
         layout.menu("NODE_MT_category_GEO_GROUP")
         layout.menu("NODE_MT_category_GEO_LAYOUT")
         node_add_menu.draw_root_assets(layout)
@@ -700,6 +722,7 @@ classes = (
     NODE_MT_category_PRIMITIVES_MESH,
     NODE_MT_geometry_node_mesh_topology,
     NODE_MT_category_GEO_POINT,
+    NODE_MT_category_tool,
     NODE_MT_category_simulation,
     NODE_MT_category_GEO_VOLUME,
     NODE_MT_geometry_node_GEO_MATERIAL,

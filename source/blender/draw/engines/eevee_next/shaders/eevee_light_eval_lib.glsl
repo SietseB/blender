@@ -22,7 +22,7 @@ void light_eval_ex(ClosureDiffuse diffuse,
                    vec3 P,
                    vec3 Ng,
                    vec3 V,
-                   float vP_z,
+                   float vP_z, /* TODO(fclem): Remove, is unused. */
                    float thickness,
                    vec4 ltc_mat,
                    uint l_idx,
@@ -47,7 +47,7 @@ void light_eval_ex(ClosureDiffuse diffuse,
 #ifdef SSS_TRANSMITTANCE
     /* Transmittance evaluation first to use initial visibility without shadow. */
     if (diffuse.sss_id != 0u && light.diffuse_power > 0.0) {
-      float delta = max(thickness, samp.occluder_delta + samp.bias);
+      float delta = max(thickness, -(samp.occluder_delta + samp.bias));
 
       vec3 intensity = visibility * light.transmit_power *
                        light_translucent(sss_transmittance_tx,
@@ -115,7 +115,11 @@ void light_eval(ClosureDiffuse diffuse,
   }
   LIGHT_FOREACH_END
 
+#ifdef GPU_FRAGMENT_SHADER
   vec2 px = gl_FragCoord.xy;
+#else
+  vec2 px = vec2(0.0);
+#endif
   LIGHT_FOREACH_BEGIN_LOCAL (light_cull_buf, light_zbin_buf, light_tile_buf, px, vP_z, l_idx) {
     light_eval_ex(diffuse,
                   reflection,
