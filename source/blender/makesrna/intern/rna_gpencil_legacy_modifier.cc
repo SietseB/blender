@@ -497,7 +497,7 @@ static void rna_FollowCurveGpencilModifier_object_set(PointerRNA *ptr,
                                                       PointerRNA value,
                                                       ReportList * /*reports*/)
 {
-  FollowCurveGpencilModifierData *fcmd = ptr->data;
+  FollowCurveGpencilModifierData *fcmd = static_cast<FollowCurveGpencilModifierData *>(ptr->data);
   Object *object = (Object *)value.data;
 
   fcmd->object = object;
@@ -4795,7 +4795,8 @@ static void rna_def_modifier_gpencilmorphtargets(BlenderRNA *brna)
   prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
   RNA_def_property_string_sdna(prop, nullptr, "vgname");
   RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
-  RNA_def_property_string_funcs(prop, nullptr, nullptr, "rna_MorphTargetsGpencilModifier_vgname_set");
+  RNA_def_property_string_funcs(
+      prop, nullptr, nullptr, "rna_MorphTargetsGpencilModifier_vgname_set");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);

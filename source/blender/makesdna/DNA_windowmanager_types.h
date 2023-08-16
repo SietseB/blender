@@ -374,10 +374,7 @@ typedef struct wmWindow {
   /** Custom drawing callbacks. */
   ListBase drawcalls;
 
-  /* Optional pointer to a UserDef_WinState used to save/restore size and position. */
-  UserDef_WinState *savestate;
-
-  /* Private runtime info to show text in the status bar. */
+  /** Private runtime info to show text in the status bar. */
   void *cursor_keymap_status;
 } wmWindow;
 

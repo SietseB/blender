@@ -247,7 +247,7 @@ static bool gpencil_modifier_apply_obdata(
       return false;
     }
     BKE_gpencil_stroke_init_update_geometry(depsgraph, scene, ob, true);
-    mti->bakeModifier(bmain, depsgraph, md, ob);
+    mti->bake_modifier(bmain, depsgraph, md, ob);
     BKE_gpencil_stroke_update_geometry_of_modifiers(depsgraph, scene, ob, true);
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   }

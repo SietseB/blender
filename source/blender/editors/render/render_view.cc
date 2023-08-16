@@ -184,21 +184,6 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
       sima->flag |= SI_PREVSPACE;
     }
   }
-  else if (U.render_display_type == USER_RENDER_DISPLAY_WINDOW_SAVED) {
-    /* changes context! */
-    if (WM_window_open_temp(
-            C, IFACE_("Blender Render"), &U.render_winstate, 1310, 780, SPACE_IMAGE, false) ==
-        nullptr) {
-      BKE_report(reports, RPT_ERROR, "Failed to open window!");
-      return nullptr;
-    }
-
-    area = CTX_wm_area(C);
-    if (BLI_listbase_is_single(&area->spacedata) == false) {
-      sima = static_cast<SpaceImage *>(area->spacedata.first);
-      sima->flag |= SI_PREVSPACE;
-    }
-  }
   else if (U.render_display_type == USER_RENDER_DISPLAY_SCREEN) {
     area = CTX_wm_area(C);
 

@@ -42,7 +42,7 @@ static void rna_Palette_unshaded_color_remove(Palette *palette,
     return;
   }
 
-  PaletteColor *color = color_ptr->data;
+  PaletteColor *color = static_cast<PaletteColor *>(color_ptr->data);
 
   if (BLI_findindex(&palette->unshaded_colors, color) == -1) {
     BKE_reportf(reports,
@@ -66,7 +66,7 @@ static void rna_Palette_unshaded_color_move(Palette *palette,
     return;
   }
 
-  PaletteColor *color = color_ptr->data;
+  PaletteColor *color = static_cast<PaletteColor *>(color_ptr->data);
 
   if (BLI_findindex(&palette->unshaded_colors, color) == -1) {
     BKE_reportf(reports,
@@ -92,17 +92,21 @@ static MixingColor *rna_Palette_mixing_color_new(Palette *palette)
   return color;
 }
 
-static void rna_Palette_mixing_color_remove(Palette *palette, ReportList *reports, PointerRNA *color_ptr)
+static void rna_Palette_mixing_color_remove(Palette *palette,
+                                            ReportList *reports,
+                                            PointerRNA *color_ptr)
 {
   if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
     return;
   }
 
-  MixingColor *color = color_ptr->data;
+  MixingColor *color = static_cast<MixingColor *>(color_ptr->data);
 
   if (BLI_findindex(&palette->mixing_colors, color) == -1) {
-    BKE_reportf(
-        reports, RPT_ERROR, "Palette '%s' does not contain mixing color given", palette->id.name + 2);
+    BKE_reportf(reports,
+                RPT_ERROR,
+                "Palette '%s' does not contain mixing color given",
+                palette->id.name + 2);
     return;
   }
 
@@ -120,7 +124,7 @@ static void rna_Palette_mixing_color_move(Palette *palette,
     return;
   }
 
-  MixingColor *color = color_ptr->data;
+  MixingColor *color = static_cast<MixingColor *>(color_ptr->data);
 
   if (BLI_findindex(&palette->mixing_colors, color) == -1) {
     BKE_reportf(reports,
@@ -144,7 +148,7 @@ static MixingColor *rna_PaletteColor_mixed_color_new(PaletteColor *color)
 
 static void rna_PaletteColor_mixed_color_remove(PaletteColor *palcolor, PointerRNA *mixcolor_ptr)
 {
-  MixingColor *mixcolor = mixcolor_ptr->data;
+  MixingColor *mixcolor = static_cast<MixingColor *>(mixcolor_ptr->data);
 
   if (BLI_findindex(&palcolor->mixed_colors, mixcolor) == -1) {
     return;
@@ -292,8 +296,9 @@ static void rna_def_palettecolors_last_used(BlenderRNA *brna, PropertyRNA *cprop
 
   func = RNA_def_function(srna, "new", "rna_Palette_last_used_color_new");
   RNA_def_function_ui_description(func, "Add a new color to the palette");
-  parm = RNA_def_int(func, "max_entries", 10, 1, 20, "", "Maximum number of last used colors", 1, 20);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+  parm = RNA_def_int(
+      func, "max_entries", 10, 1, 20, "", "Maximum number of last used colors", 1, 20);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The newly created color");
   RNA_def_function_return(func, parm);
 }
@@ -320,16 +325,17 @@ static void rna_def_palettecolors_unshaded(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_ui_description(func, "Remove a unshaded color from the palette");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The unshaded color to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
-  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "move", "rna_Palette_unshaded_color_move");
   RNA_def_function_ui_description(func, "Move a unshaded color in the palette (change order)");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "color", "PaletteColor", "", "The unshaded color to move");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
-  parm = RNA_def_int(func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  parm = RNA_def_int(
+      func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 }
 
 /* palette.mixing_colors */
@@ -354,16 +360,17 @@ static void rna_def_palettecolors_mixing(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_ui_description(func, "Remove a mixing color from the palette");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "color", "MixingColor", "", "The mixing color to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
-  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "move", "rna_Palette_mixing_color_move");
   RNA_def_function_ui_description(func, "Move a mixing color in the palette (change order)");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "color", "MixingColor", "", "The mixing color to move");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
-  parm = RNA_def_int(func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  parm = RNA_def_int(
+      func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 }
 
 /* palettecolor.mixed_colors */
@@ -387,8 +394,8 @@ static void rna_def_palettecolor_mixed(BlenderRNA *brna, PropertyRNA *cprop)
   func = RNA_def_function(srna, "remove", "rna_PaletteColor_mixed_color_remove");
   RNA_def_function_ui_description(func, "Remove a mix color from the palette color");
   parm = RNA_def_pointer(func, "color", "MixingColor", "", "The mix color to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
-  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "clear", "rna_PaletteColor_mixed_color_clear");
   RNA_def_function_ui_description(func, "Remove all mixed colors from the palette color");

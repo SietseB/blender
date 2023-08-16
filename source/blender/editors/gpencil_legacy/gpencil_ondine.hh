@@ -10,6 +10,7 @@ class GpencilOndine {
  public:
   /* Methods */
   GpencilOndine();
+
   void init(bContext *C);
   bool prepare_camera_params(bContext *C);
   void set_zdepth(Object *object);
@@ -62,3 +63,6 @@ class GpencilOndine {
 };
 
 }  // namespace blender
+
+void gpencil_ondine_set_render_data(Object *ob, const float mat[4][4]);
+void gpencil_ondine_set_zdepth(Object *ob);

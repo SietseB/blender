@@ -2643,29 +2643,26 @@ static eHandlerActionFlag wm_handler_fileselect_do(bContext *C,
 
   switch (val) {
     case EVT_FILESELECT_FULL_OPEN: {
+      wmWindow *win = CTX_wm_window(C);
+      const int window_center[2] = {
+          WM_window_pixels_x(win) / 2,
+          WM_window_pixels_y(win) / 2,
+      };
 
-      ScrArea *area = nullptr;
+      const rcti window_rect = {
+          /*xmin*/ window_center[0],
+          /*xmax*/ window_center[0] + int(U.file_space_data.temp_win_sizex * UI_SCALE_FAC),
+          /*ymin*/ window_center[1],
+          /*ymax*/ window_center[1] + int(U.file_space_data.temp_win_sizey * UI_SCALE_FAC),
+      };
 
-      if (U.filebrowser_display_type == USER_TEMP_SPACE_DISPLAY_WINDOW) {
-        wmWindow *win = WM_window_open_temp(
-            C, IFACE_("Blender File View"), &U.file_winstate, 1060, 600, SPACE_FILE, true);
-        if (win) {
-          area = CTX_wm_area(C);
-        }
-      }
-      else {
-        area = ED_screen_temp_space_open(C,
-                                         IFACE_("Blender File View"),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         SPACE_FILE,
-                                         U.filebrowser_display_type,
-                                         true);
-      }
-
-      if (area) {
+      if (ScrArea *area = ED_screen_temp_space_open(C,
+                                                    IFACE_("Blender File View"),
+                                                    &window_rect,
+                                                    SPACE_FILE,
+                                                    U.filebrowser_display_type,
+                                                    true))
+      {
         ARegion *region_header = BKE_area_find_region_type(area, RGN_TYPE_HEADER);
 
         BLI_assert(area->spacetype == SPACE_FILE);
@@ -2725,7 +2722,11 @@ static eHandlerActionFlag wm_handler_fileselect_do(bContext *C,
             continue;
           }
 
-          ED_fileselect_params_to_userdef(static_cast<SpaceFile *>(file_area->spacedata.first));
+          int win_size[2];
+          bool is_maximized;
+          ED_fileselect_window_params_get(win, win_size, &is_maximized);
+          ED_fileselect_params_to_userdef(
+              static_cast<SpaceFile *>(file_area->spacedata.first), win_size, is_maximized);
 
           if (BLI_listbase_is_single(&file_area->spacedata)) {
             BLI_assert(root_win != win);
@@ -2754,7 +2755,8 @@ static eHandlerActionFlag wm_handler_fileselect_do(bContext *C,
         }
 
         if (!temp_win && ctx_area->full) {
-          ED_fileselect_params_to_userdef(static_cast<SpaceFile *>(ctx_area->spacedata.first));
+          ED_fileselect_params_to_userdef(
+              static_cast<SpaceFile *>(ctx_area->spacedata.first), nullptr, false);
           ED_screen_full_prevspace(C, ctx_area);
         }
       }

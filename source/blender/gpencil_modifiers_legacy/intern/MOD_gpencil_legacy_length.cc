@@ -107,11 +107,8 @@ static bool gpencil_modify_stroke(bGPDstroke *gps,
   return changed;
 }
 
-static void applyLength(GpencilModifierData *md,
-                        Depsgraph *depsgraph,
-                        bGPDframe *gpf,
-                        bGPDstroke *gps,
-                        Object *ob)
+static void applyLength(
+    GpencilModifierData *md, Depsgraph *depsgraph, bGPDframe *gpf, bGPDstroke *gps, Object *ob)
 {
   bool changed = false;
   LengthGpencilModifierData *lmd = (LengthGpencilModifierData *)md;
@@ -213,7 +210,6 @@ static void deform_stroke(GpencilModifierData *md,
                           bGPDframe *gpf,
                           bGPDstroke *gps)
 {
-  bGPdata *gpd = static_cast<bGPdata *>(ob->data);
   LengthGpencilModifierData *lmd = (LengthGpencilModifierData *)md;
   if (!is_stroke_affected_by_modifier(ob,
                                       lmd->layername,

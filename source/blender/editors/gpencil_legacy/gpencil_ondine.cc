@@ -22,24 +22,23 @@
 
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 
-#include "WM_api.h"
+#include "WM_api.hH"
 
-#include "RNA_access.h"
-#include "RNA_define.h"
-#include "RNA_prototypes.h"
+#include "RNA_access.hh"
+#include "RNA_define.hh"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "ED_gpencil_legacy.h"
-#include "ED_view3d.h"
+#include "ED_gpencil_legacy.hh"
+#include "ED_view3d.hh"
 #include "gpencil_intern.h"
 
 #include "gpencil_ondine.hh"
-#include "gpencil_ondine_render.h"
 
 namespace blender {
 
@@ -49,12 +48,12 @@ GpencilOndine *ondine_render = new GpencilOndine();
 ARegion *get_invoke_region(bContext *C)
 {
   bScreen *screen = CTX_wm_screen(C);
-  if (screen == NULL) {
-    return NULL;
+  if (screen == nullptr) {
+    return nullptr;
   }
   ScrArea *area = BKE_screen_find_big_area(screen, SPACE_VIEW3D, 0);
-  if (area == NULL) {
-    return NULL;
+  if (area == nullptr) {
+    return nullptr;
   }
 
   ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
@@ -65,18 +64,18 @@ ARegion *get_invoke_region(bContext *C)
 View3D *get_invoke_view3d(bContext *C)
 {
   bScreen *screen = CTX_wm_screen(C);
-  if (screen == NULL) {
-    return NULL;
+  if (screen == nullptr) {
+    return nullptr;
   }
   ScrArea *area = BKE_screen_find_big_area(screen, SPACE_VIEW3D, 0);
-  if (area == NULL) {
-    return NULL;
+  if (area == nullptr) {
+    return nullptr;
   }
   if (area) {
     return (View3D *)area->spacedata.first;
   }
 
-  return NULL;
+  return nullptr;
 }
 
 /* Runtime render properties. */
@@ -179,7 +178,7 @@ void GpencilOndine::set_unique_stroke_seeds(bContext *C)
           }
           BLI_gset_add(seeds, POINTER_FROM_INT(gps->seed));
         }
-        BLI_gset_free(seeds, NULL);
+        BLI_gset_free(seeds, nullptr);
       }
     }
   }
@@ -507,9 +506,9 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
 
 }  // namespace blender
 
-void gpencil_ondine_set_render_data(Object *ob, const blender::float4x4 mat)
+void gpencil_ondine_set_render_data(Object *ob, const float mat[4][4])
 {
-  blender::ondine_render->set_render_data(ob, mat);
+  blender::ondine_render->set_render_data(ob, blender::float4x4(mat));
 }
 
 void gpencil_ondine_set_zdepth(Object *ob)
@@ -523,7 +522,43 @@ bool gpencil_ondine_render_init(bContext *C)
   return blender::ondine_render->prepare_camera_params(C);
 }
 
-void gpencil_ondine_set_unique_stroke_seeds(bContext *C)
+static int gpencil_ondine_set_unique_stroke_seeds(bContext *C, wmOperator * /*op*/)
 {
   blender::ondine_render->set_unique_stroke_seeds(C);
+  return OPERATOR_FINISHED;
+}
+
+/* Operator definition: ondine_set_unique_stroke_seeds */
+void GPENCIL_OT_ondine_set_unique_stroke_seeds(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Set Unique Stroke Seeds";
+  ot->idname = "GPENCIL_OT_ondine_set_unique_stroke_seeds";
+  ot->description = "Set unique stroke seeds in each frame for Ondine watercolor rendering";
+
+  /* api callbacks */
+  ot->exec = gpencil_ondine_set_unique_stroke_seeds;
+}
+
+/* Init Ondine watercolor rendering for current frame */
+static int gpencil_ondine_render_init_exec(bContext *C, wmOperator * /*op*/)
+{
+  bool success = gpencil_ondine_render_init(C);
+  if (!success) {
+    return OPERATOR_CANCELLED;
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+/* Operator definition: ondine_render_init */
+void GPENCIL_OT_ondine_render_init(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Init Ondine rendering";
+  ot->idname = "GPENCIL_OT_ondine_render_init";
+  ot->description = "Initialize Ondine watercolor rendering for current frame";
+
+  /* api callbacks */
+  ot->exec = gpencil_ondine_render_init_exec;
 }

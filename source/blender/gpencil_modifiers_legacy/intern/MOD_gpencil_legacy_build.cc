@@ -856,7 +856,7 @@ static void generate_geometry(GpencilModifierData *md,
       break;
 
     case GP_BUILD_MODE_CONCURRENT:
-      build_concurrent(mmd, gpd, gpf, target_def_nr, fac);
+      build_concurrent(mmd, gpf, target_def_nr, fac);
       break;
 
     default:

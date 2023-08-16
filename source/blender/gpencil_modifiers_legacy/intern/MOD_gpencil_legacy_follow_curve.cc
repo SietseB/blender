@@ -11,6 +11,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_hash.h"
+#include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_rand.h"
 #include "BLI_string.h"
@@ -41,10 +42,10 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 
-#include "UI_interface.h"
-#include "UI_resources.h"
+#include "UI_interface.hh"
+#include "UI_resources.hh"
 
-#include "RNA_access.h"
+#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
 #include "MOD_gpencil_legacy_modifiertypes.h"
@@ -55,7 +56,7 @@
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
-static void initData(GpencilModifierData *md)
+static void init_data(GpencilModifierData *md)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
@@ -64,7 +65,7 @@ static void initData(GpencilModifierData *md)
   MEMCPY_STRUCT_AFTER(mmd, DNA_struct_default_get(FollowCurveGpencilModifierData), modifier);
 }
 
-static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
+static void copy_data(const GpencilModifierData *md, GpencilModifierData *target)
 {
   BKE_gpencil_modifier_copydata_generic(md, target);
 }
@@ -83,18 +84,19 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
   /* Get animated speed and speed variation. */
   mmd->speed_per_frame_len = 0;
   FCurve *speed_fcurve = id_data_find_fcurve(
-      &ob->id, mmd, &RNA_FollowCurveGpencilModifier, "speed", 0, NULL);
+      &ob->id, mmd, &RNA_FollowCurveGpencilModifier, "speed", 0, nullptr);
   FCurve *speed_var_fcurve = id_data_find_fcurve(
-      &ob->id, mmd, &RNA_FollowCurveGpencilModifier, "speed_var", 0, NULL);
-  if (speed_fcurve != NULL || speed_var_fcurve != NULL) {
+      &ob->id, mmd, &RNA_FollowCurveGpencilModifier, "speed_var", 0, nullptr);
+  if (speed_fcurve != nullptr || speed_var_fcurve != nullptr) {
     mmd->speed_per_frame_len = frame_current;
   }
 
   /* When animated, create array with speed and speed variation per frame. */
-  mmd->speed_per_frame = NULL;
+  mmd->speed_per_frame = nullptr;
   if (mmd->speed_per_frame_len > 0) {
     /* One stride contains: speed, speed variation. */
-    mmd->speed_per_frame = MEM_malloc_arrayN(frame_current * 2, sizeof(float), __func__);
+    mmd->speed_per_frame = static_cast<float *>(
+        MEM_malloc_arrayN(frame_current * 2, sizeof(float), __func__));
     for (int frame = 1; frame <= frame_current; frame++) {
       float speed = (speed_fcurve) ? evaluate_fcurve(speed_fcurve, (float)frame) : mmd->speed;
       float speed_var = (speed_var_fcurve) ? evaluate_fcurve(speed_var_fcurve, (float)frame) :
@@ -119,9 +121,10 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
 
   /* Convert Bezier curves to points. */
   Object *ob_eval = (Object *)DEG_get_evaluated_object(depsgraph, mmd->object);
-  mmd->curves = NULL;
+  mmd->curves = nullptr;
   if (mmd->curves_len > 0) {
-    mmd->curves = MEM_calloc_arrayN(mmd->curves_len, sizeof(GPFollowCurve), __func__);
+    mmd->curves = static_cast<GPFollowCurve *>(
+        MEM_calloc_arrayN(mmd->curves_len, sizeof(GPFollowCurve), __func__));
 
     Curve *curve = (Curve *)ob_eval->data;
     int curve_index = -1;
@@ -144,7 +147,8 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
 
       /* Create array for curve point data. */
       const int stride = sizeof(GPFollowCurvePoint);
-      follow_curve->points = MEM_mallocN((follow_curve->points_len + 1) * stride, __func__);
+      follow_curve->points = static_cast<GPFollowCurvePoint *>(
+          MEM_mallocN((follow_curve->points_len + 1) * stride, __func__));
       GPFollowCurvePoint *point_offset = follow_curve->points;
 
       /* Convert spline segments of Bezier curve to points. */
@@ -153,15 +157,17 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
         BezTriple *bezt = &nurb->bezt[i];
         BezTriple *bezt_next = &nurb->bezt[i_next];
         for (int axis = 0; axis < 3; axis++) {
-          BKE_curve_forward_diff_bezier(bezt->vec[1][axis],
-                                        bezt->vec[2][axis],
-                                        bezt_next->vec[0][axis],
-                                        bezt_next->vec[1][axis],
-                                        POINTER_OFFSET(point_offset, sizeof(float) * axis),
-                                        mmd->curve_resolution,
-                                        stride);
+          BKE_curve_forward_diff_bezier(
+              bezt->vec[1][axis],
+              bezt->vec[2][axis],
+              bezt_next->vec[0][axis],
+              bezt_next->vec[1][axis],
+              (float *)POINTER_OFFSET(point_offset, sizeof(float) * axis),
+              mmd->curve_resolution,
+              stride);
         }
-        point_offset = POINTER_OFFSET(point_offset, stride * mmd->curve_resolution);
+        point_offset = (GPFollowCurvePoint *)POINTER_OFFSET(point_offset,
+                                                            stride * mmd->curve_resolution);
       }
 
       /* Transform to world space. */
@@ -205,7 +211,7 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
     bGPdata *gpd = (bGPdata *)ob->data;
     LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
       bGPDframe *gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
-      if (gpf == NULL) {
+      if (gpf == nullptr) {
         continue;
       }
 
@@ -591,12 +597,12 @@ static void curve_get_point_by_distance(const float dist_init,
 }
 
 /* deform stroke */
-static void deformStroke(GpencilModifierData *md,
-                         Depsgraph *UNUSED(depsgraph),
-                         Object *ob,
-                         bGPDlayer *gpl,
-                         bGPDframe *gpf,
-                         bGPDstroke *gps)
+static void deform_stroke(GpencilModifierData *md,
+                          Depsgraph * /*depsgraph*/,
+                          Object *ob,
+                          bGPDlayer *gpl,
+                          bGPDframe *gpf,
+                          bGPDstroke *gps)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
   if (mmd->curves_len == 0) {
@@ -620,7 +626,8 @@ static void deformStroke(GpencilModifierData *md,
   }
 
   /* Get length of stroke and segments. */
-  float *gps_segment_length = MEM_malloc_arrayN(gps->totpoints, sizeof(float), __func__);
+  float *gps_segment_length = static_cast<float *>(
+      MEM_malloc_arrayN(gps->totpoints, sizeof(float), __func__));
   float gps_length = stroke_get_length(gps, gps_segment_length);
 
   /* Get 'entire object' settings. */
@@ -747,33 +754,33 @@ static void deformStroke(GpencilModifierData *md,
 /* FIXME: Ideally we be doing this on a copy of the main depsgraph
  * (i.e. one where we don't have to worry about restoring state)
  */
-static void bakeModifier(Main *UNUSED(bmain),
-                         Depsgraph *depsgraph,
-                         GpencilModifierData *md,
-                         Object *ob)
+static void bake_modifier(Main * /*bmain*/,
+                          Depsgraph *depsgraph,
+                          GpencilModifierData *md,
+                          Object *ob)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
-  if (mmd->object == NULL || mmd->curves_len == 0) {
+  if (mmd->object == nullptr || mmd->curves_len == 0) {
     return;
   }
 
-  generic_bake_deform_stroke(depsgraph, md, ob, true, deformStroke);
+  generic_bake_deform_stroke(depsgraph, md, ob, true, deform_stroke);
 }
 
-static bool isDisabled(GpencilModifierData *md, int UNUSED(userRenderParams))
+static bool is_disabled(GpencilModifierData *md, bool /*use_render_params*/)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
-  return (mmd->object == NULL);
+  return (mmd->object == nullptr);
 }
 
-static void updateDepsgraph(GpencilModifierData *md,
-                            const ModifierUpdateDepsgraphContext *ctx,
-                            const int UNUSED(mode))
+static void update_depsgraph(GpencilModifierData *md,
+                             const ModifierUpdateDepsgraphContext *ctx,
+                             const int /*mode*/)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
-  if (mmd->object != NULL) {
+  if (mmd->object != nullptr) {
     DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_GEOMETRY, "Follow Curve Modifier");
     DEG_add_object_relation(
         ctx->node, mmd->object, DEG_OB_COMP_TRANSFORM, "Follow Curve Modifier");
@@ -781,7 +788,7 @@ static void updateDepsgraph(GpencilModifierData *md,
   DEG_add_object_relation(ctx->node, ctx->object, DEG_OB_COMP_TRANSFORM, "Follow Curve Modifier");
 }
 
-static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
+static void foreach_ID_link(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
   FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
 
@@ -789,7 +796,7 @@ static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, 
   walk(userData, ob, (ID **)&mmd->object, IDWALK_CB_NOP);
 }
 
-static void panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void panel_draw(const bContext * /*C*/, Panel *panel)
 {
   uiLayout *col, *row;
   uiLayout *layout = panel->layout;
@@ -802,83 +809,83 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiLayoutSetPropSep(layout, true);
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "object", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "object", UI_ITEM_NONE, nullptr, ICON_NONE);
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "curve_resolution", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "curve_resolution", UI_ITEM_NONE, nullptr, ICON_NONE);
 
   uiItemS(layout);
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "entire_object", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "entire_object", UI_ITEM_NONE, nullptr, ICON_NONE);
   if (entire_object) {
     row = uiLayoutRow(col, false);
-    uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
-    uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-    uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+    uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
     uiItemS(layout);
   }
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "angle", 0, NULL, ICON_NONE);
-  uiItemR(col, ptr, "spirals", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "angle", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "spirals", UI_ITEM_NONE, nullptr, ICON_NONE);
   row = uiLayoutRow(col, false);
-  uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+  uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, nullptr, ICON_NONE);
 
   if (!entire_object) {
     uiItemS(layout);
     col = uiLayoutColumn(layout, false);
-    uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-    uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-    uiItemR(col, ptr, "seed", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "seed", UI_ITEM_NONE, nullptr, ICON_NONE);
   }
 
   col = uiLayoutColumn(layout, true);
   if (!entire_object) {
-    uiItemR(col, ptr, "vary_dir", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "vary_dir", UI_ITEM_NONE, nullptr, ICON_NONE);
     uiItemS(layout);
     col = uiLayoutColumn(layout, false);
-    uiItemR(col, ptr, "tail_first", 0, NULL, ICON_NONE);
-    uiItemR(col, ptr, "repeat", 0, NULL, ICON_NONE);
-    uiItemR(col, ptr, "scatter", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "tail_first", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "repeat", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "scatter", UI_ITEM_NONE, nullptr, ICON_NONE);
   }
-  uiItemR(col, ptr, "dissolve", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "dissolve", UI_ITEM_NONE, nullptr, ICON_NONE);
 
   gpencil_modifier_panel_end(layout, ptr);
 }
 
-static void mask_panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void mask_panel_draw(const bContext * /*C*/, Panel *panel)
 {
   gpencil_modifier_masking_panel_draw(panel, true, false);
 }
 
-static void panelRegister(ARegionType *region_type)
+static void panel_register(ARegionType *region_type)
 {
   PanelType *panel_type = gpencil_modifier_panel_register(
       region_type, eGpencilModifierType_FollowCurve, panel_draw);
   gpencil_modifier_subpanel_register(
-      region_type, "mask", "Influence", NULL, mask_panel_draw, panel_type);
+      region_type, "mask", "Influence", nullptr, mask_panel_draw, panel_type);
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_FollowCurve = {
     /*name*/ N_("Follow Curve"),
-    /*structName*/ "FollowCurveGpencilModifierData",
-    /*structSize*/ sizeof(FollowCurveGpencilModifierData),
+    /*struct_name*/ "FollowCurveGpencilModifierData",
+    /*struct_size*/ sizeof(FollowCurveGpencilModifierData),
     /*type*/ eGpencilModifierTypeType_Gpencil,
     /*flags*/ eGpencilModifierTypeFlag_SupportsEditmode,
 
-    /*copyData*/ copyData,
+    /*copy_data*/ copy_data,
 
-    /*deformStroke*/ deformStroke,
-    /*generateStrokes*/ NULL,
-    /*bakeModifier*/ bakeModifier,
-    /*remapTime*/ NULL,
+    /*deform_stroke*/ deform_stroke,
+    /*generateStrokes*/ nullptr,
+    /*bake_modifier*/ bake_modifier,
+    /*remap_time*/ nullptr,
 
-    /*initData*/ initData,
-    /*freeData*/ NULL,
-    /*isDisabled*/ isDisabled,
-    /*updateDepsgraph*/ updateDepsgraph,
-    /*dependsOnTime*/ NULL,
-    /*foreachIDLink*/ foreachIDLink,
-    /*foreachTexLink*/ NULL,
-    /*panelRegister*/ panelRegister,
+    /*init_data*/ init_data,
+    /*free_data*/ nullptr,
+    /*is_disabled*/ is_disabled,
+    /*update_depsgraph*/ update_depsgraph,
+    /*depends_on_time*/ nullptr,
+    /*foreach_ID_link*/ foreach_ID_link,
+    /*foreach_tex_link*/ nullptr,
+    /*panel_register*/ panel_register,
 };

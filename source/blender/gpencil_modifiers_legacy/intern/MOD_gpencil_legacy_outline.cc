@@ -146,7 +146,7 @@ static void convert_stroke(GpencilModifierData *md,
 
   /* Sample stroke. */
   if (mmd->sample_length > 0.0f) {
-    BKE_gpencil_stroke_sample(gpd, gps_perimeter, mmd->sample_length, false, 0, false);
+    BKE_gpencil_stroke_sample(gpd, gps_perimeter, mmd->sample_length, false, 0);
   }
   /* Set stroke thickness. */
   gps_perimeter->thickness = mmd->thickness;

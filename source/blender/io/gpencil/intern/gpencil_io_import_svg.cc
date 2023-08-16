@@ -207,7 +207,7 @@ void GpencilImporterSVG::create_stroke(bGPdata *gpd,
   }
 
   /* Cleanup and recalculate geometry. */
-  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps, 0.001f, true, false);
+  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps, 0.001f, true);
   BKE_gpencil_stroke_geometry_update(gpd, gps);
 }
 

@@ -33,6 +33,7 @@ struct Brush;
 struct Scene;
 struct View2D;
 struct View3D;
+struct wmOperator;
 struct wmOperatorType;
 
 struct Depsgraph;

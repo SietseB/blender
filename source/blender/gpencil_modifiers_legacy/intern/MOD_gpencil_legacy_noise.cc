@@ -10,6 +10,7 @@
 
 #include "BLI_hash.h"
 #include "BLI_listbase.h"
+#include "BLI_math_color.h"
 #include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
@@ -20,6 +21,7 @@
 #include "DNA_defaults.h"
 #include "DNA_gpencil_legacy_types.h"
 #include "DNA_gpencil_modifier_types.h"
+#include "DNA_material_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
@@ -31,6 +33,7 @@
 #include "BKE_gpencil_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_lib_query.h"
+#include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_screen.h"
 
@@ -99,8 +102,11 @@ static float *noise_table(int len, int offset, int seed)
   return table;
 }
 
-BLI_INLINE float table_sample(float *table, float x)
+BLI_INLINE float table_sample(float *table, float x, const float default_val)
 {
+  if (table == nullptr) {
+    return default_val;
+  }
   return interpf(table[int(ceilf(x))], table[int(floor(x))], fractf(x));
 }
 
@@ -158,6 +164,8 @@ static void deform_stroke(GpencilModifierData *md,
   if (use_random) {
     if (!is_keyframe) {
       seed += cfra / mmd->step;
+      seed_next = seed + 1;
+      smooth_factor = (float)(cfra % mmd->step) / mmd->step;
     }
     else {
       /* If change every keyframe, use the last keyframe. */
@@ -222,11 +230,12 @@ static void deform_stroke(GpencilModifierData *md,
 
   /* Fill color. */
   float noise[3], noise_interp, noise_next, hsv[3], hsv_next[3];
-  MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(ob, gps->mat_nr + 1);
+  MaterialGPencilStyle *gp_style = static_cast<MaterialGPencilStyle *>(
+      BKE_gpencil_material_settings(ob, gps->mat_nr + 1));
   if (use_color && mmd->modify_color != GP_MODIFY_COLOR_STROKE) {
     /* If not using vertex color, use the material color. */
-    if ((gp_style != nullptr) && (gps->vert_color_fill[3] == 0.0f) && (gp_style->fill_rgba[3] > 0.0f))
-    {
+    if ((gp_style != nullptr) && (gps->vert_color_fill[3] == 0.0f) &&
+        (gp_style->fill_rgba[3] > 0.0f)) {
       copy_v4_v4(gps->vert_color_fill, gp_style->fill_rgba);
       gps->vert_color_fill[3] = 1.0f;
     }
@@ -361,8 +370,8 @@ static void deform_stroke(GpencilModifierData *md,
       /* Stroke. */
       if (mmd->modify_color != GP_MODIFY_COLOR_FILL) {
         /* If not using vertex color, use the material color. */
-        if ((gp_style != nullptr) && (pt->vert_color[3] == 0.0f) && (gp_style->stroke_rgba[3] > 0.0f))
-        {
+        if ((gp_style != nullptr) && (pt->vert_color[3] == 0.0f) &&
+            (gp_style->stroke_rgba[3] > 0.0f)) {
           copy_v4_v4(pt->vert_color, gp_style->stroke_rgba);
           pt->vert_color[3] = 1.0f;
         }
@@ -478,12 +487,34 @@ static void random_panel_draw(const bContext * /*C*/, Panel *panel)
   const int mode = RNA_enum_get(ptr, "random_mode");
   if (mode != GP_NOISE_RANDOM_KEYFRAME) {
     uiItemR(layout, ptr, "step", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(layout, ptr, "use_random_smooth", UI_ITEM_NONE, NULL, ICON_NONE);
   }
 }
 
 static void mask_panel_draw(const bContext * /*C*/, Panel *panel)
 {
   gpencil_modifier_masking_panel_draw(panel, true, true);
+}
+
+static void color_header_draw(const bContext * /*C*/, Panel *panel)
+{
+  uiLayout *layout = panel->layout;
+  PointerRNA *ptr = gpencil_modifier_panel_get_property_pointers(panel, nullptr);
+  uiItemR(layout, ptr, "use_color", UI_ITEM_NONE, IFACE_("Color"), ICON_NONE);
+}
+
+static void color_panel_draw(const bContext * /*C*/, Panel *panel)
+{
+  uiLayout *col;
+  uiLayout *layout = panel->layout;
+  PointerRNA *ptr = gpencil_modifier_panel_get_property_pointers(panel, nullptr);
+  uiLayoutSetPropSep(layout, true);
+  uiLayoutSetActive(layout, RNA_boolean_get(ptr, "use_color"));
+  uiItemR(layout, ptr, "modify_color", UI_ITEM_NONE, nullptr, ICON_NONE);
+  col = uiLayoutColumn(layout, false);
+  uiItemR(col, ptr, "hue", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "saturation", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "value", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
 }
 
 static void panel_register(ARegionType *region_type)

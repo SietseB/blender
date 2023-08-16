@@ -77,7 +77,7 @@ static void greasepencil_copy_data(Main * /*bmain*/,
   /* Duplicate morph targets. */
   BLI_listbase_clear(&gpd_dst->morph_targets);
   LISTBASE_FOREACH (bGPDmorph_target *, gpmt_src, &gpd_src->morph_targets) {
-    bGPDmorph_target *gpmt_dst = MEM_dupallocN(gpmt_src);
+    bGPDmorph_target *gpmt_dst = static_cast<bGPDmorph_target *>(MEM_dupallocN(gpmt_src));
     gpmt_dst->prev = gpmt_dst->next = nullptr;
     BLI_addtail(&gpd_dst->morph_targets, gpmt_dst);
   }
@@ -431,7 +431,7 @@ void BKE_gpencil_free_stroke_morphs(bGPDstroke *gps)
     return;
   }
 
-  for (bGPDsmorph *gpsm = gps->morphs.first; gpsm; gpsm = gpsm_next) {
+  for (bGPDsmorph *gpsm = static_cast<bGPDsmorph *>(gps->morphs.first); gpsm; gpsm = gpsm_next) {
     gpsm_next = gpsm->next;
 
     if (gpsm->point_deltas != nullptr) {
@@ -519,7 +519,8 @@ void BKE_gpencil_free_layer_morphs(bGPDlayer *gpl)
 {
   /* Free morphs. */
   bGPDlmorph *morph_next = nullptr;
-  for (bGPDlmorph *morph = gpl->morphs.first; morph; morph = morph_next) {
+  for (bGPDlmorph *morph = static_cast<bGPDlmorph *>(gpl->morphs.first); morph; morph = morph_next)
+  {
     morph_next = morph->next;
     BLI_freelinkN(&gpl->morphs, morph);
   }
@@ -759,7 +760,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->darkened_edge_width_var = 50.0f;
     gpl->darkened_edge_intensity = 1.0f;
     gpl->texture_density = 0.5f;
-    gpl->texture_image = NULL;
+    gpl->texture_image = nullptr;
     gpl->texture_scale = 50.0f;
     gpl->texture_scale_variation = 5.0f;
   }
@@ -965,7 +966,8 @@ bGPDcurve *BKE_gpencil_stroke_curve_duplicate(bGPDcurve *gpc_src)
 
 bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
                                          const bool dup_points,
-                                         const bool dup_curve)
+                                         const bool dup_curve,
+                                         const bool dup_seed)
 {
   bGPDstroke *gps_dst = nullptr;
 
@@ -989,11 +991,12 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
     BLI_listbase_clear(&gps_dst->morphs);
     if (&gps_src->morphs != nullptr) {
       LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps_src->morphs) {
-        bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm);
+        bGPDsmorph *gpsm_dst = static_cast<bGPDsmorph *>(MEM_dupallocN(gpsm));
         gpsm_dst->prev = gpsm_dst->next = nullptr;
         gpsm_dst->point_deltas = nullptr;
         if (gpsm->point_deltas != nullptr) {
-          gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+          gpsm_dst->point_deltas = static_cast<bGPDspoint_delta *>(
+              MEM_dupallocN(gpsm->point_deltas));
         }
         BLI_addtail(&gps_dst->morphs, gpsm_dst);
       }
@@ -1063,7 +1066,7 @@ void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, bGPDframe *gpf_dst)
   BLI_listbase_clear(&gpf_dst->strokes);
   LISTBASE_FOREACH (bGPDstroke *, gps_src, &gpf_src->strokes) {
     /* make copy of source stroke */
-    gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true);
+    gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
     BLI_addtail(&gpf_dst->strokes, gps_dst);
   }
 }
@@ -1709,7 +1712,7 @@ void BKE_gpencil_layer_morph_copy(const bGPDlayer *gpl_src, bGPDlayer *gpl_dst)
 {
   BLI_listbase_clear(&gpl_dst->morphs);
   LISTBASE_FOREACH (bGPDlmorph *, morph_src, &gpl_src->morphs) {
-    bGPDlmorph *morph_dst = MEM_dupallocN(morph_src);
+    bGPDlmorph *morph_dst = static_cast<bGPDlmorph *>(MEM_dupallocN(morph_src));
     morph_dst->prev = morph_dst->next = nullptr;
     BLI_addtail(&gpl_dst->morphs, morph_dst);
   }
@@ -3188,7 +3191,7 @@ static bool gpencil_update_on_write_stroke_cb(GPencilUpdateCache *gps_cache, voi
     BLI_remlink(&td->gpf_eval->strokes, td->gps_eval);
     BKE_gpencil_free_stroke(td->gps_eval);
 
-    td->gps_eval = BKE_gpencil_stroke_duplicate(gps, true, true);
+    td->gps_eval = BKE_gpencil_stroke_duplicate(gps, true, true, true);
     BLI_insertlinkbefore(&td->gpf_eval->strokes, gps_eval_next, td->gps_eval);
 
     td->gps_eval->runtime.gps_orig = gps;

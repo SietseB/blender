@@ -367,7 +367,7 @@ static EnumPropertyItem rna_enum_gpencil_brush_eraser_modes_items[] = {
 static EnumPropertyItem rna_enum_gpencil_brush_scope_mode_items[] = {
     {GP_BRUSH_SCOPE_POINT, "POINT", 0, "Point", "Affect stroke points"},
     {GP_BRUSH_SCOPE_STROKE, "STROKE", 0, "Stroke", "Affect entire strokes"},
-    {0, NULL, 0, NULL, NULL},
+    {0, nullptr, 0, nullptr, nullptr},
 };
 
 static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
@@ -1928,7 +1928,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
       prop, NC_GPENCIL | ND_DATA, "rna_BrushGpencilSettings_eraser_mode_update");
 
   prop = RNA_def_property(srna, "scope_mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "scope_mode");
+  RNA_def_property_enum_sdna(prop, nullptr, "scope_mode");
   RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_scope_mode_items);
   RNA_def_property_ui_text(prop, "Mode", "Mode");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);

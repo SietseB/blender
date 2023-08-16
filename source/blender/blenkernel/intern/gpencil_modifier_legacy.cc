@@ -305,7 +305,7 @@ int BKE_gpencil_time_modifier_cfra(Depsgraph *depsgraph,
         continue;
       }
 
-      if (mti->remap_time) {
+      if (mti && mti->remap_time) {
         nfra = mti->remap_time(md, depsgraph, scene, ob, gpl, cfra);
         /* if the frame number changed, don't evaluate more and return */
         if (nfra != cfra) {
@@ -455,7 +455,7 @@ const GpencilModifierTypeInfo *BKE_gpencil_modifier_get_info(GpencilModifierType
 {
   /* type unsigned, no need to check < 0 */
   if (type < NUM_GREASEPENCIL_MODIFIER_TYPES && type > 0 &&
-      modifier_gpencil_types[type]->name[0] != '\0')
+      modifier_gpencil_types[type] != nullptr && modifier_gpencil_types[type]->name[0] != '\0')
   {
     return modifier_gpencil_types[type];
   }
@@ -652,17 +652,17 @@ void BKE_gpencil_stroke_init_update_geometry(Depsgraph *depsgraph,
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     bGPDframe *gpf;
     if (all_frames) {
-      gpf = gpl->frames.first;
+      gpf = static_cast<bGPDframe *>(gpl->frames.first);
     }
     else {
       gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
     }
 
-    while (gpf != NULL) {
+    while (gpf != nullptr) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         gps->runtime.flag &= ~GP_STROKE_UPDATE_GEOMETRY;
       }
-      gpf = (all_frames) ? gpf->next : NULL;
+      gpf = (all_frames) ? gpf->next : nullptr;
     }
   }
 }
@@ -677,20 +677,20 @@ void BKE_gpencil_stroke_update_geometry_of_modifiers(Depsgraph *depsgraph,
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     bGPDframe *gpf;
     if (all_frames) {
-      gpf = gpl->frames.first;
+      gpf = static_cast<bGPDframe *>(gpl->frames.first);
     }
     else {
       gpf = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl);
     }
 
-    while (gpf != NULL) {
+    while (gpf != nullptr) {
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         if ((gps->runtime.flag & GP_STROKE_UPDATE_GEOMETRY) != 0) {
           BKE_gpencil_stroke_geometry_update(gpd, gps);
           gps->runtime.flag &= ~GP_STROKE_UPDATE_GEOMETRY;
         }
       }
-      gpf = (all_frames) ? gpf->next : NULL;
+      gpf = (all_frames) ? gpf->next : nullptr;
     }
   }
 }
@@ -867,7 +867,7 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   }
 
   /* Init general modifiers data. */
-  BKE_gpencil_cache_data_init(depsgraph, ob);
+  BKE_gpencil_cache_data_init(depsgraph, scene, ob);
 
   const bool time_remap = BKE_gpencil_has_time_modifiers(ob);
   bool is_first_lineart = true;

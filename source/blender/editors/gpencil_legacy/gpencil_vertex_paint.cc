@@ -422,7 +422,8 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
 
   /* Attenuate factor to get a smoother tinting. */
   float inf = (brush_influence_calc(gso, radius, co, mode_stroke) *
-               brush->gpencil_settings->draw_strength) / 100.0f;
+               brush->gpencil_settings->draw_strength) /
+              100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
   CLAMP(inf, 0.0f, 1.0f);
@@ -541,7 +542,8 @@ static bool brush_blur_apply(tGP_BrushVertexpaintData *gso,
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co, false) * brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co, false) *
+               brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -576,7 +578,8 @@ static bool brush_average_apply(tGP_BrushVertexpaintData *gso,
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co, false) * brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co, false) *
+               brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -824,7 +827,7 @@ static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
   GP_SpaceConversion *gsc = &gso->gsc;
   bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
   bGPDspoint *pt1, *pt2;
-  bGPDspoint *pt = NULL;
+  bGPDspoint *pt = nullptr;
   int pc1[2] = {0};
   int pc2[2] = {0};
   int i;
@@ -1122,7 +1125,8 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     switch (tool) {
       case GPAINT_TOOL_TINT:
       case GPVERTEX_TOOL_DRAW: {
-        brush_tint_apply(gso, selected->gps, selected->pt_index, radius, selected->pc, mode_stroke);
+        brush_tint_apply(
+            gso, selected->gps, selected->pt_index, radius, selected->pc, mode_stroke);
         changed |= true;
         break;
       }

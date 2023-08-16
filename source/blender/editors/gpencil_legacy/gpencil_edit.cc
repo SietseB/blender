@@ -1493,7 +1493,7 @@ static void gpencil_stroke_ensure_unique_seed(bGPDframe *gpf, bGPDstroke *gps_ne
    */
   while (check_needed) {
     check_needed = false;
-    for (gps = gpf->strokes.first; gps; gps = gps->next) {
+    for (gps = static_cast<bGPDstroke *>(gpf->strokes.first); gps; gps = gps->next) {
       if (gps->seed == gps_new->seed) {
         /* Seed already exists: set a different one for the new stroke */
         gps_new->seed = rand() * 4096 + rand();
@@ -1776,7 +1776,8 @@ static int gpencil_strokes_paste_exec(bContext *C, wmOperator *op)
                 }
                 gpencil_stroke_ensure_unique_seed(gpf, new_stroke);
                 if (((new_seed != -1) && (new_stroke->seed != new_seed)) ||
-                    ((new_seed == -1) && (new_stroke->seed != gps->seed))) {
+                    ((new_seed == -1) && (new_stroke->seed != gps->seed)))
+                {
                   new_seed = new_stroke->seed;
                 }
 
@@ -1959,7 +1960,7 @@ static int gpencil_move_to_layer_exec(bContext *C, wmOperator *op)
 
           /* Ondine: ensure unique seed */
           /* TODO: how to handle multi-edit? */
-          for (bGPDstroke *gps = strokes.first; gps; gps = gps->next) {
+          for (bGPDstroke *gps = static_cast<bGPDstroke *>(strokes.first); gps; gps = gps->next) {
             gpencil_stroke_ensure_unique_seed(gpf_dst, gps);
           }
 
@@ -5215,7 +5216,7 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
                   }
 
                   /* make copy of source stroke */
-                  bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true);
+                  bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true, false);
 
                   /* Reassign material. */
                   gps_dst->mat_nr = idx;

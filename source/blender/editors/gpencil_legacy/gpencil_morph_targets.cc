@@ -18,7 +18,9 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_ghash.h"
-#include "BLI_math.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_rotation.h"
+#include "BLI_math_vector.hh"
 #include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
@@ -44,20 +46,20 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#include "WM_api.hh"
+#include "WM_types.hh"
 
-#include "RNA_access.h"
-#include "RNA_define.h"
-#include "RNA_enum_types.h"
+#include "RNA_access.hh"
+#include "RNA_define.hh"
+#include "RNA_enum_types.hh"
 
-#include "ED_gpencil_legacy.h"
-#include "ED_object.h"
-#include "ED_space_api.h"
-#include "ED_undo.h"
+#include "ED_gpencil_legacy.hh"
+#include "ED_object.hh"
+#include "ED_space_api.hh"
+#include "ED_undo.hh"
 
-#include "UI_interface.h"
-#include "UI_resources.h"
+#include "UI_interface.hh"
+#include "UI_resources.hh"
 
 #include "BLF_api.h"
 #include "GPU_immediate.h"
@@ -70,7 +72,7 @@
 #include "gpencil_intern.h"
 
 /* Temporary morph operation data `op->customdata`. */
-typedef struct tGPDmorph {
+struct tGPDmorph {
   /** Current active gp object. */
   struct Object *ob;
   /** Area where painting originated. */
@@ -92,7 +94,7 @@ typedef struct tGPDmorph {
   bGPDmorph_target *active_gpmt;
   /** Active morph target index. */
   int active_index;
-} tGPDmorph;
+};
 
 /* State: is a morph target being edited? */
 bool in_edit_mode = false;
@@ -124,10 +126,10 @@ static void gpencil_morph_target_increase_number(bGPdata *gpd, const int index)
 
 static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
 {
-  bGPdata *gpd = NULL;
+  bGPdata *gpd = nullptr;
 
   Object *ob = CTX_data_active_object(C);
-  if ((ob != NULL) && (ob->type == OB_GPENCIL_LEGACY)) {
+  if ((ob != nullptr) && (ob->type == OB_GPENCIL_LEGACY)) {
     /* Check maximum number of morph targets. */
     gpd = (bGPdata *)ob->data;
     if (BLI_listbase_count(&gpd->morph_targets) >= GPENCIL_MORPH_TARGETS_MAX) {
@@ -153,9 +155,10 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
 
     /* Create morph target and set default values. */
     bGPDmorph_target *gpmt_act = BKE_gpencil_morph_target_active_get(gpd);
-    bGPDmorph_target *gpmt = NULL;
-    gpmt = MEM_callocN(sizeof(bGPDmorph_target), "bGPDmorph_target");
-    if (gpmt_act != NULL) {
+    bGPDmorph_target *gpmt = nullptr;
+    gpmt = static_cast<bGPDmorph_target *>(
+        MEM_callocN(sizeof(bGPDmorph_target), "bGPDmorph_target"));
+    if (gpmt_act != nullptr) {
       BLI_insertlinkafter(&gpd->morph_targets, gpmt_act, gpmt);
     }
     else {
@@ -169,7 +172,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     gpmt->layer_order_value = 0.5f;
 
     /* Copy values of currently active morph target. */
-    if (gpmt_act != NULL) {
+    if (gpmt_act != nullptr) {
       if (!name_given) {
         strcpy(name, gpmt_act->name);
       }
@@ -179,7 +182,7 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
       gpmt->layer_order_value = gpmt->layer_order_value;
 
       /* Renumber morph target index of layer and stroke morphs. */
-      if (gpmt->next != NULL) {
+      if (gpmt->next != nullptr) {
         int index = BLI_findindex(&gpd->morph_targets, gpmt);
         gpencil_morph_target_increase_number(gpd, index);
       }
@@ -200,12 +203,12 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     /* Add morph targets modifier automatically when there isn't one. */
     GpencilModifierData *md = BKE_gpencil_modifiers_findby_type(ob,
                                                                 eGpencilModifierType_MorphTargets);
-    if (md == NULL) {
+    if (md == nullptr) {
       Main *bmain = CTX_data_main(C);
       Scene *scene = CTX_data_scene(C);
       md = ED_object_gpencil_modifier_add(
           op->reports, bmain, scene, ob, "Morph Targets", eGpencilModifierType_MorphTargets);
-      if (md == NULL) {
+      if (md == nullptr) {
         BKE_report(op->reports, RPT_ERROR, "Unable to add a Morph Targets modifier to object");
       }
     }
@@ -215,8 +218,8 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
   if (gpd) {
     DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
   }
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -234,7 +237,7 @@ void GPENCIL_OT_morph_target_add(wmOperatorType *ot)
   /* Operator properties. */
   PropertyRNA *prop;
   prop = RNA_def_string(
-      ot->srna, "name", NULL, MAX_NAME, "Name", "Name of the newly added morph target");
+      ot->srna, "name", nullptr, MAX_NAME, "Name", "Name of the newly added morph target");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   ot->prop = prop;
 
@@ -267,7 +270,7 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         LISTBASE_FOREACH_MUTABLE (bGPDsmorph *, gpsm, &gps->morphs) {
           if (gpsm->morph_target_nr == index) {
-            if (gpsm->point_deltas != NULL) {
+            if (gpsm->point_deltas != nullptr) {
               MEM_freeN(gpsm->point_deltas);
             }
             BLI_freelinkN(&gps->morphs, gpsm);
@@ -288,10 +291,10 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   BKE_animdata_fix_paths_remove(&gpd->id, rna_path);
 
   /* Set new active morph target. */
-  if (gpmt->next != NULL) {
+  if (gpmt->next != nullptr) {
     BKE_gpencil_morph_target_active_set(gpd, gpmt->next);
   }
-  else if (gpmt->prev != NULL) {
+  else if (gpmt->prev != nullptr) {
     BKE_gpencil_morph_target_active_set(gpd, gpmt->prev);
   }
 
@@ -313,8 +316,8 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
 
   /* notifiers */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -322,13 +325,13 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
 bool gpencil_morph_target_active_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL_LEGACY)) {
+  if ((ob == nullptr) || (ob->type != OB_GPENCIL_LEGACY)) {
     return false;
   }
   bGPdata *gpd = (bGPdata *)ob->data;
   bGPDmorph_target *gpmt = BKE_gpencil_morph_target_active_get(gpd);
 
-  return (gpmt != NULL);
+  return (gpmt != nullptr);
 }
 
 void GPENCIL_OT_morph_target_remove(wmOperatorType *ot)
@@ -389,8 +392,8 @@ static int gpencil_morph_target_move_exec(bContext *C, wmOperator *op)
 
   /* Notifiers. */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -400,7 +403,7 @@ void GPENCIL_OT_morph_target_move(wmOperatorType *ot)
   static const EnumPropertyItem morph_target_order_move[] = {
       {-1, "UP", 0, "Up", ""},
       {1, "DOWN", 0, "Down", ""},
-      {0, NULL, 0, NULL, NULL},
+      {0, nullptr, 0, nullptr, nullptr},
   };
 
   /* identifiers */
@@ -424,14 +427,14 @@ void GPENCIL_OT_morph_target_move(wmOperatorType *ot)
 }
 
 /* ******************* Edit Morph Target ************************ */
-bool ED_gpencil_morph_target_in_edit_mode(void)
+bool ED_gpencil_morph_target_in_edit_mode()
 {
   return in_edit_mode;
 }
 
 static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
 {
-  tGPDmorph *tgpm = op->customdata;
+  tGPDmorph *tgpm = static_cast<tGPDmorph *>(op->customdata);
 
   /* Clean up temp data. */
   if (tgpm) {
@@ -445,11 +448,11 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
       if (md->type == eGpencilModifierType_MorphTargets) {
         MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
         mmd->index_edited = -1;
-        mmd->gpd_base = NULL;
-        if (mmd->base_layers != NULL) {
-          BLI_ghash_free(mmd->base_layers, NULL, NULL);
+        mmd->gpd_base = nullptr;
+        if (mmd->base_layers != nullptr) {
+          BLI_ghash_free(mmd->base_layers, nullptr, nullptr);
         }
-        mmd->base_layers = NULL;
+        mmd->base_layers = nullptr;
       }
     }
 
@@ -469,7 +472,7 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
     /* Update morphed GP object. */
     DEG_id_tag_update(&tgpm->gpd_morph->id,
                       ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
-    WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+    WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, nullptr);
 
     MEM_freeN(tgpm);
   }
@@ -477,10 +480,10 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
   /* Clear 'in morph edit mode' flag. */
   in_edit_mode = false;
 
-  op->customdata = NULL;
+  op->customdata = nullptr;
 }
 
-static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *region, void *arg)
+static void gpencil_morph_target_edit_draw(const bContext * /*C*/, ARegion *region, void *arg)
 {
   tGPDmorph *tgpm = (tGPDmorph *)arg;
 
@@ -512,7 +515,7 @@ static void gpencil_morph_target_edit_draw(const bContext *UNUSED(C), ARegion *r
   BLF_size(font_id, style->widget.points * UI_SCALE_FAC);
   BLF_color4fv(font_id, color);
   BLF_enable(font_id, BLF_SHADOW);
-  BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 0.7f});
+  BLF_shadow(font_id, 5, blender::float4{0.0f, 0.0f, 0.0f, 0.7f});
   BLF_shadow_offset(font_id, 1, -1);
 
   const char *text;
@@ -534,8 +537,8 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
 {
   float vecb[3], vecm[3];
   bGPDsmorph smorph;
-  bGPDstroke *gps_base = gpf_base->strokes.first;
-  bGPDstroke *gps_morph = gpf_morph->strokes.first;
+  bGPDstroke *gps_base = static_cast<bGPDstroke *>(gpf_base->strokes.first);
+  bGPDstroke *gps_morph = static_cast<bGPDstroke *>(gpf_morph->strokes.first);
   int uneq_strokes = 0;
 
   /* Iterate all strokes in (possibly) morphed frame. */
@@ -549,7 +552,7 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
     while (gps_base && (gps_base->runtime.morph_index < gps_morph->runtime.morph_index)) {
       gps_base = gps_base->next;
     }
-    if (gps_base == NULL) {
+    if (gps_base == nullptr) {
       uneq_strokes++;
       break;
     }
@@ -563,9 +566,9 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
     float mat[3][3];
 
     bool morph_found = false;
-    smorph.point_deltas = NULL;
+    smorph.point_deltas = nullptr;
 
-    bGPDsmorph *gpsm = gps_morph->morphs.first;
+    bGPDsmorph *gpsm = static_cast<bGPDsmorph *>(gps_morph->morphs.first);
     for (; gpsm; gpsm = gpsm->next) {
       if (gpsm->morph_target_nr != active_morph_index) {
         continue;
@@ -577,7 +580,7 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
       add_v4_v4(gps_morph->vert_color_fill, gpsm->fill_color_delta);
       clamp_v4(gps_morph->vert_color_fill, 0.0f, 1.0f);
 
-      if (gpsm->point_deltas != NULL) {
+      if (gpsm->point_deltas != nullptr) {
         /* Apply stroke point morphs. */
         for (int i = 0; i < gps_morph->totpoints; i++) {
           bGPDspoint *pt = &gps_morph->points[i];
@@ -622,7 +625,7 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
      */
     if (gps_base->totpoints != gps_morph->totpoints) {
       if (morph_found) {
-        if (gpsm->point_deltas != NULL) {
+        if (gpsm->point_deltas != nullptr) {
           MEM_freeN(gpsm->point_deltas);
         }
         BLI_freelinkN(&gps_morph->morphs, gpsm);
@@ -677,9 +680,10 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
       if ((fabs(pd.distance) > EPSILON) || (fabs(pd.pressure) > EPSILON) ||
           (fabs(pd.strength) > EPSILON) || (fabs(pd.vert_color[0]) > EPSILON) ||
           (fabs(pd.vert_color[1]) > EPSILON) || (fabs(pd.vert_color[2]) > EPSILON) ||
-          (fabs(pd.vert_color[3]) > EPSILON)) {
+          (fabs(pd.vert_color[3]) > EPSILON))
+      {
 
-        if (smorph.point_deltas == NULL) {
+        if (smorph.point_deltas == nullptr) {
           smorph.point_deltas = (bGPDspoint_delta *)MEM_calloc_arrayN(
               gps_morph->totpoints, sizeof(bGPDspoint_delta), "bGPDsmorph point deltas");
         }
@@ -706,7 +710,7 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
      * don't store the morph. */
     if (!stroke_is_morphed) {
       if (morph_found) {
-        if (gpsm->point_deltas != NULL) {
+        if (gpsm->point_deltas != nullptr) {
           MEM_freeN(gpsm->point_deltas);
         }
         BLI_freelinkN(&gps_morph->morphs, gpsm);
@@ -715,7 +719,7 @@ static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
     else {
       /* Add morph to stroke. */
       if (!morph_found) {
-        gpsm = MEM_mallocN(sizeof(bGPDsmorph), "bGPDsmorph");
+        gpsm = static_cast<bGPDsmorph *>(MEM_mallocN(sizeof(bGPDsmorph), "bGPDsmorph"));
       }
       gpsm->morph_target_nr = active_morph_index;
       gpsm->tot_point_deltas = gps_morph->totpoints;
@@ -742,20 +746,20 @@ void ED_gpencil_morph_target_update_stroke_deltas(MorphTargetsGpencilModifierDat
   /* Iterate all layers in morphed GP object. */
   LISTBASE_FOREACH (bGPDlayer *, gpl_morph, &gpd_morph->layers) {
     /* Find matching base layer. */
-    bGPDlayer *gpl_base = BLI_ghash_lookup(mmd->base_layers,
-                                           POINTER_FROM_INT(gpl_morph->runtime.morph_index));
-    if (gpl_base == NULL) {
+    bGPDlayer *gpl_base = static_cast<bGPDlayer *>(
+        BLI_ghash_lookup(mmd->base_layers, POINTER_FROM_INT(gpl_morph->runtime.morph_index)));
+    if (gpl_base == nullptr) {
       continue;
     }
 
     /* Get active frame. */
     bGPDframe *gpf_morph = BKE_gpencil_frame_retime_get(depsgraph, scene, ob, gpl_morph);
-    if (gpf_morph == NULL) {
+    if (gpf_morph == nullptr) {
       continue;
     }
     bool base_frame_found = false;
-    bGPDframe *gpf_base = gpl_base->frames.first;
-    for (; gpf_base != NULL; gpf_base = gpf_base->next) {
+    bGPDframe *gpf_base = static_cast<bGPDframe *>(gpl_base->frames.first);
+    for (; gpf_base != nullptr; gpf_base = gpf_base->next) {
       if (gpf_base->runtime.morph_index == gpf_morph->runtime.morph_index) {
         base_frame_found = true;
         break;
@@ -775,7 +779,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
   /* Match the stored base GP object with the morphed one. */
   int uneq_layers = 0, uneq_frames = 0, uneq_strokes = 0;
   bool is_morphed;
-  tGPDmorph *tgpm = op->customdata;
+  tGPDmorph *tgpm = static_cast<tGPDmorph *>(op->customdata);
 
   /* Create hash table of morph layers. */
   GHash *morph_layers = BLI_ghash_int_new_ex(__func__, 64);
@@ -786,15 +790,15 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
   /* Iterate all layers in base GP object. */
   LISTBASE_FOREACH (bGPDlayer *, gpl_base, &tgpm->gpd_base->layers) {
     /* Find matching morph layer. */
-    bGPDlayer *gpl_morph = BLI_ghash_lookup(morph_layers,
-                                            POINTER_FROM_INT(gpl_base->runtime.morph_index));
-    if (gpl_morph == NULL) {
+    bGPDlayer *gpl_morph = static_cast<bGPDlayer *>(
+        BLI_ghash_lookup(morph_layers, POINTER_FROM_INT(gpl_base->runtime.morph_index)));
+    if (gpl_morph == nullptr) {
       uneq_layers++;
       continue;
     }
 
     /* Remove existing layer morph for active morph target. */
-    bGPDlmorph *gplm = gpl_morph->morphs.first;
+    bGPDlmorph *gplm = static_cast<bGPDlmorph *>(gpl_morph->morphs.first);
     for (; gplm; gplm = gplm->next) {
       if (gplm->morph_target_nr == tgpm->active_index) {
         BLI_freelinkN(&gpl_morph->morphs, gplm);
@@ -804,7 +808,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
 
     /* Get delta in layer transformation and opacity. */
     is_morphed = false;
-    gplm = MEM_mallocN(sizeof(bGPDlmorph), "bGPDlmorph");
+    gplm = static_cast<bGPDlmorph *>(MEM_mallocN(sizeof(bGPDlmorph), "bGPDlmorph"));
     sub_v3_v3v3(gplm->location, gpl_morph->location, gpl_base->location);
     sub_v3_v3v3(gplm->rotation, gpl_morph->rotation, gpl_base->rotation);
     sub_v3_v3v3(gplm->scale, gpl_morph->scale, gpl_base->scale);
@@ -833,7 +837,8 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
     else {
       for (int i = 0; i < 3; i++) {
         if ((fabs(gplm->location[i]) > EPSILON) || (fabs(gplm->rotation[i]) > EPSILON) ||
-            (fabs(gplm->scale[i]) > EPSILON)) {
+            (fabs(gplm->scale[i]) > EPSILON))
+        {
           is_morphed = true;
           break;
         }
@@ -850,8 +855,8 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
     }
 
     /* Iterate all frames and strokes. */
-    bGPDframe *gpf_base = gpl_base->frames.first;
-    bGPDframe *gpf_morph = gpl_morph->frames.first;
+    bGPDframe *gpf_base = static_cast<bGPDframe *>(gpl_base->frames.first);
+    bGPDframe *gpf_morph = static_cast<bGPDframe *>(gpl_morph->frames.first);
     for (; gpf_morph; gpf_morph = gpf_morph->next) {
       /* Skip newly created frames. */
       if (gpf_morph->runtime.morph_index == 0) {
@@ -862,7 +867,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
       while (gpf_base && (gpf_base->runtime.morph_index < gpf_morph->runtime.morph_index)) {
         gpf_base = gpf_base->next;
       }
-      if (gpf_base == NULL) {
+      if (gpf_base == nullptr) {
         uneq_frames++;
         break;
       }
@@ -874,7 +879,7 @@ static void gpencil_morph_target_edit_get_deltas(bContext *C, wmOperator *op)
   }
 
   /* Free hash memory. */
-  BLI_ghash_free(morph_layers, NULL, NULL);
+  BLI_ghash_free(morph_layers, nullptr, nullptr);
 
   /* Show a warning when there is a mismatch between base and morph. */
   if ((uneq_layers > 0) || (uneq_frames > 0) || (uneq_strokes > 0)) {
@@ -913,8 +918,10 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
 {
   int layer_index, frame_index, stroke_index;
 
-  tGPDmorph *tgpm = MEM_callocN(sizeof(tGPDmorph), "GPencil Morph Target Edit Data");
-  bGPdata *gpd_base = MEM_callocN(sizeof(bGPdata), "Gpencil Morph Target Base");
+  tGPDmorph *tgpm = static_cast<tGPDmorph *>(
+      MEM_callocN(sizeof(tGPDmorph), "GPencil Morph Target Edit Data"));
+  bGPdata *gpd_base = static_cast<bGPdata *>(
+      MEM_callocN(sizeof(bGPdata), "Gpencil Morph Target Base"));
 
   /* Get context attributes. */
   Object *ob = CTX_data_active_object(C);
@@ -926,8 +933,8 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   tgpm->active_index = BLI_findindex(&gpd->morph_targets, gpmt);
 
   /* Get largest 3D viewport in screen. */
-  tgpm->area = NULL;
-  tgpm->region = NULL;
+  tgpm->area = nullptr;
+  tgpm->region = nullptr;
   bScreen *screen = CTX_wm_screen(C);
   int max_w = 0;
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
@@ -962,7 +969,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   layer_index = 1;
   BLI_listbase_clear(&gpd_base->layers);
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    bGPDlayer *gpl_base = MEM_callocN(sizeof(bGPDlayer), "bGPDlayer");
+    bGPDlayer *gpl_base = static_cast<bGPDlayer *>(MEM_callocN(sizeof(bGPDlayer), "bGPDlayer"));
     copy_v3_v3(gpl_base->location, gpl->location);
     copy_v3_v3(gpl_base->rotation, gpl->rotation);
     copy_v3_v3(gpl_base->scale, gpl->scale);
@@ -982,7 +989,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
     BLI_listbase_clear(&gpl_base->frames);
     frame_index = 1;
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      bGPDframe *gpf_base = MEM_callocN(sizeof(bGPDframe), "bGPDframe");
+      bGPDframe *gpf_base = static_cast<bGPDframe *>(MEM_callocN(sizeof(bGPDframe), "bGPDframe"));
       gpf->runtime.morph_index = frame_index;
       gpf_base->runtime.morph_index = frame_index++;
       BLI_addtail(&gpl_base->frames, gpf_base);
@@ -990,11 +997,12 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
       BLI_listbase_clear(&gpf_base->strokes);
       stroke_index = 1;
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        bGPDstroke *gps_base = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
+        bGPDstroke *gps_base = static_cast<bGPDstroke *>(
+            MEM_callocN(sizeof(bGPDstroke), "bGPDstroke"));
         gps->runtime.morph_index = stroke_index;
         gps_base->runtime.morph_index = stroke_index++;
         BLI_addtail(&gpf_base->strokes, gps_base);
-        gps_base->points = MEM_dupallocN(gps->points);
+        gps_base->points = static_cast<bGPDspoint *>(MEM_dupallocN(gps->points));
         gps_base->totpoints = gps->totpoints;
         copy_v4_v4(gps_base->vert_color_fill, gps->vert_color_fill);
       }
@@ -1003,11 +1011,12 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
 
   /* Apply layer order morph. */
   bGPDlayer *gpl_prev;
-  for (bGPDlayer *gpl = gpd->layers.last; gpl; gpl = gpl_prev) {
+  for (bGPDlayer *gpl = static_cast<bGPDlayer *>(gpd->layers.last); gpl; gpl = gpl_prev) {
     gpl_prev = gpl->prev;
     LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
       if ((gplm->morph_target_nr == tgpm->active_index) && (gplm->order_applied == 0) &&
-          (gplm->order != 0)) {
+          (gplm->order != 0))
+      {
         if (!BLI_listbase_link_move(&gpd->layers, gpl, gplm->order)) {
           BLI_remlink(&gpd->layers, gpl);
           if (gplm->order < 0) {
@@ -1036,8 +1045,8 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
     if (md->type == eGpencilModifierType_MorphTargets) {
       MorphTargetsGpencilModifierData *mmd = (MorphTargetsGpencilModifierData *)md;
       mmd->index_edited = tgpm->active_index;
-      mmd->gpd_base = (is_first) ? gpd_base : NULL;
-      mmd->base_layers = NULL;
+      mmd->gpd_base = (is_first) ? gpd_base : nullptr;
+      mmd->base_layers = nullptr;
 
       /* Create lookup hash table for base layers. */
       if (is_first) {
@@ -1053,7 +1062,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   }
 
   /* Add draw handler to viewport for colored rectangle (marking 'edit mode'). */
-  if (tgpm->region != NULL) {
+  if (tgpm->region != nullptr) {
     tgpm->draw_handle = ED_region_draw_cb_activate(
         tgpm->region->type, gpencil_morph_target_edit_draw, tgpm, REGION_DRAW_POST_PIXEL);
   }
@@ -1061,9 +1070,7 @@ static void gpencil_morph_target_edit_init(bContext *C, wmOperator *op)
   op->customdata = tgpm;
 }
 
-static int gpencil_morph_target_edit_modal(bContext *C,
-                                           wmOperator *op,
-                                           const wmEvent *UNUSED(event))
+static int gpencil_morph_target_edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   /* Operator ends when 'in morph edit mode' flag is disabled (by the Finish Edit operator). */
   if (!in_edit_mode) {
@@ -1076,7 +1083,7 @@ static int gpencil_morph_target_edit_modal(bContext *C,
 
 static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
 {
-  tGPDmorph *tgpm = NULL;
+  tGPDmorph *tgpm = nullptr;
 
   /* Initialize temp GP data. */
   gpencil_morph_target_edit_init(C, op);
@@ -1085,9 +1092,9 @@ static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
   ED_undo_push_op(C, op);
 
   /* Update GP object with morph target activated. */
-  tgpm = op->customdata;
+  tgpm = static_cast<tGPDmorph *>(op->customdata);
   DEG_id_tag_update(&tgpm->gpd_morph->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, nullptr);
 
   /* Add a modal handler for this operator. */
   WM_event_add_modal_handler(C, op);
@@ -1121,13 +1128,13 @@ void GPENCIL_OT_morph_target_edit(wmOperatorType *ot)
 }
 
 /* ******************* Finish Edit Morph Target ************************ */
-static int gpencil_morph_target_edit_finish_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
+static int gpencil_morph_target_edit_finish_exec(bContext * /*C*/, wmOperator * /*op*/)
 {
   in_edit_mode = false;
   return OPERATOR_FINISHED;
 }
 
-bool gpencil_morph_target_edit_finish_poll(bContext *UNUSED(C))
+bool gpencil_morph_target_edit_finish_poll(bContext * /*C*/)
 {
   return in_edit_mode;
 }
@@ -1150,9 +1157,9 @@ void GPENCIL_OT_morph_target_edit_finish(wmOperatorType *ot)
 static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
 {
   /* Get source. */
-  bGPdata *gpd = NULL;
+  bGPdata *gpd = nullptr;
   Object *ob = CTX_data_active_object(C);
-  if ((ob == NULL) || (ob->type != OB_GPENCIL_LEGACY)) {
+  if ((ob == nullptr) || (ob->type != OB_GPENCIL_LEGACY)) {
     return OPERATOR_CANCELLED;
   }
   gpd = (bGPdata *)ob->data;
@@ -1173,8 +1180,8 @@ static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     LISTBASE_FOREACH (bGPDlmorph *, gplm, &gpl->morphs) {
       if (gplm->morph_target_nr == index_src) {
-        bGPDlmorph *gplm_dst = MEM_dupallocN(gplm);
-        gplm_dst->prev = gplm->next = NULL;
+        bGPDlmorph *gplm_dst = static_cast<bGPDlmorph *>(MEM_dupallocN(gplm));
+        gplm_dst->prev = gplm->next = nullptr;
         gplm_dst->morph_target_nr = index_dst;
         BLI_addtail(&gpl->morphs, gplm_dst);
       }
@@ -1184,11 +1191,12 @@ static int gpencil_morph_target_duplicate_exec(bContext *C, wmOperator *op)
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
           if (gpsm->morph_target_nr == index_src) {
-            bGPDsmorph *gpsm_dst = MEM_dupallocN(gpsm);
-            gpsm_dst->prev = gpsm_dst->next = NULL;
-            gpsm_dst->point_deltas = NULL;
-            if (gpsm->point_deltas != NULL) {
-              gpsm_dst->point_deltas = MEM_dupallocN(gpsm->point_deltas);
+            bGPDsmorph *gpsm_dst = static_cast<bGPDsmorph *>(MEM_dupallocN(gpsm));
+            gpsm_dst->prev = gpsm_dst->next = nullptr;
+            gpsm_dst->point_deltas = nullptr;
+            if (gpsm->point_deltas != nullptr) {
+              gpsm_dst->point_deltas = static_cast<bGPDspoint_delta *>(
+                  MEM_dupallocN(gpsm->point_deltas));
             }
             gpsm_dst->morph_target_nr = index_dst;
             BLI_addtail(&gps->morphs, gpsm_dst);
@@ -1217,7 +1225,7 @@ void GPENCIL_OT_morph_target_duplicate(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
   prop = RNA_def_string(
-      ot->srna, "name", NULL, MAX_NAME, "Name", "Name of the newly added morph target");
+      ot->srna, "name", nullptr, MAX_NAME, "Name", "Name of the newly added morph target");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   ot->prop = prop;
 
@@ -1230,7 +1238,7 @@ void GPENCIL_OT_morph_target_duplicate(wmOperatorType *ot)
 static int gpencil_morph_target_remove_all_exec(bContext *C, wmOperator *op)
 {
   bGPdata *gpd = ED_gpencil_data_get_active(C);
-  if (gpd == NULL) {
+  if (gpd == nullptr) {
     return OPERATOR_CANCELLED;
   }
 
@@ -1269,8 +1277,8 @@ static int gpencil_morph_target_remove_all_exec(bContext *C, wmOperator *op)
 
   /* Notifiers. */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, NULL);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -1295,10 +1303,14 @@ static int gpencil_morph_target_apply_all_exec(bContext *C, wmOperator *op)
   Object *ob = CTX_data_active_object(C);
   Main *bmain = CTX_data_main(C);
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  GpencilModifierData *md_prev = NULL;
+  GpencilModifierData *md_prev = nullptr;
 
   /* Apply all morph target modifiers in reversed order. */
-  for (GpencilModifierData *md = ob->greasepencil_modifiers.last; md; md = md_prev) {
+  for (GpencilModifierData *md =
+           static_cast<GpencilModifierData *>(ob->greasepencil_modifiers.last);
+       md;
+       md = md_prev)
+  {
     md_prev = md->prev;
     if (md->type == eGpencilModifierType_MorphTargets) {
       if (!ED_object_gpencil_modifier_apply(bmain, op->reports, depsgraph, ob, md, 0)) {

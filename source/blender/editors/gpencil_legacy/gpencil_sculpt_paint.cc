@@ -410,11 +410,8 @@ static bool gpencil_brush_thickness_apply(tGP_BrushEditData *gso,
 }
 
 /* Make strokes thicker or thinner by the specified amounts */
-static bool gpencil_brush_thickness_stroke_apply(tGP_BrushEditData *gso,
-                                                 bGPDstroke *gps,
-                                                 float /*rot_eval*/,
-                                                 const int radius,
-                                                 const int co[2])
+static bool gpencil_brush_thickness_stroke_apply(
+    tGP_BrushEditData *gso, bGPDstroke *gps, float /*rot_eval*/, const int radius, const int co[2])
 {
   bGPDspoint *pt;
   float inf;
@@ -481,11 +478,8 @@ static bool gpencil_brush_strength_apply(tGP_BrushEditData *gso,
 }
 
 /* Make color of entire stroke more or less transparent by the specified amounts */
-static bool gpencil_brush_strength_stroke_apply(tGP_BrushEditData *gso,
-                                                bGPDstroke *gps,
-                                                float UNUSED(rot_eval),
-                                                const int radius,
-                                                const int co[2])
+static bool gpencil_brush_strength_stroke_apply(
+    tGP_BrushEditData *gso, bGPDstroke *gps, float /*rot_eval*/, const int radius, const int co[2])
 {
   bGPDspoint *pt;
   float inf;
@@ -1561,7 +1555,6 @@ static bool gpencil_sculpt_brush_do_stroke(tGP_BrushEditData *gso,
   GP_SpaceConversion *gsc = &gso->gsc;
   rcti *rect = &gso->brush_rect;
   Brush *brush = gso->brush;
-  char tool = gso->brush->gpencil_sculpt_tool;
   const int radius = (brush->flag & GP_BRUSH_USE_PRESSURE) ? gso->brush->size * gso->pressure :
                                                              gso->brush->size;
   const bool is_masking = GPENCIL_ANY_SCULPT_MASK(gso->mask);
@@ -1760,7 +1753,8 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
     switch (tool) {
       case GPSCULPT_TOOL_SMOOTH: /* Smooth strokes */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_smooth_apply, false, nullptr);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_smooth_apply, false, nullptr);
         redo_geom |= changed;
         break;
       }
@@ -1812,21 +1806,24 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
 
       case GPSCULPT_TOOL_PUSH: /* Push points */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_push_apply, false, nullptr);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_push_apply, false, nullptr);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_PINCH: /* Pinch points */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_pinch_apply, false, nullptr);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_pinch_apply, false, nullptr);
         redo_geom |= changed;
         break;
       }
 
       case GPSCULPT_TOOL_TWIST: /* Twist points around midpoint */
       {
-        changed |= gpencil_sculpt_brush_do_stroke(gso, gps, diff_mat, gpencil_brush_twist_apply, false, nullptr);
+        changed |= gpencil_sculpt_brush_do_stroke(
+            gso, gps, diff_mat, gpencil_brush_twist_apply, false, nullptr);
         redo_geom |= changed;
         break;
       }

@@ -491,8 +491,7 @@ static void generate_geometry(GpencilModifierData *md, Object *ob, bGPDlayer *gp
       if (gps->flag & GP_STROKE_CYCLIC) {
         for (int i = 0; i < gps->totpoints; i++) {
           const int connection_index = (i + mmd->spread - skip) % gps->totpoints;
-          add_stroke_cyclic(ob,
-                            gps,
+          add_stroke_cyclic(gps,
                             i,
                             connection_index,
                             2 + skip,

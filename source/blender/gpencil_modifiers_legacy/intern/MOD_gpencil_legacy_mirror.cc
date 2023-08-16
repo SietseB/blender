@@ -107,7 +107,6 @@ static void generate_geometry(
     GpencilModifierData *md, Object *ob, bGPDlayer *gpl, bGPDframe *gpf, const bool update)
 {
   MirrorGpencilModifierData *mmd = (MirrorGpencilModifierData *)md;
-  bGPdata *gpd = static_cast<bGPdata *>(ob->data);
   bGPDstroke *gps, *gps_new = nullptr;
   int tot_strokes;
   int i;
@@ -135,7 +134,7 @@ static void generate_geometry(
                                            mmd->flag & GP_MIRROR_INVERT_LAYERPASS,
                                            mmd->flag & GP_MIRROR_INVERT_MATERIAL))
         {
-          gps_new = BKE_gpencil_stroke_duplicate(gps, true, true);
+          gps_new = BKE_gpencil_stroke_duplicate(gps, true, true, false);
           update_position(ob, mmd, gps_new, xi);
           if (update) {
             /* Mark stroke for geometry update. */

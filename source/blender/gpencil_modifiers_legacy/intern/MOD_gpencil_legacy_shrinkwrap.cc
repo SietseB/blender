@@ -70,7 +70,6 @@ static void deform_stroke(GpencilModifierData *md,
                           bGPDframe * /*gpf*/,
                           bGPDstroke *gps)
 {
-  bGPdata *gpd = static_cast<bGPdata *>(ob->data);
   ShrinkwrapGpencilModifierData *mmd = (ShrinkwrapGpencilModifierData *)md;
   const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
 

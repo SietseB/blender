@@ -721,8 +721,7 @@ void gpencil_point_to_xy_fl(const GP_SpaceConversion *gsc,
 
   if (gps->flag & GP_STROKE_3DSPACE) {
     if (ED_view3d_project_float_global(region, &pt->x, xyval, V3D_PROJ_TEST_NOP) ==
-        V3D_PROJ_RET_OK)
-    {
+        V3D_PROJ_RET_OK) {
       *r_x = xyval[0];
       *r_y = xyval[1];
     }
@@ -878,8 +877,7 @@ void gpencil_stroke_convertcoords_tpoint(Scene *scene,
                                            rvec);
 
     if (ED_view3d_project_float_global(region, rvec, mval_prj, V3D_PROJ_TEST_NOP) ==
-        V3D_PROJ_RET_OK)
-    {
+        V3D_PROJ_RET_OK) {
       float dvec[3];
       float xy_delta[2];
       sub_v2_v2v2(xy_delta, mval_prj, point2D->m_xy);
@@ -3293,7 +3291,7 @@ bGPDstroke *ED_gpencil_stroke_join_and_trim(
 
   pt = &gps_final->points[totpoint];
   pt->flag |= GP_SPOINT_SELECT;
-  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps_final, 0.01f, false, true);
+  BKE_gpencil_stroke_merge_distance(gpd, gpf, gps_final, 0.01f, false);
 
   /* Unselect all points. */
   for (int i = 0; i < gps_final->totpoints; i++) {

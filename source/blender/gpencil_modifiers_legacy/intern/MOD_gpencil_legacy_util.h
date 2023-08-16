@@ -40,13 +40,16 @@ bool is_stroke_affected_by_modifier(struct Object *ob,
 /**
  * Verify if valid layer and pass index.
  */
-bool is_layer_affected_by_modifier(
-    char *mlayername, int gpl_passindex, bGPDlayer *gpl, bool inv1, bool inv2);
+bool is_layer_affected_by_modifier(char *mlayername,
+                                   const int gpl_passindex,
+                                   struct bGPDlayer *gpl,
+                                   const bool inv1,
+                                   const bool inv2);
 
 /**
  * Verify if valid vertex group *and return weight.
  */
-float get_modifier_point_weight(const struct MDeformVert *dvert, bool inverse, int def_nr);
+float get_modifier_point_weight(struct MDeformVert *dvert, bool inverse, int def_nr);
 /**
  * Generic bake function for deform_stroke.
  */

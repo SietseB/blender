@@ -81,31 +81,27 @@ void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
  * \param gpd: Grease pencil data-block
  * \param gps: Grease pencil stroke
  * \param epsilon: Epsilon value to define precision of the algorithm
- * \param update_geometry: Update geometry of stroke
  */
 void BKE_gpencil_stroke_simplify_adaptive(struct bGPdata *gpd,
                                           struct bGPDstroke *gps,
-                                          float epsilon,
-                                          const bool update_geometry);
+                                          float epsilon);
 /**
  * Simplify alternate vertex of stroke except extremes.
  * \param gpd: Grease pencil data-block
  * \param gps: Grease pencil stroke
- * \param update_geometry: Update geometry of stroke
  */
-void BKE_gpencil_stroke_simplify_fixed(struct bGPdata *gpd,
-                                       struct bGPDstroke *gps,
-                                       const bool update_geometry);
+void BKE_gpencil_stroke_simplify_fixed(struct bGPdata *gpd, struct bGPDstroke *gps);
 /**
  * Subdivide a stroke
  * \param gpd: Grease pencil data-block
  * \param gps: Stroke
  * \param level: Level of subdivision
  * \param type: Type of subdivision
- * \param update_geometry: Update geometry of stroke
  */
-void BKE_gpencil_stroke_subdivide(
-    struct bGPdata *gpd, struct bGPDstroke *gps, int level, int type, const bool update_geometry);
+void BKE_gpencil_stroke_subdivide(struct bGPdata *gpd,
+                                  struct bGPDstroke *gps,
+                                  int level,
+                                  int type);
 
 /**
  * Trim stroke to the first intersection or loop.
@@ -122,14 +118,12 @@ bool BKE_gpencil_stroke_trim(struct bGPdata *gpd, struct bGPDstroke *gps);
  * \param gps: Grease Pencil stroke.
  * \param threshold: Distance between points.
  * \param use_unselected: Set to true to analyze all stroke and not only selected points.
- * \param update_geometry: Update geometry of stroke
  */
 void BKE_gpencil_stroke_merge_distance(struct bGPdata *gpd,
                                        struct bGPDframe *gpf,
                                        struct bGPDstroke *gps,
                                        float threshold,
-                                       bool use_unselected,
-                                       const bool update_geometry);
+                                       bool use_unselected);
 
 /**
  * Get points of stroke always flat to view not affected
@@ -217,14 +211,12 @@ void BKE_gpencil_point_coords_apply_with_mat4(struct bGPdata *gpd,
  * \param gps: Stroke to sample
  * \param dist: Distance of one segment
  * \param sharp_threshold: Threshold for preserving sharp corners
- * \param update_geometry: Update geometry of stroke
  */
 bool BKE_gpencil_stroke_sample(struct bGPdata *gpd,
                                struct bGPDstroke *gps,
                                const float dist,
                                const bool select,
-                               const float sharp_threshold,
-                               const bool update_geometry);
+                               const float sharp_threshold);
 /**
  * Apply smooth position to stroke point.
  * \param gps: Stroke to smooth

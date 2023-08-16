@@ -28,6 +28,9 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
+#include "ED_gpencil_legacy.hh"
+
+#include "gpencil_intern.h"
 #include "rna_internal.h"
 
 #include "WM_types.hh"
@@ -583,7 +586,7 @@ static const EnumPropertyItem *rna_GPencil_active_layer_itemf(bContext *C,
   int i = 0;
 
   if (ELEM(nullptr, C, gpd)) {
-    return DummyRNA_nullptr_items;
+    return DummyRNA_NULL_items;
   }
 
   /* Existing layers */
@@ -1243,19 +1246,19 @@ static bool rna_stroke_has_edit_curve_get(PointerRNA *ptr)
 
 static void rna_Gpencil_texture_image_set(PointerRNA *ptr,
                                           PointerRNA value,
-                                          struct ReportList *UNUSED(reports))
+                                          ReportList * /*reports*/)
 {
-  bGPDlayer *gpl = ptr->data;
-  ID *id = value.data;
+  bGPDlayer *gpl = (bGPDlayer *)ptr->data;
+  ID *id = (ID *)value.data;
 
   id_us_plus(id);
-  gpl->texture_image = (struct Image *)id;
+  gpl->texture_image = (Image *)id;
 }
 
 static void rna_GPencilMorphTarget_name_set(PointerRNA *ptr, const char *value)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
-  bGPDmorph_target *gpmt = ptr->data;
+  bGPDmorph_target *gpmt = (bGPDmorph_target *)ptr->data;
 
   char oldname[128] = "";
   BLI_strncpy(oldname, gpmt->name, sizeof(oldname));
@@ -1278,16 +1281,10 @@ static PointerRNA rna_GPencil_active_morph_target_get(PointerRNA *ptr)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
 
-  bGPDmorph_target *gpmt;
-
-  for (gpmt = gpd->morph_targets.first; gpmt; gpmt = gpmt->next) {
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
     if (gpmt->flag & GP_MORPH_TARGET_ACTIVE) {
-      break;
+      return rna_pointer_inherit_refine(ptr, &RNA_GPencilMorphTarget, gpmt);
     }
-  }
-
-  if (gpmt) {
-    return rna_pointer_inherit_refine(ptr, &RNA_GPencilMorphTarget, gpmt);
   }
 
   return rna_pointer_inherit_refine(ptr, nullptr, nullptr);
@@ -1295,7 +1292,7 @@ static PointerRNA rna_GPencil_active_morph_target_get(PointerRNA *ptr)
 
 static void rna_GPencil_active_morph_target_set(PointerRNA *ptr,
                                                 PointerRNA value,
-                                                struct ReportList *UNUSED(reports))
+                                                ReportList * /*reports*/)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
 
@@ -1305,9 +1302,7 @@ static void rna_GPencil_active_morph_target_set(PointerRNA *ptr,
     return;
   }
 
-  bGPDmorph_target *gpmt;
-
-  for (gpmt = gpd->morph_targets.first; gpmt; gpmt = gpmt->next) {
+  LISTBASE_FOREACH (bGPDmorph_target *, gpmt, &gpd->morph_targets) {
     if (gpmt == value.data) {
       gpmt->flag |= GP_MORPH_TARGET_ACTIVE;
     }
@@ -1340,7 +1335,8 @@ static int rna_GPencil_active_morph_target_index_get(PointerRNA *ptr)
 static void rna_GPencil_active_morph_target_index_set(PointerRNA *ptr, int value)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
-  bGPDmorph_target *gpmt = BLI_findlink(&gpd->morph_targets, value);
+  bGPDmorph_target *gpmt = static_cast<bGPDmorph_target *>(
+      BLI_findlink(&gpd->morph_targets, value));
 
   BKE_gpencil_morph_target_active_set(gpd, gpmt);
 }
@@ -1365,7 +1361,7 @@ static void rna_MorphTarget_value_set(PointerRNA *ptr, float value)
 }
 
 static void rna_MorphTarget_value_range(
-    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
 {
   bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
 
@@ -1384,7 +1380,7 @@ static void rna_MorphTarget_layer_order_value_set(PointerRNA *ptr, float value)
 #  define MORPHTARGET_SLIDER_TOL 0.001f
 
 static void rna_MorphTarget_slider_min_range(
-    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
 {
   bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
 
@@ -1403,7 +1399,7 @@ static void rna_MorphTarget_slider_min_set(PointerRNA *ptr, float value)
 }
 
 static void rna_MorphTarget_slider_max_range(
-    PointerRNA *ptr, float *min, float *max, float *UNUSED(softmin), float *UNUSED(softmax))
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
 {
   bGPDmorph_target *data = (bGPDmorph_target *)ptr->data;
 
@@ -1434,7 +1430,7 @@ static void rna_MorphTarget_update_minmax(Main *bmain, Scene *scene, PointerRNA 
   rna_GPencil_update(bmain, scene, ptr);
 }
 
-static bool rna_morph_target_in_edit_mode_get(PointerRNA *UNUSED(ptr))
+static bool rna_morph_target_in_edit_mode_get(PointerRNA * /*ptr*/)
 {
   return ED_gpencil_morph_target_in_edit_mode();
 }
@@ -2206,14 +2202,14 @@ static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_ui_description(func, "Remove a grease pencil stroke");
   RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
   parm = RNA_def_pointer(func, "stroke", "GPencilStroke", "Stroke", "The stroke to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "close", "rna_GPencil_stroke_close");
   RNA_def_function_ui_description(func, "Close a grease pencil stroke adding geometry");
   RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
   parm = RNA_def_pointer(func, "stroke", "GPencilStroke", "Stroke", "The stroke to close");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 }
 
@@ -2301,13 +2297,13 @@ static void rna_def_gpencil_frames_api(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_ui_description(func, "Remove a grease pencil frame");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "frame", "GPencilFrame", "Frame", "The frame to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "copy", "rna_GPencil_frame_copy");
   RNA_def_function_ui_description(func, "Copy a grease pencil frame");
   parm = RNA_def_pointer(func, "source", "GPencilFrame", "Source", "The source frame");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
   parm = RNA_def_pointer(func, "copy", "GPencilFrame", "", "The newly copied frame");
   RNA_def_function_return(func, parm);
 }
@@ -2337,14 +2333,14 @@ static void rna_def_gpencil_layers_mask_api(BlenderRNA *brna, PropertyRNA *cprop
   func = RNA_def_function(srna, "add", "rna_GPencil_layer_mask_add");
   RNA_def_function_ui_description(func, "Add a layer to mask list");
   parm = RNA_def_pointer(func, "layer", "GPencilLayer", "", "Layer to add as mask");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "remove", "rna_GPencil_layer_mask_remove");
   RNA_def_function_ui_description(func, "Remove a layer from mask list");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "mask", "GPencilLayerMask", "", "Mask to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 }
 
@@ -3054,14 +3050,14 @@ static void rna_def_gpencil_layers_api(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_ui_description(func, "Remove a grease pencil layer");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "layer", "GPencilLayer", "", "The layer to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "move", "rna_GPencil_layer_move");
   RNA_def_function_ui_description(func, "Move a grease pencil layer in the layer stack");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "layer", "GPencilLayer", "", "The layer to move");
-  RNA_def_parameter_flags(parm, PROP_NEVER_nullptr, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
   parm = RNA_def_enum(
       func, "type", rna_enum_gplayer_move_type_items, 1, "", "Direction of movement");
@@ -3559,7 +3555,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
   /* Nested Structs */
   prop = RNA_def_property(srna, "grid", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_NEVER_nullptr);
+  RNA_def_property_flag(prop, PROP_NEVER_NULL);
   RNA_def_property_struct_type(prop, "GreasePencilGrid");
   RNA_def_property_ui_text(
       prop, "Grid Settings", "Settings for grid and canvas in the 3D viewport");

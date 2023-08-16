@@ -420,26 +420,6 @@ void wm_quit_with_optional_confirmation_prompt(bContext *C, wmWindow *win)
 
 void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
-  if (win->savestate && !WM_window_is_maximized(win)) {
-    /* Get DPI and scale from parent window, if there is one. */
-    WM_window_set_dpi(win->parent ? win->parent : win);
-    float f = GHOST_GetNativePixelSize(win->ghostwin);
-    float sizex = (float)win->sizex * f / UI_SCALE_FAC;
-    float sizey = (float)win->sizey * f / UI_SCALE_FAC;
-    float posx = (float)win->posx * f / UI_SCALE_FAC;
-    float posy = (float)win->posy * f / UI_SCALE_FAC;
-
-    if (sizex != win->savestate->sizex || sizey != win->savestate->sizey ||
-        posx != win->savestate->posx || posy != win->savestate->posy) {
-      win->savestate->sizex = sizex;
-      win->savestate->sizey = sizey;
-      win->savestate->posx = posx;
-      win->savestate->posy = posy;
-      /* Tag user preferences as dirty. */
-      U.runtime.is_dirty = true;
-    }
-  }
-
   wmWindow *win_other;
 
   /* First check if there is another main window remaining. */
@@ -922,23 +902,23 @@ wmWindow *WM_window_open(bContext *C,
   const float native_pixel_size = GHOST_GetNativePixelSize(
       static_cast<GHOST_WindowHandle>(win_prev->ghostwin));
   /* convert to native OS window coordinates */
-  rect.xmin = x / native_pixel_size;
-  rect.ymin = y / native_pixel_size;
+  rect.xmin = win_prev->posx + (x / native_pixel_size);
+  rect.ymin = win_prev->posy + (y / native_pixel_size);
   sizex /= native_pixel_size;
   sizey /= native_pixel_size;
 
   if (alignment == WIN_ALIGN_LOCATION_CENTER) {
     /* Window centered around x,y location. */
-    rect.xmin += win_prev->posx - (sizex / 2);
-    rect.ymin += win_prev->posy - (sizey / 2);
+    rect.xmin -= sizex / 2;
+    rect.ymin -= sizey / 2;
   }
   else if (alignment == WIN_ALIGN_PARENT_CENTER) {
     /* Centered within parent. X,Y as offsets from there. */
-    rect.xmin += win_prev->posx + ((win_prev->sizex - sizex) / 2);
-    rect.ymin += win_prev->posy + ((win_prev->sizey - sizey) / 2);
+    rect.xmin += (win_prev->sizex - sizex) / 2;
+    rect.ymin += (win_prev->sizey - sizey) / 2;
   }
-  else if (alignment == WIN_ALIGN_ABSOLUTE) {
-    /* Positioned absolutely in desktop coordinates. */
+  else {
+    /* Positioned absolutely within parent bounds. */
   }
 
   rect.xmax = rect.xmin + sizex;
@@ -1054,42 +1034,6 @@ wmWindow *WM_window_open(bContext *C,
   CTX_wm_window_set(C, win_prev);
 
   return nullptr;
-}
-
-struct wmWindow *WM_window_open_temp(struct bContext *C,
-                                     const char *title,
-                                     UserDef_WinState *state,
-                                     int def_sizex,
-                                     int def_sizey,
-                                     int space_type,
-                                     bool dialog)
-{
-  int posx, posy, sizex, sizey;
-  eWindowAlignment align;
-
-  WM_window_set_dpi(CTX_wm_window(C));
-
-  if (state && state->sizex != 0.0f) {
-    posx = (int)(state->posx * UI_SCALE_FAC);
-    posy = (int)(state->posy * UI_SCALE_FAC);
-    sizex = (int)(state->sizex * UI_SCALE_FAC);
-    sizey = (int)(state->sizey * UI_SCALE_FAC);
-    align = WIN_ALIGN_ABSOLUTE;
-  }
-  else {
-    posx = 0;
-    posy = 0;
-    sizex = def_sizex * UI_SCALE_FAC;
-    sizey = def_sizey * UI_SCALE_FAC;
-    align = WIN_ALIGN_LOCATION_CENTER;
-  }
-
-  wmWindow *win = WM_window_open(
-      C, title, posx, posy, sizex, sizey, space_type, false, dialog, true, align);
-
-  win->savestate = state;
-
-  return win;
 }
 
 /** \} */

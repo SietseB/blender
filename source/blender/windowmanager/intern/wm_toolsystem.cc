@@ -337,7 +337,8 @@ void WM_toolsystem_ref_set_from_runtime(bContext *C,
   /* Ugly fix for tool settings not updating when switching from Fill/Erase/Tint
    * to GP primitives (line, polyline, etc.)
    */
-  bool is_gp_primitive = (tref->mode == CTX_MODE_PAINT_GPENCIL) && (tref->runtime->cursor == 5);
+  bool is_gp_primitive = (tref->mode == CTX_MODE_PAINT_GPENCIL_LEGACY) &&
+                         (tref->runtime->cursor == 5);
   if (is_gp_primitive) {
     STRNCPY(tref->runtime->data_block, "DRAW");
   }

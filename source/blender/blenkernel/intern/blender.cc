@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <time>
 
 #include "MEM_guardedalloc.h"
 
@@ -177,7 +176,7 @@ void BKE_blender_globals_init()
 #endif
 
   G.log.level = 1;
-  
+
   srand(time(NULL));
 }
 

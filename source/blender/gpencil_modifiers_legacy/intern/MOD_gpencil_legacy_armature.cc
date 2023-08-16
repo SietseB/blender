@@ -108,7 +108,6 @@ static void deform_stroke(GpencilModifierData *md,
   if (!mmd->object) {
     return;
   }
-  bGPdata *gpd = static_cast<bGPdata *>(ob->data);
 
   gpencil_deform_verts(mmd, ob, gps);
 

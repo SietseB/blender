@@ -13,6 +13,7 @@
 #include "DNA_brush_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_customdata_types.h"
+#include "DNA_gpencil_legacy_types.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_material_types.h"
@@ -53,7 +54,7 @@
 
 #include "DEG_depsgraph_query.h"
 
-#include "gpencil_ondine_render.h"
+#include "gpencil_ondine.hh"
 
 const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
@@ -2324,12 +2325,12 @@ static void rna_LightLinking_collection_update(Main *bmain, Scene * /*scene*/, P
 
 void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
 {
-  gpencil_ondine_render_set_zdepth(ob);
+  gpencil_ondine_set_zdepth(ob);
 }
 
-void rna_Object_gpencil_ondine_set_render_data(Object *ob, float mat[16])
+void rna_Object_gpencil_ondine_set_render_data(Object *ob, const float mat[16])
 {
-  gpencil_ondine_render_set_data(ob, (const float(*)[4])mat);
+  gpencil_ondine_set_render_data(ob, (const float(*)[4])mat);
 }
 
 #else
@@ -3796,8 +3797,8 @@ static void rna_def_object(BlenderRNA *brna)
   /* Ondine watercolor additions */
   /* clear background */
   prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "ondine_flag", GP_ONDINE_CLEAR_BG);
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+  RNA_def_property_boolean_sdna(prop, nullptr, "ondine_flag", GP_ONDINE_CLEAR_BG);
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, ParameterFlag(0));
   RNA_def_property_ui_text(prop,
                            "Clear Background",
                            "Clear the background when drawing this object (Ondine watercolor)");
@@ -3816,8 +3817,8 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_function_ui_description(func,
                                   "Set data of watercolor grease pencil object for rendering");
   parm = RNA_def_float_matrix(
-      func, "matrix_world", 4, 4, NULL, 0.0f, 0.0f, "", "World Matrix", 0.0f, 0.0f);
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+      func, "matrix_world", 4, 4, nullptr, 0.0f, 0.0f, "", "World Matrix", 0.0f, 0.0f);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 
   RNA_define_lib_overridable(false);
 
