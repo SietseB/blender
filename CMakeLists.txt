@@ -650,7 +650,8 @@ if(NOT APPLE)
   # Radeon VII (gfx906) not currently working with HIP SDK, so left out of the list.
   set(CYCLES_HIP_BINARIES_ARCH
     gfx900 gfx90c gfx902
-    gfx1010 gfx1011 gfx1012 gfx1030 gfx1031 gfx1032 gfx1034 gfx1035
+    gfx1010 gfx1011 gfx1012
+    gfx1030 gfx1031 gfx1032 gfx1034 gfx1035 gfx1036
     gfx1100 gfx1101 gfx1102
     CACHE STRING "AMD HIP architectures to build binaries for"
   )
@@ -1266,8 +1267,12 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Release")
       unset(_is_CONFIG_DEBUG)
     elseif(COMPILER_ASAN_LIBRARY)
       set(PLATFORM_LINKLIBS "${PLATFORM_LINKLIBS};${COMPILER_ASAN_LIBRARY}")
-      set(PLATFORM_LINKFLAGS "${COMPILER_ASAN_LIBRARY} ${COMPILER_ASAN_LINKER_FLAGS}")
-      set(PLATFORM_LINKFLAGS_DEBUG "${COMPILER_ASAN_LIBRARY} ${COMPILER_ASAN_LINKER_FLAGS}")
+      set(PLATFORM_LINKFLAGS "${COMPILER_ASAN_LIBRARY}")
+      set(PLATFORM_LINKFLAGS_DEBUG "${COMPILER_ASAN_LIBRARY}")
+      if(DEFINED COMPILER_ASAN_LINKER_FLAGS)
+        set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} ${COMPILER_ASAN_LINKER_FLAGS}")
+        set(PLATFORM_LINKFLAGS_DEBUG "${PLATFORM_LINKFLAGS_DEBUG} ${COMPILER_ASAN_LINKER_FLAGS}")
+      endif()
     endif()
   endif()
 endif()
@@ -1433,7 +1438,12 @@ if(WITH_OPENVDB)
 
   if(WITH_OPENVDB_BLOSC)
     list(APPEND OPENVDB_DEFINITIONS -DWITH_OPENVDB_BLOSC)
-    list(APPEND OPENVDB_LIBRARIES ${BLOSC_LIBRARIES} ${ZLIB_LIBRARIES})
+    # Even when `WITH_OPENVDB_BLOSC` is set, `FindBlosc.cmake` isn't running.
+    # As this might be used at some point, check the libraries are defined.
+    if(DEFINED BLOSC_LIBRARIES)
+      list(APPEND OPENVDB_LIBRARIES ${BLOSC_LIBRARIES})
+    endif()
+    list(APPEND OPENVDB_LIBRARIES ${ZLIB_LIBRARIES})
   endif()
 
   list(APPEND OPENVDB_LIBRARIES ${BOOST_LIBRARIES} ${TBB_LIBRARIES})
@@ -1729,6 +1739,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
     CXX_WARN_UNUSED_PARAMETER -Wunused-parameter
     CXX_WARN_WRITE_STRINGS -Wwrite-strings
     CXX_WARN_UNDEF -Wundef
+    CXX_WARN_COMMA_SUBSCRIPT -Wcomma-subscript
     CXX_WARN_FORMAT_SIGN -Wformat-signedness
     CXX_WARN_RESTRICT -Wrestrict
     CXX_WARN_NO_SUGGEST_OVERRIDE -Wno-suggest-override
@@ -1960,6 +1971,12 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
   set(C_WARNINGS "${_WARNINGS}")
   set(CXX_WARNINGS "${_WARNINGS}")
   unset(_WARNINGS)
+endif()
+
+# Xcode enables additional warning flags by default. Disable some to match
+# command line build and other platforms more closely.
+if(XCODE)
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_64_TO_32_BIT_CONVERSION NO)
 endif()
 
 # ensure python header is found since detection can fail, this could happen
