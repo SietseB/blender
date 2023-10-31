@@ -514,7 +514,7 @@ class edit_generators:
         Replace:
           float abc[3] = {0, 1, 2};
         With:
-          const float abc[3] = {0, 1, 2};
+          `const float abc[3] = {0, 1, 2};`
 
         Replace:
           float abc[3]
@@ -1882,7 +1882,7 @@ def run_edits_on_directory(
         return 1
 
     if jobs <= 0:
-        jobs = multiprocessing.cpu_count() * 2
+        jobs = multiprocessing.cpu_count()
 
     if args is None:
         # Error will have been reported.
@@ -1932,7 +1932,7 @@ def run_edits_on_directory(
             # print(c)
             if index != -1:
                 # Remove first part of the path, we don't want to match
-                # against paths in Blender's repo.
+                # against paths in Blender's repository.
                 # print(source_path)
                 c_strip = c[index:]
                 for regex in regex_list:
@@ -2135,7 +2135,7 @@ def main() -> int:
     verbose_edit_actions = False
     verbose_all_from_args = args.verbose.split(",") if args.verbose else []
     while verbose_all_from_args:
-        match (verbose_id := verbose_all_from_args.pop()):
+        match(verbose_id := verbose_all_from_args.pop()):
             case "compile":
                 verbose_compile = True
             case "edit_actions":

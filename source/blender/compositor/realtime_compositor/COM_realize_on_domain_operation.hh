@@ -42,10 +42,6 @@ class RealizeOnDomainOperation : public SimpleOperation {
  protected:
   /* The operation domain is just the target domain. */
   Domain compute_domain() override;
-
- private:
-  /* Get the realization shader of the appropriate type. */
-  GPUShader *get_realization_shader();
 };
 
 }  // namespace blender::realtime_compositor

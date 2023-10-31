@@ -274,7 +274,7 @@ void BKE_gpencil_modifier_free_ex(struct GpencilModifierData *md, int flag);
  */
 void BKE_gpencil_modifier_free(struct GpencilModifierData *md);
 /* check unique name */
-bool BKE_gpencil_modifier_unique_name(struct ListBase *modifiers, struct GpencilModifierData *gmd);
+void BKE_gpencil_modifier_unique_name(struct ListBase *modifiers, struct GpencilModifierData *gmd);
 /**
  * Check if grease pencil modifier depends on time.
  * \param md: Modifier data.
@@ -481,7 +481,6 @@ void BKE_gpencil_modifier_blend_write(struct BlendWriter *writer, struct ListBas
 void BKE_gpencil_modifier_blend_read_data(struct BlendDataReader *reader,
                                           struct ListBase *lb,
                                           struct Object *ob);
-void BKE_gpencil_modifier_blend_read_lib(struct BlendLibReader *reader, struct Object *ob);
 
 #ifdef __cplusplus
 }

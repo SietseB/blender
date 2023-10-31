@@ -4,7 +4,6 @@
 
 /** \file
  * \ingroup draw_engine
- *
  */
 
 #pragma once
@@ -20,7 +19,7 @@
 
 #include "gpu_shader_create_info.hh"
 
-#include "select_defines.h"
+#include "select_defines.hh"
 #include "select_shader_shared.hh"
 
 namespace blender::draw::select {

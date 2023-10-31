@@ -1123,10 +1123,10 @@ void fcurve_to_keylist(AnimData *adt, FCurve *fcu, AnimKeylist *keylist, const i
   }
 }
 
-void agroup_to_keylist(AnimData *adt,
-                       bActionGroup *agrp,
-                       AnimKeylist *keylist,
-                       const int saction_flag)
+void action_group_to_keylist(AnimData *adt,
+                             bActionGroup *agrp,
+                             AnimKeylist *keylist,
+                             const int saction_flag)
 {
   if (agrp) {
     /* loop through F-Curves */
@@ -1166,11 +1166,18 @@ void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, AnimKeylist *keylist, con
 void grease_pencil_data_block_to_keylist(AnimData *adt,
                                          const GreasePencil *grease_pencil,
                                          AnimKeylist *keylist,
-                                         const int saction_flag)
+                                         const int saction_flag,
+                                         const bool active_layer_only)
 {
   if ((grease_pencil == nullptr) || (keylist == nullptr)) {
     return;
   }
+
+  if (active_layer_only && grease_pencil->has_active_layer()) {
+    grease_pencil_cels_to_keylist(adt, grease_pencil->get_active_layer(), keylist, saction_flag);
+    return;
+  }
+
   for (const blender::bke::greasepencil::Layer *layer : grease_pencil->layers()) {
     grease_pencil_cels_to_keylist(adt, layer, keylist, saction_flag);
   }
@@ -1191,6 +1198,26 @@ void grease_pencil_cels_to_keylist(AnimData * /*adt*/,
     float cfra = float(item.key);
     ED_keylist_add_or_update_column(
         keylist, cfra, nalloc_ak_cel, nupdate_ak_cel, static_cast<void *>(&cel));
+  }
+}
+
+void grease_pencil_layer_group_to_keylist(AnimData *adt,
+                                          const GreasePencilLayerTreeGroup *layer_group,
+                                          AnimKeylist *keylist,
+                                          const int saction_flag)
+{
+  if ((layer_group == nullptr) || (keylist == nullptr)) {
+    return;
+  }
+
+  LISTBASE_FOREACH_BACKWARD (GreasePencilLayerTreeNode *, node_, &layer_group->children) {
+    const blender::bke::greasepencil::TreeNode &node = node_->wrap();
+    if (node.is_group()) {
+      grease_pencil_layer_group_to_keylist(adt, &node.as_group(), keylist, saction_flag);
+    }
+    else if (node.is_layer()) {
+      grease_pencil_cels_to_keylist(adt, &node.as_layer(), keylist, saction_flag);
+    }
   }
 }
 

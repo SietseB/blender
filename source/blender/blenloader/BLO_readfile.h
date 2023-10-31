@@ -203,7 +203,8 @@ void BLO_blendfiledata_free(BlendFileData *bfd);
  *
  * Called at the end of #setup_add_data from BKE's `blendfile.cc`.
  *
- * \param new_bmain the newly read Main data-base. */
+ * \param new_bmain: the newly read Main data-base.
+ */
 void BLO_read_do_version_after_setup(struct Main *new_bmain, struct BlendFileReadReport *reports);
 
 /** \} */
@@ -497,7 +498,7 @@ void BLO_main_expander(BLOExpandDoitCallback expand_doit_func);
  * Loop over all ID data in Main to mark relations.
  * Set (id->tag & LIB_TAG_NEED_EXPAND) to mark expanding. Flags get cleared after expanding.
  *
- * \param fdhandle: usually file-data, or own handle.
+ * \param fdhandle: usually file-data, or own handle. May be nullptr.
  * \param mainvar: the Main database to expand.
  */
 void BLO_expand_main(void *fdhandle, struct Main *mainvar);

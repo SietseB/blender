@@ -17,11 +17,16 @@
 #include "BKE_attribute_math.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_fields.hh"
+#include "BKE_grease_pencil.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 
+#include "NOD_rna_define.hh"
+
 #include "UI_interface.hh"
 #include "UI_resources.hh"
+
+#include "RNA_enum_types.hh"
 
 #include "NOD_socket_search_link.hh"
 
@@ -81,12 +86,12 @@ static void node_init(bNodeTree * /*tree*/, bNode *node)
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   const bNodeType &node_type = params.node_type();
-  const NodeDeclaration &declaration = *node_type.fixed_declaration;
+  const NodeDeclaration &declaration = *node_type.static_declaration;
 
   /* Weight and Iterations inputs don't change based on the data type. */
   search_link_ops_for_declarations(params, declaration.inputs.as_span().take_back(2));
 
-  const std::optional<eCustomDataType> new_node_type = node_data_type_to_custom_data_type(
+  const std::optional<eCustomDataType> new_node_type = bke::socket_type_to_custom_data_type(
       eNodeSocketDatatype(params.other_socket().type));
   if (!new_node_type.has_value()) {
     return;
@@ -437,8 +442,9 @@ class BlurAttributeFieldInput final : public bke::GeometryFieldInput {
         }
         break;
       case GeometryComponent::Type::Curve:
+      case GeometryComponent::Type::GreasePencil:
         if (context.domain() == ATTR_DOMAIN_POINT) {
-          if (const bke::CurvesGeometry *curves = context.curves()) {
+          if (const bke::CurvesGeometry *curves = context.curves_or_strokes()) {
             result_buffer = blur_on_curves(
                 *curves, iterations_, neighbor_weights, buffer_a, buffer_b);
           }
@@ -479,7 +485,12 @@ class BlurAttributeFieldInput final : public bke::GeometryFieldInput {
 
   std::optional<eAttrDomain> preferred_domain(const GeometryComponent &component) const override
   {
-    return bke::try_detect_field_domain(component, value_field_);
+    const std::optional<eAttrDomain> domain = bke::try_detect_field_domain(component,
+                                                                           value_field_);
+    if (domain.has_value() && *domain == ATTR_DOMAIN_CORNER) {
+      return ATTR_DOMAIN_POINT;
+    }
+    return domain;
   }
 };
 
@@ -517,6 +528,24 @@ static void node_geo_exec(GeoNodeExecParams params)
   });
 }
 
+static void node_rna(StructRNA *srna)
+{
+  RNA_def_node_enum(
+      srna,
+      "data_type",
+      "Data Type",
+      "",
+      rna_enum_attribute_type_items,
+      NOD_inline_enum_accessors(custom1),
+      CD_PROP_FLOAT,
+      [](bContext * /*C*/, PointerRNA * /*ptr*/, PropertyRNA * /*prop*/, bool *r_free) {
+        *r_free = true;
+        return enum_items_filter(rna_enum_attribute_type_items, [](const EnumPropertyItem &item) {
+          return ELEM(item.value, CD_PROP_FLOAT, CD_PROP_FLOAT3, CD_PROP_COLOR, CD_PROP_INT32);
+        });
+      });
+}
+
 static void node_register()
 {
   static bNodeType ntype;
@@ -528,6 +557,8 @@ static void node_register()
   ntype.geometry_node_execute = node_geo_exec;
   ntype.gather_link_search_ops = node_gather_link_searches;
   nodeRegisterType(&ntype);
+
+  node_rna(ntype.rna_ext.srna);
 }
 NOD_REGISTER_NODE(node_register)
 

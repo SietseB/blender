@@ -464,6 +464,7 @@ static EnumPropertyItem rna_enum_gpencil_brush_vertex_icons_items[] = {
 #  include "BKE_icons.h"
 #  include "BKE_material.h"
 #  include "BKE_paint.hh"
+#  include "BKE_preview_image.hh"
 
 #  include "WM_api.hh"
 
@@ -962,10 +963,10 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
               return prop_direction_items;
 
             case BRUSH_MASK_SMOOTH:
-              return DummyRNA_DEFAULT_items;
+              return rna_enum_dummy_DEFAULT_items;
 
             default:
-              return DummyRNA_DEFAULT_items;
+              return rna_enum_dummy_DEFAULT_items;
           }
 
         case SCULPT_TOOL_FLATTEN:
@@ -984,7 +985,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
           return prop_inflate_deflate_items;
 
         default:
-          return DummyRNA_DEFAULT_items;
+          return rna_enum_dummy_DEFAULT_items;
       }
 
     case PAINT_MODE_TEXTURE_2D:
@@ -994,7 +995,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
           return prop_soften_sharpen_items;
 
         default:
-          return DummyRNA_DEFAULT_items;
+          return rna_enum_dummy_DEFAULT_items;
       }
     case PAINT_MODE_SCULPT_CURVES:
       switch (me->curves_sculpt_tool) {
@@ -1003,10 +1004,10 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
         case CURVES_SCULPT_TOOL_PINCH:
           return prop_direction_items;
         default:
-          return DummyRNA_DEFAULT_items;
+          return rna_enum_dummy_DEFAULT_items;
       }
     default:
-      return DummyRNA_DEFAULT_items;
+      return rna_enum_dummy_DEFAULT_items;
   }
 }
 
@@ -1519,6 +1520,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
       prop,
       "Smooth",
       "Amount of smoothing to apply after finish newly created strokes, to reduce jitter/noise");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_AMOUNT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, nullptr);
 
@@ -1651,7 +1653,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
 
   /* gradient control */
   prop = RNA_def_property(srna, "hardness", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "hardeness");
+  RNA_def_property_float_sdna(prop, nullptr, "hardness");
   RNA_def_property_range(prop, 0.001f, 1.0f);
   RNA_def_property_float_default(prop, 1.0f);
   RNA_def_property_ui_text(
@@ -1937,6 +1939,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, nullptr, "caps_type");
   RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_caps_types_items);
   RNA_def_property_ui_text(prop, "Caps Type", "The shape of the start and end of the stroke");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   prop = RNA_def_property(srna, "fill_draw_mode", PROP_ENUM, PROP_NONE);
@@ -2639,6 +2642,7 @@ static void rna_def_brush(BlenderRNA *brna)
   prop = RNA_def_property(srna, "curves_sculpt_tool", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, rna_enum_brush_curves_sculpt_tool_items);
   RNA_def_property_ui_text(prop, "Curves Sculpt Tool", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVES);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   /** End per mode tool properties. */
@@ -2665,6 +2669,7 @@ static void rna_def_brush(BlenderRNA *brna)
   prop = RNA_def_property(srna, "mask_tool", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, brush_mask_tool_items);
   RNA_def_property_ui_text(prop, "Mask Tool", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MASK);
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "curve_preset", PROP_ENUM, PROP_NONE);

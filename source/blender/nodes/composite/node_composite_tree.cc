@@ -8,6 +8,8 @@
 
 #include <cstdio>
 
+#include "BLI_string.h"
+
 #include "DNA_color_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
@@ -29,11 +31,11 @@
 #include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
-#include "NOD_composite.h"
+#include "NOD_composite.hh"
 #include "node_composite_util.hh"
 
 #ifdef WITH_COMPOSITOR_CPU
-#  include "COM_compositor.h"
+#  include "COM_compositor.hh"
 #endif
 
 static void composite_get_from_context(

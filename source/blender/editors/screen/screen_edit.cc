@@ -27,7 +27,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 #include "BKE_sound.h"
 #include "BKE_workspace.h"
 
@@ -44,7 +44,7 @@
 #include "WM_message.hh"
 #include "WM_toolsystem.h"
 
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph_query.hh"
 
 #include "screen_intern.h" /* own module include */
 
@@ -390,7 +390,7 @@ static bool screen_areas_can_align(bScreen *screen, ScrArea *sa1, ScrArea *sa2, 
       if (area->v3->vec.x - area->v1->vec.x < tolerance &&
           (area->v1->vec.x == xmin || area->v3->vec.x == xmax))
       {
-        /* There is a narrow vertical area sharing an edge of the combined bounds. */
+        WM_report(RPT_ERROR, "A narrow vertical area interferes with this operation");
         return false;
       }
     }
@@ -405,7 +405,7 @@ static bool screen_areas_can_align(bScreen *screen, ScrArea *sa1, ScrArea *sa2, 
       if (area->v3->vec.y - area->v1->vec.y < tolerance &&
           (area->v1->vec.y == ymin || area->v3->vec.y == ymax))
       {
-        /* There is a narrow horizontal area sharing an edge of the combined bounds. */
+        WM_report(RPT_ERROR, "A narrow horizontal area interferes with this operation");
         return false;
       }
     }
@@ -805,7 +805,9 @@ void ED_region_exit(bContext *C, ARegion *region)
 
   WM_event_remove_handlers(C, &region->handlers);
   WM_event_modal_handler_region_replace(win, region, nullptr);
-  WM_draw_region_free(region, true);
+  WM_draw_region_free(region);
+  /* The region is not in a state that it can be visible in anymore. Reinitializing is needed. */
+  region->visible = false;
 
   MEM_SAFE_FREE(region->headerstr);
 
@@ -1677,32 +1679,6 @@ ScrArea *ED_screen_temp_space_open(bContext *C,
   }
 
   return area;
-}
-
-void ED_refresh_viewport_fps(bContext *C)
-{
-  wmTimer *animtimer = CTX_wm_screen(C)->animtimer;
-  Scene *scene = CTX_data_scene(C);
-
-  /* is anim playback running? */
-  if (animtimer && (U.uiflag & USER_SHOW_FPS)) {
-    ScreenFrameRateInfo *fpsi = static_cast<ScreenFrameRateInfo *>(scene->fps_info);
-
-    /* if there isn't any info, init it first */
-    if (fpsi == nullptr) {
-      fpsi = static_cast<ScreenFrameRateInfo *>(
-          scene->fps_info = MEM_callocN(sizeof(ScreenFrameRateInfo),
-                                        "refresh_viewport_fps fps_info"));
-    }
-
-    /* update the values */
-    fpsi->redrawtime = fpsi->lredrawtime;
-    fpsi->lredrawtime = animtimer->ltime;
-  }
-  else {
-    /* playback stopped or shouldn't be running */
-    MEM_SAFE_FREE(scene->fps_info);
-  }
 }
 
 void ED_screen_animation_timer(bContext *C, int redraws, int sync, int enable)

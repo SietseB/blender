@@ -57,7 +57,7 @@ class FairingContext {
                                           float r_adj_prev[3]) = 0;
 
   /* Get the other vertex index for a loop. */
-  virtual int other_vertex_index_from_loop(const int loop, const uint v) = 0;
+  virtual int other_vertex_index_from_loop(const int loop, const int v) = 0;
 
   int vertex_count_get()
   {
@@ -204,8 +204,7 @@ class MeshFairingContext : public FairingContext {
     faces = mesh->faces();
     corner_verts_ = mesh->corner_verts();
     corner_edges_ = mesh->corner_edges();
-    vlmap_ = blender::bke::mesh::build_vert_to_loop_map(
-        corner_verts_, positions.size(), vert_to_face_offsets_, vert_to_face_indices_);
+    vlmap_ = mesh->vert_to_corner_map();
 
     /* Deformation coords. */
     co_.reserve(mesh->totvert);
@@ -220,7 +219,7 @@ class MeshFairingContext : public FairingContext {
       }
     }
 
-    loop_to_face_map_ = blender::bke::mesh::build_loop_to_face_map(faces);
+    loop_to_face_map_ = mesh->corner_to_face_map();
   }
 
   void adjacents_coords_from_loop(const int loop,
@@ -235,7 +234,7 @@ class MeshFairingContext : public FairingContext {
     copy_v3_v3(r_adj_prev, co_[adjecent_verts[1]]);
   }
 
-  int other_vertex_index_from_loop(const int loop, const uint v) override
+  int other_vertex_index_from_loop(const int loop, const int v) override
   {
     const blender::int2 &edge = edges_[corner_edges_[loop]];
     return blender::bke::mesh::edge_other_vert(edge, v);
@@ -247,9 +246,7 @@ class MeshFairingContext : public FairingContext {
   Span<int> corner_edges_;
   blender::OffsetIndices<int> faces;
   Span<blender::int2> edges_;
-  Array<int> loop_to_face_map_;
-  Array<int> vert_to_face_offsets_;
-  Array<int> vert_to_face_indices_;
+  Span<int> loop_to_face_map_;
 };
 
 class BMeshFairingContext : public FairingContext {
@@ -302,7 +299,7 @@ class BMeshFairingContext : public FairingContext {
     copy_v3_v3(r_adj_prev, bmloop_[loop]->prev->v->co);
   }
 
-  int other_vertex_index_from_loop(const int loop, const uint v) override
+  int other_vertex_index_from_loop(const int loop, const int v) override
   {
     BMLoop *l = bmloop_[loop];
     BMVert *bmvert = BM_vert_at_index(bm, v);

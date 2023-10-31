@@ -36,12 +36,12 @@
 #include "BKE_deform.h"
 #include "BKE_lattice.h"
 #include "BKE_mesh.hh"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "texture_common.h"
 
@@ -368,8 +368,8 @@ static void pointdensity_cache_vertex_weight(PointDensity *pd,
 static void pointdensity_cache_vertex_normal(Mesh *mesh, float *data_color)
 {
   BLI_assert(data_color);
-  const float(*vert_normals)[3] = BKE_mesh_vert_normals_ensure(mesh);
-  memcpy(data_color, vert_normals, sizeof(float[3]) * mesh->totvert);
+  const blender::Span<blender::float3> normals = mesh->vert_normals();
+  memcpy(data_color, normals.data(), sizeof(float[3]) * mesh->totvert);
 }
 
 static void pointdensity_cache_object(PointDensity *pd, Object *ob)
@@ -853,10 +853,7 @@ void RE_point_density_minmax(Depsgraph *depsgraph,
   }
   else {
     const float radius[3] = {pd->radius, pd->radius, pd->radius};
-    const BoundBox *bb = BKE_object_boundbox_get(object);
-
-    if (bb != nullptr) {
-      BLI_assert((bb->flag & BOUNDBOX_DIRTY) == 0);
+    if (const std::optional<BoundBox> bb = BKE_object_boundbox_get(object)) {
       copy_v3_v3(r_min, bb->vec[0]);
       copy_v3_v3(r_max, bb->vec[6]);
       /* Adjust texture space to include density points on the boundaries. */

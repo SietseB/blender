@@ -44,6 +44,7 @@
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_paint.hh"
+#include "BKE_preview_image.hh"
 #include "BKE_studiolight.h"
 
 #include "IMB_imbuf.h"
@@ -1150,6 +1151,7 @@ void UI_icons_free()
   free_iconfile_list(&iconfilelist);
 #endif
   BKE_icons_free();
+  BKE_preview_images_free();
 }
 
 void UI_icons_free_drawinfo(void *drawinfo)
@@ -1314,10 +1316,7 @@ static void icon_create_rect(PreviewImage *prv_img, enum eIconSizes size)
 static void ui_id_preview_image_render_size(
     const bContext *C, Scene *scene, ID *id, PreviewImage *pi, int size, const bool use_job);
 
-static void ui_studiolight_icon_job_exec(void *customdata,
-                                         bool * /*stop*/,
-                                         bool * /*do_update*/,
-                                         float * /*progress*/)
+static void ui_studiolight_icon_job_exec(void *customdata, wmJobWorkerStatus * /*worker_status*/)
 {
   Icon **tmp = (Icon **)customdata;
   Icon *icon = *tmp;

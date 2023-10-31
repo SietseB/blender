@@ -18,7 +18,7 @@
 
 #include "BKE_colorband.h"
 #include "BKE_global.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 
 #include "draw_common.h"
 
@@ -84,6 +84,7 @@ void DRW_globals_update()
   UI_GetThemeColor4fv(TH_TRANSPARENT_CHECKER_PRIMARY, gb->color_checker_primary);
   UI_GetThemeColor4fv(TH_TRANSPARENT_CHECKER_SECONDARY, gb->color_checker_secondary);
   gb->size_checker = UI_GetThemeValuef(TH_TRANSPARENT_CHECKER_SIZE);
+  gb->fresnel_mix_edit = ((U.gpu_flag & USER_GPU_FLAG_FRESNEL_EDIT) == 0) ? 0.0f : 1.0f;
   UI_GetThemeColor4fv(TH_V3D_CLIPPING_BORDER, gb->color_clipping_border);
 
   /* Custom median color to slightly affect the edit mesh colors. */
@@ -111,14 +112,14 @@ void DRW_globals_update()
   UI_GetThemeColorBlendShade4fv(TH_WIRE, TH_BONE_POSE, 0.15f, 0, gb->color_bone_pose_active_unsel);
   UI_GetThemeColorBlendShade3fv(
       TH_WIRE_EDIT, TH_EDGE_SELECT, 0.15f, 0, gb->color_bone_active_unsel);
-  UI_COLOR_RGBA_FROM_U8(255, 150, 0, 80, gb->color_bone_pose_target);
+  UI_COLOR_RGBA_FROM_U8(255, 150, 0, 80, gb->color_bone_pose_no_target);
   UI_COLOR_RGBA_FROM_U8(255, 255, 0, 80, gb->color_bone_pose_ik);
   UI_COLOR_RGBA_FROM_U8(200, 255, 0, 80, gb->color_bone_pose_spline_ik);
   UI_COLOR_RGBA_FROM_U8(0, 255, 120, 80, gb->color_bone_pose_constraint);
   UI_GetThemeColor4fv(TH_BONE_SOLID, gb->color_bone_solid);
   UI_GetThemeColor4fv(TH_BONE_LOCKED_WEIGHT, gb->color_bone_locked);
-  copy_v4_fl4(gb->color_bone_ik_line, 0.8f, 0.5f, 0.0f, 1.0f);
-  copy_v4_fl4(gb->color_bone_ik_line_no_target, 0.8f, 0.8f, 0.2f, 1.0f);
+  copy_v4_fl4(gb->color_bone_ik_line, 0.8f, 0.8f, 0.0f, 1.0f);
+  copy_v4_fl4(gb->color_bone_ik_line_no_target, 0.8f, 0.5f, 0.2f, 1.0f);
   copy_v4_fl4(gb->color_bone_ik_line_spline, 0.8f, 0.8f, 0.2f, 1.0f);
 
   /* Curve */

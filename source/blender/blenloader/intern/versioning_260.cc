@@ -6,10 +6,14 @@
  * \ingroup blenloader
  */
 
+#include "BKE_idprop.h"
 #include "BLI_utildefines.h"
 
 /* allow readfile to use deprecated functionality */
 #define DNA_DEPRECATED_ALLOW
+
+/* Define macros in `DNA_genfile.h`. */
+#define DNA_GENFILE_VERSIONING_MACROS
 
 #include "DNA_anim_types.h"
 #include "DNA_brush_types.h"
@@ -35,13 +39,15 @@
 #include "DNA_view3d_types.h"
 #include "DNA_world_types.h"
 
+#undef DNA_GENFILE_VERSIONING_MACROS
+
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 
 #include "BLT_translation.h"
 
@@ -52,10 +58,11 @@
 #include "BKE_mesh_legacy_convert.hh"
 #include "BKE_modifier.h"
 #include "BKE_node_runtime.hh"
+#include "BKE_node_tree_update.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 #include "BKE_text.h" /* for txt_extended_ascii_as_utf8 */
 #include "BKE_texture.h"
 #include "BKE_tracking.h"
@@ -71,12 +78,12 @@
 #include "IMB_imbuf.h" /* for proxy / time-code versioning stuff. */
 
 #include "NOD_common.h"
-#include "NOD_composite.h"
+#include "NOD_composite.hh"
 #include "NOD_texture.h"
 
 #include "BLO_readfile.h"
 
-#include "readfile.h"
+#include "readfile.hh"
 
 /** Without empty statements, clang-format fails (tested with v12 & v15). */
 #define CLANG_FORMAT_NOP_WORKAROUND ((void)0)
@@ -229,10 +236,10 @@ static void do_versions_nodetree_socket_use_flags_2_62(bNodeTree *ntree)
       sock->flag &= ~SOCK_IS_LINKED;
     }
   }
-  LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs) {
+  LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs_legacy) {
     sock->flag &= ~SOCK_IS_LINKED;
   }
-  LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs) {
+  LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs_legacy) {
     sock->flag &= ~SOCK_IS_LINKED;
   }
 
@@ -920,10 +927,10 @@ static void do_versions_nodetree_customnodes(bNodeTree *ntree, int /*is_group*/)
       }
     }
     /* tree sockets idname */
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs_legacy) {
       STRNCPY(sock->idname, node_socket_get_static_idname(sock));
     }
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs_legacy) {
       STRNCPY(sock->idname, node_socket_get_static_idname(sock));
     }
   }
@@ -939,10 +946,10 @@ static void do_versions_nodetree_customnodes(bNodeTree *ntree, int /*is_group*/)
         sock->in_out = SOCK_OUT;
       }
     }
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs_legacy) {
       sock->in_out = SOCK_IN;
     }
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs_legacy) {
       sock->in_out = SOCK_OUT;
     }
   }
@@ -969,18 +976,18 @@ static void do_versions_nodetree_customnodes(bNodeTree *ntree, int /*is_group*/)
                        sizeof(sock->identifier));
       }
     }
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->inputs_legacy) {
       STRNCPY(sock->identifier, sock->name);
-      BLI_uniquename(&ntree->inputs,
+      BLI_uniquename(&ntree->inputs_legacy,
                      sock,
                      "socket",
                      '.',
                      offsetof(bNodeSocket, identifier),
                      sizeof(sock->identifier));
     }
-    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs) {
+    LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs_legacy) {
       STRNCPY(sock->identifier, sock->name);
-      BLI_uniquename(&ntree->outputs,
+      BLI_uniquename(&ntree->outputs_legacy,
                      sock,
                      "socket",
                      '.',
@@ -1032,6 +1039,97 @@ static bool seq_set_wipe_angle_cb(Sequence *seq, void * /*user_data*/)
     wv->angle = DEG2RADF(wv->angle);
   }
   return true;
+}
+
+/* Create a socket stub without typeinfo. */
+static bNodeSocket *version_make_socket_stub(const char *idname,
+                                             eNodeSocketDatatype type,
+                                             eNodeSocketInOut in_out,
+                                             const char *identifier,
+                                             const char *name,
+                                             const void *default_value,
+                                             const IDProperty *prop)
+{
+  bNodeSocket *socket = MEM_cnew<bNodeSocket>(__func__);
+  socket->runtime = MEM_new<blender::bke::bNodeSocketRuntime>(__func__);
+  STRNCPY(socket->idname, idname);
+  socket->type = int(type);
+  socket->in_out = int(in_out);
+
+  socket->limit = (in_out == SOCK_IN ? 1 : 0xFFF);
+
+  STRNCPY(socket->identifier, identifier);
+  STRNCPY(socket->name, name);
+  socket->storage = nullptr;
+  socket->flag |= SOCK_COLLAPSED;
+
+  /* Note: technically socket values can store ref-counted ID pointers, but at this stage the
+   * refcount can be ignored. It gets recomputed after lib-linking for all ID pointers. Socket
+   * values don't have allocated data, so a simple duplication works here. */
+  socket->default_value = default_value ? MEM_dupallocN(default_value) : nullptr;
+  socket->prop = prop ? IDP_CopyProperty(prop) : nullptr;
+
+  return socket;
+}
+
+/* Same as nodeAddStaticNode but does not rely on node typeinfo. */
+static bNode *version_add_group_in_out_node(bNodeTree *ntree, const int type)
+{
+  ListBase *ntree_socket_list = nullptr;
+  ListBase *node_socket_list = nullptr;
+  eNodeSocketInOut socket_in_out = SOCK_IN;
+
+  bNode *node = MEM_cnew<bNode>("new node");
+  switch (type) {
+    case NODE_GROUP_INPUT:
+      STRNCPY(node->idname, "NodeGroupInput");
+      ntree_socket_list = &ntree->inputs_legacy;
+      /* Group input has only outputs. */
+      node_socket_list = &node->outputs;
+      socket_in_out = SOCK_OUT;
+      break;
+    case NODE_GROUP_OUTPUT:
+      STRNCPY(node->idname, "NodeGroupOutput");
+      ntree_socket_list = &ntree->outputs_legacy;
+      /* Group output has only inputs. */
+      node_socket_list = &node->inputs;
+      socket_in_out = SOCK_IN;
+      break;
+    default:
+      BLI_assert_unreachable();
+      return nullptr;
+  }
+
+  node->runtime = MEM_new<blender::bke::bNodeRuntime>(__func__);
+  BLI_addtail(&ntree->nodes, node);
+  nodeUniqueID(ntree, node);
+
+  /* Manual initialization of the node,
+   * node->typeinfo is only set after versioning. */
+  node->type = type;
+  {
+    if (ntree->typeinfo && ntree->typeinfo->node_add_init) {
+      ntree->typeinfo->node_add_init(ntree, node);
+    }
+
+    /* Add sockets without relying on declarations or typeinfo.
+     * These are stubs for links, full typeinfo is defined later. */
+    LISTBASE_FOREACH (bNodeSocket *, tree_socket, ntree_socket_list) {
+      bNodeSocket *node_socket = version_make_socket_stub(tree_socket->idname,
+                                                          eNodeSocketDatatype(tree_socket->type),
+                                                          socket_in_out,
+                                                          tree_socket->identifier,
+                                                          tree_socket->name,
+                                                          tree_socket->default_value,
+                                                          tree_socket->prop);
+
+      BLI_addtail(node_socket_list, node_socket);
+      BKE_ntree_update_tag_socket_type(ntree, node_socket);
+      BKE_ntree_update_tag_socket_new(ntree, node_socket);
+    }
+  }
+  BKE_ntree_update_tag_node_new(ntree, node);
+  return node;
 }
 
 /* NOLINTNEXTLINE: readability-function-size */
@@ -2170,6 +2268,128 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
       }
       FOREACH_NODETREE_END;
     }
+
+    /* Convert the previously used ntree->inputs/ntree->outputs lists to interface nodes.
+     * Pre 2.56.2 node trees automatically have all unlinked sockets exposed already,
+     * see do_versions_after_linking_250.
+     *
+     * This assumes valid typeinfo pointers, as set in lib_link_ntree.
+     *
+     * NOTE: theoretically only needed in node groups (main->nodetree),
+     * but due to a temporary bug such links could have been added in all trees,
+     * so have to clean up all of them ...
+     *
+     * NOTE: this always runs, without it links with nullptr fromnode and tonode remain
+     * which causes problems.
+     */
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      bNode *input_node = nullptr, *output_node = nullptr;
+      int num_inputs = 0, num_outputs = 0;
+      bNodeLink *link, *next_link;
+      /* Only create new interface nodes for actual older files.
+       * New file versions already have input/output nodes with duplicate links,
+       * in that case just remove the invalid links.
+       */
+      const bool create_io_nodes = MAIN_VERSION_FILE_OLDER(bmain, 266, 2);
+
+      float input_locx = 1000000.0f, input_locy = 0.0f;
+      float output_locx = -1000000.0f, output_locy = 0.0f;
+      /* Rough guess, not nice but we don't have access to UI constants here. */
+      const float offsetx = 42 + 3 * 20 + 20;
+      // const float offsety = 0.0f;
+
+      if (create_io_nodes) {
+        if (ntree->inputs_legacy.first) {
+          input_node = version_add_group_in_out_node(ntree, NODE_GROUP_INPUT);
+        }
+
+        if (ntree->outputs_legacy.first) {
+          output_node = version_add_group_in_out_node(ntree, NODE_GROUP_OUTPUT);
+        }
+      }
+
+      /* Redirect links from/to the node tree interface to input/output node.
+       * If the fromnode/tonode pointers are nullptr, this means a link from/to
+       * the ntree interface sockets, which need to be redirected to new interface nodes.
+       */
+      for (link = static_cast<bNodeLink *>(ntree->links.first); link != nullptr; link = next_link)
+      {
+        bool free_link = false;
+        next_link = link->next;
+
+        if (link->fromnode == nullptr) {
+          if (input_node) {
+            link->fromnode = input_node;
+            link->fromsock = node_group_input_find_socket(input_node, link->fromsock->identifier);
+            BLI_assert(link->fromsock != nullptr);
+            num_inputs++;
+
+            if (link->tonode) {
+              if (input_locx > link->tonode->locx - offsetx) {
+                input_locx = link->tonode->locx - offsetx;
+              }
+              input_locy += link->tonode->locy;
+            }
+          }
+          else {
+            free_link = true;
+          }
+        }
+
+        if (link->tonode == nullptr) {
+          if (output_node) {
+            link->tonode = output_node;
+            link->tosock = node_group_output_find_socket(output_node, link->tosock->identifier);
+            BLI_assert(link->tosock != nullptr);
+            num_outputs++;
+
+            if (link->fromnode) {
+              if (output_locx < link->fromnode->locx + offsetx) {
+                output_locx = link->fromnode->locx + offsetx;
+              }
+              output_locy += link->fromnode->locy;
+            }
+          }
+          else {
+            free_link = true;
+          }
+        }
+
+        if (free_link) {
+          nodeRemLink(ntree, link);
+        }
+      }
+
+      if (num_inputs > 0) {
+        input_locy /= num_inputs;
+        input_node->locx = input_locx;
+        input_node->locy = input_locy;
+      }
+      if (num_outputs > 0) {
+        output_locy /= num_outputs;
+        output_node->locx = output_locx;
+        output_node->locy = output_locy;
+      }
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 60)) {
+    /* From this point we no longer write incomplete links for forward
+     * compatibility with 2.66, we have to clean them up for all previous
+     * versions. */
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      bNodeLink *link, *next_link;
+
+      for (link = static_cast<bNodeLink *>(ntree->links.first); link != nullptr; link = next_link)
+      {
+        next_link = link->next;
+        if (link->fromnode == nullptr || link->tonode == nullptr) {
+          nodeRemLink(ntree, link);
+        }
+      }
+    }
+    FOREACH_NODETREE_END;
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 266, 4)) {
@@ -2195,7 +2415,7 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (bmain->versionfile < 267) {
-    // if (!DNA_struct_elem_find(fd->filesdna, "Brush", "int", "stencil_pos")) {
+    // if (!DNA_struct_member_exists(fd->filesdna, "Brush", "int", "stencil_pos")) {
     LISTBASE_FOREACH (Brush *, brush, &bmain->brushes) {
       if (brush->stencil_dimension[0] == 0) {
         brush->stencil_dimension[0] = 256;
@@ -2213,10 +2433,10 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
 
     /**
      * TIP: to initialize new variables added, use the new function:
-     * `DNA_struct_elem_find(fd->filesdna, "structname", "typename", "varname")`, example:
+     * `DNA_struct_member_exists(fd->filesdna, "structname", "typename", "varname")`, example:
      *
      * \code{.cc}
-     * if (!DNA_struct_elem_find(fd->filesdna, "UserDef", "short", "image_gpubuffer_limit")) {
+     * if (!DNA_struct_member_exists(fd->filesdna, "UserDef", "short", "image_gpubuffer_limit")) {
      *     user->image_gpubuffer_limit = 10;
      * }
      * \endcode
@@ -2502,7 +2722,7 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    if (!DNA_struct_elem_find(fd->filesdna, "MovieTrackingTrack", "float", "weight")) {
+    if (!DNA_struct_member_exists(fd->filesdna, "MovieTrackingTrack", "float", "weight")) {
       LISTBASE_FOREACH (MovieClip *, clip, &bmain->movieclips) {
         const MovieTracking *tracking = &clip->tracking;
         LISTBASE_FOREACH (MovieTrackingObject *, tracking_object, &tracking->objects) {
@@ -2516,7 +2736,7 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    if (!DNA_struct_elem_find(fd->filesdna, "TriangulateModifierData", "int", "quad_method")) {
+    if (!DNA_struct_member_exists(fd->filesdna, "TriangulateModifierData", "int", "quad_method")) {
       LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
         LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
           if (md->type == eModifierType_Triangulate) {
@@ -2602,7 +2822,8 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
       FOREACH_NODETREE_END;
     }
 
-    if (!DNA_struct_elem_find(fd->filesdna, "MovieTrackingPlaneTrack", "float", "image_opacity")) {
+    if (!DNA_struct_member_exists(
+            fd->filesdna, "MovieTrackingPlaneTrack", "float", "image_opacity")) {
       LISTBASE_FOREACH (MovieClip *, clip, &bmain->movieclips) {
         LISTBASE_FOREACH (
             MovieTrackingPlaneTrack *, plane_track, &clip->tracking.plane_tracks_legacy) {
@@ -2692,127 +2913,4 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 }
 
-void do_versions_after_linking_260(Main *bmain)
-{
-  /* Convert the previously used ntree->inputs/ntree->outputs lists to interface nodes.
-   * Pre 2.56.2 node trees automatically have all unlinked sockets exposed already,
-   * see do_versions_after_linking_250.
-   *
-   * This assumes valid typeinfo pointers, as set in lib_link_ntree.
-   *
-   * NOTE: theoretically only needed in node groups (main->nodetree),
-   * but due to a temporary bug such links could have been added in all trees,
-   * so have to clean up all of them ...
-   *
-   * NOTE: this always runs, without it links with nullptr fromnode and tonode remain
-   * which causes problems.
-   */
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 266, 3)) {
-    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
-      bNode *input_node = nullptr, *output_node = nullptr;
-      int num_inputs = 0, num_outputs = 0;
-      bNodeLink *link, *next_link;
-      /* Only create new interface nodes for actual older files.
-       * New file versions already have input/output nodes with duplicate links,
-       * in that case just remove the invalid links.
-       */
-      const bool create_io_nodes = MAIN_VERSION_FILE_OLDER(bmain, 266, 2);
-
-      float input_locx = 1000000.0f, input_locy = 0.0f;
-      float output_locx = -1000000.0f, output_locy = 0.0f;
-      /* Rough guess, not nice but we don't have access to UI constants here. */
-      const float offsetx = 42 + 3 * 20 + 20;
-      // const float offsety = 0.0f;
-
-      if (create_io_nodes) {
-        if (ntree->inputs.first) {
-          input_node = nodeAddStaticNode(nullptr, ntree, NODE_GROUP_INPUT);
-        }
-
-        if (ntree->outputs.first) {
-          output_node = nodeAddStaticNode(nullptr, ntree, NODE_GROUP_OUTPUT);
-        }
-      }
-
-      /* Redirect links from/to the node tree interface to input/output node.
-       * If the fromnode/tonode pointers are nullptr, this means a link from/to
-       * the ntree interface sockets, which need to be redirected to new interface nodes.
-       */
-      for (link = static_cast<bNodeLink *>(ntree->links.first); link != nullptr; link = next_link)
-      {
-        bool free_link = false;
-        next_link = link->next;
-
-        if (link->fromnode == nullptr) {
-          if (input_node) {
-            link->fromnode = input_node;
-            link->fromsock = node_group_input_find_socket(input_node, link->fromsock->identifier);
-            num_inputs++;
-
-            if (link->tonode) {
-              if (input_locx > link->tonode->locx - offsetx) {
-                input_locx = link->tonode->locx - offsetx;
-              }
-              input_locy += link->tonode->locy;
-            }
-          }
-          else {
-            free_link = true;
-          }
-        }
-
-        if (link->tonode == nullptr) {
-          if (output_node) {
-            link->tonode = output_node;
-            link->tosock = node_group_output_find_socket(output_node, link->tosock->identifier);
-            num_outputs++;
-
-            if (link->fromnode) {
-              if (output_locx < link->fromnode->locx + offsetx) {
-                output_locx = link->fromnode->locx + offsetx;
-              }
-              output_locy += link->fromnode->locy;
-            }
-          }
-          else {
-            free_link = true;
-          }
-        }
-
-        if (free_link) {
-          nodeRemLink(ntree, link);
-        }
-      }
-
-      if (num_inputs > 0) {
-        input_locy /= num_inputs;
-        input_node->locx = input_locx;
-        input_node->locy = input_locy;
-      }
-      if (num_outputs > 0) {
-        output_locy /= num_outputs;
-        output_node->locx = output_locx;
-        output_node->locy = output_locy;
-      }
-    }
-    FOREACH_NODETREE_END;
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 60)) {
-    /* From this point we no longer write incomplete links for forward
-     * compatibility with 2.66, we have to clean them up for all previous
-     * versions. */
-    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
-      bNodeLink *link, *next_link;
-
-      for (link = static_cast<bNodeLink *>(ntree->links.first); link != nullptr; link = next_link)
-      {
-        next_link = link->next;
-        if (link->fromnode == nullptr || link->tonode == nullptr) {
-          nodeRemLink(ntree, link);
-        }
-      }
-    }
-    FOREACH_NODETREE_END;
-  }
-}
+void do_versions_after_linking_260(Main * /*bmain*/) {}

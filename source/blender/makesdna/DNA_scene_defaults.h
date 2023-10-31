@@ -202,6 +202,7 @@
     .volumetric_tile_size = 8, \
     .volumetric_samples = 64, \
     .volumetric_sample_distribution = 0.8f, \
+    .volumetric_ray_depth = 16, \
     .volumetric_light_clamp = 0.0f, \
     .volumetric_shadow_samples = 16, \
  \
@@ -229,12 +230,16 @@
  \
     .shadow_cube_size = 512, \
     .shadow_cascade_size = 1024, \
+    .shadow_ray_count = 1, \
+    .shadow_step_count = 6, \
+    .shadow_normal_bias = 0.02f, \
  \
     .ray_split_settings = 0, \
     .ray_tracing_method = RAYTRACE_EEVEE_METHOD_SCREEN, \
  \
     .reflection_options = _DNA_DEFAULT_RaytraceEEVEE, \
     .refraction_options = _DNA_DEFAULT_RaytraceEEVEE, \
+    .diffuse_options = _DNA_DEFAULT_RaytraceEEVEE, \
  \
     .light_cache_data = NULL, \
     .light_threshold = 0.01f, \
@@ -266,6 +271,8 @@
     .eevee = _DNA_DEFAULT_SceneEEVEE, \
  \
     .hydra = _DNA_DEFAULT_SceneHydra, \
+    .simulation_frame_start = 1, \
+    .simulation_frame_end = 250, \
   }
 
 /** \} */
@@ -365,7 +372,9 @@
     .snap_mode = SCE_SNAP_TO_INCREMENT, \
     .snap_node_mode = SCE_SNAP_TO_GRID, \
     .snap_uv_mode = SCE_SNAP_TO_INCREMENT, \
+    .snap_anim_mode = SCE_SNAP_TO_FRAME, \
     .snap_flag = SCE_SNAP_TO_INCLUDE_EDITED | SCE_SNAP_TO_INCLUDE_NONEDITED, \
+    .snap_flag_anim = SCE_SNAP, \
     .snap_transform_mode_flag = SCE_SNAP_TRANSFORM_MODE_TRANSLATE, \
     .snap_face_nearest_steps = 1, \
  \

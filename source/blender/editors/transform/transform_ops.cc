@@ -118,7 +118,7 @@ static TransformModeItem transform_modes[] = {
     {nullptr, 0},
 };
 
-const EnumPropertyItem rna_enum_transform_mode_types[] = {
+const EnumPropertyItem rna_enum_transform_mode_type_items[] = {
     {TFM_INIT, "INIT", 0, "Init", ""},
     {TFM_DUMMY, "DUMMY", 0, "Dummy", ""},
     {TFM_TRANSLATION, "TRANSLATION", 0, "Translation", ""},
@@ -767,6 +767,12 @@ void Transform_Properties(wmOperatorType *ot, int flags)
     prop = RNA_def_boolean(
         ot->srna, "remove_on_cancel", false, "Remove on Cancel", "Remove elements on cancel");
     RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+    prop = RNA_def_boolean(ot->srna,
+                           "use_duplicated_keyframes",
+                           false,
+                           "Duplicated Keyframes",
+                           "Transform duplicated keyframes");
+    RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
   }
 
   if (flags & P_CORRECT_UV) {
@@ -1173,7 +1179,7 @@ static void TRANSFORM_OT_edge_slide(wmOperatorType *ot)
   ot->name = "Edge Slide";
   ot->description = "Slide an edge loop along a mesh";
   ot->idname = OP_EDGE_SLIDE;
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_DEPENDS_ON_CURSOR;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
 
   /* api callbacks */
   ot->invoke = transform_invoke;
@@ -1375,7 +1381,7 @@ static void TRANSFORM_OT_transform(wmOperatorType *ot)
   ot->poll_property = transform_poll_property;
 
   prop = RNA_def_enum(
-      ot->srna, "mode", rna_enum_transform_mode_types, TFM_TRANSLATION, "Mode", "");
+      ot->srna, "mode", rna_enum_transform_mode_type_items, TFM_TRANSLATION, "Mode", "");
   RNA_def_property_flag(prop, PROP_HIDDEN);
 
   RNA_def_float_vector(
@@ -1386,7 +1392,7 @@ static void TRANSFORM_OT_transform(wmOperatorType *ot)
   Transform_Properties(ot,
                        P_ORIENT_AXIS | P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR |
                            P_ALIGN_SNAP | P_GPENCIL_EDIT | P_CENTER | P_VIEW3D_ALT_NAVIGATION |
-                           P_POST_TRANSFORM);
+                           P_POST_TRANSFORM | P_OPTIONS);
 }
 
 static int transform_from_gizmo_invoke(bContext *C, wmOperator * /*op*/, const wmEvent *event)

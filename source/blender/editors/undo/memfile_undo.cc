@@ -23,15 +23,15 @@
 
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
-#include "BKE_icons.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_node.hh"
+#include "BKE_preview_image.hh"
 #include "BKE_scene.h"
 #include "BKE_undo_system.h"
 
-#include "../depsgraph/DEG_depsgraph.h"
+#include "../depsgraph/DEG_depsgraph.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -41,7 +41,7 @@
 #include "ED_undo.hh"
 #include "ED_util.hh"
 
-#include "../blenloader/BLO_undofile.h"
+#include "../blenloader/BLO_undofile.hh"
 
 #include "undo_intern.hh"
 

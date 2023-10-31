@@ -20,7 +20,7 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
-#include "IO_wavefront_obj.h"
+#include "IO_wavefront_obj.hh"
 
 namespace blender::io::obj {
 /** Denote absence for usually non-negative numbers. */
@@ -118,8 +118,6 @@ class OBJMesh : NonCopyable {
    * Return mat_nr-th material of the object. The given index should be zero-based.
    */
   const Material *get_object_material(int16_t mat_nr) const;
-
-  void ensure_mesh_normals() const;
 
   /**
    * Calculate smooth groups of a smooth-shaded object.

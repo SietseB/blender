@@ -63,12 +63,13 @@
 #include "UI_view2d.hh"
 
 #include "ED_gpencil_legacy.hh"
-#include "ED_keyframing.hh"
 #include "ED_screen.hh"
 #include "ED_view3d.hh"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "ANIM_keyframing.hh"
+
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "gpencil_intern.h"
 
@@ -1104,7 +1105,9 @@ static void gpencil_brush_clone_add(bContext *C, tGP_BrushEditData *gso)
         gpl = CTX_data_active_gpencil_layer(C);
       }
       bGPDframe *gpf = BKE_gpencil_layer_frame_get(
-          gpl, scene->r.cfra, IS_AUTOKEY_ON(scene) ? GP_GETFRAME_ADD_NEW : GP_GETFRAME_USE_PREV);
+          gpl,
+          scene->r.cfra,
+          blender::animrig::is_autokey_on(scene) ? GP_GETFRAME_ADD_NEW : GP_GETFRAME_USE_PREV);
       if (gpf == nullptr) {
         continue;
       }
@@ -1452,7 +1455,7 @@ static void gpencil_sculpt_brush_init_stroke(bContext *C, tGP_BrushEditData *gso
 
   /* go through each layer, and ensure that we've got a valid frame to use */
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    if (!IS_AUTOKEY_ON(scene) && (gpl->actframe == nullptr)) {
+    if (!blender::animrig::is_autokey_on(scene) && (gpl->actframe == nullptr)) {
       continue;
     }
 
@@ -1465,7 +1468,7 @@ static void gpencil_sculpt_brush_init_stroke(bContext *C, tGP_BrushEditData *gso
        * - This is useful when animating as it saves that "uh-oh" moment when you realize you've
        *   spent too much time editing the wrong frame.
        */
-      if (IS_AUTOKEY_ON(scene) && (gpf->framenum != cfra)) {
+      if (blender::animrig::is_autokey_on(scene) && (gpf->framenum != cfra)) {
         BKE_gpencil_frame_addcopy(gpl, cfra);
         BKE_gpencil_tag_full_update(gpd, gpl, nullptr, nullptr);
         /* Need tag to recalculate evaluated data to avoid crashes. */
@@ -1722,9 +1725,6 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
                                 GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE |
                                 GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE)) != 0;
   const bool stroke_mode = brush->gpencil_settings->scope_mode == GP_BRUSH_SCOPE_STROKE;
-  /* Calc bound box matrix. */
-  float bound_mat[4][4];
-  BKE_gpencil_layer_transform_matrix_get(gso->depsgraph, gso->object, gpl, bound_mat);
 
   LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
     /* skip strokes that are invalid for current view */
@@ -1745,7 +1745,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
 
     /* Check if the stroke collide with brush. */
     if ((gps->totpoints > 1) &&
-        !ED_gpencil_stroke_check_collision(gsc, gps, gso->mval, radius, bound_mat))
+        !ED_gpencil_stroke_check_collision(gsc, gps, gso->mval, radius, diff_mat))
     {
       continue;
     }
@@ -1792,7 +1792,7 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
              */
             gpencil_brush_grab_stroke_init(gso, gps_active);
             changed |= gpencil_sculpt_brush_do_stroke(
-                gso, gps, bound_mat, gpencil_brush_grab_store_points, false, nullptr);
+                gso, gps, diff_mat, gpencil_brush_grab_store_points, false, nullptr);
           }
           else {
             /* Apply effect to the stored points */

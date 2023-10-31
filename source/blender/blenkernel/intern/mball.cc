@@ -32,7 +32,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -52,12 +52,12 @@
 #include "BKE_mball.h"
 #include "BKE_mball_tessellate.h"
 #include "BKE_mesh.hh"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_scene.h"
 
-#include "DEG_depsgraph.h"
+#include "DEG_depsgraph.hh"
 
-#include "BLO_read_write.h"
+#include "BLO_read_write.hh"
 
 static void metaball_init_data(ID *id)
 {
@@ -92,9 +92,15 @@ static void metaball_free_data(ID *id)
 
 static void metaball_foreach_id(ID *id, LibraryForeachIDData *data)
 {
-  MetaBall *metaball = (MetaBall *)id;
+  MetaBall *metaball = reinterpret_cast<MetaBall *>(id);
+  const int flag = BKE_lib_query_foreachid_process_flags_get(data);
+
   for (int i = 0; i < metaball->totcol; i++) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, metaball->mat[i], IDWALK_CB_USER);
+  }
+
+  if (flag & IDWALK_DO_DEPRECATED_POINTERS) {
+    BKE_LIB_FOREACHID_PROCESS_ID_NOCHECK(data, metaball->ipo, IDWALK_CB_USER);
   }
 }
 
@@ -135,31 +141,13 @@ static void metaball_blend_read_data(BlendDataReader *reader, ID *id)
   mb->lastelem = nullptr;
 }
 
-static void metaball_blend_read_lib(BlendLibReader *reader, ID *id)
-{
-  MetaBall *mb = (MetaBall *)id;
-  for (int a = 0; a < mb->totcol; a++) {
-    BLO_read_id_address(reader, id, &mb->mat[a]);
-  }
-
-  BLO_read_id_address(reader, id, &mb->ipo);  // XXX deprecated - old animation system
-}
-
-static void metaball_blend_read_expand(BlendExpander *expander, ID *id)
-{
-  MetaBall *mb = (MetaBall *)id;
-  for (int a = 0; a < mb->totcol; a++) {
-    BLO_expand(expander, mb->mat[a]);
-  }
-}
-
 IDTypeInfo IDType_ID_MB = {
     /*id_code*/ ID_MB,
     /*id_filter*/ FILTER_ID_MB,
     /*main_listbase_index*/ INDEX_ID_MB,
     /*struct_size*/ sizeof(MetaBall),
     /*name*/ "Metaball",
-    /*name_plural*/ "metaballs",
+    /*name_plural*/ N_("metaballs"),
     /*translation_context*/ BLT_I18NCONTEXT_ID_METABALL,
     /*flags*/ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
     /*asset_type_info*/ nullptr,
@@ -175,8 +163,7 @@ IDTypeInfo IDType_ID_MB = {
 
     /*blend_write*/ metaball_blend_write,
     /*blend_read_data*/ metaball_blend_read_data,
-    /*blend_read_lib*/ metaball_blend_read_lib,
-    /*blend_read_expand*/ metaball_blend_read_expand,
+    /*blend_read_after_liblink*/ nullptr,
 
     /*blend_read_undo_preserve*/ nullptr,
 

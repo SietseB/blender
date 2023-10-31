@@ -30,6 +30,7 @@
 #include "DNA_anim_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_curves_types.h"
+#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -53,14 +54,14 @@
 #include "BKE_mesh_iterators.hh"
 #include "BKE_mesh_runtime.hh"
 #include "BKE_modifier.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
 #include "BKE_type_conversions.hh"
 #include "BKE_vfont.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "BLI_hash.h"
 #include "DNA_world_types.h"
@@ -927,6 +928,11 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
       make_dupli(ctx, ctx->object, &pointcloud->id, parent_transform, component_index++);
     }
   }
+  if (ctx->object->type != OB_GREASE_PENCIL || geometry_set_is_instance) {
+    if (const GreasePencil *grease_pencil = geometry_set.get_grease_pencil()) {
+      make_dupli(ctx, ctx->object, &grease_pencil->id, parent_transform, component_index++);
+    }
+  }
   const bool creates_duplis_for_components = component_index >= 1;
 
   const Instances *instances = geometry_set.get_instances();
@@ -1710,9 +1716,9 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
     return nullptr;
   }
 
-  /* Metaball objects can't create instances, but the dupli system is used to "instance" their
+  /* Meta-ball objects can't create instances, but the dupli system is used to "instance" their
    * evaluated mesh to render engines. We need to exit early to avoid recursively instancing the
-   * evaluated metaball mesh on metaball instances that already contribute to the basis. */
+   * evaluated meta-ball mesh on meta-ball instances that already contribute to the basis. */
   if (ctx->object->type == OB_MBALL && ctx->level > 0) {
     return nullptr;
   }
@@ -1935,8 +1941,7 @@ static bool find_rna_property_rgba(PointerRNA *id_ptr, const char *name, float r
 
 static bool find_rna_property_rgba(ID *id, const char *name, float r_data[4])
 {
-  PointerRNA ptr;
-  RNA_id_pointer_create(id, &ptr);
+  PointerRNA ptr = RNA_id_pointer_create(id);
   return find_rna_property_rgba(&ptr, name, r_data);
 }
 
@@ -1984,8 +1989,7 @@ bool BKE_view_layer_find_rgba_attribute(Scene *scene,
                                         float r_value[4])
 {
   if (layer) {
-    PointerRNA layer_ptr;
-    RNA_pointer_create(&scene->id, &RNA_ViewLayer, layer, &layer_ptr);
+    PointerRNA layer_ptr = RNA_pointer_create(&scene->id, &RNA_ViewLayer, layer);
 
     if (find_rna_property_rgba(&layer_ptr, name, r_value)) {
       return true;

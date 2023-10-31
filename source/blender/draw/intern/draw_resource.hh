@@ -16,7 +16,7 @@
 #include "BKE_curve.h"
 #include "BKE_duplilist.h"
 #include "BKE_mesh.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_volume.h"
 #include "BLI_hash.h"
 #include "DNA_curve_types.h"
@@ -94,8 +94,6 @@ inline void ObjectInfos::sync(const blender::draw::ObjectRef ref, bool is_active
   else {
     random = ref.dupli_object->random_id * (1.0f / (float)0xFFFFFFFF);
   }
-  /* Default values. Set if needed. */
-  random = 0.0f;
 
   if (ref.object->data == nullptr) {
     orco_add = float3(0.0f);
@@ -163,8 +161,8 @@ inline void ObjectBounds::sync()
 
 inline void ObjectBounds::sync(Object &ob)
 {
-  const BoundBox *bbox = BKE_object_boundbox_get(&ob);
-  if (bbox == nullptr) {
+  const std::optional<BoundBox> bbox = BKE_object_boundbox_get(&ob);
+  if (!bbox) {
     bounding_sphere.w = -1.0f; /* Disable test. */
     return;
   }

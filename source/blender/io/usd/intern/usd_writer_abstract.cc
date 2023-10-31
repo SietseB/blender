@@ -9,6 +9,8 @@
 #include <pxr/usd/usdGeom/bboxCache.h>
 
 #include "BKE_customdata.h"
+#include "BKE_report.h"
+
 #include "BLI_assert.h"
 
 #include "DNA_mesh_types.h"
@@ -59,10 +61,11 @@ std::string USDAbstractWriter::get_export_file_path() const
 pxr::UsdTimeCode USDAbstractWriter::get_export_time_code() const
 {
   if (is_animated_) {
-    return usd_export_context_.time_code;
+    BLI_assert(usd_export_context_.get_time_code);
+    return usd_export_context_.get_time_code();
   }
-  /* By using the default timecode USD won't even write a single `timeSample` for non-animated
-   * data. Instead, it writes it as non-timesampled. */
+  /* By using the default time-code USD won't even write a single `timeSample` for non-animated
+   * data. Instead, it writes it as non-time-sampled. */
   static pxr::UsdTimeCode default_timecode = pxr::UsdTimeCode::Default();
   return default_timecode;
 }
@@ -166,9 +169,10 @@ void USDAbstractWriter::author_extent(const pxr::UsdTimeCode timecode, pxr::UsdG
   pxr::GfBBox3d bounds = bboxCache.ComputeLocalBound(prim.GetPrim());
   if (pxr::GfBBox3d() == bounds) {
     /* This will occur, for example, if a mesh does not have any vertices. */
-    WM_reportf(RPT_WARNING,
-               "USD Export: no bounds could be computed for %s",
-               prim.GetPrim().GetName().GetText());
+    BKE_reportf(reports(),
+                RPT_WARNING,
+                "USD Export: no bounds could be computed for %s",
+                prim.GetPrim().GetName().GetText());
     return;
   }
 

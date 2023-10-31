@@ -39,7 +39,7 @@
 #include "PIL_time.h"
 
 #include "BKE_appdir.h"
-#include "BKE_cloth.h"
+#include "BKE_cloth.hh"
 #include "BKE_collection.h"
 #include "BKE_dynamicpaint.h"
 #include "BKE_fluid.h"
@@ -47,13 +47,13 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_softbody.h"
 
-#include "BLO_read_write.h"
+#include "BLO_read_write.hh"
 
 #include "BIK_api.h"
 
@@ -2780,7 +2780,7 @@ bool BKE_ptcache_id_exist(PTCacheID *pid, int cfra)
 void BKE_ptcache_id_time(
     PTCacheID *pid, Scene *scene, float cfra, int *startframe, int *endframe, float *timescale)
 {
-  /* Object *ob; */ /* UNUSED */
+  // Object *ob; /* UNUSED */
   PointCache *cache;
   /* float offset; unused for now */
   float time, nexttime;

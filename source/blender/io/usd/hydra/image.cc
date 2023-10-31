@@ -8,6 +8,7 @@
 
 #include "BLI_fileops.h"
 #include "BLI_path_util.h"
+#include "BLI_string.h"
 
 #include "BKE_appdir.h"
 #include "BKE_image.h"
@@ -55,7 +56,7 @@ static std::string cache_image_file(
       opts.im_format = scene->r.im_format;
     }
 
-    snprintf(file_name, sizeof(file_name), "img_%p%s", image, r_ext);
+    SNPRINTF(file_name, "img_%p%s", image, r_ext);
 
     file_path = get_cache_file(file_name);
     if (check_exist && BLI_exists(file_path.c_str())) {
@@ -89,18 +90,19 @@ std::string cache_or_get_image_file(Main *bmain, Scene *scene, Image *image, Ima
     std::string dir_path = image_cache_file_path();
     char *cached_path;
     char subfolder[FILE_MAXDIR];
-    snprintf(subfolder, sizeof(subfolder), "unpack_%p", image);
+    SNPRINTF(subfolder, "unpack_%p", image);
     LISTBASE_FOREACH (ImagePackedFile *, ipf, &image->packedfiles) {
       char path[FILE_MAX];
-      BLI_path_join(path, sizeof(path), dir_path.c_str(), subfolder, BLI_path_basename(ipf->filepath));
+      BLI_path_join(
+          path, sizeof(path), dir_path.c_str(), subfolder, BLI_path_basename(ipf->filepath));
       cached_path = BKE_packedfile_unpack_to_file(nullptr,
-                    BKE_main_blendfile_path(bmain),
-                    dir_path.c_str(),
-                    path,
-                    ipf->packedfile,
-                    PF_WRITE_LOCAL);
+                                                  BKE_main_blendfile_path(bmain),
+                                                  dir_path.c_str(),
+                                                  path,
+                                                  ipf->packedfile,
+                                                  PF_WRITE_LOCAL);
 
-      /* Take first succesfully unpacked image. */
+      /* Take first successfully unpacked image. */
       if (cached_path != nullptr) {
         if (file_path.empty()) {
           file_path = cached_path;
@@ -127,8 +129,7 @@ std::string cache_or_get_image_file(Main *bmain, Scene *scene, Image *image, Ima
 std::string cache_image_color(float color[4])
 {
   char name[128];
-  snprintf(name,
-           sizeof(name),
+  SNPRINTF(name,
            "color_%02d%02d%02d.hdr",
            int(color[0] * 255),
            int(color[1] * 255),

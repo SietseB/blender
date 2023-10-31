@@ -53,9 +53,6 @@ class MTLStorageBuf;
 /* Structs containing information on current binding state for textures and samplers. */
 struct MTLTextureBinding {
   bool used;
-
-  /* Same value as index in bindings array. */
-  uint slot_index;
   gpu::MTLTexture *texture_resource;
 };
 
@@ -148,8 +145,8 @@ class MTLRenderPassState {
   /* Buffer binding (RenderCommandEncoder). */
   void bind_vertex_buffer(id<MTLBuffer> buffer, uint64_t buffer_offset, uint index);
   void bind_fragment_buffer(id<MTLBuffer> buffer, uint64_t buffer_offset, uint index);
-  void bind_vertex_bytes(void *bytes, uint64_t length, uint index);
-  void bind_fragment_bytes(void *bytes, uint64_t length, uint index);
+  void bind_vertex_bytes(const void *bytes, uint64_t length, uint index);
+  void bind_fragment_bytes(const void *bytes, uint64_t length, uint index);
 };
 
 /* Metal Context Compute Pass State -- Used to track active ComputeCommandEncoder state. */
@@ -187,7 +184,7 @@ class MTLComputeState {
                            uint64_t buffer_offset,
                            uint index,
                            bool writeable = false);
-  void bind_compute_bytes(void *bytes, uint64_t length, uint index);
+  void bind_compute_bytes(const void *bytes, uint64_t length, uint index);
 };
 
 /* Depth Stencil State */

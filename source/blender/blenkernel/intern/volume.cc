@@ -38,7 +38,7 @@
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_packedFile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -47,9 +47,9 @@
 
 #include "BLT_translation.h"
 
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph_query.hh"
 
-#include "BLO_read_write.h"
+#include "BLO_read_write.hh"
 
 #include "CLG_log.h"
 
@@ -623,25 +623,14 @@ static void volume_blend_read_data(BlendDataReader *reader, ID *id)
   BLO_read_pointer_array(reader, (void **)&volume->mat);
 }
 
-static void volume_blend_read_lib(BlendLibReader *reader, ID *id)
+static void volume_blend_read_after_liblink(BlendLibReader * /*reader*/, ID *id)
 {
-  Volume *volume = (Volume *)id;
+  Volume *volume = reinterpret_cast<Volume *>(id);
+
   /* Needs to be done *after* cache pointers are restored (call to
    * `foreach_cache`/`blo_cache_storage_entry_restore_in_new`), easier for now to do it in
    * lib_link... */
   BKE_volume_init_grids(volume);
-
-  for (int a = 0; a < volume->totcol; a++) {
-    BLO_read_id_address(reader, id, &volume->mat[a]);
-  }
-}
-
-static void volume_blend_read_expand(BlendExpander *expander, ID *id)
-{
-  Volume *volume = (Volume *)id;
-  for (int a = 0; a < volume->totcol; a++) {
-    BLO_expand(expander, volume->mat[a]);
-  }
 }
 
 IDTypeInfo IDType_ID_VO = {
@@ -650,7 +639,7 @@ IDTypeInfo IDType_ID_VO = {
     /*main_listbase_index*/ INDEX_ID_VO,
     /*struct_size*/ sizeof(Volume),
     /*name*/ "Volume",
-    /*name_plural*/ "volumes",
+    /*name_plural*/ N_("volumes"),
     /*translation_context*/ BLT_I18NCONTEXT_ID_VOLUME,
     /*flags*/ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
     /*asset_type_info*/ nullptr,
@@ -666,8 +655,7 @@ IDTypeInfo IDType_ID_VO = {
 
     /*blend_write*/ volume_blend_write,
     /*blend_read_data*/ volume_blend_read_data,
-    /*blend_read_lib*/ volume_blend_read_lib,
-    /*blend_read_expand*/ volume_blend_read_expand,
+    /*blend_read_after_liblink*/ volume_blend_read_after_liblink,
 
     /*blend_read_undo_preserve*/ nullptr,
 

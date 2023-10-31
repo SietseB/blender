@@ -48,17 +48,18 @@
 #include "BKE_material.h"
 #include "BKE_paint.hh"
 #include "BKE_report.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 #include "BKE_tracking.h"
 
 #include "UI_view2d.hh"
 
 #include "ED_clip.hh"
 #include "ED_gpencil_legacy.hh"
-#include "ED_keyframing.hh"
 #include "ED_object.hh"
 #include "ED_screen.hh"
 #include "ED_view3d.hh"
+
+#include "ANIM_keyframing.hh"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -71,8 +72,8 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "gpencil_intern.h"
 
@@ -508,7 +509,7 @@ static void gpencil_brush_angle(bGPdata *gpd, Brush *brush, tGPspoint *pt, const
   /* angle vector of the brush with full thickness */
   const float v0[2] = {cos(angle), sin(angle)};
 
-  /* Apply to first point (only if there are 2 points because before no data to do it ) */
+  /* Apply to first point (only if there are 2 points because before no data to do it). */
   if (gpd->runtime.sbuffer_used == 1) {
     sub_v2_v2v2(mvec, mval, (pt - 1)->m_xy);
     normalize_v2(mvec);
@@ -1052,7 +1053,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
   gps->totpoints = totelem;
   gps->thickness = brush->size;
   gps->fill_opacity_fac = 1.0f;
-  gps->hardeness = brush->gpencil_settings->hardeness;
+  gps->hardness = brush->gpencil_settings->hardness;
   copy_v2_v2(gps->aspect_ratio, brush->gpencil_settings->aspect_ratio);
   gps->flag = gpd->runtime.sbuffer_sflag;
   gps->inittime = p->inittime;
@@ -2271,7 +2272,7 @@ static void gpencil_paint_initstroke(tGPsdata *p,
         continue;
       }
 
-      if (!IS_AUTOKEY_ON(scene) && (gpl->actframe == nullptr)) {
+      if (!blender::animrig::is_autokey_on(scene) && (gpl->actframe == nullptr)) {
         continue;
       }
 
@@ -2283,7 +2284,8 @@ static void gpencil_paint_initstroke(tGPsdata *p,
        *       -> If there are no strokes in that frame, don't add a new empty frame
        */
       if (gpl->actframe && gpl->actframe->strokes.first) {
-        short frame_mode = IS_AUTOKEY_ON(scene) ? GP_GETFRAME_ADD_COPY : GP_GETFRAME_USE_PREV;
+        short frame_mode = blender::animrig::is_autokey_on(scene) ? GP_GETFRAME_ADD_COPY :
+                                                                    GP_GETFRAME_USE_PREV;
         gpl->actframe = BKE_gpencil_layer_frame_get(
             gpl, scene->r.cfra, eGP_GetFrame_Mode(frame_mode));
         has_layer_to_erase = true;
@@ -2307,7 +2309,7 @@ static void gpencil_paint_initstroke(tGPsdata *p,
     /* Drawing Modes - Add a new frame if needed on the active layer */
     short add_frame_mode;
 
-    if (IS_AUTOKEY_ON(scene)) {
+    if (blender::animrig::is_autokey_on(scene)) {
       if (ts->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) {
         add_frame_mode = GP_GETFRAME_ADD_COPY;
       }
@@ -2333,7 +2335,7 @@ static void gpencil_paint_initstroke(tGPsdata *p,
 
     if (p->gpf == nullptr) {
       p->status = GP_STATUS_ERROR;
-      if (!IS_AUTOKEY_ON(scene)) {
+      if (!blender::animrig::is_autokey_on(scene)) {
         BKE_report(p->reports, RPT_INFO, "No available frame for creating stroke");
       }
 
@@ -4064,7 +4066,7 @@ void GPENCIL_OT_draw(wmOperatorType *ot)
 
 /* additional OPs */
 
-static int gpencil_guide_rotate(bContext *C, wmOperator *op)
+static int gpencil_guide_rotate_exec(bContext *C, wmOperator *op)
 {
   ToolSettings *ts = CTX_data_tool_settings(C);
   GP_Sculpt_Guide *guide = &ts->gp_sculpt.guide;
@@ -4090,7 +4092,7 @@ void GPENCIL_OT_guide_rotate(wmOperatorType *ot)
   ot->description = "Rotate guide angle";
 
   /* api callbacks */
-  ot->exec = gpencil_guide_rotate;
+  ot->exec = gpencil_guide_rotate_exec;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

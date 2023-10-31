@@ -424,7 +424,7 @@ void BKE_modifier_remove_from_list(struct Object *ob, struct ModifierData *md);
 /* Generate new UUID for the given modifier. */
 void BKE_modifier_session_uuid_generate(struct ModifierData *md);
 
-bool BKE_modifier_unique_name(struct ListBase *modifiers, struct ModifierData *md);
+void BKE_modifier_unique_name(struct ListBase *modifiers, struct ModifierData *md);
 
 struct ModifierData *BKE_modifier_copy_ex(const struct ModifierData *md, int flag);
 
@@ -624,7 +624,6 @@ void BKE_modifier_blend_write(struct BlendWriter *writer,
 void BKE_modifier_blend_read_data(struct BlendDataReader *reader,
                                   struct ListBase *lb,
                                   struct Object *ob);
-void BKE_modifier_blend_read_lib(struct BlendLibReader *reader, struct Object *ob);
 
 #ifdef __cplusplus
 }

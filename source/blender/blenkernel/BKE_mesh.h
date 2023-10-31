@@ -13,6 +13,7 @@
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h" /* #BoundBox. */
 
 #include "BKE_customdata.h"
 
@@ -59,6 +60,12 @@ typedef enum eMeshBatchDirtyMode {
 void BKE_mesh_tag_positions_changed(struct Mesh *mesh);
 
 /**
+ * The same as #BKE_mesh_tag_positions_changed but doesn't tag normals dirty, instead expecting
+ * them to be updated separately.
+ */
+void BKE_mesh_tag_positions_changed_no_normals(struct Mesh *mesh);
+
+/**
  * Call after moving every mesh vertex by the same translation.
  */
 void BKE_mesh_tag_positions_changed_uniformly(struct Mesh *mesh);
@@ -69,6 +76,9 @@ void BKE_mesh_tag_topology_changed(struct Mesh *mesh);
  * Call when new edges and vertices have been created but positions and faces haven't changed.
  */
 void BKE_mesh_tag_edges_split(struct Mesh *mesh);
+
+/** Call when changing "sharp_face" or "sharp_edge" data. */
+void BKE_mesh_tag_sharpness_changed(struct Mesh *mesh);
 
 /**
  * Call when face vertex order has changed but positions and faces haven't changed
@@ -188,7 +198,7 @@ struct Mesh *BKE_mesh_new_nomain_from_curve_displist(const struct Object *ob,
 bool BKE_mesh_attribute_required(const char *name);
 
 float (*BKE_mesh_orco_verts_get(struct Object *ob))[3];
-void BKE_mesh_orco_verts_transform(struct Mesh *me, float (*orco)[3], int totvert, int invert);
+void BKE_mesh_orco_verts_transform(struct Mesh *me, float (*orco)[3], int totvert, bool invert);
 
 /**
  * Add a #CD_ORCO layer to the Mesh if there is none already.
@@ -217,7 +227,7 @@ bool BKE_mesh_material_index_used(struct Mesh *me, short index);
 void BKE_mesh_material_index_clear(struct Mesh *me);
 void BKE_mesh_material_remap(struct Mesh *me, const unsigned int *remap, unsigned int remap_len);
 void BKE_mesh_smooth_flag_set(struct Mesh *me, bool use_smooth);
-void BKE_mesh_auto_smooth_flag_set(struct Mesh *me, bool use_auto_smooth, float auto_smooth_angle);
+void BKE_mesh_sharp_edges_set_from_angle(struct Mesh *me, float angle);
 
 /**
  * Used for unit testing; compares two meshes, checking only
@@ -227,7 +237,7 @@ void BKE_mesh_auto_smooth_flag_set(struct Mesh *me, bool use_auto_smooth, float 
  */
 const char *BKE_mesh_cmp(struct Mesh *me1, struct Mesh *me2, float thresh);
 
-struct BoundBox *BKE_mesh_boundbox_get(struct Object *ob);
+BoundBox BKE_mesh_boundbox_get(struct Object *ob);
 
 void BKE_mesh_texspace_calc(struct Mesh *me);
 void BKE_mesh_texspace_ensure(struct Mesh *me);
@@ -315,28 +325,11 @@ void BKE_mesh_recalc_looptri(const int *corner_verts,
 
 /* *** mesh_normals.cc *** */
 
-/**
- * See #Mesh::vert_normals().
- * \warning May return null if the mesh is empty.
- */
-const float (*BKE_mesh_vert_normals_ensure(const struct Mesh *mesh))[3];
-
-/**
- * Return true if the mesh vertex normals either are not stored or are dirty.
- * This can be used to help decide whether to transfer them when copying a mesh.
- */
+/** Return true if the mesh vertex normals either are not stored or are dirty. */
 bool BKE_mesh_vert_normals_are_dirty(const struct Mesh *mesh);
 
-/**
- * Return true if the mesh face normals either are not stored or are dirty.
- * This can be used to help decide whether to transfer them when copying a mesh.
- */
+/** Return true if the mesh face normals either are not stored or are dirty. */
 bool BKE_mesh_face_normals_are_dirty(const struct Mesh *mesh);
-
-/**
- * Called after calculating all modifiers.
- */
-void BKE_mesh_ensure_normals_for_display(struct Mesh *mesh);
 
 /**
  * References a contiguous loop-fan with normal offset vars.
@@ -461,18 +454,6 @@ void BKE_mesh_normals_loop_to_vertex(int numVerts,
  */
 bool BKE_mesh_has_custom_loop_normals(struct Mesh *me);
 
-void BKE_mesh_calc_normals_split(struct Mesh *mesh);
-/**
- * Compute 'split' (aka loop, or per face corner's) normals.
- *
- * \param r_lnors_spacearr: Allows to get computed loop normal space array.
- * That data, among other things, contains 'smooth fan' info, useful e.g.
- * to split geometry along sharp edges.
- */
-void BKE_mesh_calc_normals_split_ex(const struct Mesh *mesh,
-                                    struct MLoopNorSpaceArray *r_lnors_spacearr,
-                                    float (*r_corner_normals)[3]);
-
 /**
  * Higher level functions hiding most of the code needed around call to
  * #normals_loop_custom_set().
@@ -545,6 +526,7 @@ void BKE_mesh_flush_hidden_from_faces(struct Mesh *me);
 
 void BKE_mesh_flush_select_from_faces(struct Mesh *me);
 void BKE_mesh_flush_select_from_verts(struct Mesh *me);
+void BKE_mesh_flush_select_from_edges(struct Mesh *me);
 
 /* spatial evaluation */
 /**
@@ -654,8 +636,7 @@ void BKE_mesh_calc_edges(struct Mesh *mesh, bool keep_existing_edges, bool selec
 void BKE_mesh_calc_edges_tessface(struct Mesh *mesh);
 
 /* In DerivedMesh.cc */
-void BKE_mesh_wrapper_deferred_finalize_mdata(struct Mesh *me_eval,
-                                              const struct CustomData_MeshMasks *cd_mask_finalize);
+void BKE_mesh_wrapper_deferred_finalize_mdata(struct Mesh *me_eval);
 
 /* **** Depsgraph evaluation **** */
 

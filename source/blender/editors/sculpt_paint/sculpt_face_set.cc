@@ -40,11 +40,11 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_fair.hh"
 #include "BKE_mesh_mapping.hh"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_paint.hh"
 #include "BKE_pbvh_api.hh"
 
-#include "DEG_depsgraph.h"
+#include "DEG_depsgraph.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -113,67 +113,47 @@ int ED_sculpt_face_sets_active_update_and_get(bContext *C, Object *ob, const flo
 
 /* Draw Face Sets Brush. */
 
-static void do_draw_face_sets_brush_task_cb_ex(void *__restrict userdata,
-                                               const int n,
-                                               const TaskParallelTLS *__restrict tls)
+constexpr float FACE_SET_BRUSH_MIN_FADE = 0.05f;
+
+static void do_draw_face_sets_brush_faces(Object *ob, const Brush *brush, PBVHNode *node)
 {
   using namespace blender;
-  SculptThreadedTaskData *data = static_cast<SculptThreadedTaskData *>(userdata);
-  SculptSession *ss = data->ob->sculpt;
-  const Brush *brush = data->brush;
-  const float bstrength = ss->cache->bstrength;
 
-  PBVHVertexIter vd;
+  SculptSession *ss = ob->sculpt;
+
+  BLI_assert(BKE_pbvh_type(ss->pbvh) == PBVH_FACES);
+
+  const float bstrength = ss->cache->bstrength;
+  const int thread_id = BLI_task_parallel_thread_id(nullptr);
 
   SculptBrushTest test;
   SculptBrushTestFn sculpt_brush_test_sq_fn = SCULPT_brush_test_init_with_falloff_shape(
-      ss, &test, data->brush->falloff_shape);
-  const int thread_id = BLI_task_parallel_thread_id(tls);
+      ss, &test, brush->falloff_shape);
 
   const Span<float3> positions(
       reinterpret_cast<const float3 *>(SCULPT_mesh_deformed_positions_get(ss)),
       SCULPT_vertex_count_get(ss));
+
   AutomaskingNodeData automask_data;
-  SCULPT_automasking_node_begin(
-      data->ob, ss, ss->cache->automasking, &automask_data, data->nodes[n]);
+  SCULPT_automasking_node_begin(ob, ss, ss->cache->automasking, &automask_data, node);
 
   bool changed = false;
-  BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
+
+  PBVHVertexIter vd;
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
     SCULPT_automasking_node_update(ss, &automask_data, &vd);
 
-    if (BKE_pbvh_type(ss->pbvh) == PBVH_FACES) {
-      for (const int face_i : ss->pmap[vd.index]) {
-        const blender::IndexRange face = ss->faces[face_i];
+    for (const int face_i : ss->pmap[vd.index]) {
+      const blender::IndexRange face = ss->faces[face_i];
 
-        const float3 poly_center = bke::mesh::face_center_calc(positions,
-                                                               ss->corner_verts.slice(face));
+      const float3 poly_center = bke::mesh::face_center_calc(positions,
+                                                             ss->corner_verts.slice(face));
 
-        if (!sculpt_brush_test_sq_fn(&test, poly_center)) {
-          continue;
-        }
-        const bool face_hidden = ss->hide_poly && ss->hide_poly[face_i];
-        if (face_hidden) {
-          continue;
-        }
-        const float fade = bstrength * SCULPT_brush_strength_factor(ss,
-                                                                    brush,
-                                                                    vd.co,
-                                                                    sqrtf(test.dist),
-                                                                    vd.no,
-                                                                    vd.fno,
-                                                                    vd.mask ? *vd.mask : 0.0f,
-                                                                    vd.vertex,
-                                                                    thread_id,
-                                                                    &automask_data);
-
-        if (fade > 0.05f) {
-          ss->face_sets[face_i] = ss->cache->paint_face_set;
-          changed = true;
-        }
+      if (!sculpt_brush_test_sq_fn(&test, poly_center)) {
+        continue;
       }
-    }
-    else if (BKE_pbvh_type(ss->pbvh) == PBVH_GRIDS) {
-      if (!sculpt_brush_test_sq_fn(&test, vd.co)) {
+      const bool face_hidden = ss->hide_poly && ss->hide_poly[face_i];
+      if (face_hidden) {
         continue;
       }
       const float fade = bstrength * SCULPT_brush_strength_factor(ss,
@@ -182,13 +162,13 @@ static void do_draw_face_sets_brush_task_cb_ex(void *__restrict userdata,
                                                                   sqrtf(test.dist),
                                                                   vd.no,
                                                                   vd.fno,
-                                                                  vd.mask ? *vd.mask : 0.0f,
+                                                                  vd.mask,
                                                                   vd.vertex,
                                                                   thread_id,
                                                                   &automask_data);
 
-      if (fade > 0.05f) {
-        SCULPT_vertex_face_set_set(ss, vd.vertex, ss->cache->paint_face_set);
+      if (fade > FACE_SET_BRUSH_MIN_FADE) {
+        ss->face_sets[face_i] = ss->cache->paint_face_set;
         changed = true;
       }
     }
@@ -196,37 +176,196 @@ static void do_draw_face_sets_brush_task_cb_ex(void *__restrict userdata,
   BKE_pbvh_vertex_iter_end;
 
   if (changed) {
-    SCULPT_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_FACE_SETS);
+    SCULPT_undo_push_node(ob, node, SCULPT_UNDO_FACE_SETS);
   }
 }
 
-static void do_relax_face_sets_brush_task_cb_ex(void *__restrict userdata,
-                                                const int n,
-                                                const TaskParallelTLS *__restrict tls)
+static void do_draw_face_sets_brush_grids(Object *ob, const Brush *brush, PBVHNode *node)
 {
-  SculptThreadedTaskData *data = static_cast<SculptThreadedTaskData *>(userdata);
-  SculptSession *ss = data->ob->sculpt;
-  const Brush *brush = data->brush;
+  using namespace blender;
+
+  SculptSession *ss = ob->sculpt;
+
+  BLI_assert(BKE_pbvh_type(ss->pbvh) == PBVH_GRIDS);
+
+  const float bstrength = ss->cache->bstrength;
+  const int thread_id = BLI_task_parallel_thread_id(nullptr);
+
+  SculptBrushTest test;
+  SculptBrushTestFn sculpt_brush_test_sq_fn = SCULPT_brush_test_init_with_falloff_shape(
+      ss, &test, brush->falloff_shape);
+
+  AutomaskingNodeData automask_data;
+  SCULPT_automasking_node_begin(ob, ss, ss->cache->automasking, &automask_data, node);
+
+  bool changed = false;
+
+  PBVHVertexIter vd;
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
+    SCULPT_automasking_node_update(ss, &automask_data, &vd);
+
+    if (!sculpt_brush_test_sq_fn(&test, vd.co)) {
+      continue;
+    }
+    const float fade = bstrength * SCULPT_brush_strength_factor(ss,
+                                                                brush,
+                                                                vd.co,
+                                                                sqrtf(test.dist),
+                                                                vd.no,
+                                                                vd.fno,
+                                                                vd.mask,
+                                                                vd.vertex,
+                                                                thread_id,
+                                                                &automask_data);
+
+    if (fade > FACE_SET_BRUSH_MIN_FADE) {
+      SCULPT_vertex_face_set_set(ss, vd.vertex, ss->cache->paint_face_set);
+      changed = true;
+    }
+  }
+  BKE_pbvh_vertex_iter_end;
+
+  if (changed) {
+    SCULPT_undo_push_node(ob, node, SCULPT_UNDO_FACE_SETS);
+  }
+}
+
+static void do_draw_face_sets_brush_bmesh(Object *ob, const Brush *brush, PBVHNode *node)
+{
+  using namespace blender;
+
+  SculptSession *ss = ob->sculpt;
+
+  BLI_assert(BKE_pbvh_type(ss->pbvh) == PBVH_BMESH);
+
+  const float bstrength = ss->cache->bstrength;
+  const int thread_id = BLI_task_parallel_thread_id(nullptr);
+
+  SculptBrushTest test;
+  SculptBrushTestFn sculpt_brush_test_sq_fn = SCULPT_brush_test_init_with_falloff_shape(
+      ss, &test, brush->falloff_shape);
+
+  /* Disable auto-masking code path which rely on an undo step to access original data.
+   *
+   * This is because the dynamic topology uses BMesh Log based undo system, which creates a single
+   * node for the undo step, and its type could be different for the needs of the brush undo and
+   * the original data access.
+   *
+   * For the brushes like Draw the ss->cache->automasking is set to nullptr at the first step of
+   * the brush, as there is an explicit check there for the brushes which support dynamic topology.
+   * Do it locally here for the Draw Face Set brush here, to mimic the behavior of the other
+   * brushes but without marking the brush as supporting dynamic topology. */
+  AutomaskingNodeData automask_data;
+  SCULPT_automasking_node_begin(ob, ss, nullptr, &automask_data, node);
+
+  bool changed = false;
+
+  const int cd_offset = CustomData_get_offset_named(
+      &ss->bm->pdata, CD_PROP_INT32, ".sculpt_face_set");
+
+  for (BMFace *f : BKE_pbvh_bmesh_node_faces(node)) {
+    if (BM_elem_flag_test(f, BM_ELEM_HIDDEN)) {
+      continue;
+    }
+
+    bool is_face_fully_covered = true;
+
+    float3 face_center;
+    BM_face_calc_center_median(f, face_center);
+
+    const BMLoop *l_iter = f->l_first = BM_FACE_FIRST_LOOP(f);
+    do {
+      if (!sculpt_brush_test_sq_fn(&test, l_iter->v->co)) {
+        is_face_fully_covered = false;
+        break;
+      }
+
+      BMVert *vert = l_iter->v;
+
+      /* There is no need to update the automasking data as it is disabled above. Additionally,
+       * there is no access to the PBVHVertexIter as iteration happens over faces.
+       *
+       * The full auto-masking support would be very good to be implemented here, so keeping the
+       * typical code flow for it here for the reference, and ease of looking at what needs to be
+       * done for such integration.
+       *
+       * SCULPT_automasking_node_update(ss, &automask_data, &vd); */
+
+      const float fade = bstrength *
+                         SCULPT_brush_strength_factor(ss,
+                                                      brush,
+                                                      face_center,
+                                                      sqrtf(test.dist),
+                                                      f->no,
+                                                      f->no,
+                                                      0.0f,
+                                                      BKE_pbvh_make_vref(intptr_t(vert)),
+                                                      thread_id,
+                                                      &automask_data);
+
+      if (fade <= FACE_SET_BRUSH_MIN_FADE) {
+        is_face_fully_covered = false;
+        break;
+      }
+
+    } while ((l_iter = l_iter->next) != f->l_first);
+
+    if (is_face_fully_covered) {
+      int &fset = *static_cast<int *>(POINTER_OFFSET(f->head.data, cd_offset));
+      fset = ss->cache->paint_face_set;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    SCULPT_undo_push_node(ob, node, SCULPT_UNDO_FACE_SETS);
+  }
+}
+
+static void do_draw_face_sets_brush_task(Object *ob, const Brush *brush, PBVHNode *node)
+{
+  const SculptSession *ss = ob->sculpt;
+
+  switch (BKE_pbvh_type(ss->pbvh)) {
+    case PBVH_FACES:
+      do_draw_face_sets_brush_faces(ob, brush, node);
+      break;
+
+    case PBVH_GRIDS:
+      do_draw_face_sets_brush_grids(ob, brush, node);
+      break;
+
+    case PBVH_BMESH:
+      do_draw_face_sets_brush_bmesh(ob, brush, node);
+      break;
+  }
+}
+
+static void do_relax_face_sets_brush_task(Object *ob,
+                                          const Brush *brush,
+                                          const int iteration,
+                                          PBVHNode *node)
+{
+  SculptSession *ss = ob->sculpt;
   float bstrength = ss->cache->bstrength;
 
   PBVHVertexIter vd;
 
   SculptBrushTest test;
   SculptBrushTestFn sculpt_brush_test_sq_fn = SCULPT_brush_test_init_with_falloff_shape(
-      ss, &test, data->brush->falloff_shape);
+      ss, &test, brush->falloff_shape);
 
   const bool relax_face_sets = !(ss->cache->iteration_count % 3 == 0);
   /* This operations needs a strength tweak as the relax deformation is too weak by default. */
-  if (relax_face_sets && data->iteration < 2) {
+  if (relax_face_sets && iteration < 2) {
     bstrength *= 1.5f;
   }
 
-  const int thread_id = BLI_task_parallel_thread_id(tls);
+  const int thread_id = BLI_task_parallel_thread_id(nullptr);
   AutomaskingNodeData automask_data;
-  SCULPT_automasking_node_begin(
-      data->ob, ss, ss->cache->automasking, &automask_data, data->nodes[n]);
+  SCULPT_automasking_node_begin(ob, ss, ss->cache->automasking, &automask_data, node);
 
-  BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
     SCULPT_automasking_node_update(ss, &automask_data, &vd);
 
     if (!sculpt_brush_test_sq_fn(&test, vd.co)) {
@@ -242,7 +381,7 @@ static void do_relax_face_sets_brush_task_cb_ex(void *__restrict userdata,
                                                                 sqrtf(test.dist),
                                                                 vd.no,
                                                                 vd.fno,
-                                                                vd.mask ? *vd.mask : 0.0f,
+                                                                vd.mask,
                                                                 vd.vertex,
                                                                 thread_id,
                                                                 &automask_data);
@@ -257,6 +396,7 @@ static void do_relax_face_sets_brush_task_cb_ex(void *__restrict userdata,
 
 void SCULPT_do_draw_face_sets_brush(Sculpt *sd, Object *ob, Span<PBVHNode *> nodes)
 {
+  using namespace blender;
   SculptSession *ss = ob->sculpt;
   Brush *brush = BKE_paint_brush(&sd->paint);
 
@@ -268,25 +408,24 @@ void SCULPT_do_draw_face_sets_brush(Sculpt *sd, Object *ob, Span<PBVHNode *> nod
 
   BKE_curvemapping_init(brush->curve);
 
-  /* Threaded loop over nodes. */
-  SculptThreadedTaskData data{};
-  data.sd = sd;
-  data.ob = ob;
-  data.brush = brush;
-  data.nodes = nodes;
-
   TaskParallelSettings settings;
   BKE_pbvh_parallel_range_settings(&settings, true, nodes.size());
   if (ss->cache->alt_smooth) {
     SCULPT_boundary_info_ensure(ob);
     for (int i = 0; i < 4; i++) {
-      data.iteration = i;
-      BLI_task_parallel_range(
-          0, nodes.size(), &data, do_relax_face_sets_brush_task_cb_ex, &settings);
+      threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
+        for (const int i : range) {
+          do_relax_face_sets_brush_task(ob, brush, i, nodes[i]);
+        }
+      });
     }
   }
   else {
-    BLI_task_parallel_range(0, nodes.size(), &data, do_draw_face_sets_brush_task_cb_ex, &settings);
+    threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
+      for (const int i : range) {
+        do_draw_face_sets_brush_task(ob, brush, nodes[i]);
+      }
+    });
   }
 }
 
@@ -354,7 +493,7 @@ static int sculpt_face_set_create_exec(bContext *C, wmOperator *op)
   float threshold = 0.5f;
 
   PBVH *pbvh = ob->sculpt->pbvh;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   if (nodes.is_empty()) {
     return OPERATOR_CANCELLED;
@@ -623,7 +762,7 @@ static int sculpt_face_set_init_exec(bContext *C, wmOperator *op)
   }
 
   PBVH *pbvh = ob->sculpt->pbvh;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   if (nodes.is_empty()) {
     return OPERATOR_CANCELLED;
@@ -717,7 +856,7 @@ static int sculpt_face_set_init_exec(bContext *C, wmOperator *op)
     BKE_pbvh_node_mark_update_visibility(node);
   }
 
-  BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateVisibility);
+  BKE_pbvh_update_visibility(ss->pbvh);
 
   SCULPT_tag_update_overlays(C);
 
@@ -801,7 +940,7 @@ static int sculpt_face_set_change_visibility_exec(bContext *C, wmOperator *op)
   const int tot_vert = SCULPT_vertex_count_get(ss);
 
   PBVH *pbvh = ob->sculpt->pbvh;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   if (nodes.is_empty()) {
     return OPERATOR_CANCELLED;
@@ -900,7 +1039,7 @@ static int sculpt_face_set_change_visibility_exec(bContext *C, wmOperator *op)
     BKE_pbvh_node_mark_update_visibility(node);
   }
 
-  BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateVisibility);
+  BKE_pbvh_update_visibility(ss->pbvh);
 
   SCULPT_tag_update_overlays(C);
 
@@ -973,7 +1112,7 @@ static int sculpt_face_sets_randomize_colors_exec(bContext *C, wmOperator * /*op
   }
   BKE_pbvh_face_sets_color_set(pbvh, mesh->face_sets_color_seed, mesh->face_sets_color_default);
 
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
   for (PBVHNode *node : nodes) {
     BKE_pbvh_node_mark_redraw(node);
   }
@@ -1210,6 +1349,7 @@ static void sculpt_face_set_edit_fair_face_set(Object *ob,
   for (int i = 0; i < totvert; i++) {
     if (fair_verts[i]) {
       interp_v3_v3v3(positions[i], orig_positions[i], positions[i], strength);
+      BKE_pbvh_vert_tag_update_normal(ss->pbvh, BKE_pbvh_index_to_vertex(ss->pbvh, i));
     }
   }
 }
@@ -1312,7 +1452,7 @@ static void face_set_edit_do_post_visibility_updates(Object *ob, Span<PBVHNode *
     BKE_pbvh_node_mark_update_visibility(node);
   }
 
-  BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateVisibility);
+  BKE_pbvh_update_visibility(ss->pbvh);
 }
 
 static void sculpt_face_set_edit_modify_face_sets(Object *ob,
@@ -1322,7 +1462,7 @@ static void sculpt_face_set_edit_modify_face_sets(Object *ob,
                                                   wmOperator *op)
 {
   PBVH *pbvh = ob->sculpt->pbvh;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   if (nodes.is_empty()) {
     return;
@@ -1346,7 +1486,7 @@ static void sculpt_face_set_edit_modify_coordinates(bContext *C,
   SculptSession *ss = ob->sculpt;
   PBVH *pbvh = ss->pbvh;
 
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   const float strength = RNA_float_get(op->ptr, "strength");
 
@@ -1481,7 +1621,7 @@ static int sculpt_face_sets_invert_visibility_exec(bContext *C, wmOperator *op)
   }
 
   PBVH *pbvh = ob->sculpt->pbvh;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(pbvh, {});
 
   if (nodes.is_empty()) {
     return OPERATOR_CANCELLED;
@@ -1505,7 +1645,7 @@ static int sculpt_face_sets_invert_visibility_exec(bContext *C, wmOperator *op)
     BKE_pbvh_node_mark_update_visibility(node);
   }
 
-  BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateVisibility);
+  BKE_pbvh_update_visibility(ss->pbvh);
 
   SCULPT_tag_update_overlays(C);
 

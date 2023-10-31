@@ -7,12 +7,12 @@ set(INC
   ../../asset_system
   ../../blenkernel
   ../../blentranslation
+  ../../bmesh
   ../../depsgraph
   ../../functions
   ../../makesrna
   ../../nodes
   ../../windowmanager
-  ../../bmesh
 
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -24,6 +24,7 @@ set(INC_SYS
 set(SRC
   geometry_attributes.cc
   geometry_ops.cc
+  geometry_randomization.cc
   node_group_operator.cc
 
   geometry_intern.hh

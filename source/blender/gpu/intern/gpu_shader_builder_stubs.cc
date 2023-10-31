@@ -35,8 +35,9 @@
 
 extern "C" {
 Global G;
-UserDef U;
 }
+
+UserDef U;
 
 /* -------------------------------------------------------------------- */
 /** \name Stubs of BLI_imbuf_types.h
@@ -223,15 +224,6 @@ extern "C" void ntreeFreeLocalTree(struct bNodeTree * /*ntree*/)
   BLI_assert_unreachable();
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Stubs of bmesh.h
- * \{ */
-extern "C" void BM_face_as_array_vert_tri(BMFace * /*f*/, BMVert *[3] /*r_verts*/)
-{
-  BLI_assert_unreachable();
-}
 /** \} */
 
 /* -------------------------------------------------------------------- */

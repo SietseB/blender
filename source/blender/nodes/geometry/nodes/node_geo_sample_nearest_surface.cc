@@ -10,10 +10,13 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_sample.hh"
 
+#include "NOD_rna_define.hh"
+#include "NOD_socket_search_link.hh"
+
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
-#include "NOD_socket_search_link.hh"
+#include "RNA_enum_types.hh"
 
 #include "node_geometry_util.hh"
 
@@ -88,11 +91,11 @@ static void node_update(bNodeTree *ntree, bNode *node)
 
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
+  const NodeDeclaration &declaration = *params.node_type().static_declaration;
   search_link_ops_for_declarations(params, declaration.inputs.as_span().take_back(2));
   search_link_ops_for_declarations(params, declaration.inputs.as_span().take_front(1));
 
-  const std::optional<eCustomDataType> type = node_data_type_to_custom_data_type(
+  const std::optional<eCustomDataType> type = bke::socket_type_to_custom_data_type(
       eNodeSocketDatatype(params.other_socket().type));
   if (type && *type != CD_PROP_STRING) {
     /* The input and output sockets have the same name. */
@@ -159,17 +162,17 @@ static GField get_input_attribute_field(GeoNodeExecParams &params, const eCustom
 {
   switch (data_type) {
     case CD_PROP_FLOAT:
-      return params.extract_input<Field<float>>("Value_Float");
+      return params.extract_input<GField>("Value_Float");
     case CD_PROP_FLOAT3:
-      return params.extract_input<Field<float3>>("Value_Vector");
+      return params.extract_input<GField>("Value_Vector");
     case CD_PROP_COLOR:
-      return params.extract_input<Field<ColorGeometry4f>>("Value_Color");
+      return params.extract_input<GField>("Value_Color");
     case CD_PROP_BOOL:
-      return params.extract_input<Field<bool>>("Value_Bool");
+      return params.extract_input<GField>("Value_Bool");
     case CD_PROP_INT32:
-      return params.extract_input<Field<int>>("Value_Int");
+      return params.extract_input<GField>("Value_Int");
     case CD_PROP_QUATERNION:
-      return params.extract_input<Field<math::Quaternion>>("Value_Rotation");
+      return params.extract_input<GField>("Value_Rotation");
     default:
       BLI_assert_unreachable();
   }
@@ -180,27 +183,27 @@ static void output_attribute_field(GeoNodeExecParams &params, GField field)
 {
   switch (bke::cpp_type_to_custom_data_type(field.cpp_type())) {
     case CD_PROP_FLOAT: {
-      params.set_output("Value_Float", Field<float>(field));
+      params.set_output("Value_Float", field);
       break;
     }
     case CD_PROP_FLOAT3: {
-      params.set_output("Value_Vector", Field<float3>(field));
+      params.set_output("Value_Vector", field);
       break;
     }
     case CD_PROP_COLOR: {
-      params.set_output("Value_Color", Field<ColorGeometry4f>(field));
+      params.set_output("Value_Color", field);
       break;
     }
     case CD_PROP_BOOL: {
-      params.set_output("Value_Bool", Field<bool>(field));
+      params.set_output("Value_Bool", field);
       break;
     }
     case CD_PROP_INT32: {
-      params.set_output("Value_Int", Field<int>(field));
+      params.set_output("Value_Int", field);
       break;
     }
     case CD_PROP_QUATERNION: {
-      params.set_output("Value_Rotation", Field<math::Quaternion>(field));
+      params.set_output("Value_Rotation", field);
       break;
     }
     default:
@@ -245,6 +248,18 @@ static void node_geo_exec(GeoNodeExecParams params)
   output_attribute_field(params, GField(sample_op));
 }
 
+static void node_rna(StructRNA *srna)
+{
+  RNA_def_node_enum(srna,
+                    "data_type",
+                    "Data Type",
+                    "",
+                    rna_enum_attribute_type_items,
+                    NOD_inline_enum_accessors(custom1),
+                    CD_PROP_FLOAT,
+                    enums::attribute_type_type_with_socket_fn);
+}
+
 static void node_register()
 {
   static bNodeType ntype;
@@ -259,6 +274,8 @@ static void node_register()
   ntype.draw_buttons = node_layout;
   ntype.gather_link_search_ops = node_gather_link_searches;
   nodeRegisterType(&ntype);
+
+  node_rna(ntype.rna_ext.srna);
 }
 NOD_REGISTER_NODE(node_register)
 

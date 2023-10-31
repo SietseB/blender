@@ -19,7 +19,7 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 
 #include "ED_screen.hh"
 #include "ED_sequencer.hh"
@@ -27,7 +27,7 @@
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
-#include "sequencer_intern.h"
+#include "sequencer_intern.hh"
 
 /* **************************** buttons ********************************* */
 

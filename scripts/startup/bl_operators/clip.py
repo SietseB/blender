@@ -677,7 +677,7 @@ class CLIP_OT_setup_tracking_scene(Operator):
         self.createCollection(context, "foreground")
         self.createCollection(context, "background")
 
-        # rendersettings
+        # Render settings.
         setup_collection_recursively(
             vlayers["Foreground"].layer_collection.children,
             "background",
@@ -882,11 +882,12 @@ class CLIP_OT_setup_tracking_scene(Operator):
 
     @staticmethod
     def _getPlaneVertices(half_size, z):
-
-        return [(-half_size, -half_size, z),
-                (half_size, -half_size, z),
-                (half_size, half_size, z),
-                (-half_size, half_size, z)]
+        return [
+            (-half_size, -half_size, z),
+            (half_size, -half_size, z),
+            (half_size, half_size, z),
+            (-half_size, half_size, z),
+        ]
 
     def _createGround(self, collection):
         vertices = self._getPlaneVertices(4.0, 0.0)

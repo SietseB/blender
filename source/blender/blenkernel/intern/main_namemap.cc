@@ -18,8 +18,9 @@
 #include "BLI_map.hh"
 #include "BLI_math_base.hh"
 #include "BLI_set.hh"
+#include "BLI_string.h"
 #include "BLI_string_utf8.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 
 #include "DNA_ID.h"
 

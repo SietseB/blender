@@ -37,7 +37,6 @@ set(SRC
   SEQ_proxy.h
   SEQ_relations.h
   SEQ_render.h
-  SEQ_retiming.h
   SEQ_retiming.hh
   SEQ_select.h
   SEQ_sequencer.h
@@ -101,6 +100,10 @@ if(WITH_AUDASPACE)
     )
   endif()
   add_definitions(-DWITH_AUDASPACE)
+
+  if(WITH_FFTW3)
+    add_definitions(-DWITH_CONVOLUTION)
+  endif()
 endif()
 
 blender_add_lib(bf_sequencer "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

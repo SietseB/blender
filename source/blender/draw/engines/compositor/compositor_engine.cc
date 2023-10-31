@@ -18,7 +18,7 @@
 #include "DNA_vec_types.h"
 #include "DNA_view3d_types.h"
 
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph_query.hh"
 
 #include "ED_view3d.hh"
 
@@ -153,7 +153,7 @@ class Context : public realtime_compositor::Context {
     return DRW_viewport_texture_list_get()->color;
   }
 
-  GPUTexture *get_viewer_output_texture() override
+  GPUTexture *get_viewer_output_texture(int2 /* size */) override
   {
     return DRW_viewport_texture_list_get()->color;
   }

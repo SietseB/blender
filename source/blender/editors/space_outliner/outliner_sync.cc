@@ -24,7 +24,7 @@
 #include "BKE_layer.h"
 #include "BKE_main.h"
 
-#include "DEG_depsgraph.h"
+#include "DEG_depsgraph.hh"
 
 #include "ED_armature.hh"
 #include "ED_object.hh"
@@ -34,6 +34,8 @@
 
 #include "WM_api.hh"
 #include "WM_types.hh"
+
+#include "ANIM_bone_collections.h"
 
 #include "tree/tree_element_seq.hh"
 
@@ -295,7 +297,7 @@ static void outliner_select_sync_to_sequence(Scene *scene, const TreeElement *te
   const TreeStoreElem *tselem = TREESTORE(te);
 
   const TreeElementSequence *te_sequence = tree_element_cast<TreeElementSequence>(te);
-  Sequence *seq = &te_sequence->getSequence();
+  Sequence *seq = &te_sequence->get_sequence();
 
   if (tselem->flag & TSE_ACTIVE) {
     SEQ_select_active_set(scene, seq);
@@ -474,7 +476,7 @@ static void outliner_select_sync_from_sequence(Sequence *sequence_active, const 
   TreeStoreElem *tselem = TREESTORE(te);
 
   const TreeElementSequence *te_sequence = tree_element_cast<TreeElementSequence>(te);
-  const Sequence *seq = &te_sequence->getSequence();
+  const Sequence *seq = &te_sequence->get_sequence();
 
   if (seq == sequence_active) {
     tselem->flag |= TSE_ACTIVE;

@@ -28,7 +28,7 @@
 #include "BKE_main.h"
 #include "BKE_nla.h"
 #include "BKE_report.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 
 #include "ED_anim_api.hh"
 #include "ED_keyframes_edit.hh"
@@ -44,7 +44,7 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_build.hh"
 
 #include "UI_interface.hh"
 #include "UI_view2d.hh"
@@ -752,7 +752,7 @@ void NLA_OT_actionclip_add(wmOperatorType *ot)
 
   /* props */
   /* TODO: this would be nicer as an ID-pointer. */
-  prop = RNA_def_enum(ot->srna, "action", DummyRNA_NULL_items, 0, "Action", "");
+  prop = RNA_def_enum(ot->srna, "action", rna_enum_dummy_NULL_items, 0, "Action", "");
   RNA_def_enum_funcs(prop, RNA_action_itemf);
   RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
   ot->prop = prop;
@@ -1276,6 +1276,12 @@ static int nlaedit_delete_exec(bContext *C, wmOperator * /*op*/)
 
       /* if selected, delete */
       if (strip->flag & NLASTRIP_FLAG_SELECT) {
+        /* Fix for #109430. Defensively exit tweak mode before deleting
+         * the active strip. */
+        if (ale->adt && ale->adt->actstrip == strip) {
+          BKE_nla_tweakmode_exit(ale->adt);
+        }
+
         /* if a strip either side of this was a transition, delete those too */
         if ((strip->prev) && (strip->prev->type == NLASTRIP_TYPE_TRANSITION)) {
           BKE_nlastrip_remove_and_free(&nlt->strips, strip->prev, true);
@@ -2271,9 +2277,7 @@ static int nlaedit_clear_scale_exec(bContext *C, wmOperator * /*op*/)
       /* strip must be selected, and must be action-clip only
        * (transitions don't have scale) */
       if ((strip->flag & NLASTRIP_FLAG_SELECT) && (strip->type == NLASTRIP_TYPE_CLIP)) {
-        PointerRNA strip_ptr;
-
-        RNA_pointer_create(nullptr, &RNA_NlaStrip, strip, &strip_ptr);
+        PointerRNA strip_ptr = RNA_pointer_create(nullptr, &RNA_NlaStrip, strip);
         RNA_float_set(&strip_ptr, "scale", 1.0f);
       }
     }

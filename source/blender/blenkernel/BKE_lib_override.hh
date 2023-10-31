@@ -235,6 +235,11 @@ void BKE_lib_override_library_main_hierarchy_root_ensure(Main *bmain);
  * \param view_layer: the active view layer to search instantiated collections in, can be NULL (in
  *                    which case \a scene's master collection children hierarchy is used instead).
  * \param id_root: The root liboverride ID to resync from.
+ * \param do_hierarchy_enforce: If `true`, enforce the liboverride hierarchy of dependencies to
+ *                              match the one from the reference linked data (i.e. if some manually
+ *                              override were applied to some ID pointers, they will be reset to
+ *                              the default reference value).
+ *
  * \return true if override was successfully resynced.
  */
 bool BKE_lib_override_library_resync(Main *bmain,
@@ -279,10 +284,14 @@ void BKE_lib_override_library_delete(Main *bmain, ID *id_root);
 /**
  * Make given ID fully local.
  *
+ * \param bmain If given, all liboverrides hierarchy roots will be re-validated/generated after
+ * clearing the liboverride data from given \a id. If nullptr, caller is responsible to perform
+ * this action (call #BKE_lib_override_library_main_hierarchy_root_ensure) itself.
+ *
  * \note Only differs from lower-level #BKE_lib_override_library_free in infamous embedded ID
  * cases.
  */
-void BKE_lib_override_library_make_local(ID *id);
+void BKE_lib_override_library_make_local(Main *bmain, ID *id);
 
 /**
  * Find override property from given RNA path, if it exists.

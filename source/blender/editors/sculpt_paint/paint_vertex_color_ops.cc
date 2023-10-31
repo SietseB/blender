@@ -25,7 +25,7 @@
 #include "BKE_geometry_set.hh"
 #include "BKE_mesh.hh"
 
-#include "DEG_depsgraph.h"
+#include "DEG_depsgraph.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
@@ -309,8 +309,7 @@ static void transform_active_color(bContext *C,
 
   SCULPT_undo_push_begin(obact, op);
 
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(
-      obact->sculpt->pbvh, nullptr, nullptr);
+  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(obact->sculpt->pbvh, {});
   for (PBVHNode *node : nodes) {
     SCULPT_undo_push_node(obact, node, SCULPT_UNDO_COLOR);
   }

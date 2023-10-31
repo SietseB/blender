@@ -11,10 +11,6 @@
 #include "DNA_defs.h"
 #include "DNA_listBase.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct LatticeDeformData;
 struct ShrinkwrapTreeData;
 
@@ -335,7 +331,7 @@ typedef struct OpacityGpencilModifierData {
   /** Custom index for passes. */
   int layer_pass;
 
-  float hardeness;
+  float hardness;
   struct CurveMapping *curve_intensity;
 } OpacityGpencilModifierData;
 
@@ -1453,7 +1449,3 @@ typedef enum eFollowCurveGpencil_Axis {
   GP_FOLLOWCURVE_AXIS_Y = 1,
   GP_FOLLOWCURVE_AXIS_Z = 2,
 } eFollowCurveGpencil_Axis;
-
-#ifdef __cplusplus
-}
-#endif

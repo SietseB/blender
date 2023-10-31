@@ -1980,6 +1980,12 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
     return;
   }
 
+  /* If result would be no blurring, early out. */
+  halfWidth = ((quality + 1) * blur);
+  if (halfWidth == 0) {
+    return;
+  }
+
   /* Allocate memory for the temp-map and the blur filter matrix. */
   temp = static_cast<float *>(MEM_mallocN(sizeof(float[4]) * width * height, "blurbitmaptemp"));
   if (!temp) {
@@ -1987,7 +1993,6 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
   }
 
   /* Allocate memory for the filter elements */
-  halfWidth = ((quality + 1) * blur);
   filter = (float *)MEM_mallocN(sizeof(float) * halfWidth * 2, "blurbitmapfilter");
   if (!filter) {
     MEM_freeN(temp);
@@ -2104,7 +2109,8 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
 
   /* Swap buffers */
   swap = temp;
-  temp = map; /* map = swap; */ /* UNUSED */
+  temp = map;
+  // map = swap; /* UNUSED. */
 
   /* Tidy up. */
   MEM_freeN(filter);
@@ -2615,7 +2621,7 @@ float seq_speed_effect_target_frame_get(Scene *scene,
   }
 
   SEQ_effect_handle_get(seq_speed); /* Ensure, that data are initialized. */
-  int frame_index = SEQ_give_frame_index(scene, seq_speed, timeline_frame);
+  int frame_index = round_fl_to_int(SEQ_give_frame_index(scene, seq_speed, timeline_frame));
   SpeedControlVars *s = (SpeedControlVars *)seq_speed->effectdata;
   const Sequence *source = seq_speed->seq1;
 

@@ -4,12 +4,16 @@
 
 #include "node_geometry_util.hh"
 
+#include "NOD_rna_define.hh"
+
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
 #include "BKE_attribute_math.hh"
 
 #include "BLI_task.hh"
+
+#include "RNA_enum_types.hh"
 
 #include "NOD_socket_search_link.hh"
 
@@ -33,8 +37,7 @@ GVArray EvaluateAtIndexInput::get_varray_for_context(const bke::GeometryFieldCon
     return {};
   }
 
-  const bke::GeometryFieldContext value_context{
-      context.geometry(), context.type(), value_field_domain_};
+  const bke::GeometryFieldContext value_context{context, value_field_domain_};
   FieldEvaluator value_evaluator{value_context, attributes->domain_size(value_field_domain_)};
   value_evaluator.add(value_field_);
   value_evaluator.evaluate();
@@ -122,7 +125,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
   const bNodeType &node_type = params.node_type();
-  const std::optional<eCustomDataType> type = node_data_type_to_custom_data_type(
+  const std::optional<eCustomDataType> type = bke::socket_type_to_custom_data_type(
       eNodeSocketDatatype(params.other_socket().type));
   if (type && *type != CD_PROP_STRING) {
     params.add_item(IFACE_("Value"), [node_type, type](LinkSearchOpParams &params) {
@@ -179,6 +182,27 @@ static void node_geo_exec(GeoNodeExecParams params)
   });
 }
 
+static void node_rna(StructRNA *srna)
+{
+  RNA_def_node_enum(srna,
+                    "domain",
+                    "Domain",
+                    "Domain the field is evaluated in",
+                    rna_enum_attribute_domain_items,
+                    NOD_inline_enum_accessors(custom1),
+                    ATTR_DOMAIN_POINT,
+                    enums::domain_experimental_grease_pencil_version3_fn);
+
+  RNA_def_node_enum(srna,
+                    "data_type",
+                    "Data Type",
+                    "",
+                    rna_enum_attribute_type_items,
+                    NOD_inline_enum_accessors(custom2),
+                    CD_PROP_FLOAT,
+                    enums::attribute_type_type_with_socket_fn);
+}
+
 static void node_register()
 {
   static bNodeType ntype;
@@ -192,6 +216,8 @@ static void node_register()
   ntype.updatefunc = node_update;
   ntype.gather_link_search_ops = node_gather_link_searches;
   nodeRegisterType(&ntype);
+
+  node_rna(ntype.rna_ext.srna);
 }
 NOD_REGISTER_NODE(node_register)
 

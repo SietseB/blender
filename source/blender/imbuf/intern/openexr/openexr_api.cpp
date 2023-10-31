@@ -66,7 +66,7 @@
 #include <openexr_api.h>
 
 #if defined(WIN32)
-#  include "utfconv.h"
+#  include "utfconv.hh"
 #  include <io.h>
 #else
 #  include <unistd.h>
@@ -78,7 +78,7 @@
 #include "BLI_fileops.h"
 #include "BLI_math_color.h"
 #include "BLI_mmap.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 #include "BLI_threads.h"
 
 #include "BKE_idprop.h"
@@ -153,20 +153,20 @@ class IMMapStream : public Imf::IStream {
  public:
   IMMapStream(const char *filepath) : IStream(filepath)
   {
-    int file = BLI_open(filepath, O_BINARY | O_RDONLY, 0);
+    const int file = BLI_open(filepath, O_BINARY | O_RDONLY, 0);
     if (file < 0) {
       throw IEX_NAMESPACE::InputExc("file not found");
     }
     _exrpos = 0;
-    _exrsize = BLI_file_descriptor_size(file);
     imb_mmap_lock();
     _mmap_file = BLI_mmap_open(file);
     imb_mmap_unlock();
+    close(file);
     if (_mmap_file == nullptr) {
       throw IEX_NAMESPACE::InputExc("BLI_mmap_open failed");
     }
-    close(file);
     _exrbuf = (uchar *)BLI_mmap_get_pointer(_mmap_file);
+    _exrsize = BLI_mmap_get_length(_mmap_file);
   }
 
   ~IMMapStream() override

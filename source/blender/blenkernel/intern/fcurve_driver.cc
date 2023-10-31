@@ -20,7 +20,7 @@
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
 #include "BLI_string_utf8.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
@@ -32,7 +32,7 @@
 #include "BKE_constraint.h"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 
 #include "RNA_access.hh"
 #include "RNA_path.hh"
@@ -42,13 +42,13 @@
 
 #include "CLG_log.h"
 
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph_query.hh"
 
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
 #endif
 
-#include <string.h>
+#include <cstring>
 
 #ifdef WITH_PYTHON
 static ThreadMutex python_driver_lock = BLI_MUTEX_INITIALIZER;
@@ -104,14 +104,12 @@ static bool driver_get_target_context_property(const DriverTargetContext *driver
 {
   switch (dtar->context_property) {
     case DTAR_CONTEXT_PROPERTY_ACTIVE_SCENE:
-      RNA_id_pointer_create(&driver_target_context->scene->id, r_property_ptr);
+      *r_property_ptr = RNA_id_pointer_create(&driver_target_context->scene->id);
       return true;
 
     case DTAR_CONTEXT_PROPERTY_ACTIVE_VIEW_LAYER: {
-      RNA_pointer_create(&driver_target_context->scene->id,
-                         &RNA_ViewLayer,
-                         driver_target_context->view_layer,
-                         r_property_ptr);
+      *r_property_ptr = RNA_pointer_create(
+          &driver_target_context->scene->id, &RNA_ViewLayer, driver_target_context->view_layer);
       return true;
     }
   }
@@ -142,7 +140,7 @@ bool driver_get_target_property(const DriverTargetContext *driver_target_context
     return false;
   }
 
-  RNA_id_pointer_create(dtar->id, r_prop);
+  *r_prop = RNA_id_pointer_create(dtar->id);
 
   return true;
 }

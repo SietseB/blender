@@ -8,7 +8,10 @@
 #include "BLI_generic_virtual_array.hh"
 #include "BLI_virtual_array.hh"
 
+#include "NOD_rna_define.hh"
 #include "NOD_socket_search_link.hh"
+
+#include "RNA_enum_types.hh"
 
 #include "node_geometry_util.hh"
 
@@ -227,8 +230,7 @@ class AccumulateFieldInput final : public bke::GeometryFieldInput {
       return {};
     }
 
-    const bke::GeometryFieldContext source_context{
-        context.geometry(), context.type(), source_domain_};
+    const bke::GeometryFieldContext source_context{context, source_domain_};
     fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
@@ -333,8 +335,7 @@ class TotalFieldInput final : public bke::GeometryFieldInput {
       return {};
     }
 
-    const bke::GeometryFieldContext source_context{
-        context.geometry(), context.type(), source_domain_};
+    const bke::GeometryFieldContext source_context{context, source_domain_};
     fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
@@ -418,7 +419,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     using T = decltype(dummy);
     if constexpr (is_same_any_v<T, int, float, float3>) {
       const std::string suffix = " " + identifier_suffix<T>();
-      Field<T> input_field = params.extract_input<Field<T>>("Value" + suffix);
+      GField input_field = params.extract_input<GField>("Value" + suffix);
       if (params.output_is_required("Leading" + suffix)) {
         params.set_output(
             "Leading" + suffix,
@@ -440,6 +441,33 @@ static void node_geo_exec(GeoNodeExecParams params)
   });
 }
 
+static void node_rna(StructRNA *srna)
+{
+  RNA_def_node_enum(
+      srna,
+      "data_type",
+      "Data Type",
+      "Type of data stored in attribute",
+      rna_enum_attribute_type_items,
+      NOD_storage_enum_accessors(data_type),
+      CD_PROP_FLOAT,
+      [](bContext * /*C*/, PointerRNA * /*ptr*/, PropertyRNA * /*prop*/, bool *r_free) {
+        *r_free = true;
+        return enum_items_filter(rna_enum_attribute_type_items, [](const EnumPropertyItem &item) {
+          return ELEM(item.value, CD_PROP_FLOAT, CD_PROP_FLOAT3, CD_PROP_INT32);
+        });
+      });
+
+  RNA_def_node_enum(srna,
+                    "domain",
+                    "Domain",
+                    "",
+                    rna_enum_attribute_domain_items,
+                    NOD_storage_enum_accessors(domain),
+                    ATTR_DOMAIN_POINT,
+                    enums::domain_experimental_grease_pencil_version3_fn);
+}
+
 static void node_register()
 {
   static bNodeType ntype;
@@ -454,6 +482,8 @@ static void node_register()
   node_type_storage(
       &ntype, "NodeAccumulateField", node_free_standard_storage, node_copy_standard_storage);
   nodeRegisterType(&ntype);
+
+  node_rna(ntype.rna_ext.srna);
 }
 NOD_REGISTER_NODE(node_register)
 

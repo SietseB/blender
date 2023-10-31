@@ -32,7 +32,9 @@
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
-#include "DEG_depsgraph.h"
+#include "DEG_depsgraph.hh"
+
+#include "WM_types.hh"
 
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
@@ -213,7 +215,7 @@ ImBuf *seq_proxy_fetch(const SeqRenderData *context, Sequence *seq, int timeline
   }
 
   if (proxy->storage & SEQ_STORAGE_PROXY_CUSTOM_FILE) {
-    int frameno = int(SEQ_give_frame_index(context->scene, seq, timeline_frame)) +
+    int frameno = round_fl_to_int(SEQ_give_frame_index(context->scene, seq, timeline_frame)) +
                   seq->anim_startofs;
     if (proxy->anim == nullptr) {
       if (seq_proxy_get_filepath(
@@ -508,7 +510,7 @@ bool SEQ_proxy_rebuild_context(Main *bmain,
   return true;
 }
 
-void SEQ_proxy_rebuild(SeqIndexBuildContext *context, bool *stop, bool *do_update, float *progress)
+void SEQ_proxy_rebuild(SeqIndexBuildContext *context, wmJobWorkerStatus *worker_status)
 {
   const bool overwrite = context->overwrite;
   SeqRenderData render_context;
@@ -519,7 +521,10 @@ void SEQ_proxy_rebuild(SeqIndexBuildContext *context, bool *stop, bool *do_updat
 
   if (seq->type == SEQ_TYPE_MOVIE) {
     if (context->index_context) {
-      IMB_anim_index_rebuild(context->index_context, stop, do_update, progress);
+      IMB_anim_index_rebuild(context->index_context,
+                             &worker_status->stop,
+                             &worker_status->do_update,
+                             &worker_status->progress);
     }
 
     return;
@@ -565,12 +570,12 @@ void SEQ_proxy_rebuild(SeqIndexBuildContext *context, bool *stop, bool *do_updat
       seq_proxy_build_frame(&render_context, &state, seq, timeline_frame, 100, overwrite);
     }
 
-    *progress = float(timeline_frame - SEQ_time_left_handle_frame_get(scene, seq)) /
-                (SEQ_time_right_handle_frame_get(scene, seq) -
-                 SEQ_time_left_handle_frame_get(scene, seq));
-    *do_update = true;
+    worker_status->progress = float(timeline_frame - SEQ_time_left_handle_frame_get(scene, seq)) /
+                              (SEQ_time_right_handle_frame_get(scene, seq) -
+                               SEQ_time_left_handle_frame_get(scene, seq));
+    worker_status->do_update = true;
 
-    if (*stop || G.is_break) {
+    if (worker_status->stop || G.is_break) {
       break;
     }
   }

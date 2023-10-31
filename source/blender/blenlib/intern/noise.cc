@@ -381,8 +381,9 @@ BLI_INLINE float noise_grad(uint32_t hash, float x, float y, float z, float w)
 
 BLI_INLINE float floor_fraction(float x, int &i)
 {
-  i = int(x) - ((x < 0) ? 1 : 0);
-  return x - i;
+  float x_floor = math::floor(x);
+  i = int(x_floor);
+  return x - x_floor;
 }
 
 BLI_INLINE float perlin_noise(float position)
@@ -2309,6 +2310,8 @@ float voronoi_n_sphere_radius(const VoronoiParams &params, const float4 coord)
 
 /* **** Fractal Voronoi **** */
 
+/* The fractalization logic is the same as for fBM Noise, except that some additions are replaced
+ * by lerps. */
 template<typename T>
 VoronoiOutput fractal_voronoi_x_fx(const VoronoiParams &params,
                                    const T coord,
@@ -2319,8 +2322,7 @@ VoronoiOutput fractal_voronoi_x_fx(const VoronoiParams &params,
   float scale = 1.0f;
 
   VoronoiOutput output;
-  const bool zero_input = params.detail == 0.0f || params.roughness == 0.0f ||
-                          params.lacunarity == 0.0f;
+  const bool zero_input = params.detail == 0.0f || params.roughness == 0.0f;
 
   for (int i = 0; i <= ceilf(params.detail); ++i) {
     VoronoiOutput octave = (params.feature == NOISE_SHD_VORONOI_F2) ?
@@ -2367,6 +2369,8 @@ VoronoiOutput fractal_voronoi_x_fx(const VoronoiParams &params,
   return output;
 }
 
+/* The fractalization logic is the same as for fBM Noise, except that some additions are replaced
+ * by lerps. */
 template<typename T>
 float fractal_voronoi_distance_to_edge(const VoronoiParams &params, const T coord)
 {
@@ -2375,8 +2379,7 @@ float fractal_voronoi_distance_to_edge(const VoronoiParams &params, const T coor
   float scale = 1.0f;
   float distance = 8.0f;
 
-  const bool zero_input = params.detail == 0.0f || params.roughness == 0.0f ||
-                          params.lacunarity == 0.0f;
+  const bool zero_input = params.detail == 0.0f || params.roughness == 0.0f;
 
   for (int i = 0; i <= ceilf(params.detail); ++i) {
     const float octave_distance = voronoi_distance_to_edge(params, coord * scale);

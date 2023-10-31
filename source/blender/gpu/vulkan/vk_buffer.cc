@@ -14,7 +14,9 @@ namespace blender::gpu {
 
 VKBuffer::~VKBuffer()
 {
-  free();
+  if (is_allocated()) {
+    free();
+  }
 }
 
 bool VKBuffer::is_allocated() const
@@ -96,8 +98,8 @@ void VKBuffer::update(const void *data) const
 
 void VKBuffer::clear(VKContext &context, uint32_t clear_value)
 {
-  VKCommandBuffer &command_buffer = context.command_buffer_get();
-  command_buffer.fill(*this, clear_value);
+  VKCommandBuffers &command_buffers = context.command_buffers_get();
+  command_buffers.fill(*this, clear_value);
 }
 
 void VKBuffer::read(void *data) const
@@ -141,9 +143,10 @@ bool VKBuffer::free()
     unmap();
   }
 
-  const VKDevice &device = VKBackend::get().device_get();
-  VmaAllocator allocator = device.mem_allocator_get();
-  vmaDestroyBuffer(allocator, vk_buffer_, allocation_);
+  VKDevice &device = VKBackend::get().device_get();
+  device.discard_buffer(vk_buffer_, allocation_);
+  allocation_ = VK_NULL_HANDLE;
+  vk_buffer_ = VK_NULL_HANDLE;
   return true;
 }
 

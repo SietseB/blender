@@ -15,6 +15,8 @@
 #include "BKE_mesh_mapping.hh"
 #include "BKE_mesh_runtime.hh"
 
+#include "GEO_randomize.hh"
+
 #include "NOD_rna_define.hh"
 
 #include "UI_interface.hh"
@@ -146,7 +148,6 @@ static void expand_mesh(Mesh &mesh,
     mesh.face_offset_indices[mesh.faces_num] = mesh.totloop + loop_expand;
   }
   if (loop_expand != 0) {
-    CustomData_free_layers(&mesh.loop_data, CD_NORMAL, mesh.totloop);
     CustomData_free_layers(&mesh.loop_data, CD_MDISPS, mesh.totloop);
     CustomData_free_layers(&mesh.loop_data, CD_TANGENT, mesh.totloop);
     CustomData_free_layers(&mesh.loop_data, CD_PAINT_MASK, mesh.totloop);
@@ -1431,6 +1432,8 @@ static void node_geo_exec(GeoNodeExecParams params)
           break;
         }
       }
+
+      geometry::debug_randomize_mesh_order(mesh);
     }
   });
 

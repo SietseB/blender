@@ -191,6 +191,17 @@ void Texture::usage_set(eGPUTextureUsage usage_flags)
 void Texture::attach_to(FrameBuffer *fb, GPUAttachmentType type)
 {
   for (int i = 0; i < ARRAY_SIZE(fb_); i++) {
+    if (fb_[i] == fb) {
+      /* Already stores a reference */
+      if (fb_attachment_[i] != type) {
+        /* Ensure it's not attached twice to the same FrameBuffer. */
+        fb_[i]->attachment_remove(fb_attachment_[i]);
+        fb_attachment_[i] = type;
+      }
+      return;
+    }
+  }
+  for (int i = 0; i < ARRAY_SIZE(fb_); i++) {
     if (fb_[i] == nullptr) {
       fb_attachment_[i] = type;
       fb_[i] = fb;
@@ -907,6 +918,22 @@ bool GPU_texture_has_stencil_format(const GPUTexture *tex)
 bool GPU_texture_has_integer_format(const GPUTexture *tex)
 {
   return (reinterpret_cast<const Texture *>(tex)->format_flag_get() & GPU_FORMAT_INTEGER) != 0;
+}
+
+bool GPU_texture_has_float_format(const GPUTexture *tex)
+{
+  return (reinterpret_cast<const Texture *>(tex)->format_flag_get() & GPU_FORMAT_FLOAT) != 0;
+}
+
+bool GPU_texture_has_normalized_format(const GPUTexture *tex)
+{
+  return (reinterpret_cast<const Texture *>(tex)->format_flag_get() &
+          GPU_FORMAT_NORMALIZED_INTEGER) != 0;
+}
+
+bool GPU_texture_has_signed_format(const GPUTexture *tex)
+{
+  return (reinterpret_cast<const Texture *>(tex)->format_flag_get() & GPU_FORMAT_SIGNED) != 0;
 }
 
 bool GPU_texture_is_cube(const GPUTexture *tex)

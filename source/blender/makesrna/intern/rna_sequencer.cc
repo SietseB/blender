@@ -20,7 +20,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math_rotation.h"
 #include "BLI_string_utf8_symbols.h"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 
 #include "BLT_translation.h"
 
@@ -46,7 +46,7 @@
 #include "SEQ_prefetch.h"
 #include "SEQ_proxy.h"
 #include "SEQ_relations.h"
-#include "SEQ_retiming.h"
+#include "SEQ_retiming.hh"
 #include "SEQ_select.h"
 #include "SEQ_sequencer.h"
 #include "SEQ_sound.h"
@@ -64,14 +64,34 @@ struct EffectInfo {
   int inputs;
 };
 
+/* These wrap strangely, disable formatting for fixed indentation and wrapping.  */
+/* clang-format off */
+#define RNA_ENUM_SEQUENCER_VIDEO_MODIFIER_TYPE_ITEMS \
+  {seqModifierType_BrightContrast, "BRIGHT_CONTRAST", ICON_NONE, "Brightness/Contrast", ""}, \
+  {seqModifierType_ColorBalance, "COLOR_BALANCE", ICON_NONE, "Color Balance", ""}, \
+  {seqModifierType_Curves, "CURVES", ICON_NONE, "Curves", ""}, \
+  {seqModifierType_HueCorrect, "HUE_CORRECT", ICON_NONE, "Hue Correct", ""}, \
+  {seqModifierType_Mask, "MASK", ICON_NONE, "Mask", ""}, \
+  {seqModifierType_Tonemap, "TONEMAP", ICON_NONE, "Tone Map", ""}, \
+  {seqModifierType_WhiteBalance, "WHITE_BALANCE", ICON_NONE, "White Balance", ""}
+
+#define RNA_ENUM_SEQUENCER_AUDIO_MODIFIER_TYPE_ITEMS \
+  {seqModifierType_SoundEqualizer, "SOUND_EQUALIZER", ICON_NONE, "Sound Equalizer", ""}
+/* clang-format on */
+
 const EnumPropertyItem rna_enum_sequence_modifier_type_items[] = {
-    {seqModifierType_BrightContrast, "BRIGHT_CONTRAST", ICON_NONE, "Brightness/Contrast", ""},
-    {seqModifierType_ColorBalance, "COLOR_BALANCE", ICON_NONE, "Color Balance", ""},
-    {seqModifierType_Curves, "CURVES", ICON_NONE, "Curves", ""},
-    {seqModifierType_HueCorrect, "HUE_CORRECT", ICON_NONE, "Hue Correct", ""},
-    {seqModifierType_Mask, "MASK", ICON_NONE, "Mask", ""},
-    {seqModifierType_Tonemap, "TONEMAP", ICON_NONE, "Tone Map", ""},
-    {seqModifierType_WhiteBalance, "WHITE_BALANCE", ICON_NONE, "White Balance", ""},
+    RNA_ENUM_SEQUENCER_VIDEO_MODIFIER_TYPE_ITEMS,
+    RNA_ENUM_SEQUENCER_AUDIO_MODIFIER_TYPE_ITEMS,
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
+const EnumPropertyItem rna_enum_sequence_video_modifier_type_items[] = {
+    RNA_ENUM_SEQUENCER_VIDEO_MODIFIER_TYPE_ITEMS,
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
+const EnumPropertyItem rna_enum_sequence_sound_modifier_type_items[] = {
+    RNA_ENUM_SEQUENCER_AUDIO_MODIFIER_TYPE_ITEMS,
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -98,8 +118,8 @@ const EnumPropertyItem rna_enum_strip_color_items[] = {
 
 #  include "WM_api.hh"
 
-#  include "DEG_depsgraph.h"
-#  include "DEG_depsgraph_build.h"
+#  include "DEG_depsgraph.hh"
+#  include "DEG_depsgraph_build.hh"
 
 #  include "IMB_imbuf.h"
 
@@ -250,7 +270,7 @@ static int rna_SequenceEditor_sequences_all_lookup_string(PointerRNA *ptr,
 
   Sequence *seq = SEQ_sequence_lookup_seq_by_name(scene, key);
   if (seq) {
-    RNA_pointer_create(ptr->owner_id, &RNA_Sequence, seq, r_ptr);
+    *r_ptr = RNA_pointer_create(ptr->owner_id, &RNA_Sequence, seq);
     return true;
   }
   return false;
@@ -288,35 +308,34 @@ static void rna_Sequence_elements_begin(CollectionPropertyIterator *iter, Pointe
                            nullptr);
 }
 
-static int rna_Sequence_retiming_handles_length(PointerRNA *ptr)
+static int rna_Sequence_retiming_keys_length(PointerRNA *ptr)
 {
-  return SEQ_retiming_handles_count((Sequence *)ptr->data);
+  return SEQ_retiming_keys_count((Sequence *)ptr->data);
 }
 
-static void rna_SequenceEditor_retiming_handles_begin(CollectionPropertyIterator *iter,
-                                                      PointerRNA *ptr)
+static void rna_SequenceEditor_retiming_keys_begin(CollectionPropertyIterator *iter,
+                                                   PointerRNA *ptr)
 {
   Sequence *seq = (Sequence *)ptr->data;
   rna_iterator_array_begin(iter,
-                           (void *)seq->retiming_handles,
-                           sizeof(SeqRetimingHandle),
-                           SEQ_retiming_handles_count(seq),
+                           (void *)seq->retiming_keys,
+                           sizeof(SeqRetimingKey),
+                           SEQ_retiming_keys_count(seq),
                            0,
                            nullptr);
 }
 
-static Sequence *strip_by_handle_find(Scene *scene, SeqRetimingHandle *handle)
+static Sequence *strip_by_key_find(Scene *scene, SeqRetimingKey *key)
 {
   Editing *ed = SEQ_editing_get(scene);
   SeqCollection *strips = SEQ_query_all_strips_recursive(&ed->seqbase);
 
   Sequence *seq;
   SEQ_ITERATOR_FOREACH (seq, strips) {
-    const int retiming_handle_count = SEQ_retiming_handles_count(seq);
-    SeqRetimingHandle *first = seq->retiming_handles;
-    SeqRetimingHandle *last = seq->retiming_handles + retiming_handle_count - 1;
+    SeqRetimingKey *first = seq->retiming_keys;
+    SeqRetimingKey *last = seq->retiming_keys + SEQ_retiming_keys_count(seq) - 1;
 
-    if (handle >= first && handle <= last) {
+    if (key >= first && key <= last) {
       return seq;
     }
   }
@@ -324,47 +343,52 @@ static Sequence *strip_by_handle_find(Scene *scene, SeqRetimingHandle *handle)
   return nullptr;
 }
 
-static void rna_Sequence_retiming_handle_remove(ID *id, SeqRetimingHandle *handle)
+static void rna_Sequence_retiming_key_remove(ID *id, SeqRetimingKey *key)
 {
   Scene *scene = (Scene *)id;
-  Sequence *seq = strip_by_handle_find(scene, handle);
+  Sequence *seq = strip_by_key_find(scene, key);
 
   if (seq == nullptr) {
     return;
   }
 
-  SEQ_retiming_remove_handle(scene, seq, handle);
+  SEQ_retiming_remove_key(scene, seq, key);
 
   SEQ_relations_invalidate_cache_raw(scene, seq);
   WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, nullptr);
 }
 
-static int rna_Sequence_retiming_handle_frame_get(PointerRNA *ptr)
+static int rna_Sequence_retiming_key_frame_get(PointerRNA *ptr)
 {
-  SeqRetimingHandle *handle = (SeqRetimingHandle *)ptr->data;
+  SeqRetimingKey *key = (SeqRetimingKey *)ptr->data;
   Scene *scene = (Scene *)ptr->owner_id;
-  Sequence *seq = strip_by_handle_find(scene, handle);
+  Sequence *seq = strip_by_key_find(scene, key);
 
   if (seq == nullptr) {
     return 0;
   }
 
-  return SEQ_time_start_frame_get(seq) + handle->strip_frame_index;
+  return SEQ_time_start_frame_get(seq) + key->strip_frame_index;
 }
 
-static void rna_Sequence_retiming_handle_frame_set(PointerRNA *ptr, int value)
+static void rna_Sequence_retiming_key_frame_set(PointerRNA *ptr, int value)
 {
-  SeqRetimingHandle *handle = (SeqRetimingHandle *)ptr->data;
+  SeqRetimingKey *key = (SeqRetimingKey *)ptr->data;
   Scene *scene = (Scene *)ptr->owner_id;
-  Sequence *seq = strip_by_handle_find(scene, handle);
+  Sequence *seq = strip_by_key_find(scene, key);
 
   if (seq == nullptr) {
     return;
   }
 
-  const int offset = value - (SEQ_time_start_frame_get(seq) + handle->strip_frame_index);
-  SEQ_retiming_offset_handle(scene, seq, handle, offset);
+  SEQ_retiming_key_timeline_frame_set(scene, seq, key, value);
   SEQ_relations_invalidate_cache_raw(scene, seq);
+}
+
+static bool rna_SequenceEditor_selected_retiming_key_get(PointerRNA *ptr)
+{
+  Scene *scene = (Scene *)ptr->owner_id;
+  return SEQ_retiming_selection_get(SEQ_editing_get(scene)).size() != 0;
 }
 
 static void rna_Sequence_views_format_update(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -836,8 +860,7 @@ static PointerRNA rna_MovieSequence_metadata_get(Sequence *seq)
     return PointerRNA_NULL;
   }
 
-  PointerRNA ptr;
-  RNA_pointer_create(nullptr, &RNA_IDPropertyWrapPtr, metadata, &ptr);
+  PointerRNA ptr = RNA_pointer_create(nullptr, &RNA_IDPropertyWrapPtr, metadata);
   return ptr;
 }
 
@@ -1286,6 +1309,8 @@ static StructRNA *rna_SequenceModifier_refine(PointerRNA *ptr)
       return &RNA_WhiteBalanceModifier;
     case seqModifierType_Tonemap:
       return &RNA_SequencerTonemapModifierData;
+    case seqModifierType_SoundEqualizer:
+      return &RNA_SoundEqualizerModifier;
     default:
       return &RNA_SequenceModifier;
   }
@@ -1344,14 +1369,34 @@ static void rna_SequenceModifier_name_set(PointerRNA *ptr, const char *value)
   }
 }
 
-static void rna_SequenceModifier_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
+static void rna_SequenceModifier_update(Main *bmain, Scene * /*scene*/, PointerRNA *ptr)
 {
   /* strip from other scenes could be modified, so using active scene is not reliable */
   Scene *scene = (Scene *)ptr->owner_id;
   Editing *ed = SEQ_editing_get(scene);
   Sequence *seq = sequence_get_by_modifier(ed, static_cast<SequenceModifierData *>(ptr->data));
 
-  SEQ_relations_invalidate_cache_preprocessed(scene, seq);
+  if (ELEM(seq->type, SEQ_TYPE_SOUND_RAM, SEQ_TYPE_SOUND_HD)) {
+    DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS | ID_RECALC_AUDIO);
+    DEG_relations_tag_update(bmain);
+  }
+  else {
+    SEQ_relations_invalidate_cache_preprocessed(scene, seq);
+  }
+}
+
+/*
+ * Update of Curve in an EQ Sound Modifier
+ */
+static void rna_SequenceModifier_EQCurveMapping_update(Main *bmain,
+                                                       Scene * /*scene*/,
+                                                       PointerRNA *ptr)
+{
+  Scene *scene = (Scene *)ptr->owner_id;
+
+  DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS | ID_RECALC_AUDIO);
+  DEG_relations_tag_update(bmain);
+  WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, NULL);
 }
 
 static bool rna_SequenceModifier_otherSequence_poll(PointerRNA *ptr, PointerRNA value)
@@ -1554,6 +1599,23 @@ static char *rna_SeqTimelineChannel_path(const PointerRNA *ptr)
   }
 }
 
+static EQCurveMappingData *rna_Sequence_SoundEqualizer_Curve_add(SoundEqualizerModifierData *semd,
+                                                                 bContext * /*C*/,
+                                                                 float min_freq,
+                                                                 float max_freq)
+{
+  EQCurveMappingData *eqcmd = SEQ_sound_equalizermodifier_add_graph(semd, min_freq, max_freq);
+  WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, NULL);
+  return eqcmd;
+}
+
+static void rna_Sequence_SoundEqualizer_Curve_clear(SoundEqualizerModifierData *semd,
+                                                    bContext * /*C*/)
+{
+  SEQ_sound_equalizermodifier_free((SequenceModifierData *)semd);
+  WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, NULL);
+}
+
 #else
 
 static void rna_def_strip_element(BlenderRNA *brna)
@@ -1586,29 +1648,27 @@ static void rna_def_strip_element(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Orig FPS", "Original frames per second");
 }
 
-static void rna_def_retiming_handle(BlenderRNA *brna)
+static void rna_def_retiming_key(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
 
-  srna = RNA_def_struct(brna, "RetimingHandle", nullptr);
+  srna = RNA_def_struct(brna, "RetimingKey", nullptr);
   RNA_def_struct_ui_text(
       srna,
-      "Retiming Handle",
-      "Handle mapped to particular frame that can be moved to change playback speed");
-  RNA_def_struct_sdna(srna, "SeqRetimingHandle");
+      "Retiming Key",
+      "Key mapped to particular frame that can be moved to change playback speed");
+  RNA_def_struct_sdna(srna, "SeqRetimingKey");
 
   prop = RNA_def_property(srna, "timeline_frame", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, nullptr, "strip_frame_index");
-  RNA_def_property_int_funcs(prop,
-                             "rna_Sequence_retiming_handle_frame_get",
-                             "rna_Sequence_retiming_handle_frame_set",
-                             nullptr);
-  RNA_def_property_ui_text(prop, "Timeline Frame", "Position of retiming handle in timeline");
+  RNA_def_property_int_funcs(
+      prop, "rna_Sequence_retiming_key_frame_get", "rna_Sequence_retiming_key_frame_set", nullptr);
+  RNA_def_property_ui_text(prop, "Timeline Frame", "Position of retiming key in timeline");
 
-  FunctionRNA *func = RNA_def_function(srna, "remove", "rna_Sequence_retiming_handle_remove");
+  FunctionRNA *func = RNA_def_function(srna, "remove", "rna_Sequence_retiming_key_remove");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID);
-  RNA_def_function_ui_description(func, "Remove retiming handle");
+  RNA_def_function_ui_description(func, "Remove retiming key");
 }
 
 static void rna_def_strip_crop(BlenderRNA *brna)
@@ -2284,6 +2344,10 @@ static void rna_def_sequence(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "cache_flag", SEQ_CACHE_OVERRIDE);
   RNA_def_property_ui_text(prop, "Override Cache Settings", "Override global cache settings");
 
+  prop = RNA_def_property(srna, "show_retiming_keys", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", SEQ_SHOW_RETIMING);
+  RNA_def_property_ui_text(prop, "Show Retiming Keys", "Show retiming keys, so they can be moved");
+
   RNA_api_sequence_strip(srna);
 }
 
@@ -2382,6 +2446,11 @@ static void rna_def_editor(BlenderRNA *brna)
   RNA_def_property_pointer_sdna(prop, nullptr, "act_seq");
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Active Strip", "Sequencer's active strip");
+
+  prop = RNA_def_property(srna, "selected_retiming_keys", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Retiming Key Selection Status", "");
+  RNA_def_property_boolean_funcs(prop, "rna_SequenceEditor_selected_retiming_key_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
   prop = RNA_def_property(srna, "show_overlay_frame", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "overlay_frame_flag", SEQ_EDIT_OVERLAY_FRAME_SHOW);
@@ -2555,6 +2624,11 @@ static void rna_def_filter_video(StructRNA *srna)
   RNA_def_property_ui_text(prop, "Multiply Colors", "");
   RNA_def_property_update(
       prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_preprocessed_update");
+
+  prop = RNA_def_property(srna, "multiply_alpha", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", SEQ_MULTIPLY_ALPHA);
+  RNA_def_property_ui_text(prop, "Multiply Alpha", "Multiply alpha along with color channels");
+  RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_raw_update");
 
   prop = RNA_def_property(srna, "color_saturation", PROP_FLOAT, PROP_UNSIGNED);
   RNA_def_property_float_sdna(prop, nullptr, "sat");
@@ -2845,20 +2919,20 @@ static void rna_def_movie(BlenderRNA *brna)
                                     nullptr,
                                     nullptr);
 
-  prop = RNA_def_property(srna, "retiming_handles", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, nullptr, "retiming_handles", nullptr);
-  RNA_def_property_struct_type(prop, "RetimingHandle");
-  RNA_def_property_ui_text(prop, "Retiming Handles", "");
+  prop = RNA_def_property(srna, "retiming_keys", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, nullptr, "retiming_keys", nullptr);
+  RNA_def_property_struct_type(prop, "RetimingKey");
+  RNA_def_property_ui_text(prop, "Retiming Keys", "");
   RNA_def_property_collection_funcs(prop,
-                                    "rna_SequenceEditor_retiming_handles_begin",
+                                    "rna_SequenceEditor_retiming_keys_begin",
                                     "rna_iterator_array_next",
                                     "rna_iterator_array_end",
                                     "rna_iterator_array_get",
-                                    "rna_Sequence_retiming_handles_length",
+                                    "rna_Sequence_retiming_keys_length",
                                     nullptr,
                                     nullptr,
                                     nullptr);
-  RNA_api_sequence_retiming_handles(brna, prop);
+  RNA_api_sequence_retiming_keys(brna, prop);
 
   prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
   RNA_def_property_ui_text(prop, "File", "");
@@ -3757,12 +3831,95 @@ static void rna_def_modifiers(BlenderRNA *brna)
   rna_def_tonemap_modifier(brna);
 }
 
+static void rna_def_graphical_sound_equalizer(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  /* Define Sound EQ */
+  srna = RNA_def_struct(brna, "EQCurveMappingData", nullptr);
+  RNA_def_struct_sdna(srna, "EQCurveMappingData");
+  RNA_def_struct_ui_text(srna, "EQCurveMappingData", "EQCurveMappingData");
+
+  prop = RNA_def_property(srna, "curve_mapping", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, nullptr, "curve_mapping");
+  RNA_def_property_struct_type(prop, "CurveMapping");
+  RNA_def_property_ui_text(prop, "Curve Mapping", "");
+  RNA_def_property_update(
+      prop, NC_SCENE | ND_SEQUENCER, "rna_SequenceModifier_EQCurveMapping_update");
+}
+
+static void rna_def_sound_equalizer_modifier(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  srna = RNA_def_struct(brna, "SoundEqualizerModifier", "SequenceModifier");
+  RNA_def_struct_sdna(srna, "SoundEqualizerModifierData");
+  RNA_def_struct_ui_text(srna, "SoundEqualizerModifier", "Equalize audio");
+
+  /* Sound Equalizers. */
+  prop = RNA_def_property(srna, "graphics", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "EQCurveMappingData");
+  RNA_def_property_ui_text(
+      prop, "Graphical definition equalization", "Graphical definition equalization");
+
+  /* Add band. */
+  func = RNA_def_function(srna, "new_graphic", "rna_Sequence_SoundEqualizer_Curve_add");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+  RNA_def_function_ui_description(func, "Add a new EQ band");
+
+  parm = RNA_def_float(func,
+                       "min_freq",
+                       SOUND_EQUALIZER_DEFAULT_MIN_FREQ,
+                       0.0,
+                       SOUND_EQUALIZER_DEFAULT_MAX_FREQ, /*  Hard min and max */
+                       "Minimum Frequency",
+                       "Minimum Frequency",
+                       0.0,
+                       SOUND_EQUALIZER_DEFAULT_MAX_FREQ); /*  Soft min and max */
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_float(func,
+                       "max_freq",
+                       SOUND_EQUALIZER_DEFAULT_MAX_FREQ,
+                       0.0,
+                       SOUND_EQUALIZER_DEFAULT_MAX_FREQ, /*  Hard min and max */
+                       "Maximum Frequency",
+                       "Maximum Frequency",
+                       0.0,
+                       SOUND_EQUALIZER_DEFAULT_MAX_FREQ); /*  Soft min and max */
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+
+  /* return type */
+  parm = RNA_def_pointer(func,
+                         "graphic_eqs",
+                         "EQCurveMappingData",
+                         "",
+                         "Newly created graphical Equalizer definition");
+  RNA_def_function_return(func, parm);
+
+  /* clear all modifiers */
+  func = RNA_def_function(srna, "clear_soundeqs", "rna_Sequence_SoundEqualizer_Curve_clear");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+  RNA_def_function_ui_description(func,
+                                  "Remove all graphical equalizers from the Equalizer modifier");
+
+  rna_def_graphical_sound_equalizer(brna);
+}
+
+static void rna_def_sound_modifiers(BlenderRNA *brna)
+{
+  rna_def_sound_equalizer_modifier(brna);
+}
+
 void RNA_def_sequencer(BlenderRNA *brna)
 {
   rna_def_color_balance(brna);
 
   rna_def_strip_element(brna);
-  rna_def_retiming_handle(brna);
+  rna_def_retiming_key(brna);
   rna_def_strip_proxy(brna);
   rna_def_strip_color_balance(brna);
   rna_def_strip_crop(brna);
@@ -3782,6 +3939,7 @@ void RNA_def_sequencer(BlenderRNA *brna)
   rna_def_effect(brna);
   rna_def_effects(brna);
   rna_def_modifiers(brna);
+  rna_def_sound_modifiers(brna);
 }
 
 #endif

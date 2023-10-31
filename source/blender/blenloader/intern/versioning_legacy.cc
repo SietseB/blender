@@ -63,7 +63,7 @@
 #include "BKE_mesh_legacy_convert.hh"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 
@@ -72,7 +72,7 @@
 
 #include "BLO_readfile.h"
 
-#include "readfile.h"
+#include "readfile.hh"
 
 #include "PIL_time.h"
 
@@ -635,7 +635,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
   if (bmain->versionfile <= 164) {
     Mesh *me = static_cast<Mesh *>(bmain->meshes.first);
     while (me) {
-      me->smoothresh = 30;
+      me->smoothresh_legacy = 30;
       me = static_cast<Mesh *>(me->id.next);
     }
   }
@@ -1386,7 +1386,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
 
     for (ob = static_cast<Object *>(bmain->objects.first); ob;
          ob = static_cast<Object *>(ob->id.next)) {
-      ModifierData *md;
       PartEff *paf;
 
       LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
@@ -1400,7 +1399,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
       if ((ob->softflag & OB_SB_ENABLE) && !BKE_modifiers_findby_type(ob, eModifierType_Softbody))
       {
         if (ob->softflag & OB_SB_POSTDEF) {
-          md = static_cast<ModifierData *>(ob->modifiers.first);
+          ModifierData *md = static_cast<ModifierData *>(ob->modifiers.first);
 
           while (md && BKE_modifier_get_info(ModifierType(md->type))->type ==
                            eModifierTypeType_OnlyDeform) {

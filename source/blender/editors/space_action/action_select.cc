@@ -129,17 +129,22 @@ static void actkeys_list_element_to_keylist(bAnimContext *ac,
   else if (ale->type == ANIMTYPE_GROUP) {
     /* TODO: why don't we just give groups key_data too? */
     bActionGroup *agrp = (bActionGroup *)ale->data;
-    agroup_to_keylist(adt, agrp, keylist, 0);
+    action_group_to_keylist(adt, agrp, keylist, 0);
   }
   else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
     /* TODO: why don't we just give grease pencil layers key_data too? */
     grease_pencil_cels_to_keylist(
         adt, static_cast<const GreasePencilLayer *>(ale->data), keylist, 0);
   }
+  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER_GROUP) {
+    /* TODO: why don't we just give grease pencil layers key_data too? */
+    grease_pencil_layer_group_to_keylist(
+        adt, static_cast<const GreasePencilLayerTreeGroup *>(ale->data), keylist, 0);
+  }
   else if (ale->type == ANIMTYPE_GREASE_PENCIL_DATABLOCK) {
     /* TODO: why don't we just give grease pencil layers key_data too? */
     grease_pencil_data_block_to_keylist(
-        adt, static_cast<const GreasePencil *>(ale->data), keylist, 0);
+        adt, static_cast<const GreasePencil *>(ale->data), keylist, 0, false);
   }
   else if (ale->type == ANIMTYPE_GPLAYER) {
     /* TODO: why don't we just give gplayers key_data too? */
@@ -437,17 +442,20 @@ static void box_select_elem(
       GreasePencil *grease_pencil = static_cast<GreasePencil *>(ale->data);
       for (blender::bke::greasepencil::Layer *layer : grease_pencil->layers_for_write()) {
         blender::ed::greasepencil::select_frames_range(
-            layer->wrap(), xmin, xmax, sel_data->selectmode);
+            layer->wrap().as_node(), xmin, xmax, sel_data->selectmode);
       }
       ale->update |= ANIM_UPDATE_DEPS;
       break;
     }
-    case ANIMTYPE_GREASE_PENCIL_LAYER: {
+    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
+    case ANIMTYPE_GREASE_PENCIL_LAYER:
       blender::ed::greasepencil::select_frames_range(
-          static_cast<GreasePencilLayer *>(ale->data)->wrap(), xmin, xmax, sel_data->selectmode);
+          static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(),
+          xmin,
+          xmax,
+          sel_data->selectmode);
       ale->update |= ANIM_UPDATE_DEPS;
       break;
-    }
     case ANIMTYPE_GPLAYER: {
       ED_gpencil_layer_frames_select_box(
           static_cast<bGPDlayer *>(ale->data), xmin, xmax, sel_data->selectmode);
@@ -712,10 +720,11 @@ static void region_select_elem(RegionSelectData *sel_data, bAnimListElem *ale, b
       ale->update |= ANIM_UPDATE_DEPS;
       break;
     }
+    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
     case ANIMTYPE_GREASE_PENCIL_LAYER: {
       blender::ed::greasepencil::select_frames_region(
           &sel_data->ked,
-          static_cast<GreasePencilLayer *>(ale->data)->wrap(),
+          static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(),
           sel_data->mode,
           sel_data->selectmode);
       ale->update |= ANIM_UPDATE_DEPS;
@@ -1067,7 +1076,7 @@ static void markers_selectkeys_between(bAnimContext *ac)
     switch (ale->type) {
       case ANIMTYPE_GREASE_PENCIL_LAYER:
         blender::ed::greasepencil::select_frames_range(
-            static_cast<GreasePencilLayer *>(ale->data)->wrap(), min, max, SELECT_ADD);
+            static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(), min, max, SELECT_ADD);
         ale->update |= ANIM_UPDATE_DEPS;
         break;
       case ANIMTYPE_GPLAYER:
@@ -1519,7 +1528,10 @@ static void actkeys_select_leftright(bAnimContext *ac, short leftright, short se
     switch (ale->type) {
       case ANIMTYPE_GREASE_PENCIL_LAYER:
         blender::ed::greasepencil::select_frames_range(
-            static_cast<GreasePencilLayer *>(ale->data)->wrap(), ked.f1, ked.f2, select_mode);
+            static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(),
+            ked.f1,
+            ked.f2,
+            select_mode);
         ale->update |= ANIM_UPDATE_DEPS;
         break;
       case ANIMTYPE_GPLAYER:
@@ -1708,6 +1720,10 @@ static void actkeys_mselect_single(bAnimContext *ac,
     blender::ed::greasepencil::select_frame_at(
         static_cast<GreasePencilLayer *>(ale->data)->wrap(), selx, select_mode);
     ale->update |= ANIM_UPDATE_DEPS;
+  }
+  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER_GROUP) {
+    blender::ed::greasepencil::select_frames_at(
+        static_cast<GreasePencilLayerTreeGroup *>(ale->data)->wrap(), selx, select_mode);
   }
   else if (ale->type == ANIMTYPE_GREASE_PENCIL_DATABLOCK) {
     ListBase anim_data = {nullptr, nullptr};
@@ -2033,7 +2049,7 @@ static int actkeys_clickselect_exec(bContext *C, wmOperator *op)
   }
 
   /* get useful pointers from animation context data */
-  /* region = ac.region; */ /* UNUSED */
+  // region = ac.region; /* UNUSED. */
 
   /* select mode is either replace (deselect all, then add) or add/extend */
   const short selectmode = RNA_boolean_get(op->ptr, "extend") ? SELECT_INVERT : SELECT_REPLACE;
