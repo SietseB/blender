@@ -5923,8 +5923,7 @@ void uiTemplatePalette(uiLayout *layout, PointerRNA *ptr, const char *propname, 
         row_cols = 0;
       }
 
-      PointerRNA color_ptr;
-      RNA_pointer_create(&palette->id, &RNA_PaletteColor, color, &color_ptr);
+      PointerRNA color_ptr = RNA_pointer_create(&palette->id, &RNA_PaletteColor, color);
       uiButColor *color_but = (uiButColor *)uiDefButR(block,
                                                       UI_BTYPE_COLOR,
                                                       0,

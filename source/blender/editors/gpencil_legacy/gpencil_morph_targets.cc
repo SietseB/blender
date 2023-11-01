@@ -21,7 +21,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.hh"
-#include "BLI_string_utils.h"
+#include "BLI_string_utils.hh"
 
 #include "BLT_translation.h"
 
@@ -42,7 +42,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
-#include "BKE_object.h"
+#include "BKE_object.hh"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
@@ -66,8 +66,8 @@
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "gpencil_intern.h"
 

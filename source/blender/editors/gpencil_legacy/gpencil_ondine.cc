@@ -18,7 +18,7 @@
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
+#include "BKE_screen.hh"
 
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
@@ -31,8 +31,8 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "ED_gpencil_legacy.hh"
 #include "ED_view3d.hh"
