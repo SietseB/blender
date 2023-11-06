@@ -180,3 +180,8 @@ endif()
 if(WITH_FREESTYLE)
   add_subdirectory(freestyle)
 endif()
+
+if(WITH_ONDINE)
+  add_subdirectory(ondine_cuda)
+  add_subdirectory(ondine)
+endif()

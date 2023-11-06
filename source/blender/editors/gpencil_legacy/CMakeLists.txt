@@ -68,6 +68,16 @@ set(LIB
   PRIVATE bf::intern::guardedalloc
 )
 
+if(WITH_ONDINE)
+  list(APPEND INC
+    ../../ondine
+  )
+  list(APPEND LIB
+    bf_ondine
+  )
+  add_definitions(-DWITH_ONDINE)
+endif()
+
 if(WITH_POTRACE)
   list(APPEND SRC
     gpencil_trace_ops.cc
@@ -81,7 +91,6 @@ if(WITH_POTRACE)
   )
   add_definitions(-DWITH_POTRACE)
 endif()
-
 
 blender_add_lib(bf_editor_gpencil_legacy "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 

@@ -88,6 +88,7 @@ include(cmake/usd.cmake)
 include(cmake/materialx.cmake)
 include(cmake/openvdb.cmake)
 include(cmake/potrace.cmake)
+include(cmake/cairo.cmake)
 include(cmake/haru.cmake)
 # Boost needs to be included after `python.cmake` due to the PYTHON_BINARY variable being needed.
 include(cmake/boost.cmake)

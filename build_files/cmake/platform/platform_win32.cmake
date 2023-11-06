@@ -286,8 +286,8 @@ if(NOT EXISTS "${LIBDIR}/")
   message(FATAL_ERROR "\n\nWindows requires pre-compiled libs at: '${LIBDIR}'. Please run `make update` in the blender source folder to obtain them.")
 endif()
 
-if(NOT DEFINED PYTHON_PACKAGES_DIR_FOR_ONDINE)
-  set(PYTHON_PACKAGES_DIR_FOR_ONDINE ${CMAKE_SOURCE_DIR}/../lib_ondine/windows)
+if(NOT DEFINED PACKAGES_DIR_FOR_ONDINE)
+  set(PACKAGES_DIR_FOR_ONDINE ${CMAKE_SOURCE_DIR}/../lib_ondine/windows)
 endif()
 
 include(platform_old_libs_update)
@@ -1079,6 +1079,24 @@ if(WITH_POTRACE)
   set(POTRACE_LIBRARIES ${LIBDIR}/potrace/lib/potrace.lib)
   set(POTRACE_FOUND ON)
 endif()
+
+# Cairo for Ondine
+if(WITH_CAIRO)
+  if(EXISTS ${PACKAGES_DIR_FOR_ONDINE}/cairo/lib/cairo.lib)
+    set(CAIRO_INCLUDE_DIRS ${PACKAGES_DIR_FOR_ONDINE}/cairo/include)
+    set(CAIRO_LIBRARIES ${PACKAGES_DIR_FOR_ONDINE}/cairo/lib/cairo.lib)
+    set(CAIRO_FOUND ON)
+  endif()
+endif()
+
+# Ondine
+if(WITH_ONDINE)
+  if(NOT EXISTS ${CMAKE_SOURCE_DIR}/source/blender/ondine)
+    message(WARNING "Ondine watercolor renderer was not found, disabling WITH_ONDINE")
+    set(WITH_ONDINE OFF)
+  endif()
+endif()
+
 
 if(WITH_HARU)
   set(HARU_FOUND ON)

@@ -1017,7 +1017,14 @@ elseif(WIN32)
     FILES ${LIBDIR}/gmp/lib/libgmpxx_d.dll
     DEBUG
   )
-
+  
+  if(EXISTS ${PACKAGES_DIR_FOR_ONDINE}/cairo/lib/cairo.dll)
+      windows_install_shared_manifest(
+        FILES ${PACKAGES_DIR_FOR_ONDINE}/cairo/lib/cairo.dll
+        ALL
+      )
+  endif()
+  
   if(WITH_WINDOWS_RELEASE_PDB)
     if(WITH_WINDOWS_RELEASE_STRIPPED_PDB)
       # Icky hack for older CMAKE from https://stackoverflow.com/a/21198501
@@ -1270,7 +1277,7 @@ elseif(WIN32)
 
       # Python packages for Ondine watercolor addon
       install(
-        DIRECTORY ${PYTHON_PACKAGES_DIR_FOR_ONDINE}/site-packages
+        DIRECTORY ${PACKAGES_DIR_FOR_ONDINE}/site-packages
         DESTINATION ${BLENDER_VERSION}/python/lib
         CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
         PATTERN ".svn" EXCLUDE
@@ -1281,13 +1288,13 @@ elseif(WIN32)
       )
       
       install(
-        DIRECTORY ${PYTHON_PACKAGES_DIR_FOR_ONDINE}/site-packages
+        DIRECTORY ${PACKAGES_DIR_FOR_ONDINE}/site-packages
         DESTINATION ${BLENDER_VERSION}/python/lib
         CONFIGURATIONS Debug
         PATTERN ".svn" EXCLUDE
         PATTERN "__pycache__" EXCLUDE           # * any cache *
         PATTERN "*.pyc" EXCLUDE                 # * any cache *
-        PATTERN "*.pyo" EXCLUDE                 # * any cache *)
+        PATTERN "*.pyo" EXCLUDE                 # * any cache *
       )
     endif()
 

@@ -294,6 +294,10 @@ unset(_option_default)
 
 option(WITH_GMP "Enable features depending on GMP (Exact Boolean)" ON)
 
+# Ondine watercolor renderer
+option(WITH_CAIRO "Enable features relying on Cairo" ON)
+option(WITH_ONDINE "Enable Ondine watercolor renderer for Grease Pencil" ON)
+
 # Compositor
 option(WITH_COMPOSITOR_CPU "Enable the tile based CPU nodal compositor" ON)
 option(WITH_OPENIMAGEDENOISE "Enable the OpenImageDenoise compositing node" ON)
@@ -2255,6 +2259,8 @@ if(FIRST_RUN)
   info_cfg_option(WITH_OPENIMAGEDENOISE)
   info_cfg_option(WITH_OPENVDB)
   info_cfg_option(WITH_POTRACE)
+  info_cfg_option(WITH_CAIRO)
+  info_cfg_option(WITH_ONDINE)
   info_cfg_option(WITH_PUGIXML)
   info_cfg_option(WITH_QUADRIFLOW)
   info_cfg_option(WITH_TBB)

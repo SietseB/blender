@@ -72,3 +72,7 @@ waveletNoiseTile.bin
 CMakeSettings.json
 CMakePresets.json
 CMakeUserPresets.json
+
+# Ondine renderer.
+/ondine_cuda/
+/ondine/

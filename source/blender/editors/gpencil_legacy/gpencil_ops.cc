@@ -31,6 +31,10 @@
 
 #include "gpencil_intern.h"
 
+#ifdef WITH_ONDINE
+#  include "ondine_render.hh"
+#endif  // WITH_ONDINE
+
 /* ****************************************** */
 /* Grease Pencil Keymaps */
 
@@ -635,6 +639,9 @@ void ED_operatortypes_gpencil_legacy()
   WM_operatortype_append(GPENCIL_OT_weight_toggle_direction);
   WM_operatortype_append(GPENCIL_OT_weight_sample);
   WM_operatortype_append(GPENCIL_OT_weight_gradient);
+
+  // TEMP!!!
+  WM_operatortype_append(GPENCIL_OT_ondine_test_cuda2);
 
   /* Edit stroke editcurve */
 
