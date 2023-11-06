@@ -74,5 +74,5 @@ CMakePresets.json
 CMakeUserPresets.json
 
 # Ondine renderer.
-/ondine_cuda/
-/ondine/
+source/blender/ondine_cuda/
+source/blender/ondine/
