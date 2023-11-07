@@ -569,6 +569,11 @@ void ED_keymap_gpencil_legacy(wmKeyConfig *keyconf)
 
 void ED_operatortypes_gpencil_legacy()
 {
+#ifdef WITH_ONDINE
+  /* Ondine operators. */
+  OD_operatortypes_ondine();
+#endif  // WITH_ONDINE
+
   /* Annotations -------------------- */
 
   WM_operatortype_append(GPENCIL_OT_annotate);
@@ -639,9 +644,6 @@ void ED_operatortypes_gpencil_legacy()
   WM_operatortype_append(GPENCIL_OT_weight_toggle_direction);
   WM_operatortype_append(GPENCIL_OT_weight_sample);
   WM_operatortype_append(GPENCIL_OT_weight_gradient);
-
-  // TEMP!!!
-  WM_operatortype_append(GPENCIL_OT_ondine_test_cuda2);
 
   /* Edit stroke editcurve */
 
