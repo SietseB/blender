@@ -78,8 +78,8 @@ endmacro()
 add_definitions(-DWIN32)
 
 # Needed, otherwise system encoding causes utf-8 encoding to fail in some cases (C4819)
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>")
+add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>")
 
 # needed for some MSVC installations
 # 4099 : PDB 'filename' was not found with 'object/library'
@@ -123,6 +123,7 @@ configure_file(${CMAKE_SOURCE_DIR}/release/windows/manifest/blender.exe.manifest
 
 # Always detect CRT paths, but only manually install with WITH_WINDOWS_BUNDLE_CRT.
 set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS TRUE)
 set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
 set(CMAKE_INSTALL_OPENMP_LIBRARIES ${WITH_OPENMP})
 include(InstallRequiredSystemLibraries)
@@ -312,7 +313,9 @@ unset(MATERIALX_LIB_FOLDER_EXISTS)
 if(NOT MSVC_CLANG                  AND # Available with MSVC 15.7+ but not for CLANG.
    NOT WITH_WINDOWS_SCCACHE        AND # And not when sccache is enabled
    NOT VS_CLANG_TIDY)                  # Clang-tidy does not like these options
-  add_compile_options(/experimental:external /external:I "${LIBDIR}" /external:W0)
+  add_compile_options("$<$<COMPILE_LANG_AND_ID:C,MSVC>:/experimental:external;/external:I \"${LIBDIR}\";/external:W0>")
+  add_compile_options("$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/experimental:external;/external:I \"${LIBDIR}\";/external:W0>")
+  #add_compile_options(/experimental:external /external:I "${LIBDIR}" /external:W0)
 endif()
 
 # Add each of our libraries to our cmake_prefix_path so find_package() could work
