@@ -272,6 +272,7 @@ function(blender_source_group
       get_filename_component(_SRC_EXT ${_SRC} EXT)
       if((${_SRC_EXT} MATCHES ".h") OR
          (${_SRC_EXT} MATCHES ".hpp") OR
+         (${_SRC_EXT} MATCHES ".cuh") OR
          (${_SRC_EXT} MATCHES ".hh"))
 
         set(GROUP_ID "Header Files")
