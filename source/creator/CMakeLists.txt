@@ -1609,6 +1609,17 @@ install(
 
 
 # -----------------------------------------------------------------------------
+# Ondine precomputed data
+
+if(EXISTS ${PACKAGES_DIR_FOR_ONDINE}/../precomputed_data)
+  install(
+    DIRECTORY ${PACKAGES_DIR_FOR_ONDINE}/../precomputed_data/ondine
+    DESTINATION ${TARGETDIR_VER}/datafiles
+  )
+endif()
+
+
+# -----------------------------------------------------------------------------
 # Bundle assets
 
 set(ASSET_BUNDLE_DIR ${CMAKE_SOURCE_DIR}/release/datafiles/assets/publish/)
