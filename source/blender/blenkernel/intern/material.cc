@@ -49,9 +49,9 @@
 #include "BKE_anim_data.h"
 #include "BKE_attribute.h"
 #include "BKE_brush.hh"
-#include "BKE_curve.h"
+#include "BKE_curve.hh"
 #include "BKE_displist.h"
-#include "BKE_editmesh.h"
+#include "BKE_editmesh.hh"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_grease_pencil.hh"
 #include "BKE_icons.h"
@@ -65,6 +65,7 @@
 #include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_object.hh"
+#include "BKE_object_types.hh"
 #include "BKE_preview_image.hh"
 #include "BKE_scene.h"
 #include "BKE_vfont.h"
@@ -1361,8 +1362,8 @@ bool BKE_object_material_slot_remove(Main *bmain, Object *ob)
   /* check indices from mesh */
   if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT)) {
     material_data_index_remove_id((ID *)ob->data, actcol - 1);
-    if (ob->runtime.curve_cache) {
-      BKE_displist_free(&ob->runtime.curve_cache->disp);
+    if (ob->runtime->curve_cache) {
+      BKE_displist_free(&ob->runtime->curve_cache->disp);
     }
   }
   /* check indices from gpencil */

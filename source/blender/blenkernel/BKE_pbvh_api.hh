@@ -17,6 +17,7 @@
 #include "BLI_function_ref.hh"
 #include "BLI_math_vector_types.hh"
 #include "BLI_offset_indices.hh"
+#include "BLI_span.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_customdata_types.h"
@@ -24,7 +25,7 @@
 /* For embedding CCGKey in iterator. */
 #include "BKE_attribute.h"
 #include "BKE_ccg.h"
-#include "BKE_pbvh.h"
+#include "BKE_pbvh.hh"
 
 #include "bmesh.h"
 
@@ -64,7 +65,7 @@ struct ImageUser;
  */
 
 struct PBVHProxyNode {
-  float (*co)[3];
+  blender::Vector<blender::float3> co;
 };
 
 struct PBVHColorBufferNode {
@@ -407,12 +408,14 @@ void BKE_pbvh_node_num_verts(const PBVH *pbvh,
                              const PBVHNode *node,
                              int *r_uniquevert,
                              int *r_totvert);
+int BKE_pbvh_node_num_unique_verts(const PBVH &pbvh, const PBVHNode &node);
 blender::Span<int> BKE_pbvh_node_get_vert_indices(const PBVHNode *node);
 blender::Span<int> BKE_pbvh_node_get_unique_vert_indices(const PBVHNode *node);
 void BKE_pbvh_node_get_loops(PBVH *pbvh,
                              PBVHNode *node,
                              const int **r_loop_indices,
                              const int **r_corner_verts);
+blender::Vector<int> BKE_pbvh_node_calc_face_indices(const PBVH &pbvh, const PBVHNode &node);
 
 /* Get number of faces in the mesh; for PBVH_GRIDS the
  * number of base mesh faces is returned.
@@ -462,7 +465,6 @@ void BKE_pbvh_grids_update(PBVH *pbvh,
                            unsigned int **grid_hidden,
                            CCGKey *key);
 void BKE_pbvh_subdiv_cgg_set(PBVH *pbvh, SubdivCCG *subdiv_ccg);
-void BKE_pbvh_face_sets_set(PBVH *pbvh, int *face_sets);
 
 /**
  * If an operation causes the hide status stored in the mesh to change, this must be called
@@ -470,11 +472,9 @@ void BKE_pbvh_face_sets_set(PBVH *pbvh, int *face_sets);
  */
 void BKE_pbvh_update_hide_attributes_from_mesh(PBVH *pbvh);
 
-void BKE_pbvh_face_sets_color_set(PBVH *pbvh, int seed, int color_default);
-
 /* Vertex Deformer. */
 
-void BKE_pbvh_vert_coords_apply(PBVH *pbvh, const float (*vertCos)[3], int totvert);
+void BKE_pbvh_vert_coords_apply(PBVH *pbvh, blender::Span<blender::float3> vert_positions);
 bool BKE_pbvh_is_deformed(PBVH *pbvh);
 
 /* Vertex Iterator. */
@@ -609,55 +609,9 @@ void pbvh_vertex_iter_init(PBVH *pbvh, PBVHNode *node, PBVHVertexIter *vi, int m
 
 #define PBVH_FACE_ITER_VERTS_RESERVED 8
 
-struct PBVHFaceIter {
-  PBVHFaceRef face;
-  int index;
-  bool *hide;
-  int *face_set;
-  int i;
-
-  PBVHVertRef *verts;
-  int verts_num;
-
-  PBVHVertRef verts_reserved_[PBVH_FACE_ITER_VERTS_RESERVED];
-  const PBVHNode *node_;
-  PBVHType pbvh_type_;
-  int verts_size_;
-  std::optional<blender::Set<BMFace *, 0>::Iterator> bm_faces_iter_;
-  int cd_hide_poly_, cd_face_set_;
-  bool *hide_poly_;
-  int *face_sets_;
-  blender::OffsetIndices<int> face_offsets_;
-  blender::Span<int> looptri_faces_;
-  blender::Span<int> corner_verts_;
-  int prim_index_;
-  const SubdivCCG *subdiv_ccg_;
-  const BMesh *bm;
-  CCGKey subdiv_key_;
-
-  int last_face_index_;
-};
-
-void BKE_pbvh_face_iter_init(PBVH *pbvh, PBVHNode *node, PBVHFaceIter *fd);
-void BKE_pbvh_face_iter_step(PBVHFaceIter *fd);
-bool BKE_pbvh_face_iter_done(PBVHFaceIter *fd);
-void BKE_pbvh_face_iter_finish(PBVHFaceIter *fd);
-
-/**
- * Iterate over faces inside a #PBVHNode. These are either base mesh faces
- * (for PBVH_FACES and PBVH_GRIDS) or BMesh faces (for PBVH_BMESH).
- */
-#define BKE_pbvh_face_iter_begin(pbvh, node, fd) \
-  BKE_pbvh_face_iter_init(pbvh, node, &fd); \
-  for (; !BKE_pbvh_face_iter_done(&fd); BKE_pbvh_face_iter_step(&fd)) {
-
-#define BKE_pbvh_face_iter_end(fd) \
-  } \
-  BKE_pbvh_face_iter_finish(&fd)
-
-void BKE_pbvh_node_get_proxies(PBVHNode *node, PBVHProxyNode **proxies, int *proxy_count);
+blender::MutableSpan<PBVHProxyNode> BKE_pbvh_node_get_proxies(PBVHNode *node);
 void BKE_pbvh_node_free_proxies(PBVHNode *node);
-PBVHProxyNode *BKE_pbvh_node_add_proxy(PBVH *pbvh, PBVHNode *node);
+PBVHProxyNode &BKE_pbvh_node_add_proxy(PBVH &pbvh, PBVHNode &node);
 void BKE_pbvh_node_get_bm_orco_data(PBVHNode *node,
                                     int (**r_orco_tris)[3],
                                     int *r_orco_tris_num,
@@ -684,7 +638,7 @@ void BKE_pbvh_parallel_range_settings(TaskParallelSettings *settings,
                                       bool use_threading,
                                       int totnode);
 
-float (*BKE_pbvh_get_vert_positions(const PBVH *pbvh))[3];
+blender::MutableSpan<blender::float3> BKE_pbvh_get_vert_positions(const PBVH *pbvh);
 const float (*BKE_pbvh_get_vert_normals(const PBVH *pbvh))[3];
 const bool *BKE_pbvh_get_vert_hide(const PBVH *pbvh);
 bool *BKE_pbvh_get_vert_hide_for_write(PBVH *pbvh);

@@ -14,7 +14,7 @@
 #include "DNA_userdef_types.h"
 
 #include "BKE_mesh.hh"
-#include "BKE_modifier.h"
+#include "BKE_modifier.hh"
 #include "BKE_subdiv.hh"
 
 #include "GPU_capabilities.h"
@@ -97,7 +97,7 @@ static bool is_subdivision_evaluation_possible_on_gpu()
     return false;
   }
 
-  if (!(GPU_compute_shader_support())) {
+  if (!GPU_compute_shader_support()) {
     return false;
   }
 

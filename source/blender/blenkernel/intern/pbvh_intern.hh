@@ -105,8 +105,7 @@ struct PBVHNode {
   /* Scalar displacements for sculpt mode's layer brush. */
   float *layer_disp = nullptr;
 
-  int proxy_count = 0;
-  PBVHProxyNode *proxies = nullptr;
+  blender::Vector<PBVHProxyNode> proxies;
 
   /* Dyntopo */
 
@@ -176,10 +175,6 @@ struct PBVH {
   CustomData *vert_data;
   CustomData *loop_data;
   CustomData *face_data;
-
-  int face_sets_color_seed;
-  int face_sets_color_default;
-  int *face_sets;
 
   /* Grid Data */
   CCGKey gridkey;

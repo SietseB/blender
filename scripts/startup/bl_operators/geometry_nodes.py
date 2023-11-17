@@ -55,11 +55,13 @@ def geometry_node_group_empty_tool_new(context):
     else:
         group.is_type_mesh = True
 
-    mode = context.object.mode if context.object else 'EDIT'
+    mode = context.object.mode if context.object else 'OBJECT'
     if mode in {'SCULPT', 'SCULPT_CURVES'}:
         group.is_mode_sculpt = True
-    else:
+    elif mode == 'EDIT':
         group.is_mode_edit = True
+    else:
+        group.is_mode_object = True
 
     return group
 
@@ -284,7 +286,6 @@ class NewGeometryNodeTreeAssign(Operator):
         return geometry_modifier_poll(context)
 
     def execute(self, context):
-        space = context.space_data
         modifier = get_context_modifier(context)
         if not modifier:
             return {'CANCELLED'}

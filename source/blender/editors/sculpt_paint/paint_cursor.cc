@@ -27,8 +27,8 @@
 
 #include "BKE_brush.hh"
 #include "BKE_colortools.h"
-#include "BKE_context.h"
-#include "BKE_curve.h"
+#include "BKE_context.hh"
+#include "BKE_curve.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_image.h"
 #include "BKE_node_runtime.hh"
@@ -1472,7 +1472,7 @@ static void paint_draw_2D_view_brush_cursor_default(PaintCursorContext *pcontext
 
 static void grease_pencil_eraser_draw(PaintCursorContext *pcontext)
 {
-  float radius = static_cast<float>(BKE_brush_size_get(pcontext->scene, pcontext->brush));
+  float radius = float(BKE_brush_size_get(pcontext->scene, pcontext->brush));
 
   /* Red-ish color with alpha. */
   immUniformColor4ub(255, 100, 100, 20);

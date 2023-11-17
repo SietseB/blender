@@ -14,7 +14,8 @@
 #include "BLI_span.hh"
 #include "BLI_stack.hh"
 
-#include "BKE_context.h"
+#include "BKE_context.hh"
+#include "BKE_curves_utils.hh"
 #include "BKE_grease_pencil.hh"
 
 #include "RNA_access.hh"
@@ -305,59 +306,65 @@ static int grease_pencil_stroke_smooth_exec(bContext *C, wmOperator *op)
     return OPERATOR_FINISHED;
   }
 
-  grease_pencil.foreach_editable_drawing(
-      scene->r.cfra, [&](const int /*layer_index*/, bke::greasepencil::Drawing &drawing) {
-        bke::CurvesGeometry &curves = drawing.strokes_for_write();
-        if (curves.points_num() == 0) {
-          return;
-        }
+  bool changed = false;
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+    if (curves.points_num() == 0) {
+      return;
+    }
 
-        bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
-        const OffsetIndices points_by_curve = curves.points_by_curve();
-        const VArray<bool> cyclic = curves.cyclic();
-        const VArray<bool> selection = *curves.attributes().lookup_or_default<bool>(
-            ".selection", ATTR_DOMAIN_POINT, true);
+    bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
+    const OffsetIndices points_by_curve = curves.points_by_curve();
+    const VArray<bool> cyclic = curves.cyclic();
+    const VArray<bool> selection = *curves.attributes().lookup_or_default<bool>(
+        ".selection", ATTR_DOMAIN_POINT, true);
 
-        if (smooth_position) {
-          bke::GSpanAttributeWriter positions = attributes.lookup_for_write_span("position");
-          smooth_curve_attribute(points_by_curve,
-                                 selection,
-                                 cyclic,
-                                 iterations,
-                                 influence,
-                                 smooth_ends,
-                                 keep_shape,
-                                 positions.span);
-          positions.finish();
-        }
-        if (smooth_opacity && drawing.opacities().is_span()) {
-          bke::GSpanAttributeWriter opacities = attributes.lookup_for_write_span("opacity");
-          smooth_curve_attribute(points_by_curve,
-                                 selection,
-                                 cyclic,
-                                 iterations,
-                                 influence,
-                                 smooth_ends,
-                                 false,
-                                 opacities.span);
-          opacities.finish();
-        }
-        if (smooth_radius && drawing.radii().is_span()) {
-          bke::GSpanAttributeWriter radii = attributes.lookup_for_write_span("radius");
-          smooth_curve_attribute(points_by_curve,
-                                 selection,
-                                 cyclic,
-                                 iterations,
-                                 influence,
-                                 smooth_ends,
-                                 false,
-                                 radii.span);
-          radii.finish();
-        }
-      });
+    if (smooth_position) {
+      bke::GSpanAttributeWriter positions = attributes.lookup_for_write_span("position");
+      smooth_curve_attribute(points_by_curve,
+                             selection,
+                             cyclic,
+                             iterations,
+                             influence,
+                             smooth_ends,
+                             keep_shape,
+                             positions.span);
+      positions.finish();
+      changed = true;
+    }
+    if (smooth_opacity && info.drawing.opacities().is_span()) {
+      bke::GSpanAttributeWriter opacities = attributes.lookup_for_write_span("opacity");
+      smooth_curve_attribute(points_by_curve,
+                             selection,
+                             cyclic,
+                             iterations,
+                             influence,
+                             smooth_ends,
+                             false,
+                             opacities.span);
+      opacities.finish();
+      changed = true;
+    }
+    if (smooth_radius && info.drawing.radii().is_span()) {
+      bke::GSpanAttributeWriter radii = attributes.lookup_for_write_span("radius");
+      smooth_curve_attribute(points_by_curve,
+                             selection,
+                             cyclic,
+                             iterations,
+                             influence,
+                             smooth_ends,
+                             false,
+                             radii.span);
+      radii.finish();
+      changed = true;
+    }
+  });
 
-  DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
 
   return OPERATOR_FINISHED;
 }
@@ -453,84 +460,84 @@ static int grease_pencil_stroke_simplify_exec(bContext *C, wmOperator *op)
   const float epsilon = RNA_float_get(op->ptr, "factor");
 
   bool changed = false;
-  grease_pencil.foreach_editable_drawing(
-      scene->r.cfra, [&](const int /*layer_index*/, bke::greasepencil::Drawing &drawing) {
-        bke::CurvesGeometry &curves = drawing.strokes_for_write();
-        if (curves.points_num() == 0) {
-          return;
-        }
-        if (!ed::curves::has_anything_selected(curves)) {
-          return;
-        }
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+    if (curves.points_num() == 0) {
+      return;
+    }
+    if (!ed::curves::has_anything_selected(curves)) {
+      return;
+    }
 
-        const Span<float3> positions = curves.positions();
-        const VArray<float> radii = drawing.radii();
+    const Span<float3> positions = curves.positions();
+    const VArray<float> radii = info.drawing.radii();
 
-        /* Distance functions for `ramer_douglas_peucker_simplify`. */
-        const auto dist_function_positions =
-            [positions](int64_t first_index, int64_t last_index, int64_t index) {
-              const float dist_position = dist_to_line_v3(
-                  positions[index], positions[first_index], positions[last_index]);
-              return dist_position;
-            };
-        const auto dist_function_positions_and_radii =
-            [positions, radii](int64_t first_index, int64_t last_index, int64_t index) {
-              const float dist_position = dist_to_line_v3(
-                  positions[index], positions[first_index], positions[last_index]);
-              /* We divide the distance by 2000.0f to convert from "pixels" to an actual distance.
-               * For some reason, grease pencil strokes the thickness of strokes in pixels rather
-               * than object space distance. */
-              const float dist_radii = dist_to_interpolated(positions[index],
-                                                            positions[first_index],
-                                                            positions[last_index],
-                                                            radii[index],
-                                                            radii[first_index],
-                                                            radii[last_index]) /
-                                       2000.0f;
-              return math::max(dist_position, dist_radii);
-            };
+    /* Distance functions for `ramer_douglas_peucker_simplify`. */
+    const auto dist_function_positions =
+        [positions](int64_t first_index, int64_t last_index, int64_t index) {
+          const float dist_position = dist_to_line_v3(
+              positions[index], positions[first_index], positions[last_index]);
+          return dist_position;
+        };
+    const auto dist_function_positions_and_radii =
+        [positions, radii](int64_t first_index, int64_t last_index, int64_t index) {
+          const float dist_position = dist_to_line_v3(
+              positions[index], positions[first_index], positions[last_index]);
+          /* We divide the distance by 2000.0f to convert from "pixels" to an actual
+           * distance. For some reason, grease pencil strokes the thickness of strokes in
+           * pixels rather than object space distance. */
+          const float dist_radii = dist_to_interpolated(positions[index],
+                                                        positions[first_index],
+                                                        positions[last_index],
+                                                        radii[index],
+                                                        radii[first_index],
+                                                        radii[last_index]) /
+                                   2000.0f;
+          return math::max(dist_position, dist_radii);
+        };
 
-        const VArray<bool> cyclic = curves.cyclic();
-        const OffsetIndices<int> points_by_curve = curves.points_by_curve();
-        const VArray<bool> selection = *curves.attributes().lookup_or_default<bool>(
-            ".selection", ATTR_DOMAIN_POINT, true);
+    const VArray<bool> cyclic = curves.cyclic();
+    const OffsetIndices<int> points_by_curve = curves.points_by_curve();
+    const VArray<bool> selection = *curves.attributes().lookup_or_default<bool>(
+        ".selection", ATTR_DOMAIN_POINT, true);
 
-        Array<bool> points_to_delete(curves.points_num());
-        selection.materialize(points_to_delete);
+    Array<bool> points_to_delete(curves.points_num());
+    selection.materialize(points_to_delete);
 
-        std::atomic<int64_t> total_points_to_delete = 0;
-        if (radii.is_single()) {
-          threading::parallel_for(curves.curves_range(), 128, [&](const IndexRange range) {
-            for (const int curve_i : range) {
-              const IndexRange points = points_by_curve[curve_i];
-              total_points_to_delete += stroke_simplify(points,
-                                                        cyclic[curve_i],
-                                                        epsilon,
-                                                        dist_function_positions,
-                                                        points_to_delete.as_mutable_span());
-            }
-          });
-        }
-        else if (radii.is_span()) {
-          threading::parallel_for(curves.curves_range(), 128, [&](const IndexRange range) {
-            for (const int curve_i : range) {
-              const IndexRange points = points_by_curve[curve_i];
-              total_points_to_delete += stroke_simplify(points,
-                                                        cyclic[curve_i],
-                                                        epsilon,
-                                                        dist_function_positions_and_radii,
-                                                        points_to_delete.as_mutable_span());
-            }
-          });
-        }
-
-        if (total_points_to_delete > 0) {
-          IndexMaskMemory memory;
-          curves.remove_points(IndexMask::from_bools(points_to_delete, memory));
-          drawing.tag_topology_changed();
-          changed = true;
+    std::atomic<int64_t> total_points_to_delete = 0;
+    if (radii.is_single()) {
+      threading::parallel_for(curves.curves_range(), 128, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          const IndexRange points = points_by_curve[curve_i];
+          total_points_to_delete += stroke_simplify(points,
+                                                    cyclic[curve_i],
+                                                    epsilon,
+                                                    dist_function_positions,
+                                                    points_to_delete.as_mutable_span());
         }
       });
+    }
+    else if (radii.is_span()) {
+      threading::parallel_for(curves.curves_range(), 128, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          const IndexRange points = points_by_curve[curve_i];
+          total_points_to_delete += stroke_simplify(points,
+                                                    cyclic[curve_i],
+                                                    epsilon,
+                                                    dist_function_positions_and_radii,
+                                                    points_to_delete.as_mutable_span());
+        }
+      });
+    }
+
+    if (total_points_to_delete > 0) {
+      IndexMaskMemory memory;
+      curves.remove_points(IndexMask::from_bools(points_to_delete, memory));
+      info.drawing.tag_topology_changed();
+      changed = true;
+    }
+  });
 
   if (changed) {
     DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
@@ -601,8 +608,8 @@ static Array<bool> get_points_to_dissolve(bke::CurvesGeometry &curves, const Dis
     return points_to_dissolve;
   }
 
-  /* Both `between` and `unselect` have the unselected point being the ones dissolved so we need to
-   * invert. */
+  /* Both `between` and `unselect` have the unselected point being the ones dissolved so we need
+   * to invert. */
   BLI_assert(ELEM(mode, DissolveMode::BETWEEN, DissolveMode::UNSELECT));
 
   const OffsetIndices<int> points_by_curve = curves.points_by_curve();
@@ -659,25 +666,25 @@ static int grease_pencil_dissolve_exec(bContext *C, wmOperator *op)
   const DissolveMode mode = DissolveMode(RNA_enum_get(op->ptr, "type"));
 
   bool changed = false;
-  grease_pencil.foreach_editable_drawing(
-      scene->r.cfra, [&](const int /*layer_index*/, bke::greasepencil::Drawing &drawing) {
-        bke::CurvesGeometry &curves = drawing.strokes_for_write();
-        if (curves.points_num() == 0) {
-          return;
-        }
-        if (!ed::curves::has_anything_selected(curves)) {
-          return;
-        }
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+    if (curves.points_num() == 0) {
+      return;
+    }
+    if (!ed::curves::has_anything_selected(curves)) {
+      return;
+    }
 
-        const Array<bool> points_to_dissolve = get_points_to_dissolve(curves, mode);
+    const Array<bool> points_to_dissolve = get_points_to_dissolve(curves, mode);
 
-        if (points_to_dissolve.as_span().contains(true)) {
-          IndexMaskMemory memory;
-          curves.remove_points(IndexMask::from_bools(points_to_dissolve, memory));
-          drawing.tag_topology_changed();
-          changed = true;
-        }
-      });
+    if (points_to_dissolve.as_span().contains(true)) {
+      IndexMaskMemory memory;
+      curves.remove_points(IndexMask::from_bools(points_to_dissolve, memory));
+      info.drawing.tag_topology_changed();
+      changed = true;
+    }
+  });
 
   if (changed) {
     DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
@@ -797,8 +804,13 @@ static void GREASE_PENCIL_OT_delete_frame(wmOperatorType *ot)
                                  "Method used for deleting Grease Pencil frames");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
+/** \} */
 
-static int grease_pencil_stroke_change_color_exec(bContext *C, wmOperator * /*op*/)
+/* -------------------------------------------------------------------- */
+/** \name Stroke Material Set Operator
+ * \{ */
+
+static int grease_pencil_stroke_material_set_exec(bContext *C, wmOperator * /*op*/)
 {
   using namespace blender;
   const Scene *scene = CTX_data_scene(C);
@@ -810,26 +822,25 @@ static int grease_pencil_stroke_change_color_exec(bContext *C, wmOperator * /*op
     return OPERATOR_CANCELLED;
   }
 
-  grease_pencil.foreach_editable_drawing(
-      scene->r.cfra, [&](int /*layer_index*/, bke::greasepencil::Drawing &drawing) {
-        bke::CurvesGeometry &curves = drawing.strokes_for_write();
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
 
-        if (curves.points_num() == 0) {
-          return;
-        }
+    IndexMaskMemory memory;
+    IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
 
-        bke::SpanAttributeWriter<int> materials =
-            curves.attributes_for_write().lookup_or_add_for_write_span<int>("material_index",
-                                                                            ATTR_DOMAIN_CURVE);
+    if (selected_curves.is_empty()) {
+      return;
+    }
 
-        IndexMaskMemory memory;
-        IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+    bke::SpanAttributeWriter<int> materials =
+        curves.attributes_for_write().lookup_or_add_for_write_span<int>("material_index",
+                                                                        ATTR_DOMAIN_CURVE);
+    selected_curves.foreach_index(
+        [&](const int curve_index) { materials.span[curve_index] = material_index; });
 
-        selected_curves.foreach_index(
-            [&](const int curve_index) { materials.span[curve_index] = material_index; });
-
-        materials.finish();
-      });
+    materials.finish();
+  });
 
   DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA | NA_EDITED, &grease_pencil);
@@ -837,13 +848,13 @@ static int grease_pencil_stroke_change_color_exec(bContext *C, wmOperator * /*op
   return OPERATOR_FINISHED;
 }
 
-static void GREASE_PENCIL_OT_stroke_change_color(wmOperatorType *ot)
+static void GREASE_PENCIL_OT_stroke_material_set(wmOperatorType *ot)
 {
-  ot->name = "Change Stroke color";
-  ot->idname = "GREASE_PENCIL_OT_stroke_change_color";
-  ot->description = "Change Stroke color with selected material";
+  ot->name = "Assign Material";
+  ot->idname = "GREASE_PENCIL_OT_stroke_material_set";
+  ot->description = "Change Stroke material with selected material";
 
-  ot->exec = grease_pencil_stroke_change_color_exec;
+  ot->exec = grease_pencil_stroke_material_set_exec;
   ot->poll = editable_grease_pencil_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -879,45 +890,44 @@ static int grease_pencil_cyclical_set_exec(bContext *C, wmOperator *op)
   const CyclicalMode mode = CyclicalMode(RNA_enum_get(op->ptr, "type"));
 
   bool changed = false;
-  grease_pencil.foreach_editable_drawing(
-      scene->r.cfra, [&](int /*layer_index*/, bke::greasepencil::Drawing &drawing) {
-        bke::CurvesGeometry &curves = drawing.strokes_for_write();
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
 
-        if (mode == CyclicalMode::OPEN && !curves.attributes().contains("cyclic")) {
-          /* Avoid creating unneeded attribute. */
-          return;
-        }
+    if (mode == CyclicalMode::OPEN && !curves.attributes().contains("cyclic")) {
+      /* Avoid creating unneeded attribute. */
+      return;
+    }
 
-        IndexMaskMemory memory;
-        const IndexMask curve_selection = ed::curves::retrieve_selected_curves(curves, memory);
-        if (curve_selection.is_empty()) {
-          return;
-        }
+    IndexMaskMemory memory;
+    const IndexMask curve_selection = ed::curves::retrieve_selected_curves(curves, memory);
+    if (curve_selection.is_empty()) {
+      return;
+    }
 
-        MutableSpan<bool> cyclic = curves.cyclic_for_write();
+    MutableSpan<bool> cyclic = curves.cyclic_for_write();
 
-        switch (mode) {
-          case CyclicalMode::CLOSE:
-            index_mask::masked_fill(cyclic, true, curve_selection);
-            break;
-          case CyclicalMode::OPEN:
-            index_mask::masked_fill(cyclic, false, curve_selection);
-            break;
-          case CyclicalMode::TOGGLE:
-            array_utils::invert_booleans(cyclic, curve_selection);
-            break;
-        }
+    switch (mode) {
+      case CyclicalMode::CLOSE:
+        index_mask::masked_fill(cyclic, true, curve_selection);
+        break;
+      case CyclicalMode::OPEN:
+        index_mask::masked_fill(cyclic, false, curve_selection);
+        break;
+      case CyclicalMode::TOGGLE:
+        array_utils::invert_booleans(cyclic, curve_selection);
+        break;
+    }
 
-        /* Remove the attribute if it is empty. */
-        if (mode != CyclicalMode::CLOSE) {
-          if (array_utils::booleans_mix_calc(curves.cyclic()) == array_utils::BooleanMix::AllFalse)
-          {
-            curves.attributes_for_write().remove("cyclic");
-          }
-        }
+    /* Remove the attribute if it is empty. */
+    if (mode != CyclicalMode::CLOSE) {
+      if (array_utils::booleans_mix_calc(curves.cyclic()) == array_utils::BooleanMix::AllFalse) {
+        curves.attributes_for_write().remove("cyclic");
+      }
+    }
 
-        changed = true;
-      });
+    changed = true;
+  });
 
   if (changed) {
     DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
@@ -948,6 +958,346 @@ static void GREASE_PENCIL_OT_cyclical_set(wmOperatorType *ot)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name Set selected material as active material
+ * \{ */
+static int grease_pencil_set_active_material_exec(bContext *C, wmOperator * /*op*/)
+{
+  using namespace blender;
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  if (object->totcol == 0) {
+    return OPERATOR_CANCELLED;
+  }
+
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  for (const MutableDrawingInfo &info : drawings) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+
+    IndexMaskMemory memory;
+    IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+    if (selected_curves.is_empty()) {
+      continue;
+    }
+
+    const blender::VArray<int> materials = *curves.attributes().lookup_or_default<int>(
+        "material_index", ATTR_DOMAIN_CURVE, 0);
+    object->actcol = materials[selected_curves.first()] + 1;
+    break;
+  };
+
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA | NA_EDITED, &grease_pencil);
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_set_active_material(wmOperatorType *ot)
+{
+  ot->name = "Set Active Material";
+  ot->idname = "GREASE_PENCIL_OT_set_active_material";
+  ot->description = "Set the selected stroke material as the active material";
+
+  ot->exec = grease_pencil_set_active_material_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set stroke uniform Thickness
+ * \{ */
+
+static int grease_pencil_set_uniform_thickness_exec(bContext *C, wmOperator *op)
+{
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  /* Radius is half of the thickness. */
+  const float radius = RNA_float_get(op->ptr, "thickness") * 0.5f;
+
+  bool changed = false;
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+
+    IndexMaskMemory memory;
+    const IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+
+    if (selected_curves.is_empty()) {
+      return;
+    }
+
+    const OffsetIndices<int> points_by_curve = curves.points_by_curve();
+    MutableSpan<float> radii = info.drawing.radii_for_write();
+    bke::curves::fill_points<float>(points_by_curve, selected_curves, radius, radii);
+    changed = true;
+  });
+
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_set_uniform_thickness(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Set Uniform Thickness";
+  ot->idname = "GREASE_PENCIL_OT_set_uniform_thickness";
+  ot->description = "Set all stroke points to same thickness";
+
+  /* Callbacks. */
+  ot->exec = grease_pencil_set_uniform_thickness_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* props */
+  ot->prop = RNA_def_float(
+      ot->srna, "thickness", 0.1f, 0.0f, 1000.0f, "Thickness", "Thickness", 0.0f, 1000.0f);
+}
+
+/** \} */
+/* -------------------------------------------------------------------- */
+/** \name Set stroke uniform Opacity
+ * \{ */
+
+static int grease_pencil_set_uniform_opacity_exec(bContext *C, wmOperator *op)
+{
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  const float opacity = RNA_float_get(op->ptr, "opacity");
+
+  bool changed = false;
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+
+    IndexMaskMemory memory;
+    const IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+
+    if (selected_curves.is_empty()) {
+      return;
+    }
+
+    const OffsetIndices<int> points_by_curve = curves.points_by_curve();
+    MutableSpan<float> opacities = info.drawing.opacities_for_write();
+    bke::curves::fill_points<float>(points_by_curve, selected_curves, opacity, opacities);
+    changed = true;
+  });
+
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_set_uniform_opacity(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Set Uniform Opacity";
+  ot->idname = "GREASE_PENCIL_OT_set_uniform_opacity";
+  ot->description = "Set all stroke points to same opacity";
+
+  /* Callbacks. */
+  ot->exec = grease_pencil_set_uniform_opacity_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* props */
+  ot->prop = RNA_def_float(ot->srna, "opacity", 1.0f, 0.0f, 1.0f, "Opacity", "", 0.0f, 1.0f);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Switch Direction Operator
+ * \{ */
+
+static int grease_pencil_stroke_switch_direction_exec(bContext *C, wmOperator * /*op*/)
+{
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  bool changed = false;
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+
+    IndexMaskMemory memory;
+    const IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+
+    if (selected_curves.is_empty()) {
+      return;
+    }
+
+    /* Switch stroke direction. */
+    curves.reverse_curves(selected_curves);
+
+    changed = true;
+  });
+
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_stroke_switch_direction(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Switch Direction";
+  ot->idname = "GREASE_PENCIL_OT_stroke_switch_direction";
+  ot->description = "Change direction of the points of the selected strokes";
+
+  /* Callbacks. */
+  ot->exec = grease_pencil_stroke_switch_direction_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Caps mode Set Operator
+ * \{ */
+
+enum class CapsMode : int8_t {
+  /* Switchs both to Flat. */
+  FLAT,
+  /* Change only start. */
+  START,
+  /* Change only end. */
+  END,
+  /* Switchs both to default rounded. */
+  ROUND,
+};
+
+static void toggle_caps(MutableSpan<int8_t> caps, const IndexMask &selection)
+{
+  selection.foreach_index([&](const int i) {
+    if (caps[i] == GP_STROKE_CAP_FLAT) {
+      caps[i] = GP_STROKE_CAP_ROUND;
+    }
+    else {
+      caps[i] = GP_STROKE_CAP_FLAT;
+    }
+  });
+}
+
+static int grease_pencil_caps_set_exec(bContext *C, wmOperator *op)
+{
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  const CapsMode mode = CapsMode(RNA_enum_get(op->ptr, "type"));
+
+  bool changed = false;
+  const Array<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+    IndexMaskMemory memory;
+    const IndexMask selected_curves = ed::curves::retrieve_selected_curves(curves, memory);
+    if (selected_curves.is_empty()) {
+      return;
+    }
+
+    bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
+
+    if (mode == CapsMode::ROUND || mode == CapsMode::FLAT) {
+      bke::SpanAttributeWriter<int8_t> start_caps =
+          attributes.lookup_or_add_for_write_span<int8_t>("start_cap", ATTR_DOMAIN_CURVE);
+      bke::SpanAttributeWriter<int8_t> end_caps = attributes.lookup_or_add_for_write_span<int8_t>(
+          "end_cap", ATTR_DOMAIN_CURVE);
+
+      const int8_t flag_set = (mode == CapsMode::ROUND) ? int8_t(GP_STROKE_CAP_TYPE_ROUND) :
+                                                          int8_t(GP_STROKE_CAP_TYPE_FLAT);
+
+      index_mask::masked_fill(start_caps.span, flag_set, selected_curves);
+      index_mask::masked_fill(end_caps.span, flag_set, selected_curves);
+      start_caps.finish();
+      end_caps.finish();
+    }
+    else {
+      switch (mode) {
+        case CapsMode::START: {
+          bke::SpanAttributeWriter<int8_t> caps = attributes.lookup_or_add_for_write_span<int8_t>(
+              "start_cap", ATTR_DOMAIN_CURVE);
+          toggle_caps(caps.span, selected_curves);
+          caps.finish();
+          break;
+        }
+        case CapsMode::END: {
+          bke::SpanAttributeWriter<int8_t> caps = attributes.lookup_or_add_for_write_span<int8_t>(
+              "end_cap", ATTR_DOMAIN_CURVE);
+          toggle_caps(caps.span, selected_curves);
+          caps.finish();
+          break;
+        }
+        case CapsMode::ROUND:
+        case CapsMode::FLAT:
+          break;
+      }
+    }
+
+    changed = true;
+  });
+
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_caps_set(wmOperatorType *ot)
+{
+  static const EnumPropertyItem prop_caps_types[] = {
+      {int(CapsMode::ROUND), "ROUND", 0, "Rounded", "Set as default rounded"},
+      {int(CapsMode::FLAT), "FLAT", 0, "Flat", ""},
+      RNA_ENUM_ITEM_SEPR,
+      {int(CapsMode::START), "START", 0, "Toggle Start", ""},
+      {int(CapsMode::END), "END", 0, "Toggle End", ""},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+
+  /* Identifiers. */
+  ot->name = "Set Curve Caps";
+  ot->idname = "GREASE_PENCIL_OT_caps_set";
+  ot->description = "Change curve caps mode (rounded or flat)";
+
+  /* Callbacks. */
+  ot->invoke = WM_menu_invoke;
+  ot->exec = grease_pencil_caps_set_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Simplify parameters. */
+  ot->prop = RNA_def_enum(ot->srna, "type", prop_caps_types, int(CapsMode::ROUND), "Type", "");
+}
+
+/** \} */
+
 }  // namespace blender::ed::greasepencil
 
 void ED_operatortypes_grease_pencil_edit()
@@ -957,8 +1307,13 @@ void ED_operatortypes_grease_pencil_edit()
   WM_operatortype_append(GREASE_PENCIL_OT_stroke_simplify);
   WM_operatortype_append(GREASE_PENCIL_OT_dissolve);
   WM_operatortype_append(GREASE_PENCIL_OT_delete_frame);
-  WM_operatortype_append(GREASE_PENCIL_OT_stroke_change_color);
+  WM_operatortype_append(GREASE_PENCIL_OT_stroke_material_set);
   WM_operatortype_append(GREASE_PENCIL_OT_cyclical_set);
+  WM_operatortype_append(GREASE_PENCIL_OT_set_active_material);
+  WM_operatortype_append(GREASE_PENCIL_OT_stroke_switch_direction);
+  WM_operatortype_append(GREASE_PENCIL_OT_set_uniform_thickness);
+  WM_operatortype_append(GREASE_PENCIL_OT_set_uniform_opacity);
+  WM_operatortype_append(GREASE_PENCIL_OT_caps_set);
 }
 
 void ED_keymap_grease_pencil(wmKeyConfig *keyconf)

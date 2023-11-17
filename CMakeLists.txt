@@ -521,7 +521,9 @@ else()
   set(WITH_INPUT_IME OFF)
 endif()
 option(WITH_INPUT_NDOF "Enable NDOF input devices (SpaceNavigator and friends)" ON)
-if(UNIX AND NOT APPLE)
+# On Windows and for the Blender application on macOS, portable install
+# is the only supported installation type, so there is no option.
+if(UNIX AND (NOT APPLE OR WITH_PYTHON_MODULE))
   option(WITH_INSTALL_PORTABLE "\
 Install redistributable runtime, otherwise install into CMAKE_INSTALL_PREFIX"
     ON
@@ -763,6 +765,24 @@ option(WITH_GTESTS "Enable GTest unit testing" OFF)
 option(WITH_OPENGL_RENDER_TESTS "Enable OpenGL render related unit testing (Experimental)" OFF)
 option(WITH_OPENGL_DRAW_TESTS "Enable OpenGL UI drawing related unit testing (Experimental)" OFF)
 option(WITH_COMPOSITOR_REALTIME_TESTS "Enable regression testing for realtime compositor" OFF)
+if(UNIX AND NOT (APPLE OR HAIKU))
+  option(WITH_UI_TESTS "\
+Enable user-interface tests using a headless display server. \
+Currently this depends on WITH_GHOST_WAYLAND and the weston compositor \
+(Experimental)"
+    OFF
+  )
+else()
+  # TODO: support running GUI tests on other platforms.
+  set(WITH_UI_TESTS OFF)
+endif()
+
+# Enabled by default for typical use cases to speed up development cycles. However, when looking
+# into threading or memory related issues (in dependency graph, out-of-bounds, etc) forcing single
+# test per Blender instance could give much better clues about the root of the problem.
+option(WITH_TESTS_BATCHED "Run multiple tests in a single Blender invocation, for faster test execution" ON)
+mark_as_advanced(WITH_TESTS_BATCHED)
+
 # NOTE: All callers of this must add `TEST_PYTHON_EXE_EXTRA_ARGS` before any other arguments.
 set(TEST_PYTHON_EXE "" CACHE PATH "Python executable to run unit tests")
 mark_as_advanced(TEST_PYTHON_EXE)
@@ -797,7 +817,7 @@ endif()
 if(NOT APPLE)
   option(WITH_VULKAN_BACKEND "Enable Vulkan as graphics backend (experimental)" ON)
   option(WITH_VULKAN_GUARDEDALLOC "\
-  Use guardedalloc for host allocations done inside Vulkan (development option)"
+Use guardedalloc for host allocations done inside Vulkan (development option)"
     OFF
   )
   mark_as_advanced(
@@ -1157,6 +1177,10 @@ endif()
 
 set_and_warn_incompatible(WITH_HEADLESS WITH_XR_OPENXR OFF)
 set_and_warn_incompatible(WITH_GHOST_SDL WITH_XR_OPENXR OFF)
+
+if(WITH_UI_TESTS)
+  set_and_warn_dependency(WITH_GHOST_WAYLAND WITH_UI_TESTS OFF)
+endif()
 
 if(WITH_BUILDINFO)
   find_package(Git)

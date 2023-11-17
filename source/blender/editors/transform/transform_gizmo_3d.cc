@@ -20,11 +20,11 @@
 #include "DNA_lattice_types.h"
 #include "DNA_meta_types.h"
 
-#include "BKE_armature.h"
-#include "BKE_context.h"
+#include "BKE_armature.hh"
+#include "BKE_context.hh"
 #include "BKE_crazyspace.hh"
-#include "BKE_curve.h"
-#include "BKE_editmesh.h"
+#include "BKE_curve.hh"
+#include "BKE_editmesh.hh"
 #include "BKE_global.h"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_grease_pencil.hh"
@@ -818,13 +818,15 @@ static int gizmo_3d_foreach_selected(const bContext *C,
           mat_local = float4x4(obedit->world_to_object) * float4x4(ob_iter->object_to_world);
         }
 
-        grease_pencil.foreach_editable_drawing(
-            scene->r.cfra, [&](int layer_index, blender::bke::greasepencil::Drawing &drawing) {
-              const bke::CurvesGeometry &curves = drawing.strokes();
+        const Array<ed::greasepencil::MutableDrawingInfo> drawings =
+            ed::greasepencil::retrieve_editable_drawings(*scene, grease_pencil);
+        threading::parallel_for_each(
+            drawings, [&](const ed::greasepencil::MutableDrawingInfo &info) {
+              const bke::CurvesGeometry &curves = info.drawing.strokes();
 
               const bke::crazyspace::GeometryDeformation deformation =
                   bke::crazyspace::get_evaluated_grease_pencil_drawing_deformation(
-                      *depsgraph, *ob, layer_index);
+                      *depsgraph, *ob, info.layer_index, info.frame_number);
 
               IndexMaskMemory memory;
               const IndexMask selected_points = ed::curves::retrieve_selected_points(curves,

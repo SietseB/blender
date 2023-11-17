@@ -101,7 +101,7 @@ set(SRC
   intern/math_color.c
   intern/math_color_blend_inline.c
   intern/math_color_inline.c
-  intern/math_geom.c
+  intern/math_geom.cc
   intern/math_geom_inline.c
   intern/math_interp.c
   intern/math_matrix.c
@@ -162,7 +162,7 @@ set(SRC
   intern/voxel.c
   intern/winstuff.cc
   intern/winstuff_dir.cc
-
+  intern/winstuff_registration.cc
   # Private headers.
   intern/BLI_mempool_private.h
 
@@ -382,6 +382,7 @@ set(SRC
   BLI_voronoi_2d.h
   BLI_voxel.h
   BLI_winstuff.h
+  BLI_winstuff_com.hh
   PIL_time.h
   PIL_time_utildefines.h
 

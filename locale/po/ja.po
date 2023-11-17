@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.0.0 Beta (b'8474716abb0d')\n"
+"Project-Id-Version: Blender 4.0.0 Release Candidate (b'f2d15d4fd19a')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-30 16:01:56\n"
+"POT-Creation-Date: 2023-11-13 11:45:13\n"
 "PO-Revision-Date: 2023-10-30 06:54+0000\n"
 "Last-Translator: Satoshi Yamasaki <yamyam@yo.rim.or.jp>\n"
 "Language-Team: Japanese <https://translate.blender.org/projects/blender-ui/ui/ja/>\n"
@@ -1241,11 +1241,6 @@ msgstr "新カーブ"
 msgctxt "ID"
 msgid "Font"
 msgstr "フォント"
-
-
-msgctxt "ID"
-msgid "Grease Pencil (legacy)"
-msgstr "グリースペンシル（旧）"
 
 
 msgctxt "ID"
@@ -6540,10 +6535,6 @@ msgstr "RGB カーブを表示変換前に使用します"
 
 msgid "High Dynamic Range"
 msgstr "ハイダイナミックレンジ"
-
-
-msgid "Enable high dynamic range display in rendered viewport, uncapping display brightness. This requires a monitor with HDR support and a view transform designed for HDR. 'Filmic' does not generate HDR colors"
-msgstr "レンダリングされたビューポートで明るさの表示を制限しない，HDR 表示を有効にします．これには HDR 対応のモニターと，HDR 用に設計されたビュー変換が必要です．'Filmic' は HDR カラーを生成しません"
 
 
 msgid "View Transform"
@@ -68512,12 +68503,12 @@ msgstr "入出力をモディファイアーから新規ノードグループに
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil (legacy)"
-msgstr "グリースペンシル(旧)を追加"
+msgid "Add Grease Pencil"
+msgstr "グリースペンシルを追加"
 
 
-msgid "Add a Grease Pencil (legacy) object to the scene"
-msgstr "（旧）グリースペンシルオブジェクトをシーンに追加します"
+msgid "Add a Grease Pencil object to the scene"
+msgstr "グリースペンシルオブジェクトをシーンに追加します"
 
 
 msgid "Stroke offset for the line art modifier"
@@ -68667,15 +68658,6 @@ msgstr "グリースペンシルモディファイアーを削除"
 
 msgid "Remove a modifier from the active grease pencil object"
 msgstr "アクティブグリースペンシルオブジェクトからモディファイアーを削除します"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "グリースペンシルを追加"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "グリースペンシルオブジェクトをシーンに追加します"
 
 
 msgctxt "Operator"
@@ -83721,10 +83703,6 @@ msgid "Python value for unsupported custom property types"
 msgstr "未対応のカスタムプロパティタイプ用の Python 値"
 
 
-msgid "Grease Pencil (legacy)"
-msgstr "グリースペンシル（旧）"
-
-
 msgid "Speaker"
 msgstr "スピーカー"
 
@@ -97424,10 +97402,6 @@ msgstr "ストリップ内に音声の波形を表示します"
 
 msgid "Sound data-block used by this sequence"
 msgstr "このシーケンスに使う音声データブロック"
-
-
-msgid "Multiply playback speed"
-msgstr "再生速度の乗数"
 
 
 msgid "Playback volume of the sound"
@@ -122719,8 +122693,8 @@ msgid "Browse Particle Settings to be linked"
 msgstr "リンクするパーティクル設定を閲覧"
 
 
-msgid "Browse Grease Pencil (legacy) Data to be linked"
-msgstr "リンクするグリースペンシル(旧)データを閲覧"
+msgid "Browse Grease Pencil Data to be linked"
+msgstr "リンクするグリースペンシルを閲覧"
 
 
 msgid "Browse Movie Clip to be linked"
@@ -122761,10 +122735,6 @@ msgstr "リンクするポイントクラウドデータを閲覧"
 
 msgid "Browse Volume Data to be linked"
 msgstr "リンクするボリュームデータを閲覧"
-
-
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "リンクするグリースペンシルを閲覧"
 
 
 msgid "Browse ID data to be linked"
@@ -129143,10 +129113,6 @@ msgstr "読み込む USD アーカイブが開けません（コンソールに�
 
 msgid "USD Import: unable to open stage to read %s"
 msgstr "USD Import:「%s」を読み込むためのステージが開けません"
-
-
-msgid "USD Import: unable to open cache reader for object %s"
-msgstr "USD Import:オブジェクト「%s」のキャッシュリーダーが開けません"
 
 
 msgid "An exception occurred invoking USD hook '%s'.  Please see the console for details"

@@ -18,11 +18,11 @@
 #include "BLI_string_utils.hh"
 #include "BLI_threads.h"
 
-#include "BKE_armature.h"
+#include "BKE_armature.hh"
 #include "BKE_camera.h"
 #include "BKE_collection.h"
-#include "BKE_context.h"
-#include "BKE_customdata.h"
+#include "BKE_context.hh"
+#include "BKE_customdata.hh"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
@@ -177,7 +177,7 @@ void ED_view3d_update_viewmat(Depsgraph *depsgraph,
       len_sc = float(max_ii(BLI_rcti_size_x(rect), BLI_rcti_size_y(rect)));
     }
     else {
-      len_sc = float(MAX2(region->winx, region->winy));
+      len_sc = float(std::max(region->winx, region->winy));
     }
 
     rv3d->pixsize = len_px / len_sc;

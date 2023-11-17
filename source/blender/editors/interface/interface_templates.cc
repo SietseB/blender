@@ -48,7 +48,7 @@
 #include "BKE_colorband.h"
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
-#include "BKE_context.h"
+#include "BKE_context.hh"
 #include "BKE_curveprofile.h"
 #include "BKE_global.h"
 #include "BKE_gpencil_modifier_legacy.h"
@@ -59,7 +59,7 @@
 #include "BKE_lib_override.hh"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
-#include "BKE_modifier.h"
+#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_packedFile.h"
 #include "BKE_particle.h"
@@ -1108,7 +1108,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
       case ID_PA:
         return N_("Browse Particle Settings to be linked");
       case ID_GD_LEGACY:
-        return N_("Browse Grease Pencil (legacy) Data to be linked");
+        return N_("Browse Grease Pencil Data to be linked");
       case ID_MC:
         return N_("Browse Movie Clip to be linked");
       case ID_MSK:
@@ -1130,7 +1130,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
       case ID_VO:
         return N_("Browse Volume Data to be linked");
       case ID_GP:
-        return N_("Browse Grease Pencil Data to be linked");
+        return N_("Browse Grease Pencil v3 Data to be linked");
 
       /* Use generic text. */
       case ID_LI:
@@ -3713,7 +3713,7 @@ static void colorband_buttons_layout(uiLayout *layout,
                      UI_UNIT_Y,
                      &coba->cur,
                      0.0,
-                     float(MAX2(0, coba->tot - 1)),
+                     float(std::max(0, coba->tot - 1)),
                      0,
                      0,
                      TIP_("Choose active color stop"));
@@ -3740,7 +3740,7 @@ static void colorband_buttons_layout(uiLayout *layout,
                      UI_UNIT_Y,
                      &coba->cur,
                      0.0,
-                     float(MAX2(0, coba->tot - 1)),
+                     float(std::max(0, coba->tot - 1)),
                      0,
                      0,
                      TIP_("Choose active color stop"));
@@ -5840,7 +5840,7 @@ void uiTemplatePalette(uiLayout *layout, PointerRNA *ptr, const char *propname, 
   PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
   uiBut *but = nullptr;
 
-  const int cols_per_row = MAX2(uiLayoutGetWidth(layout) / UI_UNIT_X, 1);
+  const int cols_per_row = std::max(uiLayoutGetWidth(layout) / UI_UNIT_X, 1);
 
   if (!prop) {
     RNA_warning("property not found: %s.%s", RNA_struct_identifier(ptr->type), propname);

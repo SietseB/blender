@@ -39,7 +39,7 @@
 
 #include "BKE_brush.hh"
 #include "BKE_colortools.h"
-#include "BKE_context.h"
+#include "BKE_context.hh"
 #include "BKE_deform.h"
 #include "BKE_gpencil_geom_legacy.h"
 #include "BKE_gpencil_legacy.h"
@@ -316,7 +316,6 @@ static void gpencil_update_geometry(bGPdata *gpd)
       LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         if (gps->flag & GP_STROKE_TAG) {
           BKE_gpencil_stroke_geometry_update(gpd, gps);
-          BKE_gpencil_tag_full_update(gpd, gpl, gpf, gps);
           gps->flag &= ~GP_STROKE_TAG;
           changed = true;
         }
@@ -1470,7 +1469,6 @@ static void gpencil_sculpt_brush_init_stroke(bContext *C, tGP_BrushEditData *gso
        */
       if (blender::animrig::is_autokey_on(scene) && (gpf->framenum != cfra)) {
         BKE_gpencil_frame_addcopy(gpl, cfra);
-        BKE_gpencil_tag_full_update(gpd, gpl, nullptr, nullptr);
         /* Need tag to recalculate evaluated data to avoid crashes. */
         DEG_id_tag_update(&gso->gpd->id, ID_RECALC_GEOMETRY);
         WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
@@ -1858,9 +1856,6 @@ static bool gpencil_sculpt_brush_do_frame(bContext *C,
         /* Delay a full recalculation for other frames. */
         gpencil_recalc_geometry_tag(gps_active);
       }
-      bGPDlayer *gpl_active = (gpl->runtime.gpl_orig) ? gpl->runtime.gpl_orig : gpl;
-      bGPDframe *gpf_active = (gpf->runtime.gpf_orig) ? gpf->runtime.gpf_orig : gpf;
-      BKE_gpencil_tag_full_update(gpd, gpl_active, gpf_active, gps_active);
     }
   }
 

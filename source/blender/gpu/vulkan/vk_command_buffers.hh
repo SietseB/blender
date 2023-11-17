@@ -23,11 +23,11 @@ class VKPipeline;
 class VKDescriptorSet;
 
 class VKCommandBuffers : public NonCopyable, NonMovable {
+  VkCommandPool vk_command_pool_ = VK_NULL_HANDLE;
   enum class Type {
-    DataTransfer = 0,
-    Compute = 1,
-    Graphics = 2,
-    Max = 3,
+    DataTransferCompute = 0,
+    Graphics = 1,
+    Max = 2,
   };
 
   bool initialized_ = false;
@@ -103,8 +103,8 @@ class VKCommandBuffers : public NonCopyable, NonMovable {
             VkImageLayout src_layout,
             Span<VkImageBlit> regions);
   void pipeline_barrier(VkPipelineStageFlags source_stages,
-                        VkPipelineStageFlags destination_stages);
-  void pipeline_barrier(Span<VkImageMemoryBarrier> image_memory_barriers);
+                        VkPipelineStageFlags destination_stages,
+                        Span<VkImageMemoryBarrier> image_memory_barriers);
 
   /**
    * Clear color image resource.
@@ -150,6 +150,7 @@ class VKCommandBuffers : public NonCopyable, NonMovable {
 
  private:
   void init_fence(const VKDevice &device);
+  void init_command_pool(const VKDevice &device);
   void init_command_buffers(const VKDevice &device);
 
   VKCommandBuffer &command_buffer_get(Type type)
@@ -158,15 +159,7 @@ class VKCommandBuffers : public NonCopyable, NonMovable {
   }
 
   /**
-   * Ensure that no compute commands are scheduled.
-   *
-   * To ensure correct operation all compute commands should be flushed when adding a new draw
-   * command.
-   */
-  void ensure_no_compute_commands();
-
-  /**
-   * Ensire that no draw_commands are scheduled.
+   * Ensure that no draw_commands are scheduled.
    *
    * To ensure correct operation all draw commands should be flushed when adding a new compute
    * command.

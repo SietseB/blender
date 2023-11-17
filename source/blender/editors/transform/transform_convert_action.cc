@@ -16,7 +16,7 @@
 #include "BLI_math_vector.h"
 #include "BLI_rect.h"
 
-#include "BKE_context.h"
+#include "BKE_context.hh"
 #include "BKE_fcurve.h"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_grease_pencil.hh"
@@ -498,7 +498,7 @@ static int GreasePencilLayerToTransData(TransData *td,
   };
 
   const blender::Map<int, GreasePencilFrame> &frame_map =
-      duplicate ? (layer->runtime->trans_data_.temp_frames_buffer) : (layer->frames());
+      duplicate ? (layer->runtime->trans_data_.temp_frames_buffer) : layer->frames();
 
   for (const auto [frame_number, frame] : frame_map.items()) {
     grease_pencil_frame_to_trans_data(frame_number, frame.is_selected());

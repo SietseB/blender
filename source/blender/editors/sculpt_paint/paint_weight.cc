@@ -35,9 +35,9 @@
 #include "BKE_attribute.hh"
 #include "BKE_brush.hh"
 #include "BKE_colortools.h"
-#include "BKE_context.h"
+#include "BKE_context.hh"
 #include "BKE_deform.h"
-#include "BKE_editmesh.h"
+#include "BKE_editmesh.hh"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
@@ -220,10 +220,10 @@ static float wpaint_blend(const VPaint *wp,
 static float wpaint_clamp_monotonic(float oldval, float curval, float newval)
 {
   if (newval < oldval) {
-    return MIN2(newval, curval);
+    return std::min(newval, curval);
   }
   if (newval > oldval) {
-    return MAX2(newval, curval);
+    return std::max(newval, curval);
   }
   return newval;
 }

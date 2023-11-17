@@ -9,8 +9,8 @@
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 
-#include "BKE_bvhutils.h"
-#include "BKE_editmesh.h"
+#include "BKE_bvhutils.hh"
+#include "BKE_editmesh.hh"
 #include "BKE_mesh.hh"
 #include "BKE_object.hh"
 
@@ -202,7 +202,7 @@ static bool nearest_world_mesh(SnapObjectContext *sctx,
   }
 
   BVHTreeNearest nearest{};
-  nearest.dist_sq = sctx->ret.dist_px_sq;
+  nearest.dist_sq = sctx->ret.dist_nearest_sq;
   if (nearest_world_tree(
           sctx, treedata.tree, treedata.nearest_callback, obmat, &treedata, &nearest)) {
     SnapData::register_result(sctx, ob_eval, &me_eval->id, obmat, &nearest);

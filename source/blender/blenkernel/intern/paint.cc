@@ -14,6 +14,7 @@
 #include "DNA_brush_types.h"
 #include "DNA_defaults.h"
 #include "DNA_gpencil_legacy_types.h"
+#include "DNA_key_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -28,6 +29,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math_color.h"
 #include "BLI_math_matrix.h"
+#include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 #include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
@@ -40,8 +42,8 @@
 #include "BKE_brush.hh"
 #include "BKE_ccg.h"
 #include "BKE_colortools.h"
-#include "BKE_context.h"
-#include "BKE_crazyspace.h"
+#include "BKE_context.hh"
+#include "BKE_crazyspace.hh"
 #include "BKE_deform.h"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_idtype.h"
@@ -54,9 +56,10 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 #include "BKE_mesh_runtime.hh"
-#include "BKE_modifier.h"
+#include "BKE_modifier.hh"
 #include "BKE_multires.hh"
 #include "BKE_object.hh"
+#include "BKE_object_types.hh"
 #include "BKE_paint.hh"
 #include "BKE_pbvh_api.hh"
 #include "BKE_scene.h"
@@ -1479,9 +1482,9 @@ bool paint_calculate_rake_rotation(UnifiedPaintSettings *ups,
 
 void BKE_sculptsession_free_deformMats(SculptSession *ss)
 {
-  MEM_SAFE_FREE(ss->orig_cos);
-  MEM_SAFE_FREE(ss->deform_cos);
-  MEM_SAFE_FREE(ss->deform_imats);
+  ss->orig_cos = {};
+  ss->deform_cos = {};
+  ss->deform_imats = {};
 }
 
 void BKE_sculptsession_free_vwpaint_data(SculptSession *ss)
@@ -1598,10 +1601,6 @@ void BKE_sculptsession_free(Object *ob)
     if (ss->tex_pool) {
       BKE_image_pool_free(ss->tex_pool);
     }
-
-    MEM_SAFE_FREE(ss->orig_cos);
-    MEM_SAFE_FREE(ss->deform_cos);
-    MEM_SAFE_FREE(ss->deform_imats);
 
     if (ss->pose_ik_chain_preview) {
       for (int i = 0; i < ss->pose_ik_chain_preview->tot_segments; i++) {
@@ -1721,7 +1720,7 @@ static bool sculpt_modifiers_active(Scene *scene, Sculpt *sd, Object *ob)
       continue;
     }
 
-    if (mti->type == eModifierTypeType_OnlyDeform) {
+    if (mti->type == ModifierTypeType::OnlyDeform) {
       return true;
     }
     if ((sd->flags & SCULPT_ONLY_DEFORM) == 0) {
@@ -1846,10 +1845,7 @@ static void sculpt_update_object(
   UNUSED_VARS_NDEBUG(pbvh);
 
   BKE_pbvh_subdiv_cgg_set(ss->pbvh, ss->subdiv_ccg);
-  BKE_pbvh_face_sets_set(ss->pbvh, ss->face_sets);
   BKE_pbvh_update_hide_attributes_from_mesh(ss->pbvh);
-
-  BKE_pbvh_face_sets_color_set(ss->pbvh, me->face_sets_color_seed, me->face_sets_color_default);
 
   sculpt_attribute_update_refs(ob);
   sculpt_update_persistent_base(ob);
@@ -1867,7 +1863,7 @@ static void sculpt_update_object(
     bool used_me_eval = false;
 
     if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
-      Mesh *me_eval_deform = ob_eval->runtime.mesh_deform_eval;
+      Mesh *me_eval_deform = ob_eval->runtime->mesh_deform_eval;
 
       /* If the fully evaluated mesh has the same topology as the deform-only version, use it.
        * This matters because crazyspace evaluation is very restrictive and excludes even modifiers
@@ -1880,27 +1876,26 @@ static void sculpt_update_object(
 
         BLI_assert(me_eval_deform->totvert == me->totvert);
 
-        ss->deform_cos = BKE_mesh_vert_coords_alloc(me_eval, nullptr);
-        BKE_pbvh_vert_coords_apply(ss->pbvh, ss->deform_cos, me->totvert);
+        ss->deform_cos = me_eval->vert_positions();
+        BKE_pbvh_vert_coords_apply(ss->pbvh, ss->deform_cos);
 
         used_me_eval = true;
       }
     }
 
-    if (!ss->orig_cos && !used_me_eval) {
-      int a;
-
+    if (ss->orig_cos.is_empty() && !used_me_eval) {
       BKE_sculptsession_free_deformMats(ss);
 
       ss->orig_cos = (ss->shapekey_active) ?
-                         BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active) :
-                         BKE_mesh_vert_coords_alloc(me, nullptr);
+                         Span(static_cast<const float3 *>(ss->shapekey_active->data),
+                              me->totvert) :
+                         me->vert_positions();
 
-      BKE_crazyspace_build_sculpt(depsgraph, scene, ob, &ss->deform_imats, &ss->deform_cos);
-      BKE_pbvh_vert_coords_apply(ss->pbvh, ss->deform_cos, me->totvert);
+      BKE_crazyspace_build_sculpt(depsgraph, scene, ob, ss->deform_imats, ss->deform_cos);
+      BKE_pbvh_vert_coords_apply(ss->pbvh, ss->deform_cos);
 
-      for (a = 0; a < me->totvert; a++) {
-        invert_m3(ss->deform_imats[a]);
+      for (blender::float3x3 &matrix : ss->deform_imats) {
+        matrix = blender::math::invert(matrix);
       }
     }
   }
@@ -1908,26 +1903,23 @@ static void sculpt_update_object(
     BKE_sculptsession_free_deformMats(ss);
   }
 
-  if (ss->shapekey_active != nullptr && ss->deform_cos == nullptr) {
-    ss->deform_cos = BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active);
+  if (ss->shapekey_active != nullptr && ss->deform_cos.is_empty()) {
+    ss->deform_cos = Span(static_cast<const float3 *>(ss->shapekey_active->data), me->totvert);
   }
 
   /* if pbvh is deformed, key block is already applied to it */
   if (ss->shapekey_active) {
     bool pbvh_deformed = BKE_pbvh_is_deformed(ss->pbvh);
-    if (!pbvh_deformed || ss->deform_cos == nullptr) {
-      float(*vertCos)[3] = BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active);
+    if (!pbvh_deformed || ss->deform_cos.is_empty()) {
+      const Span key_data(static_cast<const float3 *>(ss->shapekey_active->data), me->totvert);
 
-      if (vertCos) {
+      if (key_data.data() != nullptr) {
         if (!pbvh_deformed) {
           /* apply shape keys coordinates to PBVH */
-          BKE_pbvh_vert_coords_apply(ss->pbvh, vertCos, me->totvert);
+          BKE_pbvh_vert_coords_apply(ss->pbvh, key_data);
         }
-        if (ss->deform_cos == nullptr) {
-          ss->deform_cos = vertCos;
-        }
-        if (vertCos != ss->deform_cos) {
-          MEM_freeN(vertCos);
+        if (ss->deform_cos.is_empty()) {
+          ss->deform_cos = key_data;
         }
       }
     }
@@ -2044,28 +2036,50 @@ void BKE_sculpt_update_object_for_edit(
 
 int *BKE_sculpt_face_sets_ensure(Object *ob)
 {
-  SculptSession *ss = ob->sculpt;
-  Mesh *mesh = static_cast<Mesh *>(ob->data);
-
   using namespace blender;
   using namespace blender::bke;
-  MutableAttributeAccessor attributes = mesh->attributes_for_write();
-  if (!attributes.contains(".sculpt_face_set")) {
-    SpanAttributeWriter<int> face_sets = attributes.lookup_or_add_for_write_only_span<int>(
-        ".sculpt_face_set", ATTR_DOMAIN_FACE);
-    face_sets.span.fill(1);
-    mesh->face_sets_color_default = 1;
-    face_sets.finish();
+  Mesh *mesh = static_cast<Mesh *>(ob->data);
+  SculptSession *ss = ob->sculpt;
+  PBVH *pbvh = ss->pbvh;
+  if (!pbvh) {
+    BLI_assert_unreachable();
+    return nullptr;
+  }
+  const StringRefNull name = ".sculpt_face_set";
+
+  switch (BKE_pbvh_type(pbvh)) {
+    case PBVH_FACES:
+    case PBVH_GRIDS: {
+      MutableAttributeAccessor attributes = mesh->attributes_for_write();
+      if (!attributes.contains(name)) {
+        attributes.add<int>(name,
+                            ATTR_DOMAIN_FACE,
+                            AttributeInitVArray(VArray<int>::ForSingle(1, mesh->faces_num)));
+        mesh->face_sets_color_default = 1;
+      }
+      return static_cast<int *>(CustomData_get_layer_named_for_write(
+          &mesh->face_data, CD_PROP_INT32, name.c_str(), mesh->faces_num));
+    }
+    case PBVH_BMESH: {
+      BMesh *bm = BKE_pbvh_get_bmesh(pbvh);
+      if (!CustomData_has_layer_named(&bm->pdata, CD_PROP_INT32, name.c_str())) {
+        BM_data_layer_add_named(bm, &bm->pdata, CD_PROP_INT32, name.c_str());
+        const int offset = CustomData_get_offset_named(&bm->pdata, CD_PROP_INT32, name.c_str());
+        if (offset == -1) {
+          return nullptr;
+        }
+        BMIter iter;
+        BMFace *face;
+        BM_ITER_MESH (face, &iter, bm, BM_FACES_OF_MESH) {
+          BM_ELEM_CD_SET_INT(face, offset, 1);
+        }
+        mesh->face_sets_color_default = 1;
+      }
+      break;
+    }
   }
 
-  int *face_sets = static_cast<int *>(CustomData_get_layer_named_for_write(
-      &mesh->face_data, CD_PROP_INT32, ".sculpt_face_set", mesh->faces_num));
-
-  if (ss->pbvh && ELEM(BKE_pbvh_type(ss->pbvh), PBVH_FACES, PBVH_GRIDS)) {
-    BKE_pbvh_face_sets_set(ss->pbvh, face_sets);
-  }
-
-  return face_sets;
+  return nullptr;
 }
 
 bool *BKE_sculpt_hide_poly_ensure(Mesh *mesh)
@@ -2288,10 +2302,7 @@ static PBVH *build_pbvh_from_regular_mesh(Object *ob, Mesh *me_eval_deform)
 
   const bool is_deformed = check_sculpt_object_deformed(ob, true);
   if (is_deformed && me_eval_deform != nullptr) {
-    BKE_pbvh_vert_coords_apply(
-        pbvh,
-        reinterpret_cast<const float(*)[3]>(me_eval_deform->vert_positions().data()),
-        me_eval_deform->totvert);
+    BKE_pbvh_vert_coords_apply(pbvh, me_eval_deform->vert_positions());
   }
 
   return pbvh;
@@ -2367,7 +2378,7 @@ PBVH *BKE_sculpt_object_pbvh_ensure(Depsgraph *depsgraph, Object *ob)
       pbvh = build_pbvh_from_ccg(ob, mesh_eval->runtime->subdiv_ccg);
     }
     else if (ob->type == OB_MESH) {
-      Mesh *me_eval_deform = object_eval->runtime.mesh_deform_eval;
+      Mesh *me_eval_deform = object_eval->runtime->mesh_deform_eval;
       pbvh = build_pbvh_from_regular_mesh(ob, me_eval_deform);
     }
   }

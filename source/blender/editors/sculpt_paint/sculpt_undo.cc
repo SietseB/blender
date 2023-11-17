@@ -34,7 +34,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_ghash.h"
+#include "BLI_array_utils.hh"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
@@ -48,8 +48,8 @@
 
 #include "BKE_attribute.hh"
 #include "BKE_ccg.h"
-#include "BKE_context.h"
-#include "BKE_customdata.h"
+#include "BKE_context.hh"
+#include "BKE_customdata.hh"
 #include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_layer.h"
@@ -349,14 +349,12 @@ static void update_cb_partial(PBVHNode *node, void *userdata)
     }
   }
   if (data->modified_face_set_faces) {
-    PBVHFaceIter fd;
-    BKE_pbvh_face_iter_begin (data->pbvh, node, fd) {
-      if (data->modified_face_set_faces[fd.index]) {
+    for (const int face : BKE_pbvh_node_calc_face_indices(*data->pbvh, *node)) {
+      if (data->modified_face_set_faces[face]) {
         BKE_pbvh_node_mark_update_face_sets(node);
         break;
       }
     }
-    BKE_pbvh_face_iter_end(fd);
   }
 }
 
@@ -415,8 +413,8 @@ static bool sculpt_undo_restore_coords(bContext *C, Depsgraph *depsgraph, Sculpt
     blender::MutableSpan<blender::float3> positions = ss->vert_positions;
 
     if (ss->shapekey_active) {
-      float(*vertCos)[3];
-      vertCos = BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active);
+      blender::MutableSpan<blender::float3> vertCos(
+          static_cast<blender::float3 *>(ss->shapekey_active->data), ss->shapekey_active->totelem);
 
       if (!unode->orig_co.is_empty()) {
         if (ss->deform_modifiers_active) {
@@ -441,9 +439,7 @@ static bool sculpt_undo_restore_coords(bContext *C, Depsgraph *depsgraph, Sculpt
 
       /* PBVH uses its own vertex array, so coords should be */
       /* propagated to PBVH here. */
-      BKE_pbvh_vert_coords_apply(ss->pbvh, vertCos, ss->shapekey_active->totelem);
-
-      MEM_freeN(vertCos);
+      BKE_pbvh_vert_coords_apply(ss->pbvh, vertCos);
     }
     else {
       if (!unode->orig_co.is_empty()) {
@@ -573,6 +569,10 @@ static bool sculpt_undo_restore_mask(bContext *C, SculptUndoNode *unode, bool *m
     /* Regular mesh restore. */
     float *vmask = static_cast<float *>(
         CustomData_get_layer_for_write(&mesh->vert_data, CD_PAINT_MASK, mesh->totvert));
+    if (!vmask) {
+      vmask = static_cast<float *>(
+          CustomData_add_layer(&mesh->vert_data, CD_PAINT_MASK, CD_SET_DEFAULT, mesh->totvert));
+    }
     ss->vmask = vmask;
 
     const Span<int> index = unode->index;
@@ -620,19 +620,19 @@ static bool sculpt_undo_restore_face_sets(bContext *C,
   SculptSession *ss = ob->sculpt;
 
   ss->face_sets = BKE_sculpt_face_sets_ensure(ob);
-  BKE_pbvh_face_sets_set(ss->pbvh, ss->face_sets);
 
   bool modified = false;
+  const Span<int> face_indices = unode->face_indices;
 
-  for (int i = 0; i < unode->faces_num; i++) {
-    int face_index = unode->faces[i].i;
+  for (const int i : face_indices.index_range()) {
+    int face_index = face_indices[i];
+    if (unode->face_sets[i] != ss->face_sets[face_index]) {
+      modified_face_set_faces[face_index] = true;
+      modified = true;
+    }
 
     SWAP(int, unode->face_sets[i], ss->face_sets[face_index]);
-
-    modified_face_set_faces[face_index] = unode->face_sets[i] != ss->face_sets[face_index];
-    modified |= modified_face_set_faces[face_index];
   }
-
   return modified;
 }
 
@@ -1227,23 +1227,6 @@ static SculptUndoNode *sculpt_undo_find_or_alloc_node_type(Object *object, Sculp
   return sculpt_undo_alloc_node_type(object, type);
 }
 
-static void sculpt_undo_store_faces(SculptSession *ss, SculptUndoNode *unode)
-{
-  unode->faces_num = 0;
-
-  PBVHFaceIter fd;
-  BKE_pbvh_face_iter_begin (ss->pbvh, static_cast<PBVHNode *>(unode->node), fd) {
-    unode->faces_num++;
-  }
-  BKE_pbvh_face_iter_end(fd);
-
-  unode->faces.reinitialize(unode->faces_num);
-  BKE_pbvh_face_iter_begin (ss->pbvh, static_cast<PBVHNode *>(unode->node), fd) {
-    unode->faces[fd.i] = fd.face;
-  }
-  BKE_pbvh_face_iter_end(fd);
-}
-
 static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node, SculptUndoType type)
 {
   UndoSculpt *usculpt = sculpt_undo_get_nodes();
@@ -1281,8 +1264,8 @@ static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node, Sculpt
   }
 
   if (need_faces) {
-    sculpt_undo_store_faces(ss, unode);
-    usculpt->undo_size += unode->faces.as_span().size_in_bytes();
+    unode->face_indices = BKE_pbvh_node_calc_face_indices(*ss->pbvh, *node);
+    usculpt->undo_size += unode->face_indices.as_span().size_in_bytes();
   }
 
   switch (type) {
@@ -1332,7 +1315,7 @@ static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node, Sculpt
     case SCULPT_UNDO_GEOMETRY:
       break;
     case SCULPT_UNDO_FACE_SETS: {
-      unode->face_sets.reinitialize(unode->faces_num);
+      unode->face_sets.reinitialize(unode->face_indices.size());
       usculpt->undo_size += unode->face_sets.as_span().size_in_bytes();
       break;
     }
@@ -1452,15 +1435,12 @@ static SculptUndoNode *sculpt_undo_geometry_push(Object *object, SculptUndoType 
   return unode;
 }
 
-static void sculpt_undo_store_face_sets(SculptSession *ss, SculptUndoNode *unode)
+static void sculpt_undo_store_face_sets(const Mesh &mesh, SculptUndoNode &unode)
 {
-  unode->face_sets.reinitialize(unode->faces_num);
-
-  PBVHFaceIter fd;
-  BKE_pbvh_face_iter_begin (ss->pbvh, static_cast<PBVHNode *>(unode->node), fd) {
-    unode->face_sets[fd.i] = fd.face_set ? *fd.face_set : SCULPT_FACE_SET_NONE;
-  }
-  BKE_pbvh_face_iter_end(fd);
+  blender::array_utils::gather(
+      *mesh.attributes().lookup_or_default<int>(".sculpt_face_set", ATTR_DOMAIN_FACE, 0),
+      unode.face_indices.as_span(),
+      unode.face_sets.as_mutable_span());
 }
 
 static SculptUndoNode *sculpt_undo_bmesh_push(Object *ob, PBVHNode *node, SculptUndoType type)
@@ -1618,7 +1598,7 @@ SculptUndoNode *SCULPT_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType
     case SCULPT_UNDO_GEOMETRY:
       break;
     case SCULPT_UNDO_FACE_SETS:
-      sculpt_undo_store_face_sets(ss, unode);
+      sculpt_undo_store_face_sets(*static_cast<const Mesh *>(ob->data), *unode);
       break;
   }
 

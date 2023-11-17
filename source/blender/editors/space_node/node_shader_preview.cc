@@ -33,7 +33,7 @@
 
 #include "BKE_colortools.h"
 #include "BKE_compute_contexts.hh"
-#include "BKE_context.h"
+#include "BKE_context.hh"
 #include "BKE_global.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
@@ -41,7 +41,7 @@
 #include "BKE_material.h"
 #include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
-#include "BKE_node_tree_update.h"
+#include "BKE_node_tree_update.hh"
 #include "BKE_scene.h"
 
 #include "DEG_depsgraph.hh"
@@ -261,7 +261,7 @@ static bNodeSocket *node_find_preview_socket(bNodeTree &ntree, bNode &node)
   if (socket == nullptr) {
     socket = get_main_socket(ntree, node, SOCK_IN);
     if (socket != nullptr && socket->link == nullptr) {
-      if (!(ELEM(socket->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA))) {
+      if (!ELEM(socket->type, SOCK_FLOAT, SOCK_VECTOR, SOCK_RGBA)) {
         /* We can not preview a socket with no link and no manual value. */
         return nullptr;
       }

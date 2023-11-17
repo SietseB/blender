@@ -30,8 +30,8 @@
 #include "BKE_attribute.h"
 #include "BKE_attribute.hh"
 #include "BKE_curves.hh"
-#include "BKE_customdata.h"
-#include "BKE_editmesh.h"
+#include "BKE_customdata.hh"
+#include "BKE_editmesh.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_mesh.hh"
 #include "BKE_pointcloud.h"
@@ -270,8 +270,8 @@ void BKE_id_attribute_calc_unique_name(ID *id, const char *name, char *outname)
   const int name_maxncpy = CustomData_name_maxncpy_calc(name);
 
   /* Set default name if none specified.
-   * NOTE: We only call IFACE_() if needed to avoid locale lookup overhead. */
-  BLI_strncpy_utf8(outname, (name && name[0]) ? name : IFACE_("Attribute"), name_maxncpy);
+   * NOTE: We only call DATA_() if needed to avoid locale lookup overhead. */
+  BLI_strncpy_utf8(outname, (name && name[0]) ? name : DATA_("Attribute"), name_maxncpy);
 
   const char *defname = ""; /* Dummy argument, never used as `name` is never zero length. */
   BLI_uniquename_cb(unique_name_cb, &data, defname, '.', outname, name_maxncpy);

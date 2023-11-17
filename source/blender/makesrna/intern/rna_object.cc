@@ -35,7 +35,7 @@
 #include "BKE_camera.h"
 #include "BKE_collection.h"
 #include "BKE_editlattice.h"
-#include "BKE_editmesh.h"
+#include "BKE_editmesh.hh"
 #include "BKE_layer.h"
 #include "BKE_object_deform.h"
 #include "BKE_paint.hh"
@@ -265,8 +265,8 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
     {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
-    {OB_GPENCIL_LEGACY, "GPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil (legacy)", ""},
-    {OB_GREASE_PENCIL, "GREASEPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil", ""},
+    {OB_GPENCIL_LEGACY, "GPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil", ""},
+    {OB_GREASE_PENCIL, "GREASEPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil v3", ""},
     RNA_ENUM_ITEM_SEPR,
     {OB_ARMATURE, "ARMATURE", ICON_OUTLINER_OB_ARMATURE, "Armature", ""},
     {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
@@ -324,11 +324,11 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #  include "DNA_lattice_types.h"
 #  include "DNA_node_types.h"
 
-#  include "BKE_armature.h"
+#  include "BKE_armature.hh"
 #  include "BKE_brush.hh"
 #  include "BKE_constraint.h"
-#  include "BKE_context.h"
-#  include "BKE_curve.h"
+#  include "BKE_context.hh"
+#  include "BKE_curve.hh"
 #  include "BKE_deform.h"
 #  include "BKE_effect.h"
 #  include "BKE_global.h"
@@ -338,7 +338,7 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #  include "BKE_material.h"
 #  include "BKE_mesh.hh"
 #  include "BKE_mesh_wrapper.hh"
-#  include "BKE_modifier.h"
+#  include "BKE_modifier.hh"
 #  include "BKE_object.hh"
 #  include "BKE_particle.h"
 #  include "BKE_scene.h"
@@ -1236,7 +1236,7 @@ static void rna_Object_rotation_mode_set(PointerRNA *ptr, int value)
 static void rna_Object_dimensions_get(PointerRNA *ptr, float *value)
 {
   Object *ob = static_cast<Object *>(ptr->data);
-  BKE_object_dimensions_get(ob, value);
+  BKE_object_dimensions_eval_cached_get(ob, value);
 }
 
 static void rna_Object_dimensions_set(PointerRNA *ptr, const float *value)
@@ -1993,7 +1993,7 @@ static void rna_Object_shaderfx_clear(Object *object, bContext *C)
 static void rna_Object_boundbox_get(PointerRNA *ptr, float *values)
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  if (const std::optional<BoundBox> bb = BKE_object_boundbox_get(ob)) {
+  if (const std::optional<BoundBox> bb = BKE_object_boundbox_eval_cached_get(ob)) {
     memcpy(values, bb->vec, sizeof(bb->vec));
   }
   else {

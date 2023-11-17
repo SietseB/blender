@@ -54,15 +54,15 @@
 #include "BKE_fcurve_driver.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
-#include "BKE_modifier.h"
+#include "BKE_modifier.hh"
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BKE_screen.hh"
 #include "BKE_tracking.h"
 #include "DNA_material_types.h"
 
-#include "SEQ_effects.h"
-#include "SEQ_iterator.h"
+#include "SEQ_effects.hh"
+#include "SEQ_iterator.hh"
 
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
