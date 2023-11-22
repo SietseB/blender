@@ -195,6 +195,9 @@ static void scene_init_data(ID *id)
   /* Anti-Aliasing threshold. */
   scene->grease_pencil_settings.smaa_threshold = 1.0f;
 
+  /* Ondine settings. */
+  scene->ondine_watercolor.wetness_grow = 150;
+
   {
     ParticleEditSettings *pset;
     pset = &scene->toolsettings->particle;

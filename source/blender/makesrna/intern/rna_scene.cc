@@ -1218,6 +1218,11 @@ static char *rna_SceneGpencil_path(const PointerRNA * /*ptr*/)
   return BLI_strdup("grease_pencil_settings");
 }
 
+static char *rna_SceneOndine_path(const PointerRNA * /*ptr*/)
+{
+  return BLI_strdup("ondine_watercolor");
+}
+
 static char *rna_SceneHydra_path(const PointerRNA * /*ptr*/)
 {
   return BLI_strdup("hydra");
@@ -8213,6 +8218,66 @@ static void rna_def_scene_gpencil(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
 }
 
+static void rna_def_scene_ondine(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "SceneOndine", nullptr);
+  RNA_def_struct_path_func(srna, "rna_SceneOndine_path");
+  RNA_def_struct_ui_text(srna, "Ondine Render", "Ondine Render settings");
+
+  prop = RNA_def_property(srna, "wetness_grow", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, nullptr, "wetness_grow");
+  RNA_def_property_int_default(prop, 150);
+  RNA_def_property_range(prop, 50, 1200);
+  RNA_def_property_ui_text(prop, "Wetness Speed", "The base speed of pigment flow in wet areas");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "paper_texture", PROP_STRING, PROP_FILEPATH);
+  RNA_def_property_string_sdna(prop, nullptr, "paper_texture");
+  RNA_def_property_ui_text(
+      prop,
+      "Paper Texture",
+      "Image file of a paper texture added as background to an Ondine render");
+  RNA_def_property_flag(prop, PROP_PATH_OUTPUT);
+  // TODO: add setter func
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "paper_texture_inverted", PROP_STRING, PROP_FILEPATH);
+  RNA_def_property_string_sdna(prop, nullptr, "paper_texture_inverted");
+  RNA_def_property_ui_text(
+      prop,
+      "Inverted Paper Texture",
+      "Image file of an inverted paper texture added on top of an Ondine render");
+  RNA_def_property_flag(prop, PROP_PATH_OUTPUT);
+  // TODO: add setter func
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "opaque_viewlayers", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", ONDINE_SCENE_OPAQUE_VIEWLAYERS);
+  RNA_def_property_ui_text(prop,
+                           "Opaque View Layers",
+                           "When rendering multiple view layers, make the filled parts opaque, so "
+                           "you can easily layer them in compositing");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "render_as_camera_background", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", ONDINE_SCENE_RENDER_AS_CAMERA_BACKGROUND);
+  RNA_def_property_ui_text(
+      prop, "Use Render as Camera Background", "Use rendered frame as camera background");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "add_rendered_animation_to_sequencer", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", ONDINE_SCENE_ADD_RENDERED_ANIMATION_TO_SEQUENCER);
+  RNA_def_property_ui_text(prop,
+                           "Add Render to Video Editor",
+                           "Add rendered animation to video editor. Note: this will replace all "
+                           "existing data in the video editor");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+}
+
 static void rna_def_scene_hydra(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -8758,6 +8823,12 @@ void RNA_def_scene(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "SceneHydra");
   RNA_def_property_ui_text(prop, "Hydra", "Hydra settings for the scene");
 
+  /* Ondine */
+  prop = RNA_def_property(srna, "ondine_watercolor", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "SceneOndine");
+  RNA_def_property_ui_text(
+      prop, "Ondine Watercolor", "Ondine Watercolor settings for rendering the scene");
+
   /* Nestled Data. */
   /* *** Non-Animated *** */
   RNA_define_animate_sdna(false);
@@ -8778,6 +8849,7 @@ void RNA_def_scene(BlenderRNA *brna)
   rna_def_raytrace_eevee(brna);
   rna_def_scene_eevee(brna);
   rna_def_scene_hydra(brna);
+  rna_def_scene_ondine(brna);
   rna_def_view_layer_aov(brna);
   rna_def_view_layer_lightgroup(brna);
   rna_def_view_layer_eevee(brna);

@@ -122,6 +122,10 @@
 
 #include "DRW_engine.h"
 
+#ifdef WITH_ONDINE
+#  include "ondine_renderer.hh"
+#endif
+
 CLG_LOGREF_DECLARE_GLOBAL(WM_LOG_OPERATORS, "wm.operator");
 CLG_LOGREF_DECLARE_GLOBAL(WM_LOG_HANDLERS, "wm.handler");
 CLG_LOGREF_DECLARE_GLOBAL(WM_LOG_EVENTS, "wm.event");
@@ -619,6 +623,10 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   ANIM_fmodifiers_copybuf_free();
   ED_gpencil_anim_copybuf_free();
   ED_gpencil_strokes_copybuf_free();
+
+#ifdef WITH_ONDINE
+  OD_free_precomputed_render_data();
+#endif  // WITH_ONDINE
 
   /* free gizmo-maps after freeing blender,
    * so no deleted data get accessed during cleaning up of areas. */

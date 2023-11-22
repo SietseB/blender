@@ -837,6 +837,37 @@ class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
         col.prop(props, "use_taa_reprojection")
 
 
+class RENDER_PT_ondine(RenderButtonsPanel, Panel):
+    bl_label = "Ondine Watercolor"
+    COMPAT_ENGINES = {'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        ondine = context.scene.ondine_watercolor
+
+        col = layout.column()
+        col.prop(ondine, 'wetness_grow')
+        col.prop(ondine, 'opaque_viewlayers')
+        col.prop(ondine, 'render_as_camera_background')
+        col.prop(ondine, 'add_rendered_animation_to_sequencer')
+
+        layout.use_property_split = False
+        layout.use_property_decorate = True
+        col = layout.column(align=True)
+        col.label(text='Paper Texture')
+        col.prop(ondine, 'paper_texture', text='')
+        col = layout.column(align=True)
+        col.label(text='Inverted Paper Texture')
+        col.prop(ondine, 'paper_texture_inverted', text='')
+
+
 class RENDER_PT_eevee_next_sampling(RenderButtonsPanel, Panel):
     bl_label = "Sampling"
     COMPAT_ENGINES = {'BLENDER_EEVEE_NEXT'}
@@ -1334,6 +1365,7 @@ class RENDER_PT_hydra_debug(RenderButtonsPanel, Panel):
 
 classes = (
     RENDER_PT_context,
+    RENDER_PT_ondine,
     RENDER_PT_eevee_sampling,
     RENDER_PT_eevee_next_sampling,
     RENDER_PT_eevee_next_sampling_viewport,

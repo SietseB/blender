@@ -1910,6 +1910,21 @@ typedef struct SceneHydra {
   int _pad0;
 } SceneHydra;
 
+typedef struct SceneOndine {
+  int wetness_grow;
+  char paper_texture[1024];
+  char paper_texture_inverted[1024];
+  short flag;
+  char _pad1[2];
+} SceneOndine;
+
+/** #SceneOndine::flag */
+enum {
+  ONDINE_SCENE_OPAQUE_VIEWLAYERS = 1 << 0,
+  ONDINE_SCENE_RENDER_AS_CAMERA_BACKGROUND = 1 << 1,
+  ONDINE_SCENE_ADD_RENDERED_ANIMATION_TO_SEQUENCER = 1 << 2,
+};
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -2065,6 +2080,8 @@ typedef struct Scene {
   struct SceneEEVEE eevee;
   struct SceneGpencil grease_pencil_settings;
   struct SceneHydra hydra;
+
+  struct SceneOndine ondine_watercolor;
 } Scene;
 
 /** \} */

@@ -1963,6 +1963,13 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
     LISTBASE_FOREACH (Mesh *, mesh, &bmain->meshes) {
       mesh->flag &= ~ME_NO_OVERLAPPING_TOPOLOGY;
     }
+
+    if (!DNA_struct_member_exists(fd->filesdna, "SceneOndine", "int", "wetness_grow")) {
+      LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+        scene->ondine_watercolor.wetness_grow = 150;
+        scene->ondine_watercolor.flag = 0;
+      }
+    }
   }
 
   /**

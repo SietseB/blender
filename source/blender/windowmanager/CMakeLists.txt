@@ -206,6 +206,13 @@ if(WITH_XR_OPENXR)
   )
 endif()
 
+if(WITH_ONDINE)
+  list(APPEND INC
+    ../ondine
+  )
+  add_definitions(-DWITH_ONDINE)
+endif()
+
 blender_add_lib_nolist(bf_windowmanager "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # RNA_prototypes.h

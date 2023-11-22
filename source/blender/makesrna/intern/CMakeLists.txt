@@ -281,6 +281,13 @@ if(WITH_PYTHON)
   )
 endif()
 
+if(WITH_ONDINE)
+  list(APPEND INC
+    ../../ondine
+  )
+  add_definitions(-DWITH_ONDINE)
+endif()
+
 if(WITH_IMAGE_OPENEXR)
   add_definitions(-DWITH_OPENEXR)
 endif()

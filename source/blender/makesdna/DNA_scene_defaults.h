@@ -258,6 +258,11 @@
     .export_method = SCE_HYDRA_EXPORT_HYDRA, \
   }
 
+#define _DNA_DEFAULT_SceneOndine \
+  { \
+    .wetness_grow = 150, \
+  }
+
 #define _DNA_DEFAULT_Scene \
   { \
     .cursor = _DNA_DEFAULT_View3DCursor, \
@@ -271,6 +276,8 @@
     .safe_areas = _DNA_DEFAULT_DisplaySafeAreas, \
  \
     .eevee = _DNA_DEFAULT_SceneEEVEE, \
+ \
+    .ondine_watercolor = _DNA_DEFAULT_SceneOndine, \
  \
     .hydra = _DNA_DEFAULT_SceneHydra, \
     .simulation_frame_start = 1, \

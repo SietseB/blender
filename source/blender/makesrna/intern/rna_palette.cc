@@ -17,6 +17,10 @@
 
 #include "WM_types.hh"
 
+#ifdef WITH_ONDINE
+#  include "ondine_renderer.hh"
+#endif
+
 #ifdef RNA_RUNTIME
 
 #  include "DNA_brush_types.h"
@@ -138,6 +142,13 @@ static void rna_Palette_mixing_color_move(Palette *palette,
   BLI_listbase_link_move(&palette->mixing_colors, color, direction);
 
   RNA_POINTER_INVALIDATE(color_ptr);
+}
+
+static void rna_Palette_mixing_colors_mix(Palette *palette,
+                                          const float water_portion,
+                                          float mixed_color[3])
+{
+  OD_mix_spectral_colors(palette, water_portion, mixed_color);
 }
 
 static MixingColor *rna_PaletteColor_mixed_color_new(PaletteColor *color)
@@ -371,6 +382,26 @@ static void rna_def_palettecolors_mixing(BlenderRNA *brna, PropertyRNA *cprop)
   parm = RNA_def_int(
       func, "direction", 0, -1, 1, "", "Direction to move in order: -1 or 1", -1, 1);
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+
+#  ifdef WITH_ONDINE
+  func = RNA_def_function(srna, "mix", "rna_Palette_mixing_colors_mix");
+  RNA_def_function_ui_description(func,
+                                  "Get the mixed color based on the portioned mixing colors");
+  parm = RNA_def_float(func,
+                       "water_portion",
+                       0.0f,
+                       0.0f,
+                       10.0f,
+                       "Water Portion",
+                       "Portion of water to the mix",
+                       0.0f,
+                       10.0f);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_float_color(
+      func, "mixed_color", 3, nullptr, -FLT_MAX, FLT_MAX, "Mixed Color", "", -FLT_MAX, FLT_MAX);
+  RNA_def_parameter_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
+  RNA_def_function_output(func, parm);
+#  endif  // WITH_ONDINE
 }
 
 /* palettecolor.mixed_colors */
