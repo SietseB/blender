@@ -427,7 +427,8 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
             /* Adjust pressure based on camera distance.
              * Bit slow, but the most accurate way. */
             float radius = stroke_point_radius_get(gps, i, thickness);
-            pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure * MIN2(1.0f, radius / max_stroke_radius);
+            pt_2d.data[ONDINE_PRESSURE3D] = math::max(
+                0.001f, pt.pressure * MIN2(1.0f, radius / max_stroke_radius));
             if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
               max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
             }
@@ -448,9 +449,9 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         for (const int i : IndexRange(gps->totpoints)) {
           bGPDspoint &pt = gps->points[i];
           bGPDspoint2D &pt_2d = gps->points_2d[i];
-          pt_2d.data[ONDINE_PRESSURE3D] = pt.pressure;
-          if (pt.pressure > max_pressure) {
-            max_pressure = pt.pressure;
+          pt_2d.data[ONDINE_PRESSURE3D] = math::max(0.001f, pt.pressure);
+          if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
+            max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
           }
 
           /* Point in view of camera? */
