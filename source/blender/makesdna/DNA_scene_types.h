@@ -1912,10 +1912,10 @@ typedef struct SceneHydra {
 
 typedef struct SceneOndine {
   int wetness_grow;
-  char paper_texture[1024];
-  char paper_texture_inverted[1024];
   short flag;
   char _pad1[2];
+  struct Image *paper_texture;
+  struct Image *paper_texture_inverted;
 } SceneOndine;
 
 /** #SceneOndine::flag */

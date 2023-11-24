@@ -858,14 +858,15 @@ class RENDER_PT_ondine(RenderButtonsPanel, Panel):
         col.prop(ondine, 'render_as_camera_background')
         col.prop(ondine, 'add_rendered_animation_to_sequencer')
 
-        layout.use_property_split = False
-        layout.use_property_decorate = True
-        col = layout.column(align=True)
-        col.label(text='Paper Texture')
-        col.prop(ondine, 'paper_texture', text='')
-        col = layout.column(align=True)
-        col.label(text='Inverted Paper Texture')
-        col.prop(ondine, 'paper_texture_inverted', text='')
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.label(text="Paper Texture")
+        col.template_ID(ondine, "paper_texture", open="image.open")
+        
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.label(text="Inverted Paper Texture")
+        col.template_ID(ondine, "paper_texture_inverted", open="image.open")
 
 
 class RENDER_PT_eevee_next_sampling(RenderButtonsPanel, Panel):

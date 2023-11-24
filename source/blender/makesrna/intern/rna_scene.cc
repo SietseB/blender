@@ -2845,6 +2845,26 @@ static char *rna_FFmpegSettings_path(const PointerRNA * /*ptr*/)
   return BLI_strdup("render.ffmpeg");
 }
 
+static void rna_Scene_paper_texture_set(PointerRNA *ptr,
+                                        PointerRNA value,
+                                        ReportList * /*reports*/)
+{
+  SceneOndine *ondine = (SceneOndine *)ptr->data;
+  ID *id = (ID *)value.data;
+  id_us_plus(id);
+  ondine->paper_texture = (Image *)id;
+}
+
+static void rna_Scene_paper_texture_inverted_set(PointerRNA *ptr,
+                                                 PointerRNA value,
+                                                 ReportList * /*reports*/)
+{
+  SceneOndine *ondine = (SceneOndine *)ptr->data;
+  ID *id = (ID *)value.data;
+  id_us_plus(id);
+  ondine->paper_texture_inverted = (Image *)id;
+}
+
 #  ifdef WITH_FFMPEG
 /* FFMpeg Codec setting update hook. */
 static void rna_FFmpegSettings_codec_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
@@ -8234,26 +8254,6 @@ static void rna_def_scene_ondine(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Wetness Speed", "The base speed of pigment flow in wet areas");
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
 
-  prop = RNA_def_property(srna, "paper_texture", PROP_STRING, PROP_FILEPATH);
-  RNA_def_property_string_sdna(prop, nullptr, "paper_texture");
-  RNA_def_property_ui_text(
-      prop,
-      "Paper Texture",
-      "Image file of a paper texture added as background to an Ondine render");
-  RNA_def_property_flag(prop, PROP_PATH_OUTPUT);
-  // TODO: add setter func
-  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
-
-  prop = RNA_def_property(srna, "paper_texture_inverted", PROP_STRING, PROP_FILEPATH);
-  RNA_def_property_string_sdna(prop, nullptr, "paper_texture_inverted");
-  RNA_def_property_ui_text(
-      prop,
-      "Inverted Paper Texture",
-      "Image file of an inverted paper texture added on top of an Ondine render");
-  RNA_def_property_flag(prop, PROP_PATH_OUTPUT);
-  // TODO: add setter func
-  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
-
   prop = RNA_def_property(srna, "opaque_viewlayers", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", ONDINE_SCENE_OPAQUE_VIEWLAYERS);
   RNA_def_property_ui_text(prop,
@@ -8275,6 +8275,23 @@ static void rna_def_scene_ondine(BlenderRNA *brna)
                            "Add Render to Video Editor",
                            "Add rendered animation to video editor. Note: this will replace all "
                            "existing data in the video editor");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "paper_texture", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, nullptr, "paper_texture");
+  RNA_def_property_pointer_funcs(prop, nullptr, "rna_Scene_paper_texture_set", nullptr, nullptr);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Paper Texture", "");
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
+
+  prop = RNA_def_property(srna, "paper_texture_inverted", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, nullptr, "paper_texture_inverted");
+  RNA_def_property_pointer_funcs(
+      prop, nullptr, "rna_Scene_paper_texture_inverted_set", nullptr, nullptr);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Inverted Paper Texture", "");
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
 }
 
