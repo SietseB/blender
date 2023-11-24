@@ -6,6 +6,8 @@
 
 namespace blender {
 
+constexpr int IMAGE_PADDING = 8;
+
 class GpencilOndine {
  public:
   /* Methods */

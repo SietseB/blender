@@ -327,10 +327,18 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       /* Set stroke and fill color, in linear sRGB. */
       set_stroke_color(gpl, gps, gp_style);
 
+      /* Determine size of 2D point data. */
+      bool make_cyclic = false;
+      gps->totpoints_2d = gps->totpoints;
+      if (has_fill || (gps->flag & GP_STROKE_CYCLIC) != 0) {
+        make_cyclic = true;
+        gps->totpoints_2d++;
+      }
+
       /* Create array for 2D point data. */
       MEM_SAFE_FREE(gps->points_2d);
       gps->points_2d = (bGPDspoint2D *)MEM_malloc_arrayN(
-          gps->totpoints, sizeof(bGPDspoint2D), __func__);
+          gps->totpoints_2d, sizeof(bGPDspoint2D), __func__);
 
       /* Init min/max calculations. */
       float strength = (int)(gps->points[0].strength * 1000 + 0.5);
@@ -495,11 +503,22 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         }
       }
 
+      /* When the stroke is cyclic, repeat the first point at the end. */
+      if (make_cyclic) {
+        memcpy(&gps->points_2d[gps->totpoints_2d - 1], &gps->points_2d[0], sizeof(bGPDspoint2D));
+      }
+
+      /* Add padding to 2D points. */
+      for (const int i : IndexRange(gps->totpoints_2d)) {
+        gps->points_2d[i].data[ONDINE_X] += IMAGE_PADDING;
+        gps->points_2d[i].data[ONDINE_Y] += IMAGE_PADDING;
+      }
+
       /* Set bounding box. */
-      gps->runtime.render_bbox[0] = bbox_minx;
-      gps->runtime.render_bbox[1] = bbox_miny;
-      gps->runtime.render_bbox[2] = bbox_maxx;
-      gps->runtime.render_bbox[3] = bbox_maxy;
+      gps->runtime.render_bbox[0] = bbox_minx + IMAGE_PADDING;
+      gps->runtime.render_bbox[1] = bbox_miny + IMAGE_PADDING;
+      gps->runtime.render_bbox[2] = bbox_maxx + IMAGE_PADDING;
+      gps->runtime.render_bbox[3] = bbox_maxy + IMAGE_PADDING;
       gps->runtime.render_dist_to_camera = max_dist_to_cam;
     }
   }

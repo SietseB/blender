@@ -408,10 +408,10 @@ typedef struct bGPDstroke {
   /** Ondine watercolor additions */
   /** Array of 2D data-points for stroke. */
   bGPDspoint2D *points_2d;
+  int totpoints_2d;
 
   /** Seed for randomization of stroke density, noise etc. */
   int seed;
-  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as
    * well! */
