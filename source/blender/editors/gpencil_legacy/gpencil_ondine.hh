@@ -2,6 +2,9 @@
  * Copyright 2022 Blender Foundation. All rights reserved. */
 #pragma once
 
+#include "DNA_gpencil_legacy_types.h"
+#include "DNA_material_types.h"
+
 #include "BLI_math_matrix_types.hh"
 
 namespace blender {
@@ -68,3 +71,4 @@ class GpencilOndine {
 
 void gpencil_ondine_set_render_data(Object *ob, const float mat[4][4]);
 void gpencil_ondine_set_zdepth(Object *ob);
+bool gpencil_ondine_render_init(bContext *C);
