@@ -18,7 +18,7 @@
 #include "WM_types.hh"
 
 #ifdef WITH_ONDINE
-#  include "ondine_renderer.hh"
+#  include "ondine_ops.hh"
 #endif
 
 #ifdef RNA_RUNTIME

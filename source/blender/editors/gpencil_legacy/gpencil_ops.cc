@@ -32,7 +32,7 @@
 #include "gpencil_intern.h"
 
 #ifdef WITH_ONDINE
-#  include "ondine_renderer.hh"
+#  include "ondine_ops.hh"
 #endif  // WITH_ONDINE
 
 /* ****************************************** */

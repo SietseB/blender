@@ -123,7 +123,7 @@
 #include "DRW_engine.h"
 
 #ifdef WITH_ONDINE
-#  include "ondine_renderer.hh"
+#  include "ondine_ops.hh"
 #endif
 
 CLG_LOGREF_DECLARE_GLOBAL(WM_LOG_OPERATORS, "wm.operator");
