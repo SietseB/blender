@@ -5,13 +5,10 @@
 set(INC
   ../include
   ../sculpt_paint
-  ../../blenfont
   ../../blenkernel
   ../../blentranslation
   ../../bmesh
-  ../../depsgraph
   ../../gpu
-  ../../imbuf
   ../../makesrna
   ../../windowmanager
   # RNA_prototypes.h
@@ -62,9 +59,12 @@ set(SRC
 
 set(LIB
   PRIVATE bf::animrig
+  PRIVATE bf::blenfont
   bf_blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::depsgraph
   PRIVATE bf::dna
+  PRIVATE bf::imbuf
   PRIVATE bf::intern::guardedalloc
 )
 
@@ -91,6 +91,7 @@ if(WITH_POTRACE)
   )
   add_definitions(-DWITH_POTRACE)
 endif()
+
 
 blender_add_lib(bf_editor_gpencil_legacy "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 

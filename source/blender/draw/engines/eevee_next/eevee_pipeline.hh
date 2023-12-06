@@ -89,11 +89,6 @@ class WorldVolumePipeline {
 
   void sync(GPUMaterial *gpumat);
   void render(View &view);
-
-  bool is_valid()
-  {
-    return is_valid_;
-  }
 };
 
 /** \} */
@@ -148,8 +143,6 @@ class ForwardPipeline {
   PassSortable transparent_ps_ = {"Forward.Transparent"};
   float3 camera_forward_;
 
-  // GPUTexture *input_screen_radiance_tx_ = nullptr;
-
  public:
   ForwardPipeline(Instance &inst) : inst_(inst){};
 
@@ -165,10 +158,7 @@ class ForwardPipeline {
                                           ::Material *blender_mat,
                                           GPUMaterial *gpumat);
 
-  void render(View &view,
-              Framebuffer &prepass_fb,
-              Framebuffer &combined_fb,
-              GPUTexture *combined_tx);
+  void render(View &view, Framebuffer &prepass_fb, Framebuffer &combined_fb);
 };
 
 /** \} */
@@ -190,9 +180,27 @@ struct DeferredLayerBase {
 
   /* Closures bits from the materials in this pass. */
   eClosureBits closure_bits_ = CLOSURE_NONE;
+
+  /* Return the amount of gbuffer layer needed. */
+  int closure_layer_count() const
+  {
+    return count_bits_i(closure_bits_ &
+                        (CLOSURE_REFRACTION | CLOSURE_REFLECTION | CLOSURE_DIFFUSE | CLOSURE_SSS));
+  }
+
+  /* Return the amount of gbuffer layer needed. */
+  int color_layer_count() const
+  {
+    return count_bits_i(closure_bits_ &
+                        (CLOSURE_REFRACTION | CLOSURE_REFLECTION | CLOSURE_DIFFUSE));
+  }
 };
 
-class DeferredLayer : private DeferredLayerBase {
+class DeferredPipeline;
+
+class DeferredLayer : DeferredLayerBase {
+  friend DeferredPipeline;
+
  private:
   Instance &inst_;
 
@@ -235,6 +243,7 @@ class DeferredLayer : private DeferredLayerBase {
   void render(View &main_view,
               View &render_view,
               Framebuffer &prepass_fb,
+              Framebuffer &gbuffer_fb,
               Framebuffer &combined_fb,
               int2 extent,
               RayTraceBuffer &rt_buffer,
@@ -248,6 +257,8 @@ class DeferredPipeline {
   DeferredLayer opaque_layer_;
   DeferredLayer refraction_layer_;
   DeferredLayer volumetric_layer_;
+
+  PassSimple debug_draw_ps_ = {"debug_gbuffer"};
 
  public:
   DeferredPipeline(Instance &inst)
@@ -263,9 +274,27 @@ class DeferredPipeline {
               View &render_view,
               Framebuffer &prepass_fb,
               Framebuffer &combined_fb,
+              Framebuffer &gbuffer_fb,
               int2 extent,
               RayTraceBuffer &rt_buffer_opaque_layer,
               RayTraceBuffer &rt_buffer_refract_layer);
+
+  /* Return the maximum amount of gbuffer layer needed. */
+  int closure_layer_count() const
+  {
+    return max_ii(opaque_layer_.closure_layer_count(), refraction_layer_.closure_layer_count());
+  }
+
+  /* Return the maximum amount of gbuffer layer needed. */
+  int color_layer_count() const
+  {
+    return max_ii(opaque_layer_.color_layer_count(), refraction_layer_.color_layer_count());
+  }
+
+  void debug_draw(draw::View &view, GPUFrameBuffer *combined_fb);
+
+ private:
+  void debug_pass_sync();
 };
 
 /** \} */
@@ -359,6 +388,9 @@ class VolumePipeline {
 
   /* True if any volume (any object type) creates a volume draw-call. Enables the volume module. */
   bool enabled_ = false;
+  /* Aggregated properties of all volume objects. */
+  bool has_scatter_ = false;
+  bool has_absorption_ = false;
 
  public:
   VolumePipeline(Instance &inst) : inst_(inst){};
@@ -382,6 +414,14 @@ class VolumePipeline {
   bool is_enabled() const
   {
     return enabled_;
+  }
+  bool has_scatter() const
+  {
+    return has_scatter_;
+  }
+  bool has_absorption() const
+  {
+    return has_absorption_;
   }
 
   /* Returns true if any volume layer uses the hist list. */
@@ -409,7 +449,12 @@ class VolumePipeline {
 /* -------------------------------------------------------------------- */
 /** \name Deferred Probe Capture.
  * \{ */
+
+class DeferredProbePipeline;
+
 class DeferredProbeLayer : DeferredLayerBase {
+  friend DeferredProbePipeline;
+
  private:
   Instance &inst_;
 
@@ -424,7 +469,11 @@ class DeferredProbeLayer : DeferredLayerBase {
   PassMain::Sub *prepass_add(::Material *blender_mat, GPUMaterial *gpumat);
   PassMain::Sub *material_add(::Material *blender_mat, GPUMaterial *gpumat);
 
-  void render(View &view, Framebuffer &prepass_fb, Framebuffer &combined_fb, int2 extent);
+  void render(View &view,
+              Framebuffer &prepass_fb,
+              Framebuffer &combined_fb,
+              Framebuffer &gbuffer_fb,
+              int2 extent);
 };
 
 class DeferredProbePipeline {
@@ -440,7 +489,23 @@ class DeferredProbePipeline {
   PassMain::Sub *prepass_add(::Material *material, GPUMaterial *gpumat);
   PassMain::Sub *material_add(::Material *material, GPUMaterial *gpumat);
 
-  void render(View &view, Framebuffer &prepass_fb, Framebuffer &combined_fb, int2 extent);
+  void render(View &view,
+              Framebuffer &prepass_fb,
+              Framebuffer &combined_fb,
+              Framebuffer &gbuffer_fb,
+              int2 extent);
+
+  /* Return the maximum amount of gbuffer layer needed. */
+  int closure_layer_count() const
+  {
+    return opaque_layer_.closure_layer_count();
+  }
+
+  /* Return the maximum amount of gbuffer layer needed. */
+  int color_layer_count() const
+  {
+    return opaque_layer_.color_layer_count();
+  }
 };
 
 /** \} */
@@ -455,9 +520,6 @@ class PlanarProbePipeline : DeferredLayerBase {
 
   PassSimple eval_light_ps_ = {"EvalLights"};
 
-  /* Closures bits from the materials in this pass. */
-  eClosureBits closure_bits_ = CLOSURE_NONE;
-
  public:
   PlanarProbePipeline(Instance &inst) : inst_(inst){};
 
@@ -467,7 +529,8 @@ class PlanarProbePipeline : DeferredLayerBase {
   PassMain::Sub *prepass_add(::Material *material, GPUMaterial *gpumat);
   PassMain::Sub *material_add(::Material *material, GPUMaterial *gpumat);
 
-  void render(View &view, Framebuffer &combined_fb, int layer_id, int2 extent);
+  void render(
+      View &view, Framebuffer &gbuffer, Framebuffer &combined_fb, int layer_id, int2 extent);
 };
 
 /** \} */
@@ -592,9 +655,10 @@ class PipelineModule {
   CapturePipeline capture;
 
   UtilityTexture utility_tx;
+  PipelineInfoData &data;
 
  public:
-  PipelineModule(Instance &inst)
+  PipelineModule(Instance &inst, PipelineInfoData &data)
       : background(inst),
         world(inst),
         world_volume(inst),
@@ -604,7 +668,8 @@ class PipelineModule {
         forward(inst),
         shadow(inst),
         volume(inst),
-        capture(inst){};
+        capture(inst),
+        data(data){};
 
   void begin_sync()
   {

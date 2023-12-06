@@ -35,7 +35,7 @@
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_layer.h"
-#include "BKE_main.h"
+#include "BKE_main.hh"
 #include "BKE_report.h"
 #include "BKE_screen.hh"
 #include "BKE_workspace.h"
@@ -500,7 +500,10 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
                                 (GHOST_SetPath(handle, filepath) == GHOST_kFailure);
 
   std::string str;
-  str += wm->file_saved ? " " : "* ";
+  if (!wm->file_saved) {
+    str += "* ";
+  }
+
   if (has_filepath) {
     const size_t filename_no_ext_len = BLI_path_extension_or_end(filename) - filename;
     str.append(filename, filename_no_ext_len);
@@ -2411,9 +2414,9 @@ void wm_window_set_swap_interval(wmWindow *win, int interval)
   GHOST_SetSwapInterval(static_cast<GHOST_WindowHandle>(win->ghostwin), interval);
 }
 
-bool wm_window_get_swap_interval(wmWindow *win, int *intervalOut)
+bool wm_window_get_swap_interval(wmWindow *win, int *r_interval)
 {
-  return GHOST_GetSwapInterval(static_cast<GHOST_WindowHandle>(win->ghostwin), intervalOut);
+  return GHOST_GetSwapInterval(static_cast<GHOST_WindowHandle>(win->ghostwin), r_interval);
 }
 
 /** \} */

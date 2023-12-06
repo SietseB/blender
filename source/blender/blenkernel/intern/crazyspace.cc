@@ -130,6 +130,7 @@ void BKE_crazyspace_set_quats_editmesh(BMEditMesh *em,
   BMFace *f;
   BMIter iter;
   int index;
+  const bool has_origcos = !origcos.is_empty();
 
   {
     BMVert *v;
@@ -160,12 +161,12 @@ void BKE_crazyspace_set_quats_editmesh(BMEditMesh *em,
         const int i_curr = BM_elem_index_get(l_iter->v);
         const int i_next = BM_elem_index_get(l_iter->next->v);
 
-        /* retrieve mapped coordinates */
+        /* Retrieve mapped coordinates. */
         vd_prev = mappedcos[i_prev];
         vd_curr = mappedcos[i_curr];
         vd_next = mappedcos[i_next];
 
-        if (!origcos.is_empty()) {
+        if (has_origcos) {
           co_prev = origcos[i_prev];
           co_curr = origcos[i_curr];
           co_next = origcos[i_next];
@@ -191,53 +192,49 @@ void BKE_crazyspace_set_quats_mesh(Mesh *me,
 {
   using namespace blender;
   using namespace blender::bke;
-  BLI_bitmap *vert_tag = BLI_BITMAP_NEW(me->totvert, __func__);
+  BitVector<> vert_tag(me->totvert);
 
   /* first store two sets of tangent vectors in vertices, we derive it just from the face-edges */
   const Span<float3> positions = me->vert_positions();
-  const OffsetIndices faces = me->faces();
+  const OffsetIndices<int> faces = me->faces();
   const Span<int> corner_verts = me->corner_verts();
+  const bool has_origcos = !origcos.is_empty();
 
-  for (int i = 0; i < me->faces_num; i++) {
+  for (const int i : faces.index_range()) {
     const IndexRange face = faces[i];
-    const int *corner_vert_next = &corner_verts[face.start()];
-    const int *corner_vert_curr = &corner_vert_next[face.size() - 1];
-    const int *corner_vert_prev = &corner_vert_next[face.size() - 2];
 
-    for (int j = 0; j < face.size(); j++) {
-      if (!BLI_BITMAP_TEST(vert_tag, *corner_vert_curr)) {
-        const float *co_prev, *co_curr, *co_next; /* orig */
-        const float *vd_prev, *vd_curr, *vd_next; /* deform */
+    for (const int corner : face) {
+      const int i_curr = corner_verts[corner];
+      if (vert_tag[i_curr]) {
+        continue;
+      }
+      const int i_prev = corner_verts[mesh::face_corner_prev(face, corner)];
+      const int i_next = corner_verts[mesh::face_corner_next(face, corner)];
 
-        /* retrieve mapped coordinates */
-        vd_prev = mappedcos[*corner_vert_prev];
-        vd_curr = mappedcos[*corner_vert_curr];
-        vd_next = mappedcos[*corner_vert_next];
+      const float *co_prev, *co_curr, *co_next; /* orig */
+      const float *vd_prev, *vd_curr, *vd_next; /* deform */
 
-        if (!origcos.is_empty()) {
-          co_prev = origcos[*corner_vert_prev];
-          co_curr = origcos[*corner_vert_curr];
-          co_next = origcos[*corner_vert_next];
-        }
-        else {
-          co_prev = positions[*corner_vert_prev];
-          co_curr = positions[*corner_vert_curr];
-          co_next = positions[*corner_vert_next];
-        }
+      /* Retrieve mapped coordinates. */
+      vd_prev = mappedcos[i_prev];
+      vd_curr = mappedcos[i_curr];
+      vd_next = mappedcos[i_next];
 
-        set_crazy_vertex_quat(
-            quats[*corner_vert_curr], co_curr, co_next, co_prev, vd_curr, vd_next, vd_prev);
-
-        BLI_BITMAP_ENABLE(vert_tag, *corner_vert_curr);
+      if (has_origcos) {
+        co_prev = origcos[i_prev];
+        co_curr = origcos[i_curr];
+        co_next = origcos[i_next];
+      }
+      else {
+        co_prev = positions[i_prev];
+        co_curr = positions[i_curr];
+        co_next = positions[i_next];
       }
 
-      corner_vert_prev = corner_vert_curr;
-      corner_vert_curr = corner_vert_next;
-      corner_vert_next++;
+      set_crazy_vertex_quat(quats[i_curr], co_curr, co_next, co_prev, vd_curr, vd_next, vd_prev);
+
+      vert_tag[i_curr].set();
     }
   }
-
-  MEM_freeN(vert_tag);
 }
 
 int BKE_crazyspace_get_first_deform_matrices_editbmesh(
@@ -276,7 +273,7 @@ int BKE_crazyspace_get_first_deform_matrices_editbmesh(
         const int required_mode = eModifierMode_Realtime | eModifierMode_Editmode;
         CustomData_MeshMasks cd_mask_extra = CD_MASK_BAREMESH;
         CDMaskLink *datamasks = BKE_modifier_calc_data_masks(
-            scene, md, &cd_mask_extra, required_mode, nullptr, nullptr);
+            scene, md, &cd_mask_extra, required_mode);
         cd_mask_extra = datamasks->mask;
         BLI_linklist_free((LinkNode *)datamasks, nullptr);
 

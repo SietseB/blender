@@ -7,6 +7,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BKE_node.hh"
+#include "BKE_node_socket_value.hh"
 
 #include "NOD_geometry_exec.hh"
 #include "NOD_register.hh"
@@ -118,6 +119,11 @@ void copy_with_checked_indices(const GVArray &src,
                                const VArray<int> &indices,
                                const IndexMask &mask,
                                GMutableSpan dst);
+
+void mix_baked_data_item(const eNodeSocketDatatype socket_type,
+                         void *prev,
+                         const void *next,
+                         const float factor);
 
 namespace enums {
 

@@ -78,6 +78,14 @@ enum eDebugMode : uint32_t {
    * Show random color for each tile. Verify distribution and LOD transitions.
    */
   DEBUG_SHADOW_TILEMAP_RANDOM_COLOR = 13u,
+  /**
+   * Show storage cost of each pixel in the gbuffer.
+   */
+  DEBUG_GBUFFER_STORAGE = 14u,
+  /**
+   * Show evaluation cost of each pixel.
+   */
+  DEBUG_GBUFFER_EVALUATION = 15u,
 };
 
 /** \} */
@@ -268,9 +276,9 @@ struct FilmData {
   /** Is true if accumulation of filtered passes is needed. */
   bool1 any_render_pass_1;
   bool1 any_render_pass_2;
+  bool1 any_render_pass_3;
   /** Controlled by user in lookdev mode or by render settings. */
   float background_opacity;
-  float _pad0, _pad1;
   /** Output counts per type. */
   int color_len, value_len;
   /** Index in color_accum_img or value_accum_img of each pass. -1 if pass is not enabled. */
@@ -287,6 +295,7 @@ struct FilmData {
   int environment_id;
   int shadow_id;
   int ambient_occlusion_id;
+  int transparent_id;
   /** Not indexed but still not -1 if enabled. */
   int depth_id;
   int combined_id;
@@ -376,11 +385,12 @@ struct RenderBuffersInfoData {
   int volume_light_id;
   int emission_id;
   int environment_id;
+  int transparent_id;
   /* Value */
   int value_len;
   int shadow_id;
   int ambient_occlusion_id;
-  int _pad0, _pad1, _pad2;
+  int _pad0, _pad1;
 };
 BLI_STATIC_ASSERT_ALIGN(RenderBuffersInfoData, 16)
 
@@ -484,12 +494,12 @@ struct VolumesInfoData {
   int tile_size;
   int tile_size_lod;
   float shadow_steps;
-  bool1 use_lights;
-  bool1 use_soft_shadows;
   float depth_near;
   float depth_far;
   float depth_distribution;
   float _pad0;
+  float _pad1;
+  float _pad2;
 };
 BLI_STATIC_ASSERT_ALIGN(VolumesInfoData, 16)
 
@@ -1168,17 +1178,33 @@ BLI_STATIC_ASSERT_ALIGN(HiZData, 16)
 
 enum eClosureBits : uint32_t {
   CLOSURE_NONE = 0u,
-  /** NOTE: These are used as stencil bits. So we are limited to 8bits. */
   CLOSURE_DIFFUSE = (1u << 0u),
   CLOSURE_SSS = (1u << 1u),
   CLOSURE_REFLECTION = (1u << 2u),
   CLOSURE_REFRACTION = (1u << 3u),
-  /* Non-stencil bits. */
   CLOSURE_TRANSPARENCY = (1u << 8u),
   CLOSURE_EMISSION = (1u << 9u),
   CLOSURE_HOLDOUT = (1u << 10u),
   CLOSURE_VOLUME = (1u << 11u),
   CLOSURE_AMBIENT_OCCLUSION = (1u << 12u),
+};
+
+enum GBufferMode : uint32_t {
+  /** None mode for pixels not rendered. */
+  GBUF_NONE = 0u,
+
+  GBUF_REFLECTION = 1u,
+  GBUF_REFRACTION = 2u,
+  GBUF_DIFFUSE = 3u,
+  GBUF_SSS = 4u,
+
+  /** Special configurations. Packs multiple closures into 1 layer. */
+  GBUF_OPAQUE_DIELECTRIC = 4u,
+
+  /** Set for surfaces without lit closures. This stores only the normal to the surface. */
+  GBUF_UNLIT = 15u,
+
+  /** IMPORTANT: Needs to be less than 16 for correct packing in g-buffer header. */
 };
 
 struct RayTraceData {
@@ -1200,14 +1226,14 @@ struct RayTraceData {
   /** Maximum brightness during lighting evaluation. */
   float brightness_clamp;
   /** Maximum roughness for which we will trace a ray. */
-  float max_trace_roughness;
+  float roughness_mask_scale;
+  float roughness_mask_bias;
   /** If set to true will bypass spatial denoising. */
   bool1 skip_denoise;
   /** Closure being ray-traced. */
   eClosureBits closure_active;
   int _pad0;
   int _pad1;
-  int _pad2;
 };
 BLI_STATIC_ASSERT_ALIGN(RayTraceData, 16)
 
@@ -1392,7 +1418,19 @@ struct ProbePlanarDisplayData {
 BLI_STATIC_ASSERT_ALIGN(ProbePlanarDisplayData, 16)
 
 /** \} */
+/* -------------------------------------------------------------------- */
+/** \name Pipeline Data
+ * \{ */
 
+struct PipelineInfoData {
+  float alpha_hash_scale;
+  float _pad0;
+  float _pad1;
+  float _pad3;
+};
+BLI_STATIC_ASSERT_ALIGN(PipelineInfoData, 16)
+
+/** \} */
 /* -------------------------------------------------------------------- */
 /** \name Uniform Data
  * \{ */
@@ -1408,6 +1446,7 @@ struct UniformData {
   ShadowSceneData shadow;
   SubsurfaceData subsurface;
   VolumesInfoData volumes;
+  PipelineInfoData pipeline;
 };
 BLI_STATIC_ASSERT_ALIGN(UniformData, 16)
 

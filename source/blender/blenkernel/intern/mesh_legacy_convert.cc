@@ -35,7 +35,7 @@
 #include "BKE_customdata.hh"
 #include "BKE_global.h"
 #include "BKE_idprop.hh"
-#include "BKE_main.h"
+#include "BKE_main.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_legacy_convert.hh"
 #include "BKE_modifier.hh"
@@ -634,9 +634,6 @@ static bool check_matching_legacy_layer_counts(CustomData *fdata_legacy,
   if (!LAYER_CMP(ldata, CD_PROP_BYTE_COLOR, fdata_legacy, CD_MCOL)) {
     return false;
   }
-  if (!LAYER_CMP(ldata, CD_PREVIEW_MLOOPCOL, fdata_legacy, CD_PREVIEW_MCOL)) {
-    return false;
-  }
   if (!LAYER_CMP(ldata, CD_ORIGSPACE_MLOOP, fdata_legacy, CD_ORIGSPACE)) {
     return false;
   }
@@ -668,10 +665,6 @@ static void add_mface_layers(Mesh &mesh, CustomData *fdata_legacy, CustomData *l
     if (ldata->layers[i].type == CD_PROP_BYTE_COLOR) {
       CustomData_add_layer_named(
           fdata_legacy, CD_MCOL, CD_SET_DEFAULT, total, ldata->layers[i].name);
-    }
-    else if (ldata->layers[i].type == CD_PREVIEW_MLOOPCOL) {
-      CustomData_add_layer_named(
-          fdata_legacy, CD_PREVIEW_MCOL, CD_SET_DEFAULT, total, ldata->layers[i].name);
     }
     else if (ldata->layers[i].type == CD_ORIGSPACE_MLOOP) {
       CustomData_add_layer_named(
@@ -854,7 +847,6 @@ static void mesh_loops_to_tessdata(CustomData *fdata_legacy,
    * there's not much ways to solve this. Better IMHO to live with it for now (sigh). */
   const int numUV = CustomData_number_of_layers(loop_data, CD_PROP_FLOAT2);
   const int numCol = CustomData_number_of_layers(loop_data, CD_PROP_BYTE_COLOR);
-  const bool hasPCol = CustomData_has_layer(loop_data, CD_PREVIEW_MLOOPCOL);
   const bool hasOrigSpace = CustomData_has_layer(loop_data, CD_ORIGSPACE_MLOOP);
   const bool hasLoopNormal = CustomData_has_layer(loop_data, CD_NORMAL);
   const bool hasLoopTangent = CustomData_has_layer(loop_data, CD_TANGENT);
@@ -882,18 +874,6 @@ static void mesh_loops_to_tessdata(CustomData *fdata_legacy,
         fdata_legacy, CD_MCOL, i, num_faces);
     const MLoopCol *mloopcol = (const MLoopCol *)CustomData_get_layer_n(
         loop_data, CD_PROP_BYTE_COLOR, i);
-
-    for (findex = 0, lidx = loopindices; findex < num_faces; lidx++, findex++, mcol++) {
-      for (j = (mface ? mface[findex].v4 : (*lidx)[3]) ? 4 : 3; j--;) {
-        MESH_MLOOPCOL_TO_MCOL(&mloopcol[(*lidx)[j]], &(*mcol)[j]);
-      }
-    }
-  }
-
-  if (hasPCol) {
-    MCol(*mcol)[4] = (MCol(*)[4])CustomData_get_layer(fdata_legacy, CD_PREVIEW_MCOL);
-    const MLoopCol *mloopcol = (const MLoopCol *)CustomData_get_layer(loop_data,
-                                                                      CD_PREVIEW_MLOOPCOL);
 
     for (findex = 0, lidx = loopindices; findex < num_faces; lidx++, findex++, mcol++) {
       for (j = (mface ? mface[findex].v4 : (*lidx)[3]) ? 4 : 3; j--;) {
@@ -2271,6 +2251,8 @@ void BKE_main_mesh_legacy_convert_auto_smooth(Main &bmain)
     STRNCPY(md->modifier.name, DATA_("Auto Smooth"));
     BKE_modifier_unique_name(&object->modifiers, &md->modifier);
     md->node_group = auto_smooth_node_tree;
+    mesh->flag &= ~ME_AUTOSMOOTH_LEGACY;
+
     if (!BLI_listbase_is_empty(&object->modifiers) &&
         static_cast<ModifierData *>(object->modifiers.last)->type == eModifierType_Subsurf)
     {
@@ -2297,5 +2279,58 @@ void BKE_main_mesh_legacy_convert_auto_smooth(Main &bmain)
                    bke::idprop::create(DATA_("Input_1_attribute_name"), "").release());
   }
 }
+
+namespace blender::bke {
+
+void mesh_sculpt_mask_to_legacy(MutableSpan<CustomDataLayer> vert_layers)
+{
+  bool changed = false;
+  for (CustomDataLayer &layer : vert_layers) {
+    if (StringRef(layer.name) == ".sculpt_mask") {
+      layer.type = CD_PAINT_MASK;
+      layer.name[0] = '\0';
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) {
+    return;
+  }
+  /* #CustomData expects the layers to be sorted in increasing order based on type. */
+  std::stable_sort(
+      vert_layers.begin(),
+      vert_layers.end(),
+      [](const CustomDataLayer &a, const CustomDataLayer &b) { return a.type < b.type; });
+}
+
+void mesh_sculpt_mask_to_generic(Mesh &mesh)
+{
+  if (mesh.attributes().contains(".sculpt_mask")) {
+    return;
+  }
+  void *data = nullptr;
+  const ImplicitSharingInfo *sharing_info = nullptr;
+  for (const int i : IndexRange(mesh.vert_data.totlayer)) {
+    CustomDataLayer &layer = mesh.vert_data.layers[i];
+    if (layer.type == CD_PAINT_MASK) {
+      data = layer.data;
+      sharing_info = layer.sharing_info;
+      layer.data = nullptr;
+      layer.sharing_info = nullptr;
+      CustomData_free_layer(&mesh.vert_data, CD_PAINT_MASK, mesh.totvert, i);
+      break;
+    }
+  }
+  if (data != nullptr) {
+    CustomData_add_layer_named_with_data(
+        &mesh.vert_data, CD_PROP_FLOAT, data, mesh.totvert, ".sculpt_mask", sharing_info);
+  }
+  if (sharing_info != nullptr) {
+    sharing_info->remove_user_and_delete_if_last();
+  }
+}
+
+//
+}  // namespace blender::bke
 
 /** \} */

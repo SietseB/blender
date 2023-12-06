@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.0.0 Release Candidate (b'f2d15d4fd19a')\n"
+"Project-Id-Version: Blender 4.1.0 Alpha (b'72b6c44e759b')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-13 11:45:13\n"
+"POT-Creation-Date: 2023-12-04 11:06:00\n"
 "PO-Revision-Date: 2018-01-03 14:47+0000\n"
 "Last-Translator: Lockal <lockalsash@gmail.com>, 2023\n"
 "Language-Team: Russian (https://app.transifex.com/translateblender/teams/82039/ru/)\n"
@@ -1303,6 +1303,14 @@ msgid "Asset Library"
 msgstr "Библиотека ассетов"
 
 
+msgid "All"
+msgstr "Все"
+
+
+msgid "Custom"
+msgstr "Особый"
+
+
 msgid "ID Name"
 msgstr "Имя идентификатора"
 
@@ -1481,6 +1489,10 @@ msgstr "Экземпляр"
 
 msgid "Attribute on instance"
 msgstr "Атрибут экземпляра"
+
+
+msgid "Layer"
+msgstr "Слой"
 
 
 msgid "Is Internal"
@@ -3501,10 +3513,6 @@ msgid "Active Collection"
 msgstr "Активная коллекция"
 
 
-msgid "Custom"
-msgstr "Особый"
-
-
 msgid "Bool Attribute Value"
 msgstr "Значение булевого атрибута"
 
@@ -3839,10 +3847,6 @@ msgstr "Залить обратную область"
 
 msgid "Mode to draw boundary limits"
 msgstr "Режим рисования границ"
-
-
-msgid "All"
-msgstr "Все"
 
 
 msgid "Use both visible strokes and edit lines as fill boundary limits"
@@ -14704,10 +14708,6 @@ msgid "Invert mask"
 msgstr "Инвертировать маску"
 
 
-msgid "Layer"
-msgstr "Слой"
-
-
 msgid "Mask layer name"
 msgstr "Имя слоя маски"
 
@@ -17100,6 +17100,86 @@ msgid "Base type for data-blocks, defining a unique name, linking from other lib
 msgstr "Базовый тип датаблока, определяющий уникальное имя, связь с другими библиотеками и сборку мусора"
 
 
+msgid "Brush"
+msgstr "Кисть"
+
+
+msgid "Font"
+msgstr "Шрифт"
+
+
+msgid "Key"
+msgstr "Ключ"
+
+
+msgid "Library"
+msgstr "Библиотека"
+
+
+msgid "Light"
+msgstr "Свет"
+
+
+msgid "Light Probe"
+msgstr "Зонд освещения"
+
+
+msgid "Mask"
+msgstr "Маска"
+
+
+msgid "Mesh"
+msgstr "Меш"
+
+
+msgid "Metaball"
+msgstr "Метасфера"
+
+
+msgid "Node Tree"
+msgstr "Нодовое дерево"
+
+
+msgid "Paint Curve"
+msgstr "Кривая силы штриха"
+
+
+msgid "Palette"
+msgstr "Палитра"
+
+
+msgid "Particle"
+msgstr "Частица"
+
+
+msgid "Point Cloud"
+msgstr "Облако точек"
+
+
+msgid "Sound"
+msgstr "Звук"
+
+
+msgid "Speaker"
+msgstr "Источник звука"
+
+
+msgid "Text"
+msgstr "Текст"
+
+
+msgid "Window Manager"
+msgstr "Менеджер окон"
+
+
+msgid "Workspace"
+msgstr "Рабочее пространство"
+
+
+msgid "World"
+msgstr "Мир"
+
+
 msgid "Is Evaluated"
 msgstr "Является вычисляемым"
 
@@ -17116,16 +17196,8 @@ msgid "Is this ID block linked indirectly"
 msgstr "Связан ли этот блок не напрямую"
 
 
-msgid "Library"
-msgstr "Библиотека"
-
-
 msgid "Library file the data-block is linked from"
 msgstr "Библиотечный файл, на который ссылается датаблок"
-
-
-msgid "Unique data-block ID name"
-msgstr "Уникальное ID-имя датаблока"
 
 
 msgid "Full Name"
@@ -17782,10 +17854,6 @@ msgid "Jitter the position of the brush in pixels while painting"
 msgstr "Отклонять положение кисти случайным образом при рисовании"
 
 
-msgid "Brush"
-msgstr "Кисть"
-
-
 msgid "Mask Stencil Dimensions"
 msgstr "Размеры трафаретной маски"
 
@@ -17820,10 +17888,6 @@ msgstr "Соотношение между радиусом кисти и рад�
 
 msgid "Normal Weight"
 msgstr "Базовый вес"
-
-
-msgid "Paint Curve"
-msgstr "Кривая силы штриха"
 
 
 msgid "Plane Offset"
@@ -19156,10 +19220,6 @@ msgid "Curve deforming text object"
 msgstr "Кривая, деформирующая тектовой объект"
 
 
-msgid "Font"
-msgstr "Шрифт"
-
-
 msgid "Font Bold"
 msgstr "Жирный шрифт"
 
@@ -19538,10 +19598,6 @@ msgstr "Минимальная криволинейная 2D-длина для �
 
 msgid "If true, chains of feature edges are split at material boundaries"
 msgstr "Разделять линии штрихов на границах материалов"
-
-
-msgid "Node Tree"
-msgstr "Нодовое дерево"
 
 
 msgid "Node tree for node-based shaders"
@@ -20098,6 +20154,10 @@ msgstr "Смещение поверхности"
 
 msgid "Offset amount when drawing in surface mode"
 msgstr "Величина смещения при рисовании в режиме поверхности"
+
+
+msgid "Grease Pencil data-block"
+msgstr "Датаблок Grease Pencil"
 
 
 msgid "Image data-block referencing an external or packed image"
@@ -20955,14 +21015,6 @@ msgid "Show the clipping distances in the 3D view"
 msgstr "Показать расстояния отсечения в 3D-виде"
 
 
-msgid "Show Preview Plane"
-msgstr "Отображать плоскость предпросмотра"
-
-
-msgid "Show captured lighting data into the 3D view for debugging purpose"
-msgstr "Показать захваченные данные освещения в 3D-виде для отладки"
-
-
 msgid "Show the influence volume in the 3D view"
 msgstr "Показать объём влияния в 3D-виде"
 
@@ -20977,26 +21029,6 @@ msgstr "Показать корректирующий объём паралла�
 
 msgid "Type of light probe"
 msgstr "Тип зонда освещения"
-
-
-msgid "Reflection Cubemap"
-msgstr "Отражающая кубическая текстура"
-
-
-msgid "Capture reflections"
-msgstr "Захватывать отражения"
-
-
-msgid "Reflection Plane"
-msgstr "Плоскость отражения"
-
-
-msgid "Irradiance Volume"
-msgstr "Объём интенсивностей освещённости"
-
-
-msgid "Volume used for precomputing indirect lighting"
-msgstr "Использовать объём для предвычисления непрямого освещения"
 
 
 msgid "Use Custom Parallax"
@@ -21105,6 +21137,38 @@ msgstr "Диффузный цвет"
 
 msgid "Diffuse color of the material"
 msgstr "Цвет материала при рассеянном освещении"
+
+
+msgid "Displacement Method"
+msgstr "Метод смещения"
+
+
+msgid "Method to use for the displacement"
+msgstr "Метод, используемый для смещения"
+
+
+msgid "Bump Only"
+msgstr "Только текстурой"
+
+
+msgid "Bump mapping to simulate the appearance of displacement"
+msgstr "Карта неровностей для имитации рельефной поверхности"
+
+
+msgid "Displacement Only"
+msgstr "Только смещение"
+
+
+msgid "Use true displacement of surface only, requires fine subdivision"
+msgstr "Использовать настоящее выдавливание поверхности, необходимо хорошее подразделение"
+
+
+msgid "Displacement and Bump"
+msgstr "Геометрией и текстурой"
+
+
+msgid "Combination of true displacement and bump mapping for finer detail"
+msgstr "Комбинация настоящего смещения геометрии и имитации картой неровностей для более мелких деталей"
 
 
 msgid "Grease Pencil Settings"
@@ -21287,14 +21351,6 @@ msgid "Use the current world background to light the preview render"
 msgstr "Использовать текущий фон мира для освещения предпросмотра рендера"
 
 
-msgid "Screen Space Refraction"
-msgstr "Преломление в пространстве экрана"
-
-
-msgid "Use raytraced screen space refractions"
-msgstr "Использовать преломление в пространстве экрана с помощью трассировки лучей"
-
-
 msgid "Subsurface Translucency"
 msgstr "Подповерхностная просвечиваемость"
 
@@ -21303,16 +21359,24 @@ msgid "Add translucency effect to subsurface"
 msgstr "Добавить эффект просвечиваемости для подповерхности"
 
 
+msgid "Transparent Shadows"
+msgstr "Прозрачные тени"
+
+
+msgid "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows"
+msgstr "Использовать прозрачные тени для этого материала, если он содержит прозрачный BSDF; отключение ускорит рендеринг, но тени станут неточными"
+
+
+msgid "Fast"
+msgstr "Быстро"
+
+
+msgid "Accurate"
+msgstr "Точно"
+
+
 msgid "Mesh data-block defining geometric surfaces"
 msgstr "Датаблок меша, определяющий геометрические поверхности"
-
-
-msgid "Auto Smooth Angle"
-msgstr "Угол автосглаживания"
-
-
-msgid "Maximum angle between face normals that will be considered as smooth (unused if custom split normals data are available)"
-msgstr "Максимальный угол между нормалями граней, который считается гладким (не используется, если есть настраиваемые разделённые нормали)"
 
 
 msgid "Edges"
@@ -21341,6 +21405,10 @@ msgstr "Замощение полигонов меша треугольника�
 
 msgid "Loops"
 msgstr "Циклы"
+
+
+msgid "Corner"
+msgstr "Угол"
 
 
 msgid "Polygons"
@@ -21439,14 +21507,6 @@ msgid "Selected vertex count in editmode"
 msgstr "Количество выделенных вершин в режиме редактирования"
 
 
-msgid "Auto Smooth"
-msgstr "Автосглаживание"
-
-
-msgid "Auto smooth (based on smooth/sharp faces/edges and angle between faces), or use custom split normals data if available"
-msgstr "Сглаживать автоматически (на основе гладких/острых гранях/рёбер и углов между гранями) или использовать настраиваемые разделённые нормали"
-
-
 msgid "Topology Mirror"
 msgstr "Топологическая симметрия"
 
@@ -21477,26 +21537,6 @@ msgstr "Маскировать выделенные вершины при рис
 
 msgid "Fix Poles"
 msgstr "Исправить полюса"
-
-
-msgid "Produces less poles and a better topology flow"
-msgstr "Создает меньше полюсов и улучшенную топологию"
-
-
-msgid "Preserve Paint Mask"
-msgstr "Сохранять маску рисования"
-
-
-msgid "Keep the current mask on the new mesh"
-msgstr "Сохранять текущую маску на новом меше"
-
-
-msgid "Preserve Face Sets"
-msgstr "Сохранять наборы граней"
-
-
-msgid "Preserve Vertex Colors"
-msgstr "Сохранять цвета вершин"
 
 
 msgid "Projects the mesh to preserve the volume and details of the original mesh"
@@ -21547,14 +21587,6 @@ msgid "Vertex Colors"
 msgstr "Цвета вершин"
 
 
-msgid "Vertex Paint Mask"
-msgstr "Маска рисования по вершинам"
-
-
-msgid "Vertex paint mask"
-msgstr "Маска рисования по вершинам"
-
-
 msgid "Vertices"
 msgstr "Вершины"
 
@@ -21589,10 +21621,6 @@ msgstr "Постоянное обновление метасферы при ре
 
 msgid "While editing, update metaball in half resolution"
 msgstr "Обновление метасферы в половинном разрешении при редактировании"
-
-
-msgid "Fast"
-msgstr "Быстро"
 
 
 msgid "While editing, update metaball without polygonization"
@@ -21677,10 +21705,6 @@ msgstr "Метка нодовой системы"
 
 msgid "Grease Pencil Data"
 msgstr "Данные Grease Pencil"
-
-
-msgid "Grease Pencil data-block"
-msgstr "Датаблок Grease Pencil"
 
 
 msgid "Interface"
@@ -21817,14 +21841,6 @@ msgstr "Модификатор"
 
 msgid "Tool"
 msgstr "Инструмент"
-
-
-msgid "Mesh"
-msgstr "Меш"
-
-
-msgid "Point Cloud"
-msgstr "Облако точек"
 
 
 msgid "Shader Node Tree"
@@ -23063,10 +23079,6 @@ msgid "Let the object give the particle a starting velocity"
 msgstr "Позволить объекту задавать начальную скорость частиц"
 
 
-msgid "Particle"
-msgstr "Частица"
-
-
 msgid "Let the target particle give the particle a starting velocity"
 msgstr "Целевая частица придаёт начальную скорость для других частиц"
 
@@ -24045,10 +24057,6 @@ msgstr "Высота"
 
 msgid "Playback pitch of the sound"
 msgstr "Высота воспроизведения звука"
-
-
-msgid "Sound"
-msgstr "Звук"
 
 
 msgid "Sound data-block used by this speaker"
@@ -25146,10 +25154,6 @@ msgid "Ping-Pong"
 msgstr "Пинг-понг"
 
 
-msgid "Window Manager"
-msgstr "Менеджер окон"
-
-
 msgid "Window manager data-block defining open windows and other user interface data"
 msgstr "Датаблок оконного менеджера, определяющий открытые окна и другие данные пользовательского интерфейса"
 
@@ -25220,10 +25224,6 @@ msgstr "Окна"
 
 msgid "Open windows"
 msgstr "Открытые окна"
-
-
-msgid "Workspace"
-msgstr "Рабочее пространство"
 
 
 msgid "Workspace data-block, defining the working environment for the user"
@@ -27482,28 +27482,12 @@ msgid "Override default setting to insert keyframes based on 'visual transforms'
 msgstr "Переопределить настройку по умолчанию, чтобы вставлять ключевые кадры на основе «визуальной трансформации»"
 
 
-msgid "Override F-Curve Colors - XYZ to RGB"
-msgstr "Переопределить цвета F-кривой — XYZ в RGB"
-
-
-msgid "Override default setting to set color for newly added transformation F-Curves (Location, Rotation, Scale) to be based on the transform axis"
-msgstr "Переопределить значение по умолчанию для установки цвета новых F-кривых преобразования (положения, вращения, масштабирования) на основе оси трансформации"
-
-
 msgid "Insert Keyframes - Visual"
 msgstr "Вставка ключевых кадров — визуально"
 
 
 msgid "Insert keyframes based on 'visual transforms'"
 msgstr "Вставлять ключевые кадры на основе «визуальной трансформации»"
-
-
-msgid "F-Curve Colors - XYZ to RGB"
-msgstr "Цвета F-кривой - XYZ в RGB"
-
-
-msgid "Color for newly added transformation F-Curves (Location, Rotation, Scale) is based on the transform axis"
-msgstr "Определять цвет новых F-кривых преобразования (положения, вращения, масштабирования) на основе осей трансформации"
 
 
 msgid "Insert a keyframe on each of the already existing F-Curves"
@@ -29040,10 +29024,6 @@ msgid "Disable stencil and overlap self intersections with alpha materials"
 msgstr "Отключить трафарет и перекрытие самопересечений с помощью прозрачных материалов"
 
 
-msgid "Mask"
-msgstr "Маска"
-
-
 msgid "Material slot in an object"
 msgstr "Слот материала в объекте"
 
@@ -29146,10 +29126,6 @@ msgid "Dope Sheet Channel"
 msgstr "Канал экспозиционного листа"
 
 
-msgid "Key"
-msgstr "Ключ"
-
-
 msgid "Snap"
 msgstr "Привязка"
 
@@ -29208,8 +29184,8 @@ msgid "Vertex Group Specials"
 msgstr "Настройка группы вершин"
 
 
-msgid "Text"
-msgstr "Текст"
+msgid "Strip"
+msgstr "Клип"
 
 
 msgid "Math"
@@ -29312,10 +29288,6 @@ msgstr "Выделить канал"
 
 msgid "Select Handle"
 msgstr "Выделить рукоятку"
-
-
-msgid "Strip"
-msgstr "Клип"
 
 
 msgid "Inputs"
@@ -29478,10 +29450,6 @@ msgid "Select Similar"
 msgstr "Выделить схожие"
 
 
-msgid "Metaball"
-msgstr "Метасфера"
-
-
 msgid "Generate Weights"
 msgstr "Генерировать веса"
 
@@ -29492,14 +29460,6 @@ msgstr "Крюки"
 
 msgid "Add Image"
 msgstr "Добавить изображение"
-
-
-msgid "Light"
-msgstr "Свет"
-
-
-msgid "Light Probe"
-msgstr "Зонд освещения"
 
 
 msgid "Link/Transfer Data"
@@ -29738,10 +29698,6 @@ msgid "Split Normals"
 msgstr "Разделённые нормали"
 
 
-msgid "Local space unit length split normals vectors of the vertices of this triangle (must be computed beforehand using calc_normals_split or calc_tangents)"
-msgstr "Единичные вектора разделённых нормалей в локальном пространстве для вершин этого треугольника (должны быть рассчитаны заранее с помощью calc_normals_split или calc_tangents)"
-
-
 msgid "Indices of triangle vertices"
 msgstr "Индексы вершин треугольника"
 
@@ -29756,18 +29712,6 @@ msgstr "Петли меша"
 
 msgid "Collection of mesh loops"
 msgstr "Коллекция петель меша"
-
-
-msgid "Mesh Paint Mask Layer"
-msgstr "Слой маски рисования на меше"
-
-
-msgid "Per-vertex paint mask data"
-msgstr "Данные маски рисования на каждую вершину"
-
-
-msgid "Mesh Paint Mask Property"
-msgstr "Свойство маски рисования на меше"
 
 
 msgid "Mesh Polygon"
@@ -32268,10 +32212,6 @@ msgstr "Место, используемое для копирования да�
 
 msgid "Use offset from the particle object in the instance object"
 msgstr "Использовать смещение от объекта-частицы у объекта экземпляра"
-
-
-msgid "World"
-msgstr "Мир"
 
 
 msgid "Use world space offset in the instance object"
@@ -35662,10 +35602,6 @@ msgid "Denoise"
 msgstr "Шумоподавление"
 
 
-msgid "Accurate"
-msgstr "Точно"
-
-
 msgid "HDR"
 msgstr "HDR"
 
@@ -36484,10 +36420,6 @@ msgstr "Разделить XYZ"
 
 msgid "Set Alpha"
 msgstr "Установить альфа-канал"
-
-
-msgid "Split Viewer"
-msgstr "Двойной предпросмотр"
 
 
 msgid "Stabilize 2D"
@@ -37442,10 +37374,6 @@ msgstr "Величина смешения между сторонами при �
 
 msgid "Level of detail in the added turbulent noise"
 msgstr "Уровень детализации в добавленном турбулентном шуме"
-
-
-msgid "Musgrave Texture"
-msgstr "Текстура «Масгрейв»"
 
 
 msgid "Use the scalar value W as input"
@@ -39224,10 +39152,6 @@ msgstr "Удалить ключевые кадры на текущем кадр�
 msgctxt "Operator"
 msgid "Insert Keyframe"
 msgstr "Вставить ключевой кадр"
-
-
-msgid "Insert keyframes on the current frame for all properties in the specified Keying Set"
-msgstr "Вставить ключевые кадры на текущем кадре для всех свойств используемого ключевого набора"
 
 
 msgctxt "Operator"
@@ -42953,10 +42877,6 @@ msgid "Export cameras"
 msgstr "Экспортировать камеры"
 
 
-msgid "Export vertex colors with meshes"
-msgstr "Экспортировать цвета вершин вместе с мешами"
-
-
 msgid "Legal rights and conditions for the model"
 msgstr "Условия использования модели"
 
@@ -45675,6 +45595,14 @@ msgid "Switch brush to smooth mode for duration of stroke"
 msgstr "Переключить кисть в режим сглаживания во время выполнения штриха"
 
 
+msgid "Flat"
+msgstr "Плоский"
+
+
+msgid "Duplicate"
+msgstr "Дублировать"
+
+
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "Режим выделения"
@@ -47638,10 +47566,6 @@ msgstr "Дублировать выделенные вершины, рёбра �
 
 msgid "Duplicate mesh and move"
 msgstr "Дублировать меш и переместить"
-
-
-msgid "Duplicate"
-msgstr "Дублировать"
 
 
 msgctxt "Operator"
@@ -49748,14 +49672,6 @@ msgid "Push action down onto the top of the NLA stack as a new strip"
 msgstr "Выдвинуть действие в начало стека НЛА в виде нового клипа"
 
 
-msgid "Channel Index"
-msgstr "Индекс канала"
-
-
-msgid "Index of NLA action channel to perform pushdown operation on"
-msgstr "Индекс НЛА-канала выдвигаемого действия"
-
-
 msgctxt "Operator"
 msgid "Sync Action Length"
 msgstr "Синхронизировать длину действия"
@@ -49846,15 +49762,6 @@ msgstr "Визуальная вставка кадров"
 
 msgid "Keyframe from the final transformations (with constraints applied)"
 msgstr "Ключевые кадры из итоговых трансформаций (после применения ограничителей)"
-
-
-msgctxt "Operator"
-msgid "Mouse Click on NLA Channels"
-msgstr "Нажатие мыши по каналам НЛА"
-
-
-msgid "Handle clicks to select NLA channels"
-msgstr "Обработать нажатие мыши для выделения каналов НЛА"
 
 
 msgctxt "Operator"
@@ -51420,18 +51327,6 @@ msgid "Add a light probe object"
 msgstr "Добавить объект зонда освещения"
 
 
-msgid "Reflection probe with spherical or cubic attenuation"
-msgstr "Зонд карты отражения с сферической или кубической формой"
-
-
-msgid "Planar reflection probe"
-msgstr "Плоский зонд карты отражения"
-
-
-msgid "Irradiance probe to capture diffuse indirect lighting"
-msgstr "Зонд освещённости для фиксирования отражённого диффузного света"
-
-
 msgctxt "Operator"
 msgid "Bake Light Cache"
 msgstr "Запечь кэш освещения"
@@ -51447,10 +51342,6 @@ msgstr "Подмножество"
 
 msgid "Subset of probes to update"
 msgstr "Блок зондов для обновления"
-
-
-msgid "Dirty Only"
-msgstr "Только грязные"
 
 
 msgid "Selected Only"
@@ -52028,10 +51919,6 @@ msgstr "Указать нужную длину ребра"
 
 msgid "Input target number of faces in the new mesh"
 msgstr "Указать нужное количество полигонов в новом меше"
-
-
-msgid "Reproject the paint mask onto the new mesh"
-msgstr "Перепроецировать маску на новый меш"
 
 
 msgid "Random seed to use with the solver. Different seeds will cause the remesher to come up with different quad layouts on the mesh"
@@ -54184,10 +54071,6 @@ msgid "Remove active color from palette"
 msgstr "Удалить активный цвет из палитры"
 
 
-msgid "Palette"
-msgstr "Палитра"
-
-
 msgctxt "Operator"
 msgid "Add New Palette"
 msgstr "Добавить новую палитру"
@@ -55830,6 +55713,10 @@ msgstr "Запечь освещение в активном слое визуа�
 
 msgid "Bake both irradiance grids and reflection cubemaps"
 msgstr "Запечь и сетки освещённости, и кубические карты отражения"
+
+
+msgid "Dirty Only"
+msgstr "Только грязные"
 
 
 msgid "Cubemaps Only"
@@ -61484,10 +61371,6 @@ msgid "Edit Property"
 msgstr "Редактировать свойство"
 
 
-msgid "Speaker"
-msgstr "Источник звука"
-
-
 msgid "Property Name"
 msgstr "Имя свойства"
 
@@ -63208,6 +63091,10 @@ msgid "Shadows"
 msgstr "Тени"
 
 
+msgid "Screen Space Reflections"
+msgstr "Отражение в пространстве экрана"
+
+
 msgid "Volumetrics"
 msgstr "Волюметрики"
 
@@ -63218,10 +63105,6 @@ msgstr "Объёмное освещение"
 
 msgid "Volumetric Shadows"
 msgstr "Объёмные тени"
-
-
-msgid "Screen Space Reflections"
-msgstr "Отражение в пространстве экрана"
 
 
 msgid "Encoding"
@@ -66855,52 +66738,12 @@ msgid "Use multiple importance sampling for the light, reduces noise for area li
 msgstr "Использовать множественную выборку по значимости для источников света; уменьшает шум для протяжённых источников и зеркальных материалов"
 
 
-msgid "Displacement Method"
-msgstr "Метод смещения"
-
-
-msgid "Method to use for the displacement"
-msgstr "Метод, используемый для смещения"
-
-
-msgid "Bump Only"
-msgstr "Только текстурой"
-
-
-msgid "Bump mapping to simulate the appearance of displacement"
-msgstr "Карта неровностей для имитации рельефной поверхности"
-
-
-msgid "Displacement Only"
-msgstr "Только смещение"
-
-
-msgid "Use true displacement of surface only, requires fine subdivision"
-msgstr "Использовать настоящее выдавливание поверхности, необходимо хорошее подразделение"
-
-
-msgid "Displacement and Bump"
-msgstr "Геометрией и текстурой"
-
-
-msgid "Combination of true displacement and bump mapping for finer detail"
-msgstr "Комбинация настоящего смещения геометрии и имитации картой неровностей для более мелких деталей"
-
-
 msgid "Homogeneous Volume"
 msgstr "Однородный объём"
 
 
 msgid "When using volume rendering, assume volume has the same density everywhere (not using any textures), for faster rendering"
 msgstr "Считать плотность объёма одинаковой во всех местах (текстуры не используются) для ускорения рендеринга объёма"
-
-
-msgid "Transparent Shadows"
-msgstr "Прозрачные тени"
-
-
-msgid "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows"
-msgstr "Использовать прозрачные тени для этого материала, если он содержит прозрачный BSDF; отключение ускорит рендеринг, но тени станут неточными"
 
 
 msgid "Volume Interpolation"
@@ -70817,6 +70660,10 @@ msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Использовать временную шкалу секвенсора сцены в качестве входа"
 
 
+msgid "Playback volume of the sound"
+msgstr "Громкость воспроизведения звука"
+
+
 msgid "Sound Sequence"
 msgstr "Аудио последовательность"
 
@@ -70839,10 +70686,6 @@ msgstr "Показывать форму волны аудиосигнала вн
 
 msgid "Sound data-block used by this sequence"
 msgstr "Датаблок звука, используемый в видеоредакторе"
-
-
-msgid "Playback volume of the sound"
-msgstr "Громкость воспроизведения звука"
 
 
 msgid "Sequence Color Balance Data"
@@ -73801,10 +73644,6 @@ msgid "Get the node tree path as a string"
 msgstr "Получить адрес нодовой системы в виде строки"
 
 
-msgid "Flat"
-msgstr "Плоский"
-
-
 msgid "Space UV Editor"
 msgstr "Пространство UV-редактора"
 
@@ -73836,10 +73675,6 @@ msgstr "Ограничение на границы изображения"
 
 msgid "Constraint to stay within the image bounds while editing"
 msgstr "Ограничение на пребывание внутри границ изображения при редактировании"
-
-
-msgid "Corner"
-msgstr "Угол"
 
 
 msgid "Display Faces"
@@ -75009,10 +74844,6 @@ msgid "Face Dot Selected"
 msgstr "Точка выделенной грани"
 
 
-msgid "Face Selected"
-msgstr "Выделенная грань"
-
-
 msgid "Face Dot Size"
 msgstr "Размер точки грани"
 
@@ -75955,14 +75786,6 @@ msgid "Type of element to snap to"
 msgstr "Тип элемента, к которому осуществлять привязку"
 
 
-msgid "Second"
-msgstr "Второй"
-
-
-msgid "Nearest Marker"
-msgstr "Ближайший маркер"
-
-
 msgid "Snap to nearest marker"
 msgstr "Переместить к ближайшему маркеру"
 
@@ -76764,10 +76587,6 @@ msgstr "Отобразить швы UV-развёртки"
 
 msgid "Display sharp edges, used with the Edge Split modifier"
 msgstr "Отображать острые грани, используемые для модификатора разделения рёбер"
-
-
-msgid "Highlight selected edges"
-msgstr "Подсвечивать выделенные рёбра"
 
 
 msgid "Display selected edge angle, using global values when set in the transform panel"
@@ -77993,11 +77812,6 @@ msgstr "Экспозиционный лист: общее"
 msgctxt "WindowManager"
 msgid "NLA Editor"
 msgstr "Редактор НЛА"
-
-
-msgctxt "WindowManager"
-msgid "NLA Channels"
-msgstr "НЛА-каналы"
 
 
 msgctxt "WindowManager"
@@ -80095,6 +79909,10 @@ msgid "Velocity Linear"
 msgstr "Линейная скорость"
 
 
+msgid "Second"
+msgstr "Второй"
+
+
 msgid "X Stiffness"
 msgstr "Жёсткость X"
 
@@ -80184,10 +80002,6 @@ msgstr "Пути:"
 
 msgid "Doppler Speed"
 msgstr "Скорость звука"
-
-
-msgid "XYZ to RGB"
-msgstr "XYZ в RGB"
 
 
 msgid "Active Set Override"
@@ -81045,8 +80859,8 @@ msgstr "Область во весь экран"
 
 
 msgctxt "Operator"
-msgid "Track Ordering..."
-msgstr "Порядок обхода…"
+msgid "Sound"
+msgstr "Звук"
 
 
 msgctxt "Operator"
@@ -81055,13 +80869,13 @@ msgstr "Переименовать…"
 
 
 msgctxt "Operator"
-msgid "Stop Tweaking Strip Actions"
-msgstr "Остановить настройку действий клипа"
+msgid "Track Ordering..."
+msgstr "Порядок обхода…"
 
 
 msgctxt "Operator"
-msgid "Add Tracks Above Selected"
-msgstr "Добавить треки над выделением"
+msgid "Stop Tweaking Strip Actions"
+msgstr "Остановить настройку действий клипа"
 
 
 msgctxt "Operator"
@@ -81330,11 +81144,6 @@ msgstr "Перейти к следующему клипу (центр)"
 msgctxt "Operator"
 msgid "Movie"
 msgstr "Видео"
-
-
-msgctxt "Operator"
-msgid "Sound"
-msgstr "Звук"
 
 
 msgctxt "Operator"
@@ -82058,6 +81867,10 @@ msgid "Default Handles"
 msgstr "Рукоятки по умолчанию"
 
 
+msgid "XYZ to RGB"
+msgstr "XYZ в RGB"
+
+
 msgid "Mixing Buffer"
 msgstr "Буфер смешивания"
 
@@ -82532,11 +82345,6 @@ msgstr "Создать локально…"
 
 
 msgctxt "Operator"
-msgid "Insert Keyframe..."
-msgstr "Добавить ключевой кадр…"
-
-
-msgctxt "Operator"
 msgid "Delete Keyframes..."
 msgstr "Удалить ключевые кадры…"
 
@@ -82844,6 +82652,16 @@ msgstr "Очистить остроту из вершин"
 
 
 msgctxt "Operator"
+msgid "Extrude Faces"
+msgstr "Экструдировать грани"
+
+
+msgctxt "Operator"
+msgid "Extrude Faces Along Normals"
+msgstr "Экструдировать грани вдоль нормалей"
+
+
+msgctxt "Operator"
 msgid "Solidify Faces"
 msgstr "Объёмность граней"
 
@@ -83117,11 +82935,6 @@ msgstr "Экземпляр коллекции"
 
 
 msgctxt "Operator"
-msgid "Shade Auto Smooth"
-msgstr "Автоматическое гладкое затенение"
-
-
-msgctxt "Operator"
 msgid "Delete Global"
 msgstr "Удалить глобально"
 
@@ -83251,16 +83064,6 @@ msgstr "Очистить остроту"
 msgctxt "Operator"
 msgid "Mark Sharp from Vertices"
 msgstr "Установить остроту из вершин"
-
-
-msgctxt "Operator"
-msgid "Extrude Faces"
-msgstr "Экструдировать грани"
-
-
-msgctxt "Operator"
-msgid "Extrude Faces Along Normals"
-msgstr "Экструдировать грани вдоль нормалей"
 
 
 msgctxt "Operator"
@@ -83722,6 +83525,58 @@ msgid "Add UVs"
 msgstr "Добавить UV"
 
 
+msgid "<No ID pointer>"
+msgstr "<Нет ID-указателя>"
+
+
+msgid "<Missing ID block>"
+msgstr "<Отсутствующий ID-блок>"
+
+
+msgid "No F-Curve to add keyframes to"
+msgstr "Нет F-кривой для добавления ключевых кадров"
+
+
+msgid "No RNA pointer available to retrieve values for keyframing from"
+msgstr "Нет доступного RNA-указателя для получения значений ключевых кадров"
+
+
+msgid "No ID block and/or AnimData to delete keyframe from"
+msgstr "Нет ID-блока и/или данных анимации, для которых необходимо удалить ключевой кадр"
+
+
+msgid "Could not insert keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
+msgstr "Невозможно вставить ключевой кадр, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
+
+
+msgid "No ID block to insert keyframe in (path = %s)"
+msgstr "Нет ID-блока, в который вставляется ключевой кадр (путь = %s)"
+
+
+msgid "Could not insert keyframe, as this type does not support animation data (ID = %s, path = %s)"
+msgstr "Не удалось вставить ключевой кадр, поскольку этот тип не поддерживает данные анимации (ID = %s, путь = %s)"
+
+
+msgid "Could not delete keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
+msgstr "Ключевой кадр не может быть удалён, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
+
+
+msgid "No action to delete keyframes from for ID = %s"
+msgstr "Нет действия, для которого необходимо удалить ключевые кадры у ID = %s"
+
+
+msgid "Not deleting keyframe for locked F-Curve '%s' for %s '%s'"
+msgstr "Ключевой кадр для заблокированной F-кривой «%s» (%s «%s») не удалён"
+
+
+msgid "Could not clear keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
+msgstr "Невозможно очистить ключевой кадр, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
+
+
+msgid "Not clearing all keyframes from locked F-Curve '%s' for %s '%s'"
+msgstr "Не подчищены ключевые кадры для заблокированной F-кривой «%s» для %s «%s»"
+
+
 msgid "No AnimData to set action on"
 msgstr "Нет данных анимации, над которыми устанавливается действие"
 
@@ -83952,12 +83807,12 @@ msgid "MaskLayer"
 msgstr "СлойМаски"
 
 
+msgid "Auto Smooth"
+msgstr "Автосглаживание"
+
+
 msgid "Tangent space can only be computed for tris/quads, aborting"
 msgstr "Пространство касательных можно рассчитать только для треугольников/четырёхугольников, операция отменена"
-
-
-msgid "Tangent space computation needs loop normals, none found, aborting"
-msgstr "Для расчёта пространства касательных необходимы нормали к петлям, но они не найдены; операция остановлена"
 
 
 msgid "NlaTrack"
@@ -84425,6 +84280,10 @@ msgid "Can't edit this property from a linked data-block"
 msgstr "Невозможно отредактировать свойство из связанного датаблока"
 
 
+msgid "Nothing selected"
+msgstr "Ничего не выбрано"
+
+
 msgid "<invalid>"
 msgstr "<неверно>"
 
@@ -84509,26 +84368,6 @@ msgid "Delete envelope control point"
 msgstr "Удалить контрольную точку оболочки"
 
 
-msgid "<No ID pointer>"
-msgstr "<Нет ID-указателя>"
-
-
-msgid "<Missing ID block>"
-msgstr "<Отсутствующий ID-блок>"
-
-
-msgid "No F-Curve to add keyframes to"
-msgstr "Нет F-кривой для добавления ключевых кадров"
-
-
-msgid "No RNA pointer available to retrieve values for keyframing from"
-msgstr "Нет доступного RNA-указателя для получения значений ключевых кадров"
-
-
-msgid "No ID block and/or AnimData to delete keyframe from"
-msgstr "Нет ID-блока и/или данных анимации, для которых необходимо удалить ключевой кадр"
-
-
 msgid "No suitable context info for active keying set"
 msgstr "Нет подходящей информации о контексте для активного ключевого набора"
 
@@ -84551,42 +84390,6 @@ msgstr "Не удалось разрешить путь к свойству, п�
 
 msgid "No active Keying Set"
 msgstr "Нет активного ключевого набора"
-
-
-msgid "F-Curve with path '%s[%d]' cannot be keyframed, ensure that it is not locked or sampled, and try removing F-Modifiers"
-msgstr "F-кривая с путём «%s[%d]» не может быть раскадрована, убедитесь, что она не заблокирована или не основана на выборке, а также попробуйте удалить F-модификаторы"
-
-
-msgid "Could not insert keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
-msgstr "Невозможно вставить ключевой кадр, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
-
-
-msgid "No ID block to insert keyframe in (path = %s)"
-msgstr "Нет ID-блока, в который вставляется ключевой кадр (путь = %s)"
-
-
-msgid "Could not insert keyframe, as this type does not support animation data (ID = %s, path = %s)"
-msgstr "Не удалось вставить ключевой кадр, поскольку этот тип не поддерживает данные анимации (ID = %s, путь = %s)"
-
-
-msgid "Could not delete keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
-msgstr "Ключевой кадр не может быть удалён, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
-
-
-msgid "No action to delete keyframes from for ID = %s"
-msgstr "Нет действия, для которого необходимо удалить ключевые кадры у ID = %s"
-
-
-msgid "Not deleting keyframe for locked F-Curve '%s' for %s '%s'"
-msgstr "Ключевой кадр для заблокированной F-кривой «%s» (%s «%s») не удалён"
-
-
-msgid "Could not clear keyframe, as RNA path is invalid for the given ID (ID = %s, path = %s)"
-msgstr "Невозможно очистить ключевой кадр, поскольку RNA-путь недопустим для данного ID (ID = %s, путь = %s)"
-
-
-msgid "Not clearing all keyframes from locked F-Curve '%s' for %s '%s'"
-msgstr "Не подчищены ключевые кадры для заблокированной F-кривой «%s» для %s «%s»"
 
 
 msgid "Keying set '%s' - successfully added %d keyframes"
@@ -84641,12 +84444,12 @@ msgid "No active Keying Set to add empty path to"
 msgstr "Нет активного ключевого набора для добавления пустого пути"
 
 
-msgid "No active Keying Set path to remove"
-msgstr "Нет активного ключевого набора для удаления"
-
-
 msgid "No active Keying Set to remove a path from"
 msgstr "Нет активного ключевого набора для удаления пути"
+
+
+msgid "No active Keying Set path to remove"
+msgstr "Нет активного ключевого набора для удаления"
 
 
 msgid "Cannot add property to built in keying set"
@@ -85099,10 +84902,6 @@ msgstr "Нет активных кадров для удаления"
 
 msgid "Cannot separate an object with one layer only"
 msgstr "Невозможно отделить объект только с одним слоем"
-
-
-msgid "Nothing selected"
-msgstr "Ничего не выбрано"
 
 
 msgid "No active area"
@@ -86230,21 +86029,6 @@ msgstr "Результат объединения состоит из %d вер�
 
 msgid "SoundTrack"
 msgstr "Звуковой клип"
-
-
-msgctxt "Light"
-msgid "IrradianceVolume"
-msgstr "Объём интенсивностей освещённости"
-
-
-msgctxt "Light"
-msgid "ReflectionPlane"
-msgstr "Плоскость отражения"
-
-
-msgctxt "Light"
-msgid "ReflectionCubemap"
-msgstr "Кубическая карта отражения"
 
 
 msgctxt "Light"
@@ -88103,34 +87887,6 @@ msgid "Now"
 msgstr "Сейчас"
 
 
-msgid "No active AnimData block to use (select a data-block expander first or set the appropriate flags on an AnimData block)"
-msgstr "Нет активного блока AnimData для использования (выберите блок данных с списке или установите соответствующие флаги на блок AnimData)"
-
-
-msgid "Internal Error - AnimData block is not valid"
-msgstr "Внутренняя ошибка — блок AnimData не является допустимым"
-
-
-msgid "Cannot push down actions while tweaking a strip's action, exit tweak mode first"
-msgstr "Невозможно выдвинуть действия в режиме настройки клипа, выйдите из этого режима"
-
-
-msgid "No active action to push down"
-msgstr "Нет активного действия для выдвижения"
-
-
-msgid "Select an existing NLA Track or an empty action line first"
-msgstr "Сначала выделите существующий трек НЛА или пустую строку действия"
-
-
-msgid "No animation channel found at index %d"
-msgstr "Нет канала анимации с индексом %d"
-
-
-msgid "Animation channel at index %d is not a NLA 'Active Action' channel"
-msgstr "Канал анимации с индексом %d не является каналом активного действия НЛА"
-
-
 msgid "No AnimData blocks to enter tweak mode for"
 msgstr "Нет блоков AnimData для перехода в режим подстройки"
 
@@ -88181,6 +87937,26 @@ msgstr "Невозможно поменять «%s» и «%s» местами, �
 
 msgid "Modifier could not be added to (%s : %s) (see console for details)"
 msgstr "Модификатор не может быть добавлен в (%s : %s) (см. консоль для дополнительной информации)"
+
+
+msgid "No active AnimData block to use (select a data-block expander first or set the appropriate flags on an AnimData block)"
+msgstr "Нет активного блока AnimData для использования (выберите блок данных с списке или установите соответствующие флаги на блок AnimData)"
+
+
+msgid "Internal Error - AnimData block is not valid"
+msgstr "Внутренняя ошибка — блок AnimData не является допустимым"
+
+
+msgid "Cannot push down actions while tweaking a strip's action, exit tweak mode first"
+msgstr "Невозможно выдвинуть действия в режиме настройки клипа, выйдите из этого режима"
+
+
+msgid "No active action to push down"
+msgstr "Нет активного действия для выдвижения"
+
+
+msgid "Select an existing NLA Track or an empty action line first"
+msgstr "Сначала выделите существующий трек НЛА или пустую строку действия"
 
 
 msgid "More than one collection is selected"
@@ -89306,10 +89082,6 @@ msgstr "Freestyle: создание карты вида"
 
 msgid "Freestyle: Stroke rendering"
 msgstr "Freestyle: рендеринг штрихов"
-
-
-msgid "Cannot open file: %s"
-msgstr "Не удалось открыть файл: %s"
 
 
 msgid "Bone Envelopes"

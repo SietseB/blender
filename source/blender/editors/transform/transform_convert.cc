@@ -27,7 +27,7 @@
 #include "BKE_image.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
-#include "BKE_main.h"
+#include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_nla.h"
 #include "BKE_scene.h"
@@ -1092,9 +1092,6 @@ void create_trans_data(bContext *C, TransInfo *t)
       t->obedit_type = -1;
     }
     t->data_type->create_trans_data(C, t);
-    BLI_assert_msg(!t->data_container || !t->data_container->data ||
-                       (t->data_container->data[0].val != t->data_container->data[0].loc),
-                   "td->val is only for 1D values");
   }
 
   countAndCleanTransDataContainer(t);
@@ -1204,8 +1201,8 @@ void animrecord_check_state(TransInfo *t, ID *id)
    * - we're not only keying for available channels
    * - the option to add new actions for each round is not enabled
    */
-  if (blender::animrig::is_autokey_flag(scene, AUTOKEY_FLAG_INSERTAVAIL) == 0 &&
-      (scene->toolsettings->autokey_flag & ANIMRECORD_FLAG_WITHNLA))
+  if (blender::animrig::is_autokey_flag(scene, AUTOKEY_FLAG_INSERTAVAILABLE) == 0 &&
+      (scene->toolsettings->autokey_flag & AUTOKEY_FLAG_LAYERED_RECORD))
   {
     /* if playback has just looped around,
      * we need to add a new NLA track+strip to allow a clean pass to occur */

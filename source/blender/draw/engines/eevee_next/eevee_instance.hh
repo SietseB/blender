@@ -54,6 +54,9 @@ class Instance {
 
   UniformDataBuf global_ubo_;
 
+  uint64_t depsgraph_last_update_ = 0;
+  bool overlays_enabled_;
+
  public:
   ShaderModule &shaders;
   SyncModule sync;
@@ -117,7 +120,7 @@ class Instance {
         sync(*this),
         materials(*this),
         subsurface(*this, global_ubo_.subsurface),
-        pipelines(*this),
+        pipelines(*this, global_ubo_.pipeline),
         shadows(*this, global_ubo_.shadow),
         lights(*this),
         ambient_occlusion(*this, global_ubo_.ao),
@@ -153,6 +156,8 @@ class Instance {
             const DRWView *drw_view = nullptr,
             const View3D *v3d = nullptr,
             const RegionView3D *rv3d = nullptr);
+
+  void view_update();
 
   void begin_sync();
   void object_sync(Object *ob);
@@ -198,7 +203,7 @@ class Instance {
 
   bool overlays_enabled() const
   {
-    return v3d && ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0);
+    return overlays_enabled_;
   }
 
   bool use_scene_lights() const
@@ -229,6 +234,27 @@ class Instance {
     pass->bind_ubo(UNIFORM_BUF_SLOT, &global_ubo_);
   }
 
+  int get_recalc_flags(const ObjectRef &ob_ref)
+  {
+    auto get_flags = [&](const ObjectRuntimeHandle &runtime) {
+      int flags = 0;
+      SET_FLAG_FROM_TEST(
+          flags, runtime.last_update_transform > depsgraph_last_update_, ID_RECALC_TRANSFORM);
+      SET_FLAG_FROM_TEST(
+          flags, runtime.last_update_geometry > depsgraph_last_update_, ID_RECALC_GEOMETRY);
+      SET_FLAG_FROM_TEST(
+          flags, runtime.last_update_shading > depsgraph_last_update_, ID_RECALC_SHADING);
+      return flags;
+    };
+
+    int flags = get_flags(*ob_ref.object->runtime);
+    if (ob_ref.dupli_parent) {
+      flags |= get_flags(*ob_ref.dupli_parent->runtime);
+    }
+
+    return flags;
+  }
+
  private:
   static void object_sync_render(void *instance_,
                                  Object *ob,
@@ -237,7 +263,6 @@ class Instance {
   void render_sample();
   void render_read_result(RenderLayer *render_layer, const char *view_name);
 
-  void scene_sync();
   void mesh_sync(Object *ob, ObjectHandle &ob_handle);
 
   void update_eval_members();

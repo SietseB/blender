@@ -80,8 +80,11 @@ typedef enum eGPUMaterialFlag {
   GPU_MATFLAG_AO = (1 << 8),
   GPU_MATFLAG_COAT = (1 << 9),
 
-  GPU_MATFLAG_OBJECT_INFO = (1 << 10),
-  GPU_MATFLAG_AOV = (1 << 11),
+  GPU_MATFLAG_VOLUME_SCATTER = (1 << 10),
+  GPU_MATFLAG_VOLUME_ABSORPTION = (1 << 11),
+
+  GPU_MATFLAG_OBJECT_INFO = (1 << 12),
+  GPU_MATFLAG_AOV = (1 << 13),
 
   GPU_MATFLAG_BARYCENTRIC = (1 << 20),
 
@@ -368,7 +371,7 @@ typedef struct GPUMaterialTexture {
   GPUSamplerState sampler_state;
 } GPUMaterialTexture;
 
-ListBase GPU_material_attributes(GPUMaterial *material);
+ListBase GPU_material_attributes(const GPUMaterial *material);
 ListBase GPU_material_textures(GPUMaterial *material);
 
 typedef struct GPUUniformAttr {

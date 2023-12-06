@@ -1992,12 +1992,15 @@ static void rna_Object_shaderfx_clear(Object *object, bContext *C)
 
 static void rna_Object_boundbox_get(PointerRNA *ptr, float *values)
 {
+  using namespace blender;
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  if (const std::optional<BoundBox> bb = BKE_object_boundbox_eval_cached_get(ob)) {
-    memcpy(values, bb->vec, sizeof(bb->vec));
+  if (const std::optional<Bounds<float3>> bounds = BKE_object_boundbox_eval_cached_get(ob)) {
+    BoundBox bb;
+    BKE_boundbox_init_from_minmax(&bb, bounds->min, bounds->max);
+    memcpy(values, bb.vec, sizeof(bb.vec));
   }
   else {
-    copy_vn_fl(values, sizeof(bb->vec) / sizeof(float), 0.0f);
+    copy_vn_fl(values, 8 * 3, 0.0f);
   }
 }
 
@@ -2927,15 +2930,16 @@ static void rna_def_object_visibility(StructRNA *srna)
   RNA_def_property_ui_text(prop, "Disable in Volume Probes", "Globally disable in volume probes");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update_draw");
 
-  prop = RNA_def_property(srna, "hide_probe_cubemap", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "hide_probe_sphere", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "visibility_flag", OB_HIDE_PROBE_CUBEMAP);
   RNA_def_property_ui_text(
-      prop, "Disable in Cubemap Probes", "Globally disable in cubemap probes");
+      prop, "Disable in Spherical Light Probes", "Globally disable in spherical light probes");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update_draw");
 
-  prop = RNA_def_property(srna, "hide_probe_planar", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "hide_probe_plane", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "visibility_flag", OB_HIDE_PROBE_PLANAR);
-  RNA_def_property_ui_text(prop, "Disable in Planar Probes", "Globally disable in planar probes");
+  RNA_def_property_ui_text(
+      prop, "Disable in Planar Light Probes", "Globally disable in planar light probes");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update_draw");
 
   /* Instancer options. */

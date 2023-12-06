@@ -2,7 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "draw_subdivision.h"
+#include "draw_subdivision.hh"
 
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
@@ -354,7 +354,9 @@ static GPUShader *get_subdiv_custom_data_shader(int comp_type, int dimensions)
 }
 
 /* -------------------------------------------------------------------- */
-/** Vertex formats used for data transfer from OpenSubdiv, and for data processing on our side.
+/** \name Vertex Formats
+ *
+ * Used for data transfer from OpenSubdiv, and for data processing on our side.
  * \{ */
 
 static GPUVertFormat *get_uvs_format()

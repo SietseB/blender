@@ -446,6 +446,11 @@ static bool transition_add_new_for_seq(const bContext *C,
     key = SEQ_retiming_key_get_by_timeline_frame(scene, seq, timeline_frame);
   }
 
+  if (SEQ_retiming_is_last_key(seq, key) || key->strip_frame_index == 0) {
+    BKE_report(op->reports, RPT_WARNING, "Can not create transition from first or last key");
+    return false;
+  }
+
   SeqRetimingKey *transition = SEQ_retiming_add_transition(scene, seq, key, duration);
 
   if (transition == nullptr) {
@@ -685,7 +690,7 @@ int sequencer_retiming_key_select_exec(bContext *C, wmOperator *op)
   }
 
   /* Click on strip, do strip selection. */
-  const Sequence *seq_click_exact = find_nearest_seq(scene, UI_view2d_fromcontext(C), &hand, mval);
+  const Sequence *seq_click_exact = find_nearest_seq(scene, UI_view2d_fromcontext(C), mval, &hand);
   if (seq_click_exact != nullptr && key == nullptr) {
     SEQ_retiming_selection_clear(ed);
     return sequencer_select_exec(C, op);

@@ -114,23 +114,29 @@ void transform_object(Object *object, const OBJImportParams &import_params)
   BKE_object_apply_mat4(object, obmat, true, false);
 
   if (import_params.clamp_size != 0.0f) {
-    float3 max_coord(-INT_MAX);
-    float3 min_coord(INT_MAX);
-    const BoundBox bb = BKE_mesh_boundbox_get(object);
-    for (const float(&vertex)[3] : bb.vec) {
-      for (int axis = 0; axis < 3; axis++) {
-        max_coord[axis] = max_ff(max_coord[axis], vertex[axis]);
-        min_coord[axis] = min_ff(min_coord[axis], vertex[axis]);
-      }
-    }
-    const float max_diff = max_fff(
-        max_coord[0] - min_coord[0], max_coord[1] - min_coord[1], max_coord[2] - min_coord[2]);
+    BLI_assert(object->type == OB_MESH);
+    const Mesh *mesh = static_cast<const Mesh *>(object->data);
+    const Bounds<float3> bounds = *mesh->bounds_min_max();
+    const float max_diff = math::reduce_max(bounds.max - bounds.min);
+
     float scale = 1.0f;
     while (import_params.clamp_size < max_diff * scale) {
       scale = scale / 10;
     }
     copy_v3_fl(object->scale, scale);
   }
+}
+
+std::string get_geometry_name(const std::string &full_name, char separator)
+{
+  if (separator == 0) {
+    return full_name;
+  }
+  size_t pos = full_name.find_last_of(separator);
+  if (pos == std::string::npos) {
+    return full_name;
+  }
+  return full_name.substr(pos + 1);
 }
 
 }  // namespace blender::io::obj

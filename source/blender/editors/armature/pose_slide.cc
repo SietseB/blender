@@ -51,7 +51,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.hh"
-#include "BKE_unit.h"
+#include "BKE_unit.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
@@ -275,8 +275,7 @@ static int pose_slide_init(bContext *C, wmOperator *op, ePoseSlide_Modes mode)
 
   /* Initialize numeric input. */
   initNumInput(&pso->num);
-  pso->num.idx_max = 0; /* One axis. */
-  pso->num.val_flag[0] |= NUM_NO_NEGATIVE;
+  pso->num.idx_max = 0;                /* One axis. */
   pso->num.unit_type[0] = B_UNIT_NONE; /* Percentages don't have any units. */
 
   /* Return status is whether we've got all the data we were requested to get. */
@@ -1019,7 +1018,7 @@ static int pose_slide_invoke_common(bContext *C, wmOperator *op, const wmEvent *
     /* Do this for each F-Curve. */
     LISTBASE_FOREACH (LinkData *, ld, &pfl->fcurves) {
       FCurve *fcu = (FCurve *)ld->data;
-      fcurve_to_keylist(pfl->ob->adt, fcu, pso->keylist, 0);
+      fcurve_to_keylist(pfl->ob->adt, fcu, pso->keylist, 0, {-FLT_MAX, FLT_MAX});
     }
   }
 
@@ -1230,7 +1229,6 @@ static int pose_slide_modal(bContext *C, wmOperator *op, const wmEvent *event)
         applyNumInput(&pso->num, &value);
 
         float factor = value / 100;
-        CLAMP(factor, 0.0f, 1.0f);
         ED_slider_factor_set(pso->slider, factor);
         RNA_float_set(op->ptr, "factor", ED_slider_factor_get(pso->slider));
 
@@ -1804,7 +1802,7 @@ static void get_keyed_frames_in_range(ListBase *pflinks,
   LISTBASE_FOREACH (tPChanFCurveLink *, pfl, pflinks) {
     LISTBASE_FOREACH (LinkData *, ld, &pfl->fcurves) {
       FCurve *fcu = (FCurve *)ld->data;
-      fcurve_to_keylist(nullptr, fcu, keylist, 0);
+      fcurve_to_keylist(nullptr, fcu, keylist, 0, {start_frame, end_frame});
     }
   }
   LISTBASE_FOREACH (ActKeyColumn *, column, ED_keylist_listbase(keylist)) {
@@ -1827,7 +1825,7 @@ static void get_selected_frames(ListBase *pflinks, ListBase /*FrameLink*/ *targe
   LISTBASE_FOREACH (tPChanFCurveLink *, pfl, pflinks) {
     LISTBASE_FOREACH (LinkData *, ld, &pfl->fcurves) {
       FCurve *fcu = (FCurve *)ld->data;
-      fcurve_to_keylist(nullptr, fcu, keylist, 0);
+      fcurve_to_keylist(nullptr, fcu, keylist, 0, {-FLT_MAX, FLT_MAX});
     }
   }
   LISTBASE_FOREACH (ActKeyColumn *, column, ED_keylist_listbase(keylist)) {

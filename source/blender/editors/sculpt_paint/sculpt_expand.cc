@@ -21,6 +21,7 @@
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 
+#include "BKE_attribute.hh"
 #include "BKE_brush.hh"
 #include "BKE_ccg.h"
 #include "BKE_colortools.h"
@@ -50,7 +51,10 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
 
-#include "bmesh.h"
+#include "bmesh.hh"
+
+using blender::Span;
+using blender::Vector;
 
 /* Sculpt Expand. */
 /* Operator for creating selections and patterns in Sculpt Mode. Expand can create masks, face sets
@@ -1196,17 +1200,19 @@ static void sculpt_expand_restore_color_data(SculptSession *ss, ExpandCache *exp
 
 static void write_mask_data(SculptSession *ss, const Span<float> mask)
 {
+  using namespace blender;
   Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(ss->pbvh, {});
 
   switch (BKE_pbvh_type(ss->pbvh)) {
     case PBVH_FACES: {
       Mesh *mesh = BKE_pbvh_get_mesh(ss->pbvh);
-      float *layer = static_cast<float *>(
-          CustomData_get_layer_for_write(&mesh->vert_data, CD_PAINT_MASK, mesh->totvert));
+      bke::MutableAttributeAccessor attributes = mesh->attributes_for_write();
+      bke::SpanAttributeWriter<float> attribute = attributes.lookup_or_add_for_write_span<float>(
+          ".sculpt_mask", ATTR_DOMAIN_POINT);
       for (PBVHNode *node : nodes) {
         PBVHVertexIter vd;
         BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
-          layer[vd.index] = mask[vd.index];
+          attribute.span[vd.index] = mask[vd.index];
         }
         BKE_pbvh_vertex_iter_end;
         BKE_pbvh_node_mark_redraw(node);
@@ -1214,8 +1220,8 @@ static void write_mask_data(SculptSession *ss, const Span<float> mask)
       break;
     }
     case PBVH_BMESH: {
-      const int offset = CustomData_get_offset(&BKE_pbvh_get_bmesh(ss->pbvh)->vdata,
-                                               CD_PAINT_MASK);
+      const int offset = CustomData_get_offset_named(
+          &BKE_pbvh_get_bmesh(ss->pbvh)->vdata, CD_PROP_FLOAT, ".sculpt_mask");
       for (PBVHNode *node : nodes) {
         PBVHVertexIter vd;
         BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
@@ -1769,7 +1775,7 @@ static int sculpt_expand_active_face_set_id_get(SculptSession *ss, ExpandCache *
     case PBVH_FACES:
       return expand_cache->original_face_sets[ss->active_face_index];
     case PBVH_GRIDS: {
-      const int face_index = BKE_subdiv_ccg_grid_to_face_index(ss->subdiv_ccg,
+      const int face_index = BKE_subdiv_ccg_grid_to_face_index(*ss->subdiv_ccg,
                                                                ss->active_grid_index);
       return expand_cache->original_face_sets[face_index];
     }
@@ -1794,7 +1800,7 @@ static int sculpt_expand_modal(bContext *C, wmOperator *op, const wmEvent *event
 
   /* Update SculptSession data. */
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-  BKE_sculpt_update_object_for_edit(depsgraph, ob, true, true, false);
+  BKE_sculpt_update_object_for_edit(depsgraph, ob, false);
   sculpt_expand_ensure_sculptsession_data(ob);
 
   /* Update and get the active vertex (and face) from the cursor. */
@@ -2109,7 +2115,7 @@ static void sculpt_expand_cache_initial_config_set(bContext *C,
 static void sculpt_expand_undo_push(Object *ob, ExpandCache *expand_cache)
 {
   SculptSession *ss = ob->sculpt;
-  Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(ss->pbvh, {});
+  blender::Vector<PBVHNode *> nodes = blender::bke::pbvh::search_gather(ss->pbvh, {});
 
   switch (expand_cache->target) {
     case SCULPT_EXPAND_TARGET_MASK:
@@ -2177,7 +2183,7 @@ static int sculpt_expand_invoke(bContext *C, wmOperator *op, const wmEvent *even
     }
   }
 
-  BKE_sculpt_update_object_for_edit(depsgraph, ob, true, true, needs_colors);
+  BKE_sculpt_update_object_for_edit(depsgraph, ob, needs_colors);
 
   /* Do nothing when the mesh has 0 vertices. */
   const int totvert = SCULPT_vertex_count_get(ss);

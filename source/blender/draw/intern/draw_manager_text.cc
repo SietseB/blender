@@ -22,7 +22,7 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_object.hh"
-#include "BKE_unit.h"
+#include "BKE_unit.hh"
 
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
@@ -43,7 +43,7 @@
 #include "WM_api.hh"
 
 #include "draw_manager_text.h"
-#include "intern/bmesh_polygon.h"
+#include "intern/bmesh_polygon.hh"
 
 struct ViewCachedString {
   float vec[3];

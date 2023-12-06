@@ -13,13 +13,12 @@
  */
 
 #include "DNA_customdata_types.h"
-#include "bmesh.h"
+#include "bmesh.hh"
 
 struct BMLoop;
 struct BMPartialUpdate;
 struct BMesh;
 struct BMeshCalcTessellation_Params;
-struct BoundBox;
 struct Depsgraph;
 struct Mesh;
 struct Object;

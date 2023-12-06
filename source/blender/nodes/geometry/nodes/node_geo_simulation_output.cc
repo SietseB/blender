@@ -15,6 +15,7 @@
 #include "BKE_curves.hh"
 #include "BKE_instances.hh"
 #include "BKE_modifier.hh"
+#include "BKE_node_socket_value_cpp_type.hh"
 #include "BKE_object.hh"
 #include "BKE_scene.h"
 
@@ -26,8 +27,6 @@
 #include "NOD_geometry.hh"
 #include "NOD_socket.hh"
 #include "NOD_zone_socket_items.hh"
-
-#include "FN_field_cpp_type.hh"
 
 #include "DNA_curves_types.h"
 #include "DNA_mesh_types.h"
@@ -95,8 +94,8 @@ static std::shared_ptr<AnonymousAttributeFieldInput> make_attribute_field(
     const NodeSimulationItem &item,
     const CPPType &type)
 {
-  AnonymousAttributeIDPtr attribute_id = MEM_new<NodeAnonymousAttributeID>(
-      __func__, self_object, compute_context, node, std::to_string(item.identifier), item.name);
+  AnonymousAttributeIDPtr attribute_id = AnonymousAttributeIDPtr(MEM_new<NodeAnonymousAttributeID>(
+      __func__, self_object, compute_context, node, std::to_string(item.identifier), item.name));
   return std::make_shared<AnonymousAttributeFieldInput>(attribute_id, type, node.label_or_name());
 }
 
@@ -169,11 +168,7 @@ bke::bake::BakeState move_values_to_simulation_state(
   return bake_state;
 }
 
-}  // namespace blender::nodes
-
-namespace blender::nodes::node_geo_simulation_output_cc {
-
-NODE_STORAGE_FUNCS(NodeGeometrySimulationOutput);
+namespace mix_baked_data_details {
 
 static bool sharing_info_equal(const ImplicitSharingInfo *a, const ImplicitSharingInfo *b)
 {
@@ -389,12 +384,15 @@ static void mix_geometries(GeometrySet &prev, const GeometrySet &next, const flo
   }
 }
 
-static void mix_simulation_state(const NodeSimulationItem &item,
-                                 void *prev,
-                                 const void *next,
-                                 const float factor)
+}  // namespace mix_baked_data_details
+
+void mix_baked_data_item(const eNodeSocketDatatype socket_type,
+                         void *prev,
+                         const void *next,
+                         const float factor)
 {
-  switch (eNodeSocketDatatype(item.socket_type)) {
+  using namespace mix_baked_data_details;
+  switch (socket_type) {
     case SOCK_GEOMETRY: {
       mix_geometries(
           *static_cast<GeometrySet *>(prev), *static_cast<const GeometrySet *>(next), factor);
@@ -406,9 +404,9 @@ static void mix_simulation_state(const NodeSimulationItem &item,
     case SOCK_BOOLEAN:
     case SOCK_ROTATION:
     case SOCK_RGBA: {
-      const CPPType &type = get_simulation_item_cpp_type(item);
-      const fn::ValueOrFieldCPPType &value_or_field_type = *fn::ValueOrFieldCPPType::get_from_self(
-          type);
+      const CPPType &type = get_simulation_item_cpp_type(socket_type);
+      const bke::ValueOrFieldCPPType &value_or_field_type =
+          *bke::ValueOrFieldCPPType::get_from_self(type);
       if (value_or_field_type.is_field(prev) || value_or_field_type.is_field(next)) {
         /* Fields are evaluated on geometries and are mixed there. */
         break;
@@ -427,6 +425,12 @@ static void mix_simulation_state(const NodeSimulationItem &item,
       break;
   }
 }
+
+}  // namespace blender::nodes
+
+namespace blender::nodes::node_geo_simulation_output_cc {
+
+NODE_STORAGE_FUNCS(NodeGeometrySimulationOutput);
 
 class LazyFunctionForSimulationOutputNode final : public LazyFunction {
   const bNode &node_;
@@ -489,12 +493,12 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
   void execute_impl(lf::Params &params, const lf::Context &context) const final
   {
     GeoNodesLFUserData &user_data = *static_cast<GeoNodesLFUserData *>(context.user_data);
-    if (!user_data.modifier_data) {
+    if (!user_data.call_data->self_object()) {
+      /* The self object is currently required for generating anonymous attribute names. */
       params.set_default_remaining_outputs();
       return;
     }
-    const GeoNodesModifierData &modifier_data = *user_data.modifier_data;
-    if (!modifier_data.simulation_params) {
+    if (!user_data.call_data->simulation_params) {
       params.set_default_remaining_outputs();
       return;
     }
@@ -507,7 +511,8 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
       params.set_default_remaining_outputs();
       return;
     }
-    SimulationZoneBehavior *zone_behavior = modifier_data.simulation_params->get(found_id->id);
+    SimulationZoneBehavior *zone_behavior = user_data.call_data->simulation_params->get(
+        found_id->id);
     if (!zone_behavior) {
       params.set_default_remaining_outputs();
       return;
@@ -518,7 +523,7 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
     }
     else if (auto *info = std::get_if<sim_output::ReadInterpolated>(&output_behavior)) {
       this->output_mixed_cached_state(params,
-                                      *modifier_data.self_object,
+                                      *user_data.call_data->self_object(),
                                       *user_data.compute_context,
                                       info->prev_state,
                                       info->next_state,
@@ -545,7 +550,7 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
     }
     copy_simulation_state_to_values(simulation_items_,
                                     state,
-                                    *user_data.modifier_data->self_object,
+                                    *user_data.call_data->self_object(),
                                     *user_data.compute_context,
                                     node_,
                                     output_values);
@@ -578,7 +583,10 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
         simulation_items_, next_state, self_object, compute_context, node_, next_values);
 
     for (const int i : simulation_items_.index_range()) {
-      mix_simulation_state(simulation_items_[i], output_values[i], next_values[i], mix_factor);
+      mix_baked_data_item(eNodeSocketDatatype(simulation_items_[i].socket_type),
+                          output_values[i],
+                          next_values[i],
+                          mix_factor);
     }
 
     for (const int i : simulation_items_.index_range()) {
@@ -606,7 +614,7 @@ class LazyFunctionForSimulationOutputNode final : public LazyFunction {
     }
     move_simulation_state_to_values(simulation_items_,
                                     std::move(*bake_state),
-                                    *user_data.modifier_data->self_object,
+                                    *user_data.call_data->self_object(),
                                     *user_data.compute_context,
                                     node_,
                                     output_values);
@@ -772,10 +780,10 @@ static void node_layout_ex(uiLayout *layout, bContext *C, PointerRNA *ptr)
   if (nmd.runtime->cache) {
     const bke::bake::ModifierCache &cache = *nmd.runtime->cache;
     std::lock_guard lock{cache.mutex};
-    if (const std::unique_ptr<bke::bake::NodeCache> *node_cache_ptr = cache.cache_by_id.lookup_ptr(
-            *bake_id))
+    if (const std::unique_ptr<bke::bake::SimulationNodeCache> *node_cache_ptr =
+            cache.simulation_cache_by_id.lookup_ptr(*bake_id))
     {
-      const bke::bake::NodeCache &node_cache = **node_cache_ptr;
+      const bke::bake::SimulationNodeCache &node_cache = **node_cache_ptr;
       if (node_cache.cache_status == bke::bake::CacheStatus::Baked &&
           !node_cache.frame_caches.is_empty())
       {
@@ -884,6 +892,7 @@ static void node_register()
   ntype.gather_link_search_ops = nullptr;
   ntype.insert_link = node_insert_link;
   ntype.draw_buttons_ex = node_layout_ex;
+  ntype.no_muting = true;
   node_type_storage(&ntype, "NodeGeometrySimulationOutput", node_free_storage, node_copy_storage);
   nodeRegisterType(&ntype);
 }

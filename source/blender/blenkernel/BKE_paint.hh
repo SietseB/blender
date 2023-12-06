@@ -9,6 +9,7 @@
  */
 
 #include "BLI_array.hh"
+#include "BLI_bit_vector.hh"
 #include "BLI_bitmap.h"
 #include "BLI_compiler_compat.h"
 #include "BLI_math_matrix_types.hh"
@@ -25,7 +26,7 @@
 #include "BKE_attribute.h"
 #include "BKE_pbvh.hh"
 
-#include "bmesh.h"
+#include "bmesh.hh"
 
 struct BMFace;
 struct BMesh;
@@ -182,7 +183,7 @@ void BKE_paint_free(Paint *p);
  * #id_us_plus(), rather than if we were copying between 2 existing scenes where a matching
  * value should decrease the existing user count as with #paint_brush_set()
  */
-void BKE_paint_copy(Paint *src, Paint *tar, int flag);
+void BKE_paint_copy(const Paint *src, Paint *tar, int flag);
 
 void BKE_paint_runtime_init(const ToolSettings *ts, Paint *paint);
 
@@ -210,21 +211,21 @@ void BKE_paint_curve_clamp_endpoint_add_index(PaintCurve *pc, int add_index);
 /**
  * Return true when in vertex/weight/texture paint + face-select mode?
  */
-bool BKE_paint_select_face_test(Object *ob);
+bool BKE_paint_select_face_test(const Object *ob);
 /**
  * Return true when in vertex/weight paint + vertex-select mode?
  */
-bool BKE_paint_select_vert_test(Object *ob);
+bool BKE_paint_select_vert_test(const Object *ob);
 /**
  * used to check if selection is possible
  * (when we don't care if its face or vert)
  */
-bool BKE_paint_select_elem_test(Object *ob);
+bool BKE_paint_select_elem_test(const Object *ob);
 /**
  * Checks if face/vertex hiding is always applied in the current mode.
  * Returns true in vertex/weight paint.
  */
-bool BKE_paint_always_hide_test(Object *ob);
+bool BKE_paint_always_hide_test(const Object *ob);
 
 /* Partial visibility. */
 
@@ -232,11 +233,11 @@ bool BKE_paint_always_hide_test(Object *ob);
  * Returns non-zero if any of the corners of the grid
  * face whose inner corner is at (x, y) are hidden, zero otherwise.
  */
-bool paint_is_grid_face_hidden(const unsigned int *grid_hidden, int gridsize, int x, int y);
+bool paint_is_grid_face_hidden(blender::BoundedBitSpan grid_hidden, int gridsize, int x, int y);
 /**
  * Return true if all vertices in the face are visible, false otherwise.
  */
-bool paint_is_bmesh_face_hidden(BMFace *f);
+bool paint_is_bmesh_face_hidden(const BMFace *f);
 
 /* Paint masks. */
 
@@ -253,7 +254,7 @@ bool paint_calculate_rake_rotation(UnifiedPaintSettings *ups,
                                    bool stroke_has_started);
 void paint_update_brush_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, float rotation);
 
-void BKE_paint_stroke_get_average(Scene *scene, Object *ob, float stroke[3]);
+void BKE_paint_stroke_get_average(const Scene *scene, const Object *ob, float stroke[3]);
 
 /* Tool slot API. */
 
@@ -397,7 +398,7 @@ struct SculptPersistentBase {
 
 struct SculptVertexInfo {
   /* Indexed by base mesh vertex index, stores if that vertex is a boundary. */
-  BLI_bitmap *boundary;
+  blender::BitVector<> boundary;
 };
 
 struct SculptBoundaryEditInfo {
@@ -592,8 +593,6 @@ struct SculptSession {
 
   eAttrDomain vcol_domain;
   eCustomDataType vcol_type;
-
-  const float *vmask;
 
   /* Mesh connectivity maps. */
   /* Vertices to adjacent polys. */
@@ -849,8 +848,7 @@ void BKE_sculpt_color_layer_create_if_needed(Object *object);
 /**
  * \warning Expects a fully evaluated depsgraph.
  */
-void BKE_sculpt_update_object_for_edit(
-    Depsgraph *depsgraph, Object *ob_orig, bool need_pmap, bool need_mask, bool is_paint_tool);
+void BKE_sculpt_update_object_for_edit(Depsgraph *depsgraph, Object *ob_orig, bool is_paint_tool);
 void BKE_sculpt_update_object_before_eval(Object *ob_eval);
 void BKE_sculpt_update_object_after_eval(Depsgraph *depsgraph, Object *ob_eval);
 
@@ -875,10 +873,10 @@ bool *BKE_sculpt_hide_poly_ensure(Mesh *mesh);
  *
  * \note always call *before* #BKE_sculpt_update_object_for_edit.
  */
-int BKE_sculpt_mask_layers_ensure(Depsgraph *depsgraph,
-                                  Main *bmain,
-                                  Object *ob,
-                                  MultiresModifierData *mmd);
+void BKE_sculpt_mask_layers_ensure(Depsgraph *depsgraph,
+                                   Main *bmain,
+                                   Object *ob,
+                                   MultiresModifierData *mmd);
 void BKE_sculpt_toolsettings_data_ensure(Scene *scene);
 
 PBVH *BKE_sculpt_object_pbvh_ensure(Depsgraph *depsgraph, Object *ob);
@@ -893,11 +891,6 @@ void BKE_sculpt_sync_face_visibility_to_grids(Mesh *mesh, SubdivCCG *subdiv_ccg)
  * drawing the mesh and all updates that come with it.
  */
 bool BKE_sculptsession_use_pbvh_draw(const Object *ob, const RegionView3D *rv3d);
-
-enum {
-  SCULPT_MASK_LAYER_CALC_VERT = (1 << 0),
-  SCULPT_MASK_LAYER_CALC_LOOP = (1 << 1),
-};
 
 /* paint_vertex.cc */
 

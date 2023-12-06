@@ -9,10 +9,7 @@ set(INC
   ../../editors/include
   ../../blenkernel
   ../../blentranslation
-  ../../depsgraph
-  ../../functions
   ../../gpu
-  ../../imbuf
   ../../makesrna
   ../../render
   ../../windowmanager
@@ -102,7 +99,7 @@ set(SRC
   nodes/node_composite_sepcomb_ycca.cc
   nodes/node_composite_sepcomb_yuva.cc
   nodes/node_composite_setalpha.cc
-  nodes/node_composite_split_viewer.cc
+  nodes/node_composite_split.cc
   nodes/node_composite_stabilize2d.cc
   nodes/node_composite_sunbeams.cc
   nodes/node_composite_switch.cc
@@ -128,7 +125,10 @@ set(SRC
 
 set(LIB
   PRIVATE bf::blenlib
+  PRIVATE bf::depsgraph
   PRIVATE bf::dna
+  PRIVATE bf::functions
+  PRIVATE bf::imbuf
   PRIVATE bf::intern::guardedalloc
   bf_realtime_compositor
 )
