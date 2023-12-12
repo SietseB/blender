@@ -601,6 +601,8 @@ static int gpencil_layer_duplicate_object_exec(bContext *C, wmOperator *op)
       gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
       gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
       gpl_dst->brush_jitter = gpl_src->brush_jitter;
+      gpl_dst->watercolor_alpha_variation = gpl_src->watercolor_alpha_variation;
+      gpl_dst->watercolor_color_variation = gpl_src->watercolor_color_variation;
       gpl_dst->texture_image = gpl_src->texture_image;
       gpl_dst->texture_density = gpl_src->texture_density;
       gpl_dst->texture_scale = gpl_src->texture_scale;

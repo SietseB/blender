@@ -735,6 +735,8 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->layer_darkened_edge_width = 0.0f;
     gpl->darkened_edge_width_var = 50.0f;
     gpl->darkened_edge_intensity = 1.0f;
+    gpl->watercolor_alpha_variation = 1.0f;
+    gpl->watercolor_color_variation = 1.0f;
     gpl->texture_density = 0.5f;
     gpl->texture_image = nullptr;
     gpl->texture_scale = 50.0f;
@@ -818,7 +820,6 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->randomize_seed_step = 0;
   gpd->stroke_base_alpha = 0.95f;
   gpd->watercolor_noise_strength_high = 1.0f;
-  gpd->watercolor_noise_strength_low = 1.0f;
   gpd->layer_overlap_darkening = 0.1f;
   gpd->stroke_overlap_darkening = 0.0f;
   gpd->pparticle_speed_min = 0.8f;
@@ -1129,7 +1130,6 @@ void BKE_gpencil_data_copy_settings(const bGPdata *gpd_src, bGPdata *gpd_dst)
   gpd_dst->randomize_seed_step = gpd_src->randomize_seed_step;
   gpd_dst->stroke_base_alpha = gpd_src->stroke_base_alpha;
   gpd_dst->watercolor_noise_strength_high = gpd_src->watercolor_noise_strength_high;
-  gpd_dst->watercolor_noise_strength_low = gpd_src->watercolor_noise_strength_low;
   gpd_dst->stroke_overlap_darkening = gpd_src->stroke_overlap_darkening;
   gpd_dst->layer_overlap_darkening = gpd_src->layer_overlap_darkening;
   gpd_dst->pparticle_speed_min = gpd_src->pparticle_speed_min;
@@ -1171,6 +1171,8 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->darkened_edge_width_var = gpl_src->darkened_edge_width_var;
   gpl_dst->darkened_edge_intensity = gpl_src->darkened_edge_intensity;
   gpl_dst->brush_jitter = gpl_src->brush_jitter;
+  gpl_dst->watercolor_alpha_variation = gpl_src->watercolor_alpha_variation;
+  gpl_dst->watercolor_color_variation = gpl_src->watercolor_color_variation;
   gpl_dst->texture_image = gpl_src->texture_image;
   gpl_dst->texture_density = gpl_src->texture_density;
   gpl_dst->texture_scale = gpl_src->texture_scale;

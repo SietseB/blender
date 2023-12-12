@@ -197,6 +197,10 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 layout.separator()
                 col = layout.column()
                 col.prop(gpl, "opacity", text="Opacity", slider=True)
+                col = layout.column(align=True)
+                col.prop(gpl, "watercolor_alpha_variation", slider=True)
+                col.prop(gpl, "watercolor_color_variation", slider=True)
+                
                 sub = layout.grid_flow(columns=1, align=True)
                 col = sub.column()
                 col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)

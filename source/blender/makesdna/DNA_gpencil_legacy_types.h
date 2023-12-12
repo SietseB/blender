@@ -687,6 +687,8 @@ typedef struct bGPDlayer {
   float layer_darkened_edge_width;
   float darkened_edge_intensity;
   float brush_jitter;
+  float watercolor_color_variation;
+  float watercolor_alpha_variation;
 
   /** Stroke texture */
   struct Image *texture_image;
@@ -962,7 +964,6 @@ typedef struct bGPdata {
   char _pad4[2];
   int randomize_seed_step;
   float stroke_base_alpha;
-  float watercolor_noise_strength_low;
   float watercolor_noise_strength_high;
   float stroke_overlap_darkening;
   float layer_overlap_darkening;
@@ -975,7 +976,6 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
-  char _pad5[4];
 
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
    * well! */

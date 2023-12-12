@@ -2933,6 +2933,26 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       prop, "Brush Jitter", "Sets the irregularity of strokes at start, end and sharp angles");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+  /* watercolor alpha variation */
+  prop = RNA_def_property(srna, "watercolor_alpha_variation", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "watercolor_alpha_variation");
+  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_text(
+      prop, "Alpha Variation", "Degree of alpha variation in strokes and fills");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+  /* watercolor color variation */
+  prop = RNA_def_property(srna, "watercolor_color_variation", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "watercolor_color_variation");
+  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_text(
+      prop, "Color Variation", "Degree of color variation in strokes and fills");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /** Stroke texture */
   /* use texture for strokes */
   prop = RNA_def_property(srna, "use_texture", PROP_BOOLEAN, PROP_NONE);
@@ -3660,18 +3680,6 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
       prop,
       "High Noise Strength",
       "Strength of high frequency watercolor noise applied to strokes and fills");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* watercolor noise strength low */
-  prop = RNA_def_property(srna, "watercolor_noise_strength_low", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "watercolor_noise_strength_low");
-  RNA_def_property_range(prop, 0, 2.0f);
-  RNA_def_property_float_default(prop, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
-  RNA_def_property_ui_text(
-      prop,
-      "Low Noise Strength",
-      "Strength of low frequency watercolor noise applied to strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* layer overlap darkening */
