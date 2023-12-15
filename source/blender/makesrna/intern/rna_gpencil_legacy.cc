@@ -2917,9 +2917,9 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* darkened edge intensity */
   prop = RNA_def_property(srna, "darkened_edge_intensity", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "darkened_edge_intensity");
-  RNA_def_property_range(prop, 0.0f, 5.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 5.0f, 0.1f, 2);
-  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_range(prop, 0.0f, 2.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.1f, 2);
+  RNA_def_property_float_default(prop, 0.8f);
   RNA_def_property_ui_text(
       prop, "Edge Intensity", "Intensity of the darkened edge (higher means darker)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
