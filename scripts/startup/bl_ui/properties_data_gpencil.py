@@ -7,6 +7,7 @@ from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 
 from bl_ui.properties_grease_pencil_common import (
+    GreasePencilLayerEdgeDarkeningPanel,
     GreasePencilLayerTexturePanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
@@ -209,13 +210,15 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col.enabled = no_texture_image
                 col.prop(gpl, "stroke_dryness", slider=True)
 
-                layout.separator()
-                col = layout.column(align=True)
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
-                col.prop(gpl, "stroke_darkened_edge_width", slider=True, text="Stroke Edge")
-                col.prop(gpl, "layer_darkened_edge_width", slider=True, text="Layer Edge")
-                col.prop(gpl, "darkened_edge_width_var", slider=True, text="Variation")
-                col.prop(gpl, "darkened_edge_intensity", slider=True, text="Intensity")
+
+class DATA_PT_gpencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePencilLayerEdgeDarkeningPanel, Panel):
+    bl_label = "Edge Darkening"
+    bl_parent_id = "DATA_PT_gpencil_layers"
+
+    @classmethod
+    def poll(cls, context):
+        gpencil = context.gpencil
+        return gpencil and gpencil.layers.active and gpencil.watercolor
 
 
 class DATA_PT_gpencil_layer_texture(LayerDataButtonsPanel, GreasePencilLayerTexturePanel, Panel):
@@ -551,6 +554,7 @@ classes = (
     DATA_PT_gpencil_onion_skinning,
     DATA_PT_gpencil_onion_skinning_custom_colors,
     DATA_PT_gpencil_onion_skinning_display,
+    DATA_PT_gpencil_layer_edge_darkening,
     DATA_PT_gpencil_layer_texture,
     DATA_PT_gpencil_layer_masks,
     DATA_PT_gpencil_layer_transform,
