@@ -205,7 +205,7 @@ class GHOST_SystemX11 : public GHOST_System {
    * passing in the time-stamp from X to input to get the event
    * time-stamp with an offset applied to make it compatible with `getMilliSeconds`.
    */
-  uint64_t ms_from_input_time(const Time timestamp_as_uint) const;
+  uint64_t ms_from_input_time(const Time timestamp) const;
 
   /** Helped function for get data from the clipboard. */
   void getClipboard_xcout(const XEvent *evt,
@@ -366,6 +366,11 @@ class GHOST_SystemX11 : public GHOST_System {
   /* Detect auto-repeat glitch. */
   unsigned int m_last_release_keycode;
   Time m_last_release_time;
+
+#ifdef WITH_X11_XINPUT
+  /** Last key press or release, to apply to XIM generated events. */
+  Time m_last_key_time;
+#endif
 
   uint m_keycode_last_repeat_key;
 

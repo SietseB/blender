@@ -378,7 +378,7 @@ static void bm_grid_fill_array(BMesh *bm,
           l_tmp = larr_y_a[y][0];
         }
 
-        BM_elem_attrs_copy(*bm, l_tmp->f, f);
+        BM_elem_attrs_copy(bm, l_tmp->f, f);
 
         BM_face_as_array_loop_quad(f, l_quad);
 
@@ -540,7 +540,8 @@ static void bm_grid_fill(BMesh *bm,
     for (i = 0; i < 4; i++) {
       LinkData *el_next;
       for (el = static_cast<LinkData *>(lb_iter[i]->first); el && (el_next = el->next);
-           el = el->next) {
+           el = el->next)
+      {
         BMEdge *e = BM_edge_exists(static_cast<BMVert *>(el->data),
                                    static_cast<BMVert *>(el_next->data));
         if (BM_edge_is_boundary(e)) {

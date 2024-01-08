@@ -1700,6 +1700,19 @@ static void ui_text_clip_right_label(const uiFontStyle *fstyle, uiBut *but, cons
   UI_fontstyle_set(fstyle);
 
   but->strwidth = BLF_width(fstyle->uifont_id, but->drawstr, sizeof(but->drawstr));
+
+  /* The string already fits, so do nothing. */
+  if (but->strwidth <= okwidth) {
+    return;
+  }
+
+  const char sep[] = BLI_STR_UTF8_HORIZONTAL_ELLIPSIS;
+  const int sep_len = sizeof(sep) - 1;
+  const float sep_strwidth = BLF_width(fstyle->uifont_id, sep, sep_len + 1);
+
+  /* Assume the string will have an ellipsis for initial tests. */
+  but->strwidth += sep_strwidth;
+
   but->ofs = 0;
 
   /* First shorten number-buttons eg,
@@ -1727,9 +1740,11 @@ static void ui_text_clip_right_label(const uiFontStyle *fstyle, uiBut *but, cons
       drawstr_len -= bytes;
       // BLI_assert(strlen(but->drawstr) == drawstr_len);
 
-      but->strwidth = BLF_width(
-          fstyle->uifont_id, but->drawstr + but->ofs, sizeof(but->drawstr) - but->ofs);
-      if (but->strwidth < 10) {
+      but->strwidth = BLF_width(fstyle->uifont_id,
+                                but->drawstr + but->ofs,
+                                sizeof(but->drawstr) - but->ofs) +
+                      sep_strwidth;
+      if (but->strwidth < sep_strwidth) {
         break;
       }
     }
@@ -1757,6 +1772,15 @@ static void ui_text_clip_right_label(const uiFontStyle *fstyle, uiBut *but, cons
                   but->ofs;
     but->strwidth = strwidth;
     but->drawstr[drawstr_len] = 0;
+  }
+
+  cpoin = strrchr(but->drawstr, ':');
+  if (cpoin && (cpoin - but->drawstr > 0) && (drawstr_len < (sizeof(but->drawstr) - sep_len))) {
+    /* We shortened the string and still have a colon, so insert ellipsis. */
+    memmove(cpoin + sep_len, cpoin, cpend - cpoin);
+    memcpy(cpoin, sep, sep_len);
+    but->strwidth = BLF_width(
+        fstyle->uifont_id, but->drawstr + but->ofs, sizeof(but->drawstr) - but->ofs);
   }
 }
 
@@ -1974,7 +1998,8 @@ static void widget_draw_text(const uiFontStyle *fstyle,
         bool has_prev = false;
         if (pos > 0) {
           if (BLF_str_offset_to_glyph_bounds(
-                  fstyle->uifont_id, drawstr + but->ofs, pos - 1, &bounds)) {
+                  fstyle->uifont_id, drawstr + but->ofs, pos - 1, &bounds))
+          {
             if (bounds.xmax > bounds.xmin) {
               prev_right_edge = bounds.xmax;
             }
@@ -5073,7 +5098,8 @@ void ui_draw_but(const bContext *C, ARegion *region, uiStyle *style, uiBut *but,
   }
 
   if ((but->editstr) ||
-      (UNLIKELY(but->flag & UI_BUT_DRAG_MULTI) && ui_but_drag_multi_edit_get(but))) {
+      (UNLIKELY(but->flag & UI_BUT_DRAG_MULTI) && ui_but_drag_multi_edit_get(but)))
+  {
     state.is_text_input = true;
   }
 
@@ -5392,7 +5418,8 @@ void ui_draw_pie_center(uiBlock *block)
   immUnbindProgram();
 
   if (U.pie_menu_confirm > 0 &&
-      !(block->pie_data.flags & (UI_PIE_INVALID_DIR | UI_PIE_CLICK_STYLE))) {
+      !(block->pie_data.flags & (UI_PIE_INVALID_DIR | UI_PIE_CLICK_STYLE)))
+  {
     const float pie_confirm_radius = UI_SCALE_FAC * (pie_radius_internal + U.pie_menu_confirm);
     const float pie_confirm_external = UI_SCALE_FAC *
                                        (pie_radius_internal + U.pie_menu_confirm + 7.0f);

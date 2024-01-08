@@ -9,6 +9,7 @@ set(INC
   ../../blentranslation
   ../../bmesh
   ../../gpu
+  ../../imbuf
   ../../makesrna
   ../../windowmanager
   # RNA_prototypes.h
@@ -64,7 +65,6 @@ set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
-  PRIVATE bf::imbuf
   PRIVATE bf::intern::guardedalloc
 )
 

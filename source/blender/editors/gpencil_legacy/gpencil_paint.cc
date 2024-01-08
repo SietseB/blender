@@ -35,7 +35,7 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_brush.hh"
-#include "BKE_colortools.h"
+#include "BKE_colortools.hh"
 #include "BKE_context.hh"
 #include "BKE_deform.h"
 #include "BKE_global.h"
@@ -1748,7 +1748,8 @@ static void gpencil_stroke_eraser_dostroke(tGPsdata *p,
 
               /* if invisible, delete point */
               if ((pt0) && ((pt0->strength <= GPENCIL_ALPHA_OPACITY_THRESH) ||
-                            (pt0->pressure < cull_thresh))) {
+                            (pt0->pressure < cull_thresh)))
+              {
                 pt0->flag |= GP_SPOINT_TAG;
                 do_cull = true;
               }
@@ -1949,7 +1950,8 @@ static Brush *gpencil_get_default_eraser(Main *bmain, ToolSettings *ts)
       continue;
     }
     if ((brush->ob_mode == OB_MODE_PAINT_GPENCIL_LEGACY) &&
-        (brush->gpencil_tool == GPAINT_TOOL_ERASE)) {
+        (brush->gpencil_tool == GPAINT_TOOL_ERASE))
+    {
       /* save first eraser to use later if no default */
       if (brush_dft == nullptr) {
         brush_dft = brush;

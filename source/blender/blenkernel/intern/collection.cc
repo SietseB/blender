@@ -185,7 +185,8 @@ static void collection_foreach_id(ID *id, LibraryForeachIDData *data)
   LISTBASE_FOREACH (CollectionObject *, cob, &collection->gobject) {
     Object *cob_ob_old = cob->ob;
 
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, cob->ob, IDWALK_CB_USER);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(
+        data, cob->ob, IDWALK_CB_USER | IDWALK_CB_OVERRIDE_LIBRARY_HIERARCHY_DEFAULT);
 
     if (collection->runtime.gobject_hash) {
       /* If the remapping does not create inconsistent data (nullptr object pointer or duplicate
@@ -200,8 +201,10 @@ static void collection_foreach_id(ID *id, LibraryForeachIDData *data)
     }
   }
   LISTBASE_FOREACH (CollectionChild *, child, &collection->children) {
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(
-        data, child->collection, IDWALK_CB_NEVER_SELF | IDWALK_CB_USER);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data,
+                                      child->collection,
+                                      IDWALK_CB_NEVER_SELF | IDWALK_CB_USER |
+                                          IDWALK_CB_OVERRIDE_LIBRARY_HIERARCHY_DEFAULT);
   }
   LISTBASE_FOREACH (CollectionParent *, parent, &collection->runtime.parents) {
     /* XXX This is very weak. The whole idea of keeping pointers to private IDs is very bad
@@ -1652,7 +1655,8 @@ static bool collection_instance_fix_recursive(Collection *parent_collection,
 
   LISTBASE_FOREACH (CollectionObject *, collection_object, &parent_collection->gobject) {
     if (collection_object->ob != nullptr &&
-        collection_object->ob->instance_collection == collection) {
+        collection_object->ob->instance_collection == collection)
+    {
       id_us_min(&collection->id);
       collection_object->ob->instance_collection = nullptr;
       cycles_found = true;

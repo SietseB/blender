@@ -62,10 +62,12 @@ set(INC
   ../../blentranslation
   ../../bmesh
   ../../editors/include
+  ../../imbuf
   ../../makesrna
   ../../nodes
   ../../python/intern
   ../../windowmanager
+  ../../../../intern/utfconv
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -79,6 +81,8 @@ set(INC_SYS
 
 set(SRC
   intern/usd_asset_utils.cc
+  intern/usd_armature_utils.cc
+  intern/usd_blend_shape_utils.cc
   intern/usd_capi_export.cc
   intern/usd_capi_import.cc
   intern/usd_hierarchy_iterator.cc
@@ -93,10 +97,12 @@ set(SRC
   intern/usd_writer_metaball.cc
   intern/usd_writer_transform.cc
   intern/usd_writer_volume.cc
+  intern/usd_writer_armature.cc
 
   intern/usd_reader_camera.cc
   intern/usd_reader_curve.cc
   intern/usd_reader_geom.cc
+  intern/usd_reader_instance.cc
   intern/usd_reader_light.cc
   intern/usd_reader_material.cc
   intern/usd_reader_mesh.cc
@@ -108,11 +114,14 @@ set(SRC
   intern/usd_reader_volume.cc
   intern/usd_reader_xform.cc
   intern/usd_skel_convert.cc
+  intern/usd_skel_root_utils.cc
 
   usd.h
   usd.hh
 
   intern/usd_asset_utils.h
+  intern/usd_armature_utils.h
+  intern/usd_blend_shape_utils.h
   intern/usd_exporter_context.h
   intern/usd_hash_types.h
   intern/usd_hierarchy_iterator.h
@@ -127,10 +136,12 @@ set(SRC
   intern/usd_writer_metaball.h
   intern/usd_writer_transform.h
   intern/usd_writer_volume.h
+  intern/usd_writer_armature.h
 
   intern/usd_reader_camera.h
   intern/usd_reader_curve.h
   intern/usd_reader_geom.h
+  intern/usd_reader_instance.h
   intern/usd_reader_light.h
   intern/usd_reader_material.h
   intern/usd_reader_mesh.h
@@ -142,6 +153,7 @@ set(SRC
   intern/usd_reader_volume.h
   intern/usd_reader_xform.h
   intern/usd_skel_convert.h
+  intern/usd_skel_root_utils.h
 )
 
 if(WITH_HYDRA)
@@ -182,10 +194,9 @@ set(LIB
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::animrig
-  PRIVATE bf::imbuf
+  bf_imbuf
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
-  PRIVATE bf::intern::utfconv
   bf_io_common
 )
 
@@ -199,6 +210,9 @@ list(APPEND LIB
 
 if(WITH_OPENVDB)
   add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  list(APPEND INC
+    ../../../../intern/openvdb
+  )
   list(APPEND INC_SYS
     ${OPENVDB_INCLUDE_DIRS}
   )
@@ -238,9 +252,9 @@ if(WITH_GTESTS)
   set(TEST_INC
   )
   set(TEST_LIB
+    bf_blenloader_test_util
   )
-  include(GTestTesting)
-  blender_add_test_lib(bf_io_usd_tests "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB};${TEST_LIB}")
+  blender_add_test_suite_lib(io_usd "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB};${TEST_LIB}")
 endif()
 
 # In CMAKE version 3.21 and up, we can instead use the `NO_CACHE` option for

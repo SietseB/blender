@@ -7,9 +7,11 @@ set(INC
   ..
   ../..
   ../../../blenkernel
+  ../../../../../intern/utfconv
 )
 
 set(INC_SYS
+  ${IMATH_INCLUDE_DIRS}
   ${OPENIMAGEIO_INCLUDE_DIRS}
 )
 
@@ -26,7 +28,6 @@ set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::dna
   PRIVATE bf::intern::guardedalloc
-  PRIVATE bf::intern::utfconv
 )
 
 if(WITH_PUGIXML)

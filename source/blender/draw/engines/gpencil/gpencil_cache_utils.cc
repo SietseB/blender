@@ -6,8 +6,8 @@
  * \ingroup draw
  */
 
-#include "DRW_engine.h"
-#include "DRW_render.h"
+#include "DRW_engine.hh"
+#include "DRW_render.hh"
 
 #include "ED_gpencil_legacy.hh"
 #include "ED_view3d.hh"
@@ -68,7 +68,7 @@ GPENCIL_tObject *gpencil_object_cache_add(GPENCIL_PrivateData *pd, Object *ob)
    * computationally heavy and should go into the GPData evaluation. */
   const std::optional<Bounds<float3>> bounds = BKE_gpencil_data_minmax(gpd).value_or(
       Bounds(float3(0)));
-  float3 size = bounds->max - bounds->min;
+  float3 size = (bounds->max - bounds->min) * 0.5f;
   float3 center = math::midpoint(bounds->min, bounds->max);
   /* Convert bbox to matrix */
   float mat[4][4];

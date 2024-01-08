@@ -2620,7 +2620,8 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const bContext &C,
 
   if (snode.overlay.flag & SN_OVERLAY_SHOW_NAMED_ATTRIBUTES) {
     if (std::optional<NodeExtraInfoRow> row = node_get_accessed_attributes_row(tree_draw_ctx,
-                                                                               node)) {
+                                                                               node))
+    {
       rows.append(std::move(*row));
     }
   }
@@ -2769,7 +2770,7 @@ static void node_draw_extra_info_panel(const bContext &C,
     preview = nullptr;
   }
   Vector<NodeExtraInfoRow> extra_info_rows = node_get_extra_info(C, tree_draw_ctx, snode, node);
-  if (extra_info_rows.size() == 0 && !preview) {
+  if (extra_info_rows.is_empty() && !preview) {
     return;
   }
 

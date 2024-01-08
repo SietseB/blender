@@ -109,6 +109,9 @@ GHOST_SystemX11::GHOST_SystemX11()
       m_start_time(0),
       m_start_time_monotonic(0),
       m_keyboard_vector{0},
+#ifdef WITH_X11_XINPUT
+      m_last_key_time(0),
+#endif
       m_keycode_last_repeat_key(uint(-1))
 {
   XInitThreads();
@@ -173,10 +176,10 @@ GHOST_SystemX11::GHOST_SystemX11()
   m_last_release_keycode = 0;
   m_last_release_time = 0;
 
-  /* Compute the initial time. */
+  /* Compute the initial times. */
   {
     timeval tv;
-    if (gettimeofday(&tv, nullptr) == -1) {
+    if (gettimeofday(&tv, nullptr) != 0) {
       GHOST_ASSERT(false, "Could not instantiate timer!");
     }
     /* Taking care not to overflow the `tv.tv_sec * 1000`. */
@@ -184,11 +187,11 @@ GHOST_SystemX11::GHOST_SystemX11()
   }
 
   {
-    struct timespec ts = {0, 0};
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
+    timespec ts = {0, 0};
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
       GHOST_ASSERT(false, "Could not instantiate monotonic timer!");
     }
-    m_start_time_monotonic = ((uint64_t(ts.tv_sec) * 1000) + (ts.tv_nsec / 1000000));
+    m_start_time_monotonic = (uint64_t(ts.tv_sec) * 1000) + uint64_t(ts.tv_nsec / 1000000);
   }
 
   /* Use detectable auto-repeat, mac and windows also do this. */
@@ -213,7 +216,7 @@ GHOST_SystemX11::GHOST_SystemX11()
 #endif
 
 #ifdef WITH_X11_XINPUT
-  /* detect if we have xinput (for reuse) */
+  /* Detect if we have XINPUT (for reuse). */
   {
     memset(&m_xinput_version, 0, sizeof(m_xinput_version));
     XExtensionVersion *version = XGetExtensionVersion(m_display, INAME);
@@ -281,7 +284,7 @@ GHOST_TSuccess GHOST_SystemX11::init()
 uint64_t GHOST_SystemX11::getMilliSeconds() const
 {
   timeval tv;
-  if (gettimeofday(&tv, nullptr) == -1) {
+  if (gettimeofday(&tv, nullptr) != 0) {
     GHOST_ASSERT(false, "Could not compute time!");
   }
 
@@ -291,7 +294,7 @@ uint64_t GHOST_SystemX11::getMilliSeconds() const
 
 uint64_t GHOST_SystemX11::ms_from_input_time(const Time timestamp) const
 {
-  GHOST_ASSERT(timestamp >= m_start_time_monotonic, "Invalid time-stemp");
+  GHOST_ASSERT(timestamp >= m_start_time_monotonic, "Invalid time-stamp");
   /* NOTE(@ideasman42): Return a time compatible with `getMilliSeconds()`,
    * this is needed as X11 time-stamps use monotonic time.
    * The X11 implementation *could* use any basis, in practice though we are supporting
@@ -614,6 +617,13 @@ bool GHOST_SystemX11::processEvents(bool waitForEvent)
         }
       }
 
+      /* Ensure generated time-stamps are non-zero. */
+      if (ELEM(xevent.type, KeyPress, KeyRelease)) {
+        if (xevent.xkey.time != 0) {
+          m_last_key_time = xevent.xkey.time;
+        }
+      }
+
       /* dispatch event to XIM server */
       if (XFilterEvent(&xevent, (Window) nullptr) == True) {
         /* do nothing now, the event is consumed by XIM. */
@@ -628,7 +638,8 @@ bool GHOST_SystemX11::processEvents(bool waitForEvent)
       }
       else if (xevent.type == KeyPress) {
         if ((xevent.xkey.keycode == m_last_release_keycode) &&
-            (xevent.xkey.time <= m_last_release_time)) {
+            (xevent.xkey.time <= m_last_release_time))
+        {
           continue;
         }
       }
@@ -979,7 +990,14 @@ void GHOST_SystemX11::processEvent(XEvent *xe)
     case KeyPress:
     case KeyRelease: {
       XKeyEvent *xke = &(xe->xkey);
-      const uint64_t event_ms = ms_from_input_time(xke->time);
+#ifdef WITH_X11_XINPUT
+      /* Can be zero for XIM generated events. */
+      const Time time = xke->time ? xke->time : m_last_key_time;
+#else
+      const Time time = xke->time;
+#endif
+      const uint64_t event_ms = ms_from_input_time(time);
+
       KeySym key_sym;
       char *utf8_buf = nullptr;
       char ascii;
@@ -1132,7 +1150,8 @@ void GHOST_SystemX11::processEvent(XEvent *xe)
 
           /* Use utf8 because its not locale repentant, from XORG docs. */
           if (!(len = Xutf8LookupString(
-                    xic, xke, utf8_buf, sizeof(utf8_array) - 5, &key_sym, &status))) {
+                    xic, xke, utf8_buf, sizeof(utf8_array) - 5, &key_sym, &status)))
+          {
             utf8_buf[0] = '\0';
           }
 
@@ -1768,8 +1787,6 @@ GHOST_TCapabilityFlag GHOST_SystemX11::getCapabilities() const
 {
   return GHOST_TCapabilityFlag(GHOST_CAPABILITY_FLAG_ALL &
                                ~(
-                                   /* No support yet for desktop sampling. */
-                                   GHOST_kCapabilityDesktopSample |
                                    /* No support yet for image copy/paste. */
                                    GHOST_kCapabilityClipboardImages |
                                    /* No support yet for IME input methods. */

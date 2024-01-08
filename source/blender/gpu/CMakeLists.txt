@@ -12,6 +12,7 @@ set(INC
   ../blenkernel
   ../bmesh
   ../draw
+  ../imbuf
   ../makesrna
 
   # For theme color access.
@@ -329,7 +330,6 @@ set(METAL_SRC
 set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::dna
-  PRIVATE bf::imbuf
   PRIVATE bf::intern::atomic
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
@@ -603,6 +603,7 @@ set(GLSL_SRC_TEST
   tests/shaders/gpu_compute_ssbo_test.glsl
   tests/shaders/gpu_compute_vbo_test.glsl
   tests/shaders/gpu_compute_dummy_test.glsl
+  tests/shaders/gpu_specialization_test.glsl
   tests/shaders/gpu_framebuffer_layer_viewport_test.glsl
   tests/shaders/gpu_framebuffer_subpass_input_test.glsl
   tests/shaders/gpu_push_constants_test.glsl
@@ -626,7 +627,7 @@ set(MSL_SRC
 )
 
 if(WITH_GTESTS)
-  if(WITH_OPENGL_DRAW_TESTS)
+  if(WITH_GPU_DRAW_TESTS)
     list(APPEND GLSL_SRC ${GLSL_SRC_TEST})
   endif()
 endif()
@@ -678,6 +679,7 @@ set(SRC_SHADER_CREATE_INFOS
   ../draw/engines/eevee_next/shaders/infos/eevee_hiz_info.hh
   ../draw/engines/eevee_next/shaders/infos/eevee_irradiance_cache_info.hh
   ../draw/engines/eevee_next/shaders/infos/eevee_light_culling_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_lookdev_info.hh
   ../draw/engines/eevee_next/shaders/infos/eevee_lut_info.hh
   ../draw/engines/eevee_next/shaders/infos/eevee_material_info.hh
   ../draw/engines/eevee_next/shaders/infos/eevee_motion_blur_info.hh
@@ -774,7 +776,7 @@ set(SRC_SHADER_CREATE_INFOS_MTL
 )
 
 if(WITH_GTESTS)
-  if(WITH_OPENGL_DRAW_TESTS)
+  if(WITH_GPU_DRAW_TESTS)
     list(APPEND SRC_SHADER_CREATE_INFOS ${SRC_SHADER_CREATE_INFOS_TEST})
   endif()
 endif()
@@ -854,7 +856,6 @@ if(WITH_GPU_BUILDTIME_SHADER_BUILDER)
     bf_intern_ghost
     ${PLATFORM_LINKLIBS}
     PRIVATE bf::intern::guardedalloc
-    PRIVATE bf::imbuf
   )
   target_include_directories(shader_builder PRIVATE ${INC} ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -882,12 +883,14 @@ endif()
 if(WITH_GTESTS)
   set(TEST_SRC)
   set(TEST_INC)
-  set(TEST_LIB)
+  set(TEST_LIB
+    bf_intern_ghost
+    bf_imbuf
+    bf_windowmanager
+  )
 
-  if(WITH_OPENGL_DRAW_TESTS)
+  if(WITH_GPU_DRAW_TESTS)
     list(APPEND TEST_SRC
-      tests/gpu_testing.cc
-
       tests/buffer_texture_test.cc
       tests/compute_test.cc
       tests/framebuffer_test.cc
@@ -895,24 +898,37 @@ if(WITH_GTESTS)
       tests/index_buffer_test.cc
       tests/push_constants_test.cc
       tests/shader_test.cc
+      tests/specialization_constants_test.cc
       tests/state_blend_test.cc
       tests/storage_buffer_test.cc
       tests/texture_test.cc
       tests/vertex_buffer_test.cc
-
-      tests/gpu_testing.hh
+      tests/shader_create_info_test.cc
     )
   endif()
 
   if(WITH_VULKAN_BACKEND)
     list(APPEND TEST_SRC
-      vulkan/vk_memory_layout_test.cc
       vulkan/vk_data_conversion_test.cc
+      vulkan/vk_memory_layout_test.cc
+    )
+  endif()
+
+  # Enable shader validation on buildbot for Metal
+  if(WITH_METAL_BACKEND AND NOT WITH_GPU_DRAW_TESTS)
+    list(APPEND TEST_SRC
+      tests/shader_create_info_test.cc
     )
   endif()
 
   if (TEST_SRC)
-    include(GTestTesting)
-    blender_add_test_lib(bf_gpu_tests "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB};${TEST_LIB}")
+    set(TEST_COMMON_SRC
+      tests/gpu_testing.cc
+      tests/gpu_testing.hh
+    )
+
+    blender_add_test_suite_lib(gpu
+      "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${LIB};${TEST_LIB}" "${TEST_COMMON_SRC}"
+    )
   endif()
 endif()

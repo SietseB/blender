@@ -34,7 +34,7 @@
 
 #  include "BKE_appdir.h"
 #  include "BKE_blender_version.h"
-#  include "BKE_blendfile.h"
+#  include "BKE_blendfile.hh"
 #  include "BKE_context.hh"
 
 #  include "BKE_global.h"
@@ -250,7 +250,8 @@ static bool parse_int_range_relative_clamp(const char *str,
                                            const char **r_err_msg)
 {
   if (parse_int_range_relative(
-          str, str_end_range, str_end_test, pos, neg, r_value_range, r_err_msg)) {
+          str, str_end_range, str_end_test, pos, neg, r_value_range, r_err_msg))
+  {
     CLAMP(r_value_range[0], min, max);
     CLAMP(r_value_range[1], min, max);
     return true;
@@ -942,7 +943,7 @@ static const char arg_handle_log_show_backtrace_set_doc[] =
 static int arg_handle_log_show_backtrace_set(int /*argc*/, const char ** /*argv*/, void * /*data*/)
 {
   /* Ensure types don't become incompatible. */
-  void (*fn)(FILE * fp) = BLI_system_backtrace;
+  void (*fn)(FILE *fp) = BLI_system_backtrace;
   CLG_backtrace_fn_set((void (*)(void *))fn);
   return 0;
 }
@@ -2537,4 +2538,4 @@ void main_args_setup(bContext *C, bArgs *ba, bool all)
 
 /** \} */
 
-#endif /* WITH_PYTHON_MODULE */
+#endif /* !WITH_PYTHON_MODULE */

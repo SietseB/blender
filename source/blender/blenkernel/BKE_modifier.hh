@@ -8,10 +8,11 @@
  */
 #include "BLI_compiler_attrs.h"
 #include "BLI_math_matrix_types.hh"
+#include "BLI_span.hh"
 
 #include "DNA_modifier_types.h" /* Needed for all enum type definitions. */
 
-#include "BKE_customdata.hh"
+#include "DNA_customdata_types.h"
 
 namespace blender::bke {
 struct GeometrySet;
@@ -536,17 +537,17 @@ ModifierData *BKE_modifier_get_evaluated(Depsgraph *depsgraph, Object *object, M
 
 /* wrappers for modifier callbacks that ensure valid normals */
 
-Mesh *BKE_modifier_modify_mesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *me);
+Mesh *BKE_modifier_modify_mesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh);
 
 void BKE_modifier_deform_verts(ModifierData *md,
                                const ModifierEvalContext *ctx,
-                               Mesh *me,
+                               Mesh *mesh,
                                blender::MutableSpan<blender::float3> positions);
 
 void BKE_modifier_deform_vertsEM(ModifierData *md,
                                  const ModifierEvalContext *ctx,
                                  BMEditMesh *em,
-                                 Mesh *me,
+                                 Mesh *mesh,
                                  blender::MutableSpan<blender::float3> positions);
 
 /**

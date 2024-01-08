@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
-  PUBLIC .
+  .
   ../blenkernel
   ../blenloader
   ../gpu
@@ -15,6 +15,7 @@ set(INC
 set(INC_SYS
   ${JPEG_INCLUDE_DIR}
   ${ZLIB_INCLUDE_DIRS}
+  ${IMATH_INCLUDE_DIRS}
   ${OPENIMAGEIO_INCLUDE_DIRS}
 )
 
@@ -188,4 +189,3 @@ set_source_files_properties(
 )
 
 blender_add_lib(bf_imbuf "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
-add_library(bf::imbuf ALIAS bf_imbuf)
