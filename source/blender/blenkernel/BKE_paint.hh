@@ -17,6 +17,7 @@
 #include "BLI_set.hh"
 
 #include "DNA_brush_enums.h"
+#include "DNA_brush_types.h"                            
 #include "DNA_customdata_types.h"
 #include "DNA_object_enums.h"
 
@@ -153,12 +154,20 @@ void BKE_paint_set_overlay_override(enum eOverlayFlags flag);
 
 Palette *BKE_palette_add(Main *bmain, const char *name);
 PaletteColor *BKE_palette_color_add(Palette *palette);
+PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_entries);
+PaletteColor *BKE_palette_unshaded_color_add(Palette *palette);
+MixingColor *BKE_palette_mixing_color_add(Palette *palette);
+MixingColor *BKE_palettecolor_mixed_color_add(PaletteColor *palcolor);
 bool BKE_palette_is_empty(const Palette *palette);
 /**
  * Remove color from palette. Must be certain color is inside the palette!
  */
 void BKE_palette_color_remove(Palette *palette, PaletteColor *color);
 void BKE_palette_clear(Palette *palette);
+void BKE_palette_unshaded_color_remove(Palette *palette, PaletteColor *color);
+void BKE_palette_mixing_color_remove(Palette *palette, MixingColor *color);
+void BKE_palettecolor_mixed_color_remove(PaletteColor *palcolor, MixingColor *color);
+void BKE_palettecolor_mixed_color_clear(PaletteColor *palcolor);
 
 void BKE_palette_sort_hsv(tPaletteColorHSV *color_array, int totcol);
 void BKE_palette_sort_svh(tPaletteColorHSV *color_array, int totcol);

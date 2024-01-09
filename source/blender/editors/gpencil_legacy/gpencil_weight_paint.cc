@@ -36,7 +36,7 @@
 #include "DNA_meshdata_types.h"
 
 #include "WM_api.hh"
-#include "WM_toolsystem.h"
+#include "WM_toolsystem.hh"
 #include "WM_types.hh"
 
 #include "RNA_access.hh"
@@ -2247,4 +2247,3 @@ void GPENCIL_OT_weight_gradient(wmOperatorType *ot)
 
   WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);
 }
-
