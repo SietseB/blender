@@ -771,11 +771,6 @@ class RENDER_PT_ondine(RenderButtonsPanel, Panel):
         col = row.column(align=True)
         col.label(text="Paper Texture")
         col.template_ID(ondine, "paper_texture", open="image.open")
-        
-        row = layout.row(align=True)
-        col = row.column(align=True)
-        col.label(text="Inverted Paper Texture")
-        col.template_ID(ondine, "paper_texture_inverted", open="image.open")
 
 
 class RENDER_PT_eevee_next_sampling(RenderButtonsPanel, Panel):

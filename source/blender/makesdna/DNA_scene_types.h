@@ -1920,7 +1920,7 @@ typedef struct SceneOndine {
   short flag;
   char _pad1[2];
   struct Image *paper_texture;
-  struct Image *paper_texture_inverted;
+  void *_pad2;
 } SceneOndine;
 
 /** #SceneOndine::flag */

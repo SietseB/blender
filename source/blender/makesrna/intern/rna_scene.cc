@@ -2872,16 +2872,6 @@ static void rna_Scene_paper_texture_set(PointerRNA *ptr,
   ondine->paper_texture = (Image *)id;
 }
 
-static void rna_Scene_paper_texture_inverted_set(PointerRNA *ptr,
-                                                 PointerRNA value,
-                                                 ReportList * /*reports*/)
-{
-  SceneOndine *ondine = (SceneOndine *)ptr->data;
-  ID *id = (ID *)value.data;
-  id_us_plus(id);
-  ondine->paper_texture_inverted = (Image *)id;
-}
-
 #  ifdef WITH_FFMPEG
 /* FFMpeg Codec setting update hook. */
 static void rna_FFmpegSettings_codec_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
@@ -8310,16 +8300,10 @@ static void rna_def_scene_ondine(BlenderRNA *brna)
   RNA_def_property_pointer_funcs(prop, nullptr, "rna_Scene_paper_texture_set", nullptr, nullptr);
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
-  RNA_def_property_ui_text(prop, "Paper Texture", "");
-  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
-
-  prop = RNA_def_property(srna, "paper_texture_inverted", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "paper_texture_inverted");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, "rna_Scene_paper_texture_inverted_set", nullptr, nullptr);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
-  RNA_def_property_ui_text(prop, "Inverted Paper Texture", "");
+  RNA_def_property_ui_text(
+      prop,
+      "Paper Texture",
+      "An image (e.g. a paper texture) that is placed in the background of the render");
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, nullptr);
 }
 
