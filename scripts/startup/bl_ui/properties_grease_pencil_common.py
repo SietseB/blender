@@ -591,7 +591,7 @@ class GreasePencilMaterialsPanel:
                     row.operator("grease_pencil.stroke_material_set", text="Assign")
                 elif not is_grease_pencil_version3 and ob.data.use_stroke_edit_mode:
                     row = layout.row(align=True)
-                    row.operator("gpencil.stroke_material_set", text="Assign")
+                    row.operator("gpencil.material_set", text="Assign")
                     row.operator("gpencil.material_select", text="Select").deselect = False
                     row.operator("gpencil.material_select", text="Deselect").deselect = True
         # stroke color
@@ -835,48 +835,13 @@ class GreasePencilLayerEdgeDarkeningPanel:
 
         layout = self.layout
         layout.use_property_split = True
-        layout.enabled = not(gpl.use_texture and gpl.texture_image is not None) and gpl.stroke_dryness == 0
+        layout.enabled = gpl.stroke_dryness == 0
         col = layout.column(align=True)
         col.prop(gpl, "stroke_darkened_edge_width", slider=True, text="Stroke")
         col.prop(gpl, "layer_darkened_edge_width", slider=True, text="Layer")
         col.prop(gpl, "darkened_edge_width_var", slider=True, text="Variation")
         col.prop(gpl, "darkened_edge_intensity", slider=True, text="Intensity")
 
-
-class GreasePencilLayerTexturePanel:
-    def draw_header(self, context):
-        ob = context.active_object
-        gpd = ob.data
-        gpl = gpd.layers.active
-
-        self.layout.prop(gpl, "use_texture", text="")
-
-    def draw(self, context):
-        ob = context.active_object
-        gpd = ob.data
-        gpl = gpd.layers.active
-
-        layout = self.layout
-        layout.use_property_split = True
-        layout.enabled = gpl.use_texture
-
-        row = layout.row(align=True)
-        col = row.column(align=True)
-        col.label(text="Texture Image")
-        col.template_ID(gpl, "texture_image", open="image.open")
-
-        layout.separator(factor=0.2)
-        col = layout.column()
-        col.enabled = gpl.texture_image is not None
-        col.prop(gpl, "texture_density", slider=True)
-        col.prop(gpl, "texture_scale", slider=True)
-        col.prop(gpl, "texture_angle", slider=True)
-        col.prop(gpl, "texture_mirror_angle")
-        col.separator()
-        col.prop(gpl, "texture_scale_variation", slider=True)
-        col.prop(gpl, "texture_angle_variation", slider=True)
-        col.prop(gpl, "texture_pos_seed")
-            
 
 class GreasePencilLayerMasksPanel:
     def draw_header(self, context):

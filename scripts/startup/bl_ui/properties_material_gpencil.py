@@ -160,15 +160,24 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
                 col = row.column(align=True)
                 col.template_ID(gpcolor, "stroke_image", open="image.open")
 
-            if gpcolor.stroke_style == 'TEXTURE':
-                row = col.row()
-                row.prop(gpcolor, "mix_stroke_factor", text="Blend", slider=True)
+                col = layout.column()
+                col.enabled = not gpcolor.lock
+                col.prop(gpcolor, "mix_stroke_factor", text="Blend", slider=True)
+                col.prop(gpcolor, "texture_density", slider=True)
+                
                 if gpcolor.mode == 'LINE':
                     col.prop(gpcolor, "pixel_size", text="UV Factor")
 
+            layout.separator()
+            col = layout.column()
+            col.enabled = not gpcolor.lock
+            
             if gpcolor.mode in {'DOTS', 'BOX'}:
                 col.prop(gpcolor, "alignment_mode")
-                col.prop(gpcolor, "alignment_rotation")
+                
+            if gpcolor.stroke_style == 'TEXTURE':
+                col.prop(gpcolor, "alignment_rotation", text="Angle")
+                col.prop(gpcolor, "texture_angle_variation")
 
             if gpcolor.mode == 'LINE':
                 col.prop(gpcolor, "use_overlap_strokes")

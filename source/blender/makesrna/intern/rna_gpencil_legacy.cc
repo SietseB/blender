@@ -1244,17 +1244,6 @@ static bool rna_stroke_has_edit_curve_get(PointerRNA *ptr)
   return false;
 }
 
-static void rna_Gpencil_texture_image_set(PointerRNA *ptr,
-                                          PointerRNA value,
-                                          ReportList * /*reports*/)
-{
-  bGPDlayer *gpl = (bGPDlayer *)ptr->data;
-  ID *id = (ID *)value.data;
-
-  id_us_plus(id);
-  gpl->texture_image = (Image *)id;
-}
-
 static void rna_GPencilMorphTarget_name_set(PointerRNA *ptr, const char *value)
 {
   bGPdata *gpd = (bGPdata *)ptr->owner_id;
@@ -2952,93 +2941,6 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Color Variation", "Degree of color variation in strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /** Stroke texture */
-  /* use texture for strokes */
-  prop = RNA_def_property(srna, "use_texture", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "ondine_flag", GP_LAYER_ONDINE_USE_STROKE_TEXTURE);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(
-      prop, "Use Texture", "Use a texture image to draw strokes on this layer");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* stroke texture image */
-  prop = RNA_def_property(srna, "texture_image", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "texture_image");
-  RNA_def_property_pointer_funcs(prop, nullptr, "rna_Gpencil_texture_image_set", nullptr, nullptr);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
-  RNA_def_property_ui_text(prop, "Image", "");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* density */
-  prop = RNA_def_property(srna, "texture_density", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "texture_density");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
-  RNA_def_property_float_default(prop, 0.5f);
-  RNA_def_property_ui_text(prop, "Density", "Density of the texture stencils");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* scale */
-  prop = RNA_def_property(srna, "texture_scale", PROP_FLOAT, PROP_PERCENTAGE);
-  RNA_def_property_float_sdna(prop, nullptr, "texture_scale");
-  RNA_def_property_range(prop, 0.0f, 100.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 100.0f, 1.0f, 0);
-  RNA_def_property_float_default(prop, 50.0f);
-  RNA_def_property_ui_text(prop, "Scale", "Scale of the texture stencils");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* scale variation */
-  prop = RNA_def_property(srna, "texture_scale_variation", PROP_FLOAT, PROP_PERCENTAGE);
-  RNA_def_property_float_sdna(prop, nullptr, "texture_scale_variation");
-  RNA_def_property_range(prop, 0.0f, 50.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 50.0f, 1.0f, 0);
-  RNA_def_property_float_default(prop, 5.0f);
-  RNA_def_property_ui_text(
-      prop, "Scale Variation", "Random variation of the scale of the texture stencils");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* angle */
-  prop = RNA_def_property(srna, "texture_angle", PROP_FLOAT, PROP_ANGLE);
-  RNA_def_property_float_sdna(prop, nullptr, "texture_angle");
-  RNA_def_property_range(prop, 0.0f, DEG2RADF(180.0f));
-  RNA_def_property_ui_range(prop, 0.0f, DEG2RADF(180.0f), 0.1f, 1);
-  RNA_def_property_float_default(prop, 0.0f);
-  RNA_def_property_ui_text(prop, "Angle", "Angle along the stroke axis of the texture stencils");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* angle variation */
-  prop = RNA_def_property(srna, "texture_angle_variation", PROP_FLOAT, PROP_ANGLE);
-  RNA_def_property_float_sdna(prop, nullptr, "texture_angle_variation");
-  RNA_def_property_range(prop, 0.0f, DEG2RADF(90.0f));
-  RNA_def_property_ui_range(prop, 0.0f, DEG2RADF(90.0f), 0.1f, 1);
-  RNA_def_property_float_default(prop, 0.0f);
-  RNA_def_property_ui_text(prop, "Angle Variation", "Random variation of the texture angle");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* mirror angle */
-  prop = RNA_def_property(srna, "texture_mirror_angle", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "ondine_flag", GP_LAYER_ONDINE_STROKE_TEXTURE_MIRROR_ANGLE);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(
-      prop,
-      "Mirror Angle",
-      "Mirror the angle around the stroke axis for 50% of the texture stencils");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* position seed */
-  prop = RNA_def_property(srna, "texture_pos_seed", PROP_INT, PROP_NONE);
-  RNA_def_property_int_sdna(prop, nullptr, "texture_pos_seed");
-  RNA_def_property_range(prop, 0, SHRT_MAX);
-  RNA_def_property_int_default(prop, 0);
-  RNA_def_property_ui_text(
-      prop,
-      "Position Seed",
-      "Seed for the random position of the texture stencils along the stroke");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-  /** Stroke texture end */
 
   /* Layers API */
   func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");

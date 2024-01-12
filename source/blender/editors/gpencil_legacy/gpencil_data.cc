@@ -603,12 +603,6 @@ static int gpencil_layer_duplicate_object_exec(bContext *C, wmOperator *op)
       gpl_dst->brush_jitter = gpl_src->brush_jitter;
       gpl_dst->watercolor_alpha_variation = gpl_src->watercolor_alpha_variation;
       gpl_dst->watercolor_color_variation = gpl_src->watercolor_color_variation;
-      gpl_dst->texture_image = gpl_src->texture_image;
-      gpl_dst->texture_density = gpl_src->texture_density;
-      gpl_dst->texture_scale = gpl_src->texture_scale;
-      gpl_dst->texture_angle = gpl_src->texture_angle;
-      gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
-      gpl_dst->texture_pos_seed = gpl_src->texture_pos_seed;
 
       /* Create all frames. */
       LISTBASE_FOREACH (bGPDframe *, gpf_src, &gpl_src->frames) {

@@ -10,7 +10,6 @@ from bpy.types import (
 )
 
 from bl_ui.properties_grease_pencil_common import (
-    GreasePencilLayerTexturePanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
     GreasePencilLayerAdjustmentsPanel,
@@ -853,7 +852,6 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
 
             if gpd.watercolor:
                 layout.use_property_split = False
-                no_texture_image = not(gpl.use_texture and gpl.texture_image is not None)
                 
                 row = layout.row()
                 col = row.column()
@@ -866,7 +864,7 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 col = row.column()
                 col.prop(gpl, "gouache_style")
                 col = col.column()
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "scale_pigment_flow")
                 col.prop(gpl, "is_wetted")
                 
@@ -876,25 +874,19 @@ class DOPESHEET_PT_gpencil_mode(LayersDopeSheetPanel, Panel):
                 col.prop(gpl, "opacity", text="Opacity", slider=True)
                 sub = layout.grid_flow(columns=1, align=True)
                 col = sub.column()
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "stroke_wetness", slider=True)
                 col = sub.column()
-                col.enabled = no_texture_image
+                col.enabled = True
                 col.prop(gpl, "stroke_dryness", slider=True)
 
                 layout.separator()
                 col = layout.column(align=True)
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "stroke_darkened_edge_width", slider=True, text="Stroke Edge")
                 col.prop(gpl, "layer_darkened_edge_width", slider=True, text="Layer Edge")
                 col.prop(gpl, "darkened_edge_width_var", slider=True, text="Variation")
                 col.prop(gpl, "darkened_edge_intensity", slider=True, text="Intensity")
-
-
-class DOPESHEET_PT_gpencil_layer_texture(LayersDopeSheetPanel, GreasePencilLayerTexturePanel, Panel):
-    bl_label = "Stroke Texture"
-    bl_parent_id = 'DOPESHEET_PT_gpencil_mode'
-    bl_options = {'DEFAULT_CLOSED'}
 
 
 class DOPESHEET_PT_gpencil_layer_masks(LayersDopeSheetPanel, GreasePencilLayerMasksPanel, Panel):
@@ -947,7 +939,6 @@ classes = (
     DOPESHEET_PT_filters,
     DOPESHEET_PT_action,
     DOPESHEET_PT_gpencil_mode,
-    DOPESHEET_PT_gpencil_layer_texture,
     DOPESHEET_PT_gpencil_layer_masks,
     DOPESHEET_PT_gpencil_layer_transform,
     DOPESHEET_PT_gpencil_layer_adjustments,

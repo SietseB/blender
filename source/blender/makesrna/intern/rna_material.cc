@@ -643,8 +643,8 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
   prop = RNA_def_property(srna, "alignment_rotation", PROP_FLOAT, PROP_ANGLE);
   RNA_def_property_float_sdna(prop, nullptr, "alignment_rotation");
   RNA_def_property_float_default(prop, 0.0f);
-  RNA_def_property_range(prop, -DEG2RADF(90.0f), DEG2RADF(90.0f));
-  RNA_def_property_ui_range(prop, -DEG2RADF(90.0f), DEG2RADF(90.0f), 10, 3);
+  RNA_def_property_range(prop, -DEG2RADF(180.0f), DEG2RADF(180.0f));
+  RNA_def_property_ui_range(prop, -DEG2RADF(180.0f), DEG2RADF(180.0f), 10, 3);
   RNA_def_property_ui_text(prop,
                            "Rotation",
                            "Additional rotation applied to dots and square texture of strokes. "
@@ -719,6 +719,27 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(
       prop, "Is Fill Visible", "True when opacity of fill is set high enough to be visible");
+
+  /* Ondine additions. */
+
+  /* Texture density. */
+  prop = RNA_def_property(srna, "texture_density", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "texture_density");
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_range(prop, 0.0f, 3.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 3.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Density", "Texture Density");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
+
+  /* Texture angle variation. */
+  prop = RNA_def_property(srna, "texture_angle_variation", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_float_sdna(prop, nullptr, "texture_angle_variation");
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_range(prop, DEG2RADF(0.0f), DEG2RADF(180.0f));
+  RNA_def_property_ui_range(prop, DEG2RADF(0.0f), DEG2RADF(180.0f), 10, 3);
+  RNA_def_property_ui_text(
+      prop, "Angle Variation", "Amount of random variation in the angle of the stroke texture");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
 }
 static void rna_def_material_lineart(BlenderRNA *brna)
 {

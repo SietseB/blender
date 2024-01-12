@@ -8,7 +8,6 @@ from rna_prop_ui import PropertyPanel
 
 from bl_ui.properties_grease_pencil_common import (
     GreasePencilLayerEdgeDarkeningPanel,
-    GreasePencilLayerTexturePanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
     GreasePencilLayerAdjustmentsPanel,
@@ -177,7 +176,6 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
             if gpd.watercolor:
                 layout.use_property_split = False
-                no_texture_image = not(gpl.use_texture and gpl.texture_image is not None)
                 
                 row = layout.row()
                 col = row.column()
@@ -190,7 +188,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col = row.column()
                 col.prop(gpl, "gouache_style")
                 col = col.column()
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "scale_pigment_flow")
                 col.prop(gpl, "is_wetted")
                 
@@ -204,27 +202,16 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 
                 sub = layout.grid_flow(columns=1, align=True)
                 col = sub.column()
-                col.enabled = (gpl.stroke_dryness == 0 and no_texture_image)
+                col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "stroke_wetness", slider=True)
                 col = sub.column()
-                col.enabled = no_texture_image
+                col.enabled = True
                 col.prop(gpl, "stroke_dryness", slider=True)
 
 
 class DATA_PT_gpencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePencilLayerEdgeDarkeningPanel, Panel):
     bl_label = "Edge Darkening"
     bl_parent_id = "DATA_PT_gpencil_layers"
-
-    @classmethod
-    def poll(cls, context):
-        gpencil = context.gpencil
-        return gpencil and gpencil.layers.active and gpencil.watercolor
-
-
-class DATA_PT_gpencil_layer_texture(LayerDataButtonsPanel, GreasePencilLayerTexturePanel, Panel):
-    bl_label = "Stroke Texture"
-    bl_parent_id = "DATA_PT_gpencil_layers"
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -555,7 +542,6 @@ classes = (
     DATA_PT_gpencil_onion_skinning_custom_colors,
     DATA_PT_gpencil_onion_skinning_display,
     DATA_PT_gpencil_layer_edge_darkening,
-    DATA_PT_gpencil_layer_texture,
     DATA_PT_gpencil_layer_masks,
     DATA_PT_gpencil_layer_transform,
     DATA_PT_gpencil_layer_adjustments,

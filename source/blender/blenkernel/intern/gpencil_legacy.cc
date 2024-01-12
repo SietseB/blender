@@ -138,7 +138,6 @@ static void greasepencil_foreach_id(ID *id, LibraryForeachIDData *data)
 
   LISTBASE_FOREACH (bGPDlayer *, gplayer, &gpencil->layers) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, gplayer->parent, IDWALK_CB_NOP);
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, gplayer->texture_image, IDWALK_CB_USER);
   }
 }
 
@@ -737,10 +736,6 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd,
     gpl->darkened_edge_intensity = 0.8f;
     gpl->watercolor_alpha_variation = 1.0f;
     gpl->watercolor_color_variation = 1.0f;
-    gpl->texture_density = 0.5f;
-    gpl->texture_image = nullptr;
-    gpl->texture_scale = 50.0f;
-    gpl->texture_scale_variation = 5.0f;
   }
 
   /* auto-name */
@@ -1173,12 +1168,6 @@ void BKE_gpencil_layer_copy_settings(const bGPDlayer *gpl_src, bGPDlayer *gpl_ds
   gpl_dst->brush_jitter = gpl_src->brush_jitter;
   gpl_dst->watercolor_alpha_variation = gpl_src->watercolor_alpha_variation;
   gpl_dst->watercolor_color_variation = gpl_src->watercolor_color_variation;
-  gpl_dst->texture_image = gpl_src->texture_image;
-  gpl_dst->texture_density = gpl_src->texture_density;
-  gpl_dst->texture_scale = gpl_src->texture_scale;
-  gpl_dst->texture_angle = gpl_src->texture_angle;
-  gpl_dst->texture_angle_variation = gpl_src->texture_angle_variation;
-  gpl_dst->texture_pos_seed = gpl_src->texture_pos_seed;
 }
 
 void BKE_gpencil_frame_copy_settings(const bGPDframe *gpf_src, bGPDframe *gpf_dst)

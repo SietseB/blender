@@ -688,15 +688,6 @@ typedef struct bGPDlayer {
   float watercolor_color_variation;
   float watercolor_alpha_variation;
 
-  /** Stroke texture */
-  struct Image *texture_image;
-  float texture_density;
-  float texture_scale;
-  float texture_scale_variation;
-  float texture_angle;
-  float texture_angle_variation;
-  int texture_pos_seed;
-
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
    * well! */
 
