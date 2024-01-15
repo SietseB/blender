@@ -178,6 +178,7 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
             if gpcolor.stroke_style == 'TEXTURE':
                 col.prop(gpcolor, "alignment_rotation", text="Angle")
                 col.prop(gpcolor, "texture_angle_variation")
+                col.prop(gpcolor, "smooth_texture")
 
             if gpcolor.mode == 'LINE':
                 col.prop(gpcolor, "use_overlap_strokes")

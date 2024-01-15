@@ -104,6 +104,8 @@ typedef struct MaterialGPencilStyle {
   /* Ondine additions for stroke textures. */
   float texture_density;
   float texture_angle_variation;
+  int ondine_flag;
+  char _pad[4];
 } MaterialGPencilStyle;
 
 /* MaterialGPencilStyle->flag */
@@ -137,6 +139,11 @@ typedef enum eMaterialGPencilStyle_Flag {
   /* Material used as fill masking. */
   GP_MATERIAL_IS_FILL_HOLDOUT = (1 << 14),
 } eMaterialGPencilStyle_Flag;
+
+/* MaterialGPencilStyle->flag */
+typedef enum eMaterialGPencilOndineStyle_Flag {
+  GP_MATERIAL_ONDINE_SMOOTH_TEXTURE = (1 << 0),
+} eMaterialGPencilOndineStyle_Flag;
 
 typedef enum eMaterialGPencilStyle_Mode {
   GP_MATERIAL_MODE_LINE = 0,

@@ -221,16 +221,14 @@ float GpencilOndine::stroke_point_radius_get(bGPDstroke *gps,
 
 void GpencilOndine::get_vertex_color(const bGPDlayer *gpl,
                                      const MaterialGPencilStyle *gp_style,
-                                     bGPDstroke *gps,
-                                     const int point_index,
-                                     float *color)
+                                     const bGPDspoint &point,
+                                     const bool use_texture,
+                                     float *r_color)
 {
+  const float vertex_factor = use_texture ? gp_style->mix_stroke_factor : point.vert_color[3];
   copy_v4_v4(stroke_color_, gp_style->stroke_rgba);
-  interp_v3_v3v3(stroke_color_,
-                 stroke_color_,
-                 gps->points[point_index].vert_color,
-                 gps->points[point_index].vert_color[3]);
-  interp_v3_v3v3(color, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
+  interp_v3_v3v3(stroke_color_, stroke_color_, point.vert_color, vertex_factor);
+  interp_v3_v3v3(r_color, stroke_color_, gpl->tintcolor, gpl->tintcolor[3]);
 }
 
 void GpencilOndine::set_stroke_color(const bGPDlayer *gpl,
@@ -315,6 +313,8 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
                                (gp_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
       const bool has_fill = ((gp_style->flag & GP_MATERIAL_FILL_SHOW) &&
                              (gp_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH));
+      const bool use_texture = (gp_style->stroke_style == GP_MATERIAL_STROKE_STYLE_TEXTURE &&
+                                gp_style->sima != nullptr && !has_fill);
 
       gps->runtime.render_flag = 0;
       if (has_stroke) {
@@ -368,7 +368,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         pt_2d.data[ONDINE_STRENGTH] = pt.strength;
 
         /* Set vertex color. */
-        get_vertex_color(gpl, gp_style, gps, i, &pt_2d.data[ONDINE_COLOR]);
+        get_vertex_color(gpl, gp_style, gps->points[i], use_texture, &pt_2d.data[ONDINE_COLOR]);
 
         /* Get distance to camera.
          * Somehow we have to apply the object world matrix here again, I don't know why... */

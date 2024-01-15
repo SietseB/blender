@@ -25,9 +25,9 @@ class GpencilOndine {
                         const MaterialGPencilStyle *gp_style);
   void get_vertex_color(const bGPDlayer *gpl,
                         const MaterialGPencilStyle *gp_style,
-                        bGPDstroke *gps,
-                        const int point_index,
-                        float *color);
+                        const bGPDspoint &point,
+                        const bool use_texture,
+                        float *r_color);
   float stroke_point_radius_get(bGPDstroke *gps, const int p_index, const float thickness);
   float2 gpencil_3D_point_to_2D(const float3 co);
   void set_unique_stroke_seeds(bContext *C);

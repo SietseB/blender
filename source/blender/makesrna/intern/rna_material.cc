@@ -631,6 +631,13 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Show Fill", "Show stroke fills of this material");
   RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
 
+  /* Ondine flags. */
+  prop = RNA_def_property(srna, "smooth_texture", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "ondine_flag", GP_MATERIAL_ONDINE_SMOOTH_TEXTURE);
+  RNA_def_property_ui_text(
+      prop, "Smooth", "Apply an average smoothing on strokes with this material");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
+
   /* Mode to align Dots and Boxes to drawing path and object rotation */
   prop = RNA_def_property(srna, "alignment_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_bitflag_sdna(prop, nullptr, "alignment_mode");
@@ -726,8 +733,8 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
   prop = RNA_def_property(srna, "texture_density", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "texture_density");
   RNA_def_property_float_default(prop, 1.0f);
-  RNA_def_property_range(prop, 0.0f, 3.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 3.0f, 0.05f, 2);
+  RNA_def_property_range(prop, 0.0f, 5.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 5.0f, 0.05f, 2);
   RNA_def_property_ui_text(prop, "Density", "Texture Density");
   RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
 
