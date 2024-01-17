@@ -75,9 +75,12 @@
 static bool blo_is_builtin_template(const char *app_template)
 {
   /* For all builtin templates shipped with Blender. */
-  return (
-      !app_template ||
-      STR_ELEM(app_template, N_("2D_Animation"), N_("Sculpting"), N_("VFX"), N_("Video_Editing")));
+  return (!app_template || STR_ELEM(app_template,
+                                    N_("2D_Animation"),
+                                    N_("2D_Ondine"),
+                                    N_("Sculpting"),
+                                    N_("VFX"),
+                                    N_("Video_Editing")));
 }
 
 static void blo_update_defaults_screen(bScreen *screen,
@@ -236,7 +239,7 @@ static void blo_update_defaults_screen(bScreen *screen,
   }
 
   /* 2D animation template. */
-  if (app_template && STREQ(app_template, "2D_Animation")) {
+  if (app_template && STR_ELEM(app_template, "2D_Animation", "2D_Ondine")) {
     LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
       if (area->spacetype == SPACE_ACTION) {
         SpaceAction *saction = static_cast<SpaceAction *>(area->spacedata.first);
@@ -430,7 +433,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     }
 
     /* Rename and fix materials and enable default object lights on. */
-    if (app_template && STREQ(app_template, "2D_Animation")) {
+    if (app_template && STR_ELEM(app_template, "2D_Animation", "2D_Ondine")) {
       Material *ma = nullptr;
       do_versions_rename_id(bmain, ID_MA, "Black", "Solid Stroke");
       do_versions_rename_id(bmain, ID_MA, "Red", "Squares Stroke");
@@ -438,20 +441,22 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       do_versions_rename_id(bmain, ID_MA, "Black Dots", "Dots Stroke");
 
       /* Dots Stroke. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Dots Stroke", offsetof(ID, name) + 2));
-      if (ma == nullptr) {
-        ma = BKE_gpencil_material_add(bmain, "Dots Stroke");
-      }
-      ma->gp_style->mode = GP_MATERIAL_MODE_DOT;
+      if (STREQ(app_template, "2D_Animation")) {
+        ma = static_cast<Material *>(
+            BLI_findstring(&bmain->materials, "Dots Stroke", offsetof(ID, name) + 2));
+        if (ma == nullptr) {
+          ma = BKE_gpencil_material_add(bmain, "Dots Stroke");
+        }
+        ma->gp_style->mode = GP_MATERIAL_MODE_DOT;
 
-      /* Squares Stroke. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Squares Stroke", offsetof(ID, name) + 2));
-      if (ma == nullptr) {
-        ma = BKE_gpencil_material_add(bmain, "Squares Stroke");
+        /* Squares Stroke. */
+        ma = static_cast<Material *>(
+            BLI_findstring(&bmain->materials, "Squares Stroke", offsetof(ID, name) + 2));
+        if (ma == nullptr) {
+          ma = BKE_gpencil_material_add(bmain, "Squares Stroke");
+        }
+        ma->gp_style->mode = GP_MATERIAL_MODE_SQUARE;
       }
-      ma->gp_style->mode = GP_MATERIAL_MODE_SQUARE;
 
       /* Change Solid Stroke settings. */
       ma = static_cast<Material *>(
@@ -550,7 +555,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
     blo_update_defaults_scene(bmain, scene);
 
-    if (app_template && STR_ELEM(app_template, "Video_Editing", "2D_Animation")) {
+    if (app_template && STR_ELEM(app_template, "Video_Editing", "2D_Animation", "2D_Ondine")) {
       /* Filmic is too slow, use standard until it is optimized. */
       STRNCPY(scene->view_settings.view_transform, "Standard");
       STRNCPY(scene->view_settings.look, "None");
@@ -571,7 +576,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     }
 
     /* Change default selection mode for Grease Pencil. */
-    if (app_template && STREQ(app_template, "2D_Animation")) {
+    if (app_template && STR_ELEM(app_template, "2D_Animation", "2D_Ondine")) {
       ToolSettings *ts = scene->toolsettings;
       ts->gpencil_selectmode_edit = GP_SELECTMODE_STROKE;
     }
@@ -581,7 +586,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   do_versions_rename_id(bmain, ID_OB, "Lamp", "Light");
   do_versions_rename_id(bmain, ID_LA, "Lamp", "Light");
 
-  if (app_template && STREQ(app_template, "2D_Animation")) {
+  if (app_template && STR_ELEM(app_template, "2D_Animation", "2D_Ondine")) {
     LISTBASE_FOREACH (Object *, object, &bmain->objects) {
       if (object->type == OB_GPENCIL_LEGACY) {
         /* Set grease pencil object in drawing mode */
