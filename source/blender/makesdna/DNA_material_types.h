@@ -105,6 +105,8 @@ typedef struct MaterialGPencilStyle {
   float texture_density;
   float texture_angle_variation;
   int ondine_flag;
+  float ondine_gradient_scale[2];
+  float ondine_gradient_offset[2];
   char _pad[4];
 } MaterialGPencilStyle;
 

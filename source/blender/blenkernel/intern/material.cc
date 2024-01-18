@@ -273,6 +273,8 @@ void BKE_gpencil_material_attr_init(Material *ma)
     gp_style->texture_pixsize = 100.0f;
     gp_style->mix_factor = 0.5f;
     gp_style->texture_density = 1.0f;
+    ARRAY_SET_ITEMS(gp_style->ondine_gradient_offset, 0.0f, 0.0f);
+    ARRAY_SET_ITEMS(gp_style->ondine_gradient_scale, 1.0f, 1.0f);
 
     gp_style->flag |= GP_MATERIAL_STROKE_SHOW;
   }

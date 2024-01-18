@@ -246,7 +246,10 @@ void GpencilOndine::set_stroke_color(const bGPDlayer *gpl,
 
   /* Get fill color. */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);
-  interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, gps->vert_color_fill[3]);
+  const float vertex_factor = (gp_style->fill_style == GP_MATERIAL_FILL_STYLE_GRADIENT) ?
+                                  gp_style->mix_factor :
+                                  gps->vert_color_fill[3];
+  interp_v3_v3v3(fill_color_, fill_color_, gps->vert_color_fill, vertex_factor);
   interp_v3_v3v3(color, fill_color_, gpl->tintcolor, gpl->tintcolor[3]);
   copy_v3_v3(gps->runtime.render_fill_color, color);
   gps->runtime.render_fill_opacity = fill_color_[3] * gpl->opacity;

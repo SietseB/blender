@@ -747,6 +747,25 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Angle Variation", "Amount of random variation in the angle of the stroke texture");
   RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
+
+  /* Scale factor for gradient. */
+  prop = RNA_def_property(srna, "ondine_gradient_scale", PROP_FLOAT, PROP_COORDS);
+  RNA_def_property_float_sdna(prop, nullptr, "ondine_gradient_scale");
+  RNA_def_property_array(prop, 2);
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_range(prop, 0.0f, 10.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 10.0f, 1.0f, 3);
+  RNA_def_property_ui_text(prop, "Scale", "Scale factor for the gradient in Ondine render");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
+
+  /* Position factor for gradient. */
+  prop = RNA_def_property(srna, "ondine_gradient_offset", PROP_FLOAT, PROP_COORDS);
+  RNA_def_property_float_sdna(prop, nullptr, "ondine_gradient_offset");
+  RNA_def_property_array(prop, 2);
+  RNA_def_property_range(prop, -10.0f, 10.0f);
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
+  RNA_def_property_ui_text(prop, "Offset", "Position offset for the gradient in Ondine render");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
 }
 static void rna_def_material_lineart(BlenderRNA *brna)
 {

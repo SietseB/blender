@@ -161,9 +161,10 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
             col.prop(gpcolor, "stroke_style", text="Style")
 
             col.prop(gpcolor, "color", text="Base Color")
-            col.prop(gpcolor, "use_stroke_holdout")
 
             if gpcolor.stroke_style == 'TEXTURE':
+                layout.separator()
+                col = layout.column()
                 row = col.row()
                 row.enabled = not gpcolor.lock
                 col = row.column(align=True)
@@ -173,24 +174,41 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
                 col.enabled = not gpcolor.lock
                 col.prop(gpcolor, "mix_stroke_factor", text="Blend", slider=True)
                 col.prop(gpcolor, "texture_density", slider=True)
-                
-                if gpcolor.mode == 'LINE':
-                    col.prop(gpcolor, "pixel_size", text="UV Factor")
 
-            layout.separator()
-            col = layout.column()
-            col.enabled = not gpcolor.lock
-            
-            if gpcolor.mode in {'DOTS', 'BOX'}:
-                col.prop(gpcolor, "alignment_mode")
-                
-            if gpcolor.stroke_style == 'TEXTURE':
+                col.separator()
                 col.prop(gpcolor, "alignment_rotation", text="Angle")
                 col.prop(gpcolor, "texture_angle_variation")
                 col.prop(gpcolor, "smooth_texture")
 
-            if gpcolor.mode == 'LINE':
-                col.prop(gpcolor, "use_overlap_strokes")
+
+class MATERIAL_PT_gpencil_strokecolor_default(GPMaterialButtonsPanel, Panel):
+    bl_label = "Default Render"
+    bl_parent_id = "MATERIAL_PT_gpencil_strokecolor"
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        
+        ma = context.material
+        if ma is None or ma.grease_pencil is None:
+            return
+        
+        gpcolor = ma.grease_pencil
+        
+        col = layout.column()
+        col.enabled = not gpcolor.lock
+        
+        if gpcolor.mode in {'DOTS', 'BOX'}:
+            col.prop(gpcolor, "alignment_mode")
+            
+        if gpcolor.stroke_style == 'TEXTURE' and gpcolor.mode == 'LINE':
+            col.prop(gpcolor, "pixel_size", text="UV Factor")
+        
+        col.prop(gpcolor, "use_stroke_holdout")
+
+        if gpcolor.mode == 'LINE':
+            col.prop(gpcolor, "use_overlap_strokes")
 
 
 class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
@@ -217,29 +235,85 @@ class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
 
         if gpcolor.fill_style == 'SOLID':
             col.prop(gpcolor, "fill_color", text="Base Color")
-            col.prop(gpcolor, "use_fill_holdout")
 
         elif gpcolor.fill_style == 'GRADIENT':
             col.prop(gpcolor, "gradient_type")
 
             col.prop(gpcolor, "fill_color", text="Base Color")
             col.prop(gpcolor, "mix_color", text="Secondary Color")
-            col.prop(gpcolor, "use_fill_holdout")
             col.prop(gpcolor, "mix_factor", text="Blend", slider=True)
             col.prop(gpcolor, "flip", text="Flip Colors")
 
+
+class MATERIAL_PT_gpencil_fillcolor_ondine(GPMaterialButtonsPanel, Panel):
+    bl_label = "Ondine Render"
+    bl_parent_id = "MATERIAL_PT_gpencil_fillcolor"
+    
+    @classmethod
+    def poll(cls, context):
+        ma = context.material
+        if ma is None or ma.grease_pencil is None:
+            return False
+        gpcolor = ma.grease_pencil
+        return gpcolor.fill_style == 'GRADIENT'
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        
+        ma = context.material
+        gpcolor = ma.grease_pencil
+        
+        col = layout.column()
+        col.enabled = not gpcolor.lock
+
+        if gpcolor.fill_style == 'GRADIENT':
+            if gpcolor.gradient_type == 'LINEAR':
+                col.prop(gpcolor, "texture_angle", text="Rotation")
+                
+                col = layout.column(align=True)
+                col.enabled = not gpcolor.lock
+                col.prop(gpcolor, "ondine_gradient_offset", text="Base Offset", index=0)
+                col.prop(gpcolor, "ondine_gradient_offset", text="Secondary", index=1)
+            else:
+                col.prop(gpcolor, "ondine_gradient_offset", text="Offset")
+                col.prop(gpcolor, "ondine_gradient_scale", text="Scale")
+
+        
+class MATERIAL_PT_gpencil_fillcolor_default(GPMaterialButtonsPanel, Panel):
+    bl_label = "Default Render"
+    bl_parent_id = "MATERIAL_PT_gpencil_fillcolor"
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        
+        ma = context.material
+        if ma is None or ma.grease_pencil is None:
+            return
+        
+        gpcolor = ma.grease_pencil
+        
+        col = layout.column()
+        col.enabled = not gpcolor.lock
+        
+        if gpcolor.fill_style == 'GRADIENT':
             col.prop(gpcolor, "texture_offset", text="Location")
 
             row = col.row()
             row.enabled = gpcolor.gradient_type == 'LINEAR'
             row.prop(gpcolor, "texture_angle", text="Rotation")
-
             col.prop(gpcolor, "texture_scale", text="Scale")
+            col.prop(gpcolor, "use_fill_holdout")
+
+        elif gpcolor.fill_style == 'SOLID':
+            col.prop(gpcolor, "use_fill_holdout")
 
         elif gpcolor.fill_style == 'TEXTURE':
             col.prop(gpcolor, "fill_color", text="Base Color")
             col.prop(gpcolor, "use_fill_holdout")
-
+            
+            col.separator()
             col.template_ID(gpcolor, "fill_image", open="image.open")
 
             col.prop(gpcolor, "mix_factor", text="Blend", slider=True)
@@ -296,7 +370,10 @@ classes = (
     MATERIAL_PT_gpencil_material_presets,
     MATERIAL_PT_gpencil_surface,
     MATERIAL_PT_gpencil_strokecolor,
+    MATERIAL_PT_gpencil_strokecolor_default,
     MATERIAL_PT_gpencil_fillcolor,
+    MATERIAL_PT_gpencil_fillcolor_ondine,
+    MATERIAL_PT_gpencil_fillcolor_default,
     MATERIAL_PT_gpencil_settings,
     MATERIAL_PT_gpencil_custom_props,
 )
