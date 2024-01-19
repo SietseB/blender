@@ -2925,9 +2925,9 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* watercolor alpha variation */
   prop = RNA_def_property(srna, "watercolor_alpha_variation", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "watercolor_alpha_variation");
-  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_range(prop, 0, 3.0f);
   RNA_def_property_float_default(prop, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_range(prop, 0.0f, 3.0f, 0.05f, 2);
   RNA_def_property_ui_text(
       prop, "Alpha Variation", "Degree of alpha variation in strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
@@ -2935,9 +2935,9 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   /* watercolor color variation */
   prop = RNA_def_property(srna, "watercolor_color_variation", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "watercolor_color_variation");
-  RNA_def_property_range(prop, 0, 2.0f);
+  RNA_def_property_range(prop, 0, 3.0f);
   RNA_def_property_float_default(prop, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.05f, 2);
+  RNA_def_property_ui_range(prop, 0.0f, 3.0f, 0.05f, 2);
   RNA_def_property_ui_text(
       prop, "Color Variation", "Degree of color variation in strokes and fills");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
