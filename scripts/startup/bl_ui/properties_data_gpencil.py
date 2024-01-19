@@ -109,7 +109,6 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        # layout.use_property_split = True
         layout.use_property_decorate = False
 
         gpd = context.gpencil
@@ -223,6 +222,24 @@ class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksP
     bl_label = "Masks"
     bl_parent_id = "DATA_PT_gpencil_layers"
     bl_options = {'DEFAULT_CLOSED'}
+
+
+class DATA_PT_gpencil_layer_default_render(LayerDataButtonsPanel, Panel):
+    bl_label = "Default Render"
+    bl_parent_id = "DATA_PT_gpencil_layers"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = True
+
+        gpd = context.gpencil
+        gpl = gpd.layers.active
+        
+        col = layout.column()
+        col.prop(gpl, "blend_mode")
+        col.prop(gpl, "use_lights")
 
 
 class DATA_PT_gpencil_layer_transform(LayerDataButtonsPanel, GreasePencilLayerTransformPanel, Panel):
@@ -543,6 +560,7 @@ classes = (
     DATA_PT_gpencil_onion_skinning_display,
     DATA_PT_gpencil_layer_edge_darkening,
     DATA_PT_gpencil_layer_masks,
+    DATA_PT_gpencil_layer_default_render,
     DATA_PT_gpencil_layer_transform,
     DATA_PT_gpencil_layer_adjustments,
     DATA_PT_gpencil_layer_relations,
