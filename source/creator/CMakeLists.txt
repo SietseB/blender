@@ -1701,6 +1701,17 @@ endif()
 
 
 # -----------------------------------------------------------------------------
+# Ondine addon
+
+if(EXISTS ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon)
+  install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon
+    DESTINATION ${TARGETDIR_VER}/scripts/addons
+  )
+endif()
+
+
+# -----------------------------------------------------------------------------
 # Bundle assets
 
 set(ASSET_BUNDLE_DIR ${CMAKE_SOURCE_DIR}/release/datafiles/assets/publish/)

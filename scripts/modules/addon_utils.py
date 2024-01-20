@@ -28,7 +28,12 @@ def _initialize_once():
         _bpy.utils._sys_path_ensure_append(path)
 
     _initialize_extensions_repos_once()
-
+    
+    # Ensure Ondine addon. Hacky to do it here, but it works.
+    if not _preferences.addons.get("ondine_addon"):
+        enable("ondine_addon", default_set=True)
+        print("Enabled: ondine_addon")
+    
     for addon in _preferences.addons:
         enable(addon.module)
 
