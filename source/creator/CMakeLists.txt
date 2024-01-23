@@ -1355,27 +1355,6 @@ elseif(WIN32)
           CONFIGURATIONS Debug
         )
       endif()
-
-      # Python packages for Ondine watercolor addon
-      install(
-        DIRECTORY ${PACKAGES_DIR_FOR_ONDINE}/site-packages
-        DESTINATION ${BLENDER_VERSION}/python/lib
-        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-        PATTERN ".svn" EXCLUDE
-        PATTERN "*_d.*" EXCLUDE                 # * debug libraries *
-        PATTERN "__pycache__" EXCLUDE           # * any cache *
-        PATTERN "*.pyc" EXCLUDE                 # * any cache *
-        PATTERN "*.pyo" EXCLUDE                 # * any cache *
-      )
-      
-      install(
-        DIRECTORY ${PACKAGES_DIR_FOR_ONDINE}/site-packages
-        DESTINATION ${BLENDER_VERSION}/python/lib
-        CONFIGURATIONS Debug
-        PATTERN ".svn" EXCLUDE
-        PATTERN "__pycache__" EXCLUDE           # * any cache *
-        PATTERN "*.pyc" EXCLUDE                 # * any cache *
-        PATTERN "*.pyo" EXCLUDE                 # * any cache *
       )
     endif()
 
