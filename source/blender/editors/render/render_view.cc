@@ -12,8 +12,15 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
+#include "BLI_math_geom.h"
+#include "BLI_math_matrix.h"
+#include "BLI_math_vector.h"
+
 #include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"
+
+#include "RNA_access.hh"
+#include "RNA_define.hh"
 
 #include "BKE_context.hh"
 #include "BKE_global.h"
@@ -34,6 +41,8 @@
 #include "wm_window.hh"
 
 #include "render_intern.hh"
+
+#include "ondine_constants.hh"
 
 /* -------------------------------------------------------------------- */
 /** \name Utilities for Finding Areas
@@ -71,7 +80,10 @@ static ScrArea *biggest_non_image_area(bContext *C)
   return big;
 }
 
-static ScrArea *find_area_showing_render_result(bContext *C, Scene *scene, wmWindow **r_win)
+static ScrArea *find_area_showing_render_result(bContext *C,
+                                                Scene *scene,
+                                                const bool use_ondine,
+                                                wmWindow **r_win)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
   ScrArea *area_render = nullptr;
@@ -87,7 +99,11 @@ static ScrArea *find_area_showing_render_result(bContext *C, Scene *scene, wmWin
     LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
       if (area->spacetype == SPACE_IMAGE) {
         SpaceImage *sima = static_cast<SpaceImage *>(area->spacedata.first);
-        if (sima->image && sima->image->type == IMA_TYPE_R_RESULT) {
+        if (sima->image &&
+            ((!use_ondine && sima->image->type == IMA_TYPE_R_RESULT) ||
+             (use_ondine && std::string(sima->image->id.name) ==
+                                ("IM" + std::string(blender::ondine::ONDINE_RENDER_IMAGE_NAME)))))
+        {
           area_render = area;
           win_render = win;
           break;
@@ -128,7 +144,7 @@ static ScrArea *find_area_image_empty(bContext *C)
 /** \name Open Image Editor for Render
  * \{ */
 
-ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
+ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports, const bool use_ondine)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -141,42 +157,49 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
   }
 
   if (U.render_display_type == USER_RENDER_DISPLAY_WINDOW) {
-    int sizex, sizey;
-    BKE_render_resolution(&scene->r, false, &sizex, &sizey);
+    int sizex, sizey, posx = mx, posy = my;
+    wmWindow *parent_win = CTX_wm_window(C);
 
-    sizex += 30 * UI_SCALE_FAC;
-    sizey += 60 * UI_SCALE_FAC;
-
-    /* arbitrary... miniature image window views don't make much sense */
-    if (sizex < 320) {
-      sizex = 320;
+    if (mx == -1 && my == -1 && U.render_space_data.size_x != 0) {
+      sizex = U.render_space_data.size_x;
+      sizey = U.render_space_data.size_y;
+      posx = U.render_space_data.pos_x + sizex / 2;
+      posy = U.render_space_data.pos_y + sizey / 2;
     }
-    if (sizey < 256) {
-      sizey = 256;
+    else {
+      posx = WM_window_pixels_x(parent_win) / 2;
+      posy = WM_window_pixels_y(parent_win) / 2;
+
+      /* arbitrary... miniature image window views don't make much sense */
+      BKE_render_resolution(&scene->r, false, &sizex, &sizey);
+      sizex = std::max(320, int(sizex + 60 * UI_SCALE_FAC));
+      sizey = std::max(256, int(sizey + 90 * UI_SCALE_FAC));
     }
 
     const rcti window_rect = {
-        /*xmin*/ mx,
-        /*xmax*/ mx + sizex,
-        /*ymin*/ my,
-        /*ymax*/ my + sizey,
+        /*xmin*/ posx,
+        /*xmax*/ posx + sizex,
+        /*ymin*/ posy,
+        /*ymax*/ posy + sizey,
     };
 
     /* changes context! */
-    if (WM_window_open(C,
-                       IFACE_("Blender Render"),
-                       &window_rect,
-                       SPACE_IMAGE,
-                       true,
-                       false,
-                       true,
-                       WIN_ALIGN_LOCATION_CENTER,
-                       nullptr,
-                       nullptr) == nullptr)
-    {
+    wmWindow *render_win = WM_window_open(C,
+                                          IFACE_("Blender Render"),
+                                          &window_rect,
+                                          SPACE_IMAGE,
+                                          true,
+                                          false,
+                                          true,
+                                          WIN_ALIGN_LOCATION_CENTER,
+                                          nullptr,
+                                          nullptr);
+    if (render_win == nullptr) {
       BKE_report(reports, RPT_ERROR, "Failed to open window!");
       return nullptr;
     }
+    render_win->stored_position = &U.render_space_data;
+    render_win->position_parent = parent_win;
 
     area = CTX_wm_area(C);
     if (BLI_listbase_is_single(&area->spacedata) == false) {
@@ -204,7 +227,7 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 
   if (!area) {
     wmWindow *win_show = nullptr;
-    area = find_area_showing_render_result(C, scene, &win_show);
+    area = find_area_showing_render_result(C, scene, use_ondine, &win_show);
     if (area == nullptr) {
       /* No need to set `win_show` as the area selected will be from the active window. */
       area = find_area_image_empty(C);
@@ -247,7 +270,13 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
   sima->link_flag |= SPACE_FLAG_TYPE_TEMPORARY;
 
   /* get the correct image, and scale it */
-  sima->image = BKE_image_ensure_viewer(bmain, IMA_TYPE_R_RESULT, "Render Result");
+  if (use_ondine) {
+    sima->image = BKE_image_ensure_viewer_ondine(
+        bmain, IMA_TYPE_UV_TEST, blender::ondine::ONDINE_RENDER_IMAGE_NAME);
+  }
+  else {
+    sima->image = BKE_image_ensure_viewer(bmain, IMA_TYPE_R_RESULT, "Render Result");
+  }
 
   /* If we're rendering to full screen, set appropriate hints on image editor
    * so it can restore properly on pressing escape. */
@@ -335,9 +364,10 @@ void RENDER_OT_view_cancel(wmOperatorType *ot)
 /** \name Show Render Viewer Operator
  * \{ */
 
-static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   wmWindow *wincur = CTX_wm_window(C);
+  const bool ondine_render = RNA_boolean_get(op->ptr, "ondine");
 
   /* test if we have currently a temp screen active */
   if (WM_window_is_temp_screen(wincur)) {
@@ -345,7 +375,8 @@ static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *e
   }
   else {
     wmWindow *win_show = nullptr;
-    ScrArea *area = find_area_showing_render_result(C, CTX_data_scene(C), &win_show);
+    ScrArea *area = find_area_showing_render_result(
+        C, CTX_data_scene(C), ondine_render, &win_show);
 
     /* is there another window on current scene showing result? */
     LISTBASE_FOREACH (wmWindow *, win, &CTX_wm_manager(C)->windows) {
@@ -361,7 +392,7 @@ static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *e
     }
 
     /* determine if render already shows */
-    if (area) {
+    if (area && !ondine_render) {
       /* but don't close it when rendering */
       if (G.is_rendering == false) {
         SpaceImage *sima = static_cast<SpaceImage *>(area->spacedata.first);
@@ -380,7 +411,7 @@ static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *e
       }
     }
     else {
-      render_view_open(C, event->xy[0], event->xy[1], op->reports);
+      render_view_open(C, -1, -1, op->reports, ondine_render);
     }
   }
 
@@ -397,6 +428,8 @@ void RENDER_OT_view_show(wmOperatorType *ot)
   /* api callbacks */
   ot->invoke = render_view_show_invoke;
   ot->poll = ED_operator_screenactive;
+
+  RNA_def_boolean(ot->srna, "ondine", false, "Ondine Render", "Show/Hide Ondine Render view");
 }
 
 /** \} */

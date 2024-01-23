@@ -5205,6 +5205,16 @@ static int userpref_show_exec(bContext *C, wmOperator *op)
   const wmEvent *event = win_cur->eventstate;
   int sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_SCALE_FAC;
   int sizey = 520 * UI_SCALE_FAC;
+  int posx = event->xy[0];
+  int posy = event->xy[1];
+
+  /* Restore window position from memory. */
+  if (U.preference_space_data.size_x != 0) {
+    sizex = U.preference_space_data.size_x;
+    sizey = U.preference_space_data.size_y;
+    posx = U.preference_space_data.pos_x + sizex / 2;
+    posy = U.preference_space_data.pos_y + sizey / 2;
+  }
 
   PropertyRNA *prop = RNA_struct_find_property(op->ptr, "section");
   if (prop && RNA_property_is_set(op->ptr, prop)) {
@@ -5218,24 +5228,24 @@ static int userpref_show_exec(bContext *C, wmOperator *op)
   }
 
   const rcti window_rect = {
-      /*xmin*/ event->xy[0],
-      /*xmax*/ event->xy[0] + sizex,
-      /*ymin*/ event->xy[1],
-      /*ymax*/ event->xy[1] + sizey,
+      /*xmin*/ posx,
+      /*xmax*/ posx + sizex,
+      /*ymin*/ posy,
+      /*ymax*/ posy + sizey,
   };
 
   /* changes context! */
-  if (WM_window_open(C,
-                     IFACE_("Blender Preferences"),
-                     &window_rect,
-                     SPACE_USERPREF,
-                     false,
-                     false,
-                     true,
-                     WIN_ALIGN_LOCATION_CENTER,
-                     nullptr,
-                     nullptr) != nullptr)
-  {
+  wmWindow *pref_win = WM_window_open(C,
+                                      IFACE_("Blender Preferences"),
+                                      &window_rect,
+                                      SPACE_USERPREF,
+                                      false,
+                                      false,
+                                      true,
+                                      WIN_ALIGN_LOCATION_CENTER,
+                                      nullptr,
+                                      nullptr);
+  if (pref_win != nullptr) {
     /* The header only contains the editor switcher and looks empty.
      * So hiding in the temp window makes sense. */
     ScrArea *area = CTX_wm_area(C);
@@ -5243,6 +5253,9 @@ static int userpref_show_exec(bContext *C, wmOperator *op)
 
     region->flag |= RGN_FLAG_HIDDEN;
     ED_region_visibility_change_update(C, area, region);
+
+    pref_win->stored_position = &U.preference_space_data;
+    pref_win->position_parent = win_cur;
 
     return OPERATOR_FINISHED;
   }

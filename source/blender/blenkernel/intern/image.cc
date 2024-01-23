@@ -2713,6 +2713,30 @@ Image *BKE_image_ensure_viewer(Main *bmain, int type, const char *name)
   return ima;
 }
 
+Image *BKE_image_ensure_viewer_ondine(Main *bmain, int type, const char *name)
+{
+  Image *ima;
+
+  for (ima = static_cast<Image *>(bmain->images.first); ima;
+       ima = static_cast<Image *>(ima->id.next))
+  {
+    if (std::string(ima->id.name) == ("IM" + std::string(name))) {
+      break;
+    }
+  }
+
+  if (ima == nullptr) {
+    ima = image_alloc(bmain, name, IMA_SRC_VIEWER, type);
+  }
+
+  /* Happens on reload, image-window cannot be image user when hidden. */
+  if (ima->id.us == 0) {
+    id_us_ensure_real(&ima->id);
+  }
+
+  return ima;
+}
+
 static void image_viewer_create_views(const RenderData *rd, Image *ima)
 {
   if ((rd->scemode & R_MULTIVIEW) == 0) {

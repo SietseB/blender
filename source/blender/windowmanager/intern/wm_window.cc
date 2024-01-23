@@ -451,6 +451,11 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
     }
   }
 
+  /* Store position. */
+  if (win->stored_position != nullptr) {
+    WM_window_store_position(win, (wmWindow *)win->position_parent);
+  }
+
   bScreen *screen = WM_window_get_active_screen(win);
   WorkSpace *workspace = WM_window_get_active_workspace(win);
   WorkSpaceLayout *layout = BKE_workspace_active_layout_get(win->workspace_hook);
@@ -2650,6 +2655,28 @@ int WM_window_pixels_y(const wmWindow *win)
   float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
 
   return int(f * float(win->sizey));
+}
+void WM_window_store_position(wmWindow *win, const wmWindow *parent)
+{
+  int pos_x = 0, pos_y = 0;
+  if (parent != nullptr) {
+    float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(parent->ghostwin));
+    pos_x = int(f * (win->posx - parent->posx));
+    pos_y = int(f * (win->posy - parent->posy));
+  }
+
+  WM_window_set_dpi(win); /* Ensure the DPI is taken from the right window. */
+  float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
+  const int size_x = int(f * win->sizex) / UI_SCALE_FAC;
+  const int size_y = int(f * win->sizey) / UI_SCALE_FAC;
+
+  if (!WM_window_is_maximized(win)) {
+    win->stored_position->pos_x = pos_x;
+    win->stored_position->pos_y = pos_y;
+    win->stored_position->size_x = size_x;
+    win->stored_position->size_y = size_y;
+    U.runtime.is_dirty = true;
+  }
 }
 
 void WM_window_rect_calc(const wmWindow *win, rcti *r_rect)

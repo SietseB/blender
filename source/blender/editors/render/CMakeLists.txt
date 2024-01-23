@@ -59,6 +59,13 @@ if(WITH_FREESTYLE)
   add_definitions(-DWITH_FREESTYLE)
 endif()
 
+if(WITH_ONDINE)
+  list(APPEND INC
+    ../../ondine_cuda
+  )
+  add_definitions(-DWITH_ONDINE)
+endif()
+
 if(WITH_TBB)
   list(APPEND INC_SYS
     ${TBB_INCLUDE_DIRS}

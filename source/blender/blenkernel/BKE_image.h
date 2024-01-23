@@ -228,6 +228,7 @@ void BKE_image_walk_all_users(const struct Main *mainp,
  * \param name: Only for default, when making new one.
  */
 struct Image *BKE_image_ensure_viewer(struct Main *bmain, int type, const char *name);
+struct Image *BKE_image_ensure_viewer_ondine(struct Main *bmain, int type, const char *name);
 /**
  * Ensures the view node cache is compatible with the scene views.
  * Reset the image cache and views when the Viewer Nodes views don't match the scene views.

@@ -813,8 +813,18 @@ def km_screen(params):
         ("render.render", {"type": 'F12', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("animation", True), ("use_viewport", True)]}),
         ("render.view_cancel", {"type": 'ESC', "value": 'PRESS'}, None),
-        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True}, None),
+        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True}, 
+         {"properties": [("ondine", False)]}),
         ("render.play_rendered_anim", {"type": 'F11', "value": 'PRESS', "ctrl": True, "alt": True}, None),
+        # Ondine render
+        ("render.ondine_render", {"type": 'F12', "value": 'PRESS'},
+         {"properties": [("ondine", True), ("animation", False), ("view_after_render", False)]}),
+        ("render.ondine_render", {"type": 'F12', "value": 'PRESS', "ctrl": True},
+         {"properties": [("ondine", True), ("animation", True), ("view_after_render", False)]}),
+        ("render.view_show", {"type": 'F11', "value": 'PRESS'}, 
+         {"properties": [("ondine", True)]}),
+        ("render.ondine_render", {"type": 'F10', "value": 'PRESS'},
+         {"properties": [("ondine", True), ("animation", False), ("view_after_render", True)]}),
     ])
 
     if not params.legacy:

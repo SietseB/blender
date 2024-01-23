@@ -32,6 +32,110 @@ class OBJECT_PT_context_object(ObjectButtonsPanel, Panel):
             row.template_ID(context.view_layer.objects, "active", filter='AVAILABLE')
 
 
+# 'Grease Pencil Object Data' section with Ondine settings
+class OBJECT_PT_gp_ondine_settings(bpy.types.Panel):
+    bl_idname = 'OBJECT_PT_ondine_GP'
+    bl_label = 'Ondine Watercolor'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'data'
+    bl_order = 0
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and (ob.type == 'GPENCIL' or ob.type == 'EMPTY' or ob.type == 'ARMATURE')
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.object
+        
+        layout.use_property_split = True
+        col = layout.column(align=True)
+        
+        if ob.type == 'GPENCIL':
+            ondine = ob.data
+            
+            col.prop(ondine, 'watercolor')
+            col.prop(ondine, 'gouache_style')
+            col.prop(ondine, 'clear_background')
+            col.prop(ondine, 'smooth_randomize_steps')
+            
+            layout.separator()
+            col = layout.column(align=True)
+            col.prop(ondine, 'randomize_seed_step')
+            col = layout.column(align=True)
+            col.prop(ondine, 'stroke_base_alpha', text='Base Alpha')
+            col = layout.column(align=True)
+            col.prop(ondine, 'watercolor_noise_strength_high', text='High Noise')
+            col = layout.column(align=True)
+            col.prop(ondine, 'layer_overlap_darkening', text='Layer Darkening')
+            col.prop(ondine, 'stroke_overlap_darkening', text='Stroke Darkening')
+            col = layout.column(align=True)
+            col.prop(ondine, 'dry_stroke_edge_jitter', text='Dry Edge Jitter')
+
+        if ob.type == 'EMPTY' or ob.type == 'ARMATURE':
+            col.prop(ob, 'clear_background')
+
+
+# Subpanel
+# GP object true depth settings
+class OBJECT_PT_gp_ondine_true_depth(bpy.types.Panel):
+    bl_idname = 'OBJECT_PT_ondine_GP_truedepth'
+    bl_label = 'True Depth'
+    bl_parent_id = 'OBJECT_PT_ondine_GP'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'data'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(self, context):
+        ob = context.object
+        return ob and ob.type == 'GPENCIL'
+
+    def draw_header(self, context):
+        gpd = context.object.data
+        self.layout.prop(gpd, 'true_depth', text='')
+    
+    def draw(self, context):
+        layout = self.layout
+        gpd = context.object.data
+        layout.use_property_split = True
+
+        col = layout.column(align=True)
+        col.prop(gpd, 'true_depth_threshold', slider=True)
+
+
+# Subpanel
+# GP object pigment flow settings
+class OBJECT_PT_gp_ondine_pigment_flow(bpy.types.Panel):
+    bl_idname = 'OBJECT_PT_ondine_GP_pparticle'
+    bl_label = 'Pigment Flow'
+    bl_parent_id = 'OBJECT_PT_ondine_GP'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'data'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(self, context):
+        ob = context.object
+        return ob and ob.type == 'GPENCIL'
+
+    def draw(self, context):
+        layout = self.layout
+        ondine = context.object.data
+        layout.use_property_split = True
+
+        col = layout.column(align=True)
+        col.prop(ondine, 'pparticle_speed_min', slider=True)
+        col.prop(ondine, 'pparticle_speed_max', slider=True)
+        col.prop(ondine, 'pparticle_len_min', slider=True)
+        col.prop(ondine, 'pparticle_len_max', slider=True)
+        col.prop(ondine, 'pparticle_hairiness', slider=True)
+
+
 class OBJECT_PT_transform(ObjectButtonsPanel, Panel):
     bl_label = "Transform"
 
@@ -419,6 +523,9 @@ class OBJECT_PT_custom_props(ObjectButtonsPanel, PropertyPanel, Panel):
 
 classes = (
     OBJECT_PT_context_object,
+    OBJECT_PT_gp_ondine_settings,
+    OBJECT_PT_gp_ondine_true_depth,
+    OBJECT_PT_gp_ondine_pigment_flow,
     OBJECT_PT_transform,
     OBJECT_PT_delta_transform,
     OBJECT_PT_relations,
