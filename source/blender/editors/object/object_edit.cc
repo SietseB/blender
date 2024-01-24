@@ -37,7 +37,7 @@
 #include "DNA_vfont_types.h"
 #include "DNA_workspace_types.h"
 
-#include "IMB_imbuf_types.h"
+#include "IMB_imbuf_types.hh"
 
 #include "BKE_anim_visualization.h"
 #include "BKE_armature.hh"
@@ -52,7 +52,7 @@
 #include "BKE_image.h"
 #include "BKE_lattice.hh"
 #include "BKE_layer.h"
-#include "BKE_lib_id.h"
+#include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -415,7 +415,7 @@ static int object_hide_collection_exec(bContext *C, wmOperator *op)
       return OPERATOR_CANCELLED;
     }
     if (toggle) {
-      lc->local_collections_bits ^= v3d->local_collections_uuid;
+      lc->local_collections_bits ^= v3d->local_collections_uid;
       BKE_layer_collection_local_sync(scene, view_layer, v3d);
     }
     else {

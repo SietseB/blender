@@ -42,7 +42,7 @@
 #include "BKE_context.hh"
 #include "BKE_deform.h"
 #include "BKE_editmesh.hh"
-#include "BKE_lib_id.h"
+#include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 #include "BKE_object.hh"
@@ -64,7 +64,7 @@
 #include "ED_view3d.hh"
 
 /* For IMB_BlendMode only. */
-#include "IMB_imbuf.h"
+#include "IMB_imbuf.hh"
 
 #include "BKE_ccg.h"
 #include "bmesh.hh"

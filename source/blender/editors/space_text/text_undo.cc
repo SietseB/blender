@@ -15,16 +15,15 @@
 
 #include "BLI_array_store.h"
 #include "BLI_array_utils.h"
+#include "BLI_time.h"
 
 #include "BLT_translation.h"
-
-#include "PIL_time.h"
 
 #include "BKE_context.hh"
 #include "BKE_main.hh"
 #include "BKE_report.h"
 #include "BKE_text.h"
-#include "BKE_undo_system.h"
+#include "BKE_undo_system.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"

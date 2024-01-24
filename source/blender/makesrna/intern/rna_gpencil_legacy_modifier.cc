@@ -288,6 +288,8 @@ static const EnumPropertyItem modifier_follow_curve_axis_items[] = {
 
 #ifdef RNA_RUNTIME
 
+#  include <algorithm>
+
 #  include "DNA_curve_types.h"
 #  include "DNA_fluid_types.h"
 #  include "DNA_material_types.h"
@@ -522,7 +524,7 @@ static void rna_TimeModifier_start_frame_set(PointerRNA *ptr, int value)
   tmd->sfra = value;
 
   if (tmd->sfra >= tmd->efra) {
-    tmd->efra = MIN2(tmd->sfra, MAXFRAME);
+    tmd->efra = std::min(tmd->sfra, MAXFRAME);
   }
 }
 
@@ -533,7 +535,7 @@ static void rna_TimeModifier_end_frame_set(PointerRNA *ptr, int value)
   tmd->efra = value;
 
   if (tmd->sfra >= tmd->efra) {
-    tmd->sfra = MAX2(tmd->efra, MINFRAME);
+    tmd->sfra = std::max(tmd->efra, MINFRAME);
   }
 }
 
@@ -849,7 +851,7 @@ static void rna_Lineart_start_level_set(PointerRNA *ptr, int value)
 
   CLAMP(value, 0, 128);
   lmd->level_start = value;
-  lmd->level_end = MAX2(value, lmd->level_end);
+  lmd->level_end = std::max<short>(value, lmd->level_end);
 }
 
 static void rna_Lineart_end_level_set(PointerRNA *ptr, int value)
@@ -858,7 +860,7 @@ static void rna_Lineart_end_level_set(PointerRNA *ptr, int value)
 
   CLAMP(value, 0, 128);
   lmd->level_end = value;
-  lmd->level_start = MIN2(value, lmd->level_start);
+  lmd->level_start = std::min<short>(value, lmd->level_start);
 }
 
 static void rna_GpencilDash_segments_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)

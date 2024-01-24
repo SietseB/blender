@@ -17,7 +17,7 @@
 #include "BKE_asset.hh"
 #include "BKE_context.hh"
 #include "BKE_idprop.h"
-#include "BKE_lib_id.h"
+#include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_report.h"
@@ -262,7 +262,7 @@ static bNodeTree *get_asset_or_local_node_group(const bContext &C,
 {
   Main &bmain = *CTX_data_main(&C);
   if (bNodeTree *group = reinterpret_cast<bNodeTree *>(
-          WM_operator_properties_id_lookup_from_name_or_session_uuid(&bmain, &ptr, ID_NT)))
+          WM_operator_properties_id_lookup_from_name_or_session_uid(&bmain, &ptr, ID_NT)))
   {
     return group;
   }

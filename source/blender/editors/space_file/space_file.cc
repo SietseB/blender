@@ -15,10 +15,10 @@
 #include "BLI_linklist.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_appdir.h"
+#include "BKE_appdir.hh"
 #include "BKE_context.hh"
 #include "BKE_global.h"
-#include "BKE_lib_query.h"
+#include "BKE_lib_query.hh"
 #include "BKE_lib_remap.hh"
 #include "BKE_main.hh"
 #include "BKE_report.h"
@@ -38,8 +38,8 @@
 #include "ED_screen.hh"
 #include "ED_space_api.hh"
 
-#include "IMB_imbuf_types.h"
-#include "IMB_thumbs.h"
+#include "IMB_imbuf_types.hh"
+#include "IMB_thumbs.hh"
 
 #include "UI_resources.hh"
 #include "UI_view2d.hh"
@@ -1023,15 +1023,15 @@ void ED_file_exit()
 
 void ED_file_read_bookmarks()
 {
-  const char *const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, nullptr);
+  const std::optional<std::string> cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, nullptr);
 
   fsmenu_free();
 
   fsmenu_read_system(ED_fsmenu_get(), true);
 
-  if (cfgdir) {
+  if (cfgdir.has_value()) {
     char filepath[FILE_MAX];
-    BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_BOOKMARK_FILE);
+    BLI_path_join(filepath, sizeof(filepath), cfgdir->c_str(), BLENDER_BOOKMARK_FILE);
     fsmenu_read_bookmarks(ED_fsmenu_get(), filepath);
   }
 }

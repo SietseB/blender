@@ -33,7 +33,7 @@
 #include "BPy_ViewMap.h"
 #include "BPy_ViewShape.h"
 
-#include "BKE_appdir.h"
+#include "BKE_appdir.hh"
 #include "DNA_scene_types.h"
 #include "FRS_freestyle.h"
 #include "RNA_access.hh"
@@ -540,10 +540,11 @@ PyObject *Freestyle_Init()
   PyDict_SetItemString(PySys_GetObject("modules"), module_definition.m_name, module);
 
   // update 'sys.path' for Freestyle Python API modules
-  const char *const path = BKE_appdir_folder_id(BLENDER_SYSTEM_SCRIPTS, "freestyle");
-  if (path) {
+  const std::optional<std::string> path = BKE_appdir_folder_id(BLENDER_SYSTEM_SCRIPTS,
+                                                               "freestyle");
+  if (path.has_value()) {
     char modpath[FILE_MAX];
-    BLI_path_join(modpath, sizeof(modpath), path, "modules");
+    BLI_path_join(modpath, sizeof(modpath), path->c_str(), "modules");
     PyObject *sys_path = PySys_GetObject("path"); /* borrow */
     PyObject *py_modpath = PyC_UnicodeFromBytes(modpath);
     PyList_Append(sys_path, py_modpath);

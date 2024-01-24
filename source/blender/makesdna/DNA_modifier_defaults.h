@@ -801,4 +801,39 @@
     .mat_ofs = 0, \
   }
 
+#define _DNA_DEFAULT_GreasePencilOpacityModifierData \
+  { \
+    .color_mode = MOD_GREASE_PENCIL_COLOR_BOTH, \
+    .color_factor = 1.0f, \
+    .hardness_factor = 1.0f, \
+  }
+
+#define _DNA_DEFAULT_GreasePencilSubdivModifierData \
+  { \
+    .level = 1, \
+  }
+
+#define _DNA_DEFAULT_GreasePencilColorModifierData \
+  { \
+    .color_mode = MOD_GREASE_PENCIL_COLOR_BOTH, \
+    .hsv = {0.5f, 1.0f, 1.0f}, \
+  }
+
+
+#define _DNA_DEFAULT_GreasePencilTintModifierData \
+  { \
+    .color_mode = MOD_GREASE_PENCIL_COLOR_BOTH, \
+    .tint_mode = MOD_GREASE_PENCIL_TINT_UNIFORM, \
+    .factor = 0.5f, \
+    .radius = 1.0f, \
+    .color = {1.0f, 1.0f, 1.0f}, \
+  }
+
+#define _DNA_DEFAULT_GreasePencilSmoothModifierData \
+  { \
+    .flag = MOD_GREASE_PENCIL_SMOOTH_MOD_LOCATION, \
+    .factor = 1.0f, \
+    .step = 1, \
+  }
+  
 /* clang-format off */
