@@ -216,7 +216,7 @@ float GpencilOndine::stroke_point_radius_get(bGPDstroke *gps,
   const float2 v1 = screen_co1 - screen_co2;
   float radius = len_v2(v1);
 
-  return MAX2(radius, 1.0f);
+  return math::max(radius, 1.0f);
 }
 
 void GpencilOndine::get_vertex_color(const bGPDlayer *gpl,
@@ -376,7 +376,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
         /* Get distance to camera.
          * Somehow we have to apply the object world matrix here again, I don't know why... */
         mul_m4_v3(object->object_to_world, co);
-        dist_to_cam = MIN2(0.0f, math::dot(co - camera_loc_, camera_normal_vec_));
+        dist_to_cam = math::min(0.0f, math::dot(co - camera_loc_, camera_normal_vec_));
         pt_2d.data[ONDINE_DIST_TO_CAM] = dist_to_cam;
 
         /* Keep track of closest/furthest point to camera. */
@@ -439,7 +439,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
              * Bit slow, but the most accurate way. */
             float radius = stroke_point_radius_get(gps, i, thickness);
             pt_2d.data[ONDINE_PRESSURE3D] = math::max(
-                0.001f, pt.pressure * MIN2(1.0f, radius / max_stroke_radius));
+                0.001f, pt.pressure * math::min(1.0f, radius / max_stroke_radius));
             if (pt_2d.data[ONDINE_PRESSURE3D] > max_pressure) {
               max_pressure = pt_2d.data[ONDINE_PRESSURE3D];
             }

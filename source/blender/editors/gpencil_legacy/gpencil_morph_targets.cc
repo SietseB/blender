@@ -7,13 +7,6 @@
  * Operators for dealing with GP morph targets.
  */
 
-#include <math.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
@@ -39,12 +32,7 @@
 #include "BKE_context.hh"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_lib_id.h"
-#include "BKE_main.hh"
-#include "BKE_modifier.hh"
-#include "BKE_object.hh"
 #include "BKE_report.h"
-#include "BKE_scene.h"
 
 #include "WM_api.hh"
 #include "WM_types.hh"

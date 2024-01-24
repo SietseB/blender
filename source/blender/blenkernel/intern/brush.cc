@@ -1646,8 +1646,8 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
 
   /* Weight Gradient brush. */
   brush = gpencil_brush_ensure(
-      bmain, ts, "Weight Gradient", OB_MODE_WEIGHT_GPENCIL_LEGACY, &r_new);
-  if ((reset) || (r_new)) {
+      bmain, ts, "Weight Gradient", OB_MODE_WEIGHT_GPENCIL_LEGACY, &is_new);
+  if ((reset) || (is_new)) {
     BKE_gpencil_brush_preset_set(bmain, brush, GP_BRUSH_PRESET_WEIGHT_GRADIENT);
   }
 

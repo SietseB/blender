@@ -1355,7 +1355,7 @@ elseif(WIN32)
           CONFIGURATIONS Debug
         )
       endif()
-      )
+
     endif()
 
   endif()

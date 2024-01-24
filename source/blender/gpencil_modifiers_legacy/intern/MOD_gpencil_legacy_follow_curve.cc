@@ -36,7 +36,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_gpencil_geom_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_lib_query.h"
+#include "BKE_lib_query.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_scene.h"
@@ -567,12 +567,12 @@ static void curve_get_point_by_distance(const float dist_init,
   float dist = dist_init;
 
   if (dist < 0.0f) {
-    dist = MIN2(-dist, curve->length);
+    dist = std::min(-dist, curve->length);
     mirrored = true;
     copy_v3_v3(mirror_at, curve->points[0].co);
   }
   else if (dist > curve->length) {
-    dist = MAX2(2 * curve->length - dist, 0.0f);
+    dist = std::max(2 * curve->length - dist, 0.0f);
     mirrored = true;
     copy_v3_v3(mirror_at, curve->points[curve->points_len - 1].co);
   }

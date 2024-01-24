@@ -1809,7 +1809,7 @@ static int gpencil_weight_gradient_vertex_count_frame_get(bContext *C, Object *o
     }
 
     const bGPDstroke *gps = (gps_eval->runtime.gps_orig) ? gps_eval->runtime.gps_orig : gps_eval;
-    vertex_tot += MIN2(gps->totpoints, gps_eval->totpoints);
+    vertex_tot += std::min(gps->totpoints, gps_eval->totpoints);
   }
 
   return vertex_tot;
@@ -2045,7 +2045,7 @@ static int gpencil_weight_gradient_exec(bContext *C, wmOperator *op)
     /* Linear gradient. */
     if (gradient_type == WPAINT_GRADIENT_TYPE_LINEAR) {
       /* Get orthogonal position of vertex relative to the gradient line segment. */
-      const float dist_on_line = MAX2(0.0f, dot_v2v2(vec_p_to_line, tool_data->line_segment));
+      const float dist_on_line = std::max(0.0f, dot_v2v2(vec_p_to_line, tool_data->line_segment));
 
       /* When vertex is within reach of the line segment, add the gradient weight. */
       if (dist_on_line <= tool_data->line_segment_len_sq) {
