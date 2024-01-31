@@ -160,13 +160,10 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports, cons
     int sizex, sizey, posx = mx, posy = my;
     wmWindow *parent_win = CTX_wm_window(C);
 
-    if (mx == -1 && my == -1 && U.render_space_data.size_x != 0) {
-      sizex = U.render_space_data.size_x;
-      sizey = U.render_space_data.size_y;
-      posx = U.render_space_data.pos_x + sizex / 2;
-      posy = U.render_space_data.pos_y + sizey / 2;
-    }
-    else {
+    /* Restore window position from memory. */
+    if (!WM_window_restore_position(
+            &U.render_space_data, parent_win, &posx, &posy, &sizex, &sizey))
+    {
       posx = WM_window_pixels_x(parent_win) / 2;
       posy = WM_window_pixels_y(parent_win) / 2;
 

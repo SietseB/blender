@@ -2655,27 +2655,55 @@ int WM_window_pixels_y(const wmWindow *win)
 
   return int(f * float(win->sizey));
 }
+
 void WM_window_store_position(wmWindow *win, const wmWindow *parent)
 {
+  /* Don't store position when window is maximized. */
+  if (WM_window_is_maximized(win)) {
+    return;
+  }
+
+  /* Get window position relative to top left corner of the parent. */
   int pos_x = 0, pos_y = 0;
   if (parent != nullptr) {
     float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(parent->ghostwin));
     pos_x = int(f * (win->posx - parent->posx));
-    pos_y = int(f * (win->posy - parent->posy));
+    pos_y = int(f * ((win->posy + win->sizey) - (parent->posy + parent->sizey)));
   }
 
+  /* Get window size. */
   WM_window_set_dpi(win); /* Ensure the DPI is taken from the right window. */
   float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
   const int size_x = int(f * win->sizex) / UI_SCALE_FAC;
   const int size_y = int(f * win->sizey) / UI_SCALE_FAC;
 
-  if (!WM_window_is_maximized(win)) {
-    win->stored_position->pos_x = pos_x;
-    win->stored_position->pos_y = pos_y;
-    win->stored_position->size_x = size_x;
-    win->stored_position->size_y = size_y;
-    U.runtime.is_dirty = true;
+  /* Store position and size in user preferences. */
+  win->stored_position->pos_x = pos_x;
+  win->stored_position->pos_y = pos_y;
+  win->stored_position->size_x = size_x;
+  win->stored_position->size_y = size_y;
+  U.runtime.is_dirty = true;
+}
+
+bool WM_window_restore_position(const UserDef_WindowPositionData *stored_position,
+                                const wmWindow *parent,
+                                int *r_pos_x,
+                                int *r_pos_y,
+                                int *r_size_x,
+                                int *r_size_y)
+{
+  /* When the position is not stored before, we keep the default values. */
+  if (stored_position->size_x == 0) {
+    return false;
   }
+
+  /* Restore window size and position, relative to the top left corner of the parent. */
+  *r_size_x = stored_position->size_x * UI_SCALE_FAC;
+  *r_size_y = stored_position->size_y * UI_SCALE_FAC;
+  *r_pos_x = stored_position->pos_x + *r_size_x / 2;
+  *r_pos_y = parent->sizey + stored_position->pos_y - *r_size_y / 2;
+
+  return true;
 }
 
 void WM_window_rect_calc(const wmWindow *win, rcti *r_rect)

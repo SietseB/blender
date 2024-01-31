@@ -260,7 +260,23 @@ bool WM_window_pixels_read_sample(bContext *C, wmWindow *win, const int pos[2], 
  */
 int WM_window_pixels_x(const wmWindow *win);
 int WM_window_pixels_y(const wmWindow *win);
+
+/**
+ * Store the size and position of a window (so it can be restored in the same state when
+ * reopening).
+ */
 void WM_window_store_position(wmWindow *win, const wmWindow *parent);
+
+/**
+ * Restore the size and position of a window.
+ */
+bool WM_window_restore_position(const UserDef_WindowPositionData *stored_position,
+                                const wmWindow *win,
+                                int *r_pos_x,
+                                int *r_pos_y,
+                                int *r_size_x,
+                                int *r_size_y);
+
 /**
  * Get boundaries usable by all window contents, including global areas.
  */
