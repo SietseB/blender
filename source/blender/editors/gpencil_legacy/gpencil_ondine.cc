@@ -331,10 +331,9 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       set_stroke_color(gpl, gps, gp_style);
 
       /* Determine size of 2D point data. */
-      bool make_cyclic = false;
+      const bool make_cyclic = (has_fill || (gps->flag & GP_STROKE_CYCLIC) != 0);
       gps->totpoints_2d = gps->totpoints;
-      if (has_fill || (gps->flag & GP_STROKE_CYCLIC) != 0) {
-        make_cyclic = true;
+      if (make_cyclic) {
         gps->totpoints_2d++;
       }
 
