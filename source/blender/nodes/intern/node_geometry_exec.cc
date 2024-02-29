@@ -9,7 +9,7 @@
 #include "BKE_curves.hh"
 #include "BKE_type_conversions.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "NOD_geometry_exec.hh"
 
@@ -22,6 +22,7 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type,
 {
   if (geo_eval_log::GeoTreeLogger *tree_logger = this->get_local_tree_logger()) {
     tree_logger->node_warnings.append(
+        *tree_logger->allocator,
         {node_.identifier, {type, tree_logger->allocator->copy_string(message)}});
   }
 }
@@ -31,6 +32,7 @@ void GeoNodeExecParams::used_named_attribute(const StringRef attribute_name,
 {
   if (geo_eval_log::GeoTreeLogger *tree_logger = this->get_local_tree_logger()) {
     tree_logger->used_named_attributes.append(
+        *tree_logger->allocator,
         {node_.identifier, tree_logger->allocator->copy_string(attribute_name), usage});
   }
 }

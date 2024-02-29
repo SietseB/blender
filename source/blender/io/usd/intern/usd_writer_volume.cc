@@ -2,7 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "usd_writer_volume.h"
+#include "usd_writer_volume.hh"
+#include "usd_hierarchy_iterator.hh"
 
 #include <pxr/base/tf/pathUtils.h>
 #include <pxr/usd/usdVol/openVDBAsset.h>
@@ -11,18 +12,15 @@
 #include "DNA_volume_types.h"
 #include "DNA_windowmanager_types.h"
 
-#include "BKE_report.h"
+#include "BKE_report.hh"
 #include "BKE_volume.hh"
 
 #include "BLI_fileops.h"
 #include "BLI_index_range.hh"
 #include "BLI_math_base.h"
+#include "BLI_math_vector_types.hh"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
-
-#include "WM_api.hh"
-
-#include "usd_hierarchy_iterator.h"
 
 namespace blender::io::usd {
 

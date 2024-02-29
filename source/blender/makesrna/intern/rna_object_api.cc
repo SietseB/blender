@@ -23,13 +23,13 @@
 #include "DNA_object_types.h"
 
 #include "BKE_gpencil_curve_legacy.h"
-#include "BKE_layer.h"
+#include "BKE_layer.hh"
 
 #include "DEG_depsgraph.hh"
 
 #include "ED_outliner.hh"
 
-#include "rna_internal.h" /* own include */
+#include "rna_internal.hh" /* own include */
 
 #define MESH_DM_INFO_STR_MAX 16384
 
@@ -56,16 +56,16 @@ static const EnumPropertyItem space_items[] = {
 #  include "BKE_context.hh"
 #  include "BKE_crazyspace.hh"
 #  include "BKE_customdata.hh"
-#  include "BKE_global.h"
-#  include "BKE_layer.h"
+#  include "BKE_global.hh"
+#  include "BKE_layer.hh"
 #  include "BKE_main.hh"
-#  include "BKE_mball.h"
+#  include "BKE_mball.hh"
 #  include "BKE_mesh.hh"
 #  include "BKE_mesh_runtime.hh"
 #  include "BKE_modifier.hh"
 #  include "BKE_object.hh"
 #  include "BKE_object_types.hh"
-#  include "BKE_report.h"
+#  include "BKE_report.hh"
 #  include "BKE_vfont.hh"
 
 #  include "ED_object.hh"
@@ -1077,7 +1077,7 @@ void RNA_api_object(StructRNA *srna)
       func,
       "Create a Mesh data-block from the current state of the object. The object owns the "
       "data-block. To force free it use to_mesh_clear(). "
-      "The result is temporary and can not be used by objects from the main database");
+      "The result is temporary and cannot be used by objects from the main database");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   RNA_def_boolean(func,
                   "preserve_all_data_layers",
@@ -1104,7 +1104,7 @@ void RNA_api_object(StructRNA *srna)
       func,
       "Create a Curve data-block from the current state of the object. This only works for curve "
       "and text objects. The object owns the data-block. To force free it, use to_curve_clear(). "
-      "The result is temporary and can not be used by objects from the main database");
+      "The result is temporary and cannot be used by objects from the main database");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(
       func, "depsgraph", "Depsgraph", "Dependency Graph", "Evaluated dependency graph");

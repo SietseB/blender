@@ -6,17 +6,13 @@
  * \ingroup bke
  */
 
-#include "atomic_ops.h"
-
 #include "MEM_guardedalloc.h"
-
-#include "DNA_object_types.h"
 
 #include "BLI_array_utils.hh"
 #include "BLI_math_geom.h"
 #include "BLI_task.hh"
-#include "BLI_timeit.hh"
 
+#include "BKE_bake_data_block_id.hh"
 #include "BKE_bvhutils.hh"
 #include "BKE_customdata.hh"
 #include "BKE_editmesh_cache.hh"
@@ -339,6 +335,11 @@ void Mesh::tag_edges_split()
 }
 
 void Mesh::tag_sharpness_changed()
+{
+  this->runtime->corner_normals_cache.tag_dirty();
+}
+
+void Mesh::tag_custom_normals_changed()
 {
   this->runtime->corner_normals_cache.tag_dirty();
 }

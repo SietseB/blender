@@ -264,7 +264,9 @@ void IMB_rectblend_threaded(ImBuf *dbuf,
 enum eIMBInterpolationFilterMode {
   IMB_FILTER_NEAREST,
   IMB_FILTER_BILINEAR,
-  IMB_FILTER_BICUBIC,
+  IMB_FILTER_CUBIC_BSPLINE,
+  IMB_FILTER_CUBIC_MITCHELL,
+  IMB_FILTER_BOX,
 };
 
 /**
@@ -331,7 +333,6 @@ void IMB_close_anim(ImBufAnim *anim);
 void IMB_close_anim_proxies(ImBufAnim *anim);
 bool IMB_anim_can_produce_frames(const ImBufAnim *anim);
 
-int ismovie(const char *filepath);
 int IMB_anim_get_image_width(ImBufAnim *anim);
 int IMB_anim_get_image_height(ImBufAnim *anim);
 bool IMB_get_gop_decode_time(ImBufAnim *anim);
@@ -395,9 +396,11 @@ bool IMB_ispic_type_matches(const char *filepath, int filetype);
 int IMB_ispic_type_from_memory(const unsigned char *buf, size_t buf_size);
 int IMB_ispic_type(const char *filepath);
 
+/**
+ * Test if the file is a video file (known format, has a video stream and
+ * supported video codec).
+ */
 bool IMB_isanim(const char *filepath);
-
-int imb_get_anim_type(const char *filepath);
 
 /**
  * Test if color-space conversions of pixels in buffer need to take into account alpha.
@@ -512,58 +515,19 @@ void IMB_buffer_byte_from_byte(unsigned char *rect_to,
  */
 void IMB_convert_rgba_to_abgr(ImBuf *ibuf);
 
-void bicubic_interpolation(const ImBuf *in, ImBuf *out, float u, float v, int xout, int yout);
-void nearest_interpolation(const ImBuf *in, ImBuf *out, float u, float v, int xout, int yout);
-void bilinear_interpolation(const ImBuf *in, ImBuf *out, float u, float v, int xout, int yout);
-
-typedef void (*InterpolationColorFunction)(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void bicubic_interpolation_color(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-
-/* Functions assumes out to be zeroed, only does RGBA. */
-
-void nearest_interpolation_color_char(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void nearest_interpolation_color_fl(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void nearest_interpolation_color(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void nearest_interpolation_color_wrap(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void bilinear_interpolation_color(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-void bilinear_interpolation_color_char(const ImBuf *in, unsigned char outI[4], float u, float v);
-void bilinear_interpolation_color_fl(const ImBuf *in, float outF[4], float u, float v);
-/**
- * Note about wrapping, the u/v still needs to be within the image bounds,
- * just the interpolation is wrapped.
- * This the same as bilinear_interpolation_color except it wraps
- * rather than using empty and emptyI.
- */
-void bilinear_interpolation_color_wrap(
-    const ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
-
 void IMB_alpha_under_color_float(float *rect_float, int x, int y, float backcol[3]);
 void IMB_alpha_under_color_byte(unsigned char *rect, int x, int y, const float backcol[3]);
-
-/**
- * Sample pixel of image using NEAREST method.
- */
-void IMB_sampleImageAtLocation(
-    ImBuf *ibuf, float x, float y, bool make_linear_rgb, float color[4]);
 
 ImBuf *IMB_loadifffile(int file, int flags, char colorspace[IM_MAX_SPACE], const char *descr);
 
 ImBuf *IMB_half_x(ImBuf *ibuf1);
-ImBuf *IMB_double_fast_x(ImBuf *ibuf1);
-ImBuf *IMB_double_x(ImBuf *ibuf1);
 ImBuf *IMB_half_y(ImBuf *ibuf1);
-ImBuf *IMB_double_fast_y(ImBuf *ibuf1);
-ImBuf *IMB_double_y(ImBuf *ibuf1);
 
 void IMB_flipx(ImBuf *ibuf);
 void IMB_flipy(ImBuf *ibuf);
+
+/* Rotate by 90 degree increments. Returns true if the ImBuf is altered. */
+bool IMB_rotate_orthogonal(ImBuf *ibuf, int degrees);
 
 /* Pre-multiply alpha. */
 
@@ -628,15 +592,18 @@ void *imb_alloc_pixels(unsigned int x,
                        unsigned int y,
                        unsigned int channels,
                        size_t typesize,
+                       bool initialize_pixels,
                        const char *alloc_name);
 
-bool imb_addrectImBuf(ImBuf *ibuf);
+bool imb_addrectImBuf(ImBuf *ibuf, bool initialize_pixels = true);
 /**
  * Any free `ibuf->rect` frees mipmaps to be sure, creation is in render on first request.
  */
 void imb_freerectImBuf(ImBuf *ibuf);
 
-bool imb_addrectfloatImBuf(ImBuf *ibuf, const unsigned int channels);
+bool imb_addrectfloatImBuf(ImBuf *ibuf,
+                           const unsigned int channels,
+                           bool initialize_pixels = true);
 /**
  * Any free `ibuf->rect` frees mipmaps to be sure, creation is in render on first request.
  */
@@ -660,7 +627,7 @@ void IMB_processor_apply_threaded(
     void(init_handle)(void *handle, int start_line, int tot_line, void *customdata),
     void *(do_thread)(void *));
 
-typedef void (*ScanlineThreadFunc)(void *custom_data, int scanline);
+using ScanlineThreadFunc = void (*)(void *custom_data, int scanline);
 void IMB_processor_apply_threaded_scanlines(int total_scanlines,
                                             ScanlineThreadFunc do_thread,
                                             void *custom_data);
@@ -688,8 +655,6 @@ enum eIMBTransformMode {
  * - Only one data type buffer will be used (rect_float has priority over rect)
  * \param mode: Cropping/Wrap repeat effect to apply during transformation.
  * \param filter: Interpolation to use during sampling.
- * \param num_subsamples: Number of subsamples to use. Increasing this would improve the quality,
- * but reduces the performance.
  * \param transform_matrix: Transformation matrix to use.
  * The given matrix should transform between dst pixel space to src pixel space.
  * One unit is one pixel.
@@ -704,7 +669,6 @@ void IMB_transform(const ImBuf *src,
                    ImBuf *dst,
                    eIMBTransformMode mode,
                    eIMBInterpolationFilterMode filter,
-                   const int num_subsamples,
                    const float transform_matrix[4][4],
                    const rctf *src_crop);
 

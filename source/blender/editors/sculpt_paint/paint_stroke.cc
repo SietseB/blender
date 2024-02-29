@@ -12,7 +12,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_rand.hh"
 #include "BLI_utildefines.h"
@@ -208,10 +207,10 @@ static void paint_draw_line_cursor(bContext *C, int x, int y, void *customdata)
   GPU_line_smooth(false);
 }
 
-static bool paint_tool_require_location(Brush *brush, ePaintMode mode)
+static bool paint_tool_require_location(Brush *brush, PaintMode mode)
 {
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       if (ELEM(brush->sculpt_tool,
                SCULPT_TOOL_GRAB,
                SCULPT_TOOL_ELASTIC_DEFORM,
@@ -236,10 +235,10 @@ static bool paint_tool_require_location(Brush *brush, ePaintMode mode)
   return true;
 }
 
-static bool paint_stroke_use_scene_spacing(Brush *brush, ePaintMode mode)
+static bool paint_stroke_use_scene_spacing(Brush *brush, PaintMode mode)
 {
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       return brush->flag & BRUSH_SCENE_SPACING;
     default:
       break;
@@ -247,19 +246,19 @@ static bool paint_stroke_use_scene_spacing(Brush *brush, ePaintMode mode)
   return false;
 }
 
-static bool paint_tool_raycast_original(Brush *brush, ePaintMode /*mode*/)
+static bool paint_tool_raycast_original(Brush *brush, PaintMode /*mode*/)
 {
   return brush->flag & (BRUSH_ANCHORED | BRUSH_DRAG_DOT);
 }
 
-static bool paint_tool_require_inbetween_mouse_events(Brush *brush, ePaintMode mode)
+static bool paint_tool_require_inbetween_mouse_events(Brush *brush, PaintMode mode)
 {
   if (brush->flag & BRUSH_ANCHORED) {
     return false;
   }
 
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       if (ELEM(brush->sculpt_tool,
                SCULPT_TOOL_GRAB,
                SCULPT_TOOL_ROTATE,
@@ -285,7 +284,7 @@ static bool paint_tool_require_inbetween_mouse_events(Brush *brush, ePaintMode m
 /* Initialize the stroke cache variants from operator properties */
 static bool paint_brush_update(bContext *C,
                                Brush *brush,
-                               ePaintMode mode,
+                               PaintMode mode,
                                PaintStroke *stroke,
                                const float mouse_init[2],
                                float mouse[2],
@@ -314,21 +313,6 @@ static bool paint_brush_update(bContext *C,
     copy_v2_v2(ups->tex_mouse, mouse);
     copy_v2_v2(ups->mask_tex_mouse, mouse);
     stroke->cached_size_pressure = pressure;
-
-    ups->do_linear_conversion = false;
-    ups->colorspace = nullptr;
-
-    /* check here if color sampling the main brush should do color conversion. This is done here
-     * to avoid locking up to get the image buffer during sampling */
-    if (brush->mtex.tex && brush->mtex.tex->type == TEX_IMAGE && brush->mtex.tex->ima) {
-      ImBuf *tex_ibuf = BKE_image_pool_acquire_ibuf(
-          brush->mtex.tex->ima, &brush->mtex.tex->iuser, nullptr);
-      if (tex_ibuf && tex_ibuf->float_buffer.data == nullptr) {
-        ups->do_linear_conversion = true;
-        ups->colorspace = tex_ibuf->byte_buffer.colorspace;
-      }
-      BKE_image_pool_release_ibuf(brush->mtex.tex->ima, tex_ibuf, nullptr);
-    }
 
     stroke->brush_init = true;
   }
@@ -500,7 +484,7 @@ static bool paint_stroke_use_dash(Brush *brush)
   return brush->flag & BRUSH_SPACE || brush->flag & BRUSH_LINE || brush->flag & BRUSH_CURVE;
 }
 
-static bool paint_stroke_use_jitter(ePaintMode mode, Brush *brush, bool invert)
+static bool paint_stroke_use_jitter(PaintMode mode, Brush *brush, bool invert)
 {
   bool use_jitter = (brush->flag & BRUSH_ABSOLUTE_JITTER) ? (brush->jitter_absolute != 0) :
                                                             (brush->jitter != 0);
@@ -508,7 +492,7 @@ static bool paint_stroke_use_jitter(ePaintMode mode, Brush *brush, bool invert)
   /* jitter-ed brush gives weird and unpredictable result for this
    * kinds of stroke, so manually disable jitter usage (sergey) */
   use_jitter &= (brush->flag & (BRUSH_DRAG_DOT | BRUSH_ANCHORED)) == 0;
-  use_jitter &= (!ELEM(mode, PAINT_MODE_TEXTURE_2D, PAINT_MODE_TEXTURE_3D) ||
+  use_jitter &= (!ELEM(mode, PaintMode::Texture2D, PaintMode::Texture3D) ||
                  !(invert && brush->imagepaint_tool == PAINT_TOOL_CLONE));
 
   return use_jitter;
@@ -520,7 +504,7 @@ static void paint_brush_stroke_add_step(
 {
   Scene *scene = CTX_data_scene(C);
   Paint *paint = BKE_paint_get_active_from_context(C);
-  ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+  PaintMode mode = BKE_paintmode_get_active_from_context(C);
   Brush *brush = BKE_paint_brush(paint);
   UnifiedPaintSettings *ups = stroke->ups;
   float mouse_out[2];
@@ -566,7 +550,7 @@ static void paint_brush_stroke_add_step(
             C, world_space_position, stroke->last_mouse_position, stroke->original))
     {
       copy_v3_v3(stroke->last_world_space_position, world_space_position);
-      mul_m4_v3(stroke->vc.obact->object_to_world, stroke->last_world_space_position);
+      mul_m4_v3(stroke->vc.obact->object_to_world().ptr(), stroke->last_world_space_position);
     }
     else {
       add_v3_v3(stroke->last_world_space_position, stroke->last_scene_spacing_delta);
@@ -643,7 +627,7 @@ static void paint_brush_stroke_add_step(
 /* Returns zero if no sculpt changes should be made, non-zero otherwise */
 static bool paint_smooth_stroke(PaintStroke *stroke,
                                 const PaintSample *sample,
-                                ePaintMode mode,
+                                PaintMode mode,
                                 float r_mouse[2],
                                 float *r_pressure)
 {
@@ -676,7 +660,7 @@ static float paint_space_stroke_spacing(bContext *C,
                                         float spacing_pressure)
 {
   Paint *paint = BKE_paint_get_active_from_context(C);
-  ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+  PaintMode mode = BKE_paintmode_get_active_from_context(C);
   Brush *brush = BKE_paint_brush(paint);
   float size_clamp = 0.0f;
   float size = BKE_brush_size_get(scene, stroke->brush) * size_pressure;
@@ -684,7 +668,7 @@ static float paint_space_stroke_spacing(bContext *C,
     if (!BKE_brush_use_locked_size(scene, brush)) {
       float last_object_space_position[3];
       mul_v3_m4v3(last_object_space_position,
-                  stroke->vc.obact->world_to_object,
+                  stroke->vc.obact->world_to_object().ptr(),
                   stroke->last_world_space_position);
       size_clamp = paint_calc_object_space_radius(&stroke->vc, last_object_space_position, size);
     }
@@ -816,7 +800,7 @@ static int paint_space_stroke(bContext *C,
   ARegion *region = CTX_wm_region(C);
   UnifiedPaintSettings *ups = stroke->ups;
   Paint *paint = BKE_paint_get_active_from_context(C);
-  ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+  PaintMode mode = BKE_paintmode_get_active_from_context(C);
   Brush *brush = BKE_paint_brush(paint);
   int count = 0;
 
@@ -834,7 +818,7 @@ static int paint_space_stroke(bContext *C,
   if (use_scene_spacing) {
     float world_space_position[3];
     bool hit = SCULPT_stroke_get_location(C, world_space_position, final_mouse, stroke->original);
-    mul_m4_v3(stroke->vc.obact->object_to_world, world_space_position);
+    mul_m4_v3(stroke->vc.obact->object_to_world().ptr(), world_space_position);
     if (hit && stroke->stroke_over_mesh) {
       sub_v3_v3v3(d_world_space_position, world_space_position, stroke->last_world_space_position);
       length = len_v3(d_world_space_position);
@@ -929,6 +913,21 @@ PaintStroke *paint_stroke_new(bContext *C,
   get_imapaint_zoom(C, &zoomx, &zoomy);
   stroke->zoom_2d = max_ff(zoomx, zoomy);
 
+  /* Check here if color sampling the main brush should do color conversion. This is done here
+   * to avoid locking up to get the image buffer during sampling. */
+  ups->do_linear_conversion = false;
+  ups->colorspace = nullptr;
+
+  if (br->mtex.tex && br->mtex.tex->type == TEX_IMAGE && br->mtex.tex->ima) {
+    ImBuf *tex_ibuf = BKE_image_pool_acquire_ibuf(
+        br->mtex.tex->ima, &br->mtex.tex->iuser, nullptr);
+    if (tex_ibuf && tex_ibuf->float_buffer.data == nullptr) {
+      ups->do_linear_conversion = true;
+      ups->colorspace = tex_ibuf->byte_buffer.colorspace;
+    }
+    BKE_image_pool_release_ibuf(br->mtex.tex->ima, tex_ibuf, nullptr);
+  }
+
   if (stroke->stroke_mode == BRUSH_STROKE_INVERT) {
     if (br->flag & BRUSH_CURVE) {
       RNA_enum_set(op->ptr, "mode", BRUSH_STROKE_NORMAL);
@@ -1022,7 +1021,7 @@ static bool curves_sculpt_brush_uses_spacing(const eBrushCurvesSculptTool tool)
   return ELEM(tool, CURVES_SCULPT_TOOL_ADD, CURVES_SCULPT_TOOL_DENSITY);
 }
 
-bool paint_space_stroke_enabled(Brush *br, ePaintMode mode)
+bool paint_space_stroke_enabled(Brush *br, PaintMode mode)
 {
   if ((br->flag & BRUSH_SPACE) == 0) {
     return false;
@@ -1036,13 +1035,13 @@ bool paint_space_stroke_enabled(Brush *br, ePaintMode mode)
     return true;
   }
 
-  if (mode == PAINT_MODE_SCULPT_CURVES &&
+  if (mode == PaintMode::SculptCurves &&
       !curves_sculpt_brush_uses_spacing(eBrushCurvesSculptTool(br->curves_sculpt_tool)))
   {
     return false;
   }
 
-  if (mode == PAINT_MODE_GPENCIL) {
+  if (mode == PaintMode::GPencil) {
     /* No spacing needed for now. */
     return false;
   }
@@ -1066,21 +1065,21 @@ static bool sculpt_is_grab_tool(Brush *br)
               SCULPT_TOOL_SNAKE_HOOK);
 }
 
-bool paint_supports_dynamic_size(Brush *br, ePaintMode mode)
+bool paint_supports_dynamic_size(Brush *br, PaintMode mode)
 {
   if (br->flag & BRUSH_ANCHORED) {
     return false;
   }
 
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       if (sculpt_is_grab_tool(br)) {
         return false;
       }
       break;
 
-    case PAINT_MODE_TEXTURE_2D: /* fall through */
-    case PAINT_MODE_TEXTURE_3D:
+    case PaintMode::Texture2D: /* fall through */
+    case PaintMode::Texture3D:
       if ((br->imagepaint_tool == PAINT_TOOL_FILL) && (br->flag & BRUSH_USE_GRADIENT)) {
         return false;
       }
@@ -1092,7 +1091,7 @@ bool paint_supports_dynamic_size(Brush *br, ePaintMode mode)
   return true;
 }
 
-bool paint_supports_smooth_stroke(Brush *br, ePaintMode mode)
+bool paint_supports_smooth_stroke(Brush *br, PaintMode mode)
 {
   if (!(br->flag & BRUSH_SMOOTH_STROKE) ||
       (br->flag & (BRUSH_ANCHORED | BRUSH_DRAG_DOT | BRUSH_LINE)))
@@ -1101,7 +1100,7 @@ bool paint_supports_smooth_stroke(Brush *br, ePaintMode mode)
   }
 
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       if (sculpt_is_grab_tool(br)) {
         return false;
       }
@@ -1112,21 +1111,21 @@ bool paint_supports_smooth_stroke(Brush *br, ePaintMode mode)
   return true;
 }
 
-bool paint_supports_texture(ePaintMode mode)
+bool paint_supports_texture(PaintMode mode)
 {
   /* omit: PAINT_WEIGHT, PAINT_SCULPT_UV, PAINT_INVALID */
   return ELEM(
-      mode, PAINT_MODE_SCULPT, PAINT_MODE_VERTEX, PAINT_MODE_TEXTURE_3D, PAINT_MODE_TEXTURE_2D);
+      mode, PaintMode::Sculpt, PaintMode::Vertex, PaintMode::Texture3D, PaintMode::Texture2D);
 }
 
-bool paint_supports_dynamic_tex_coords(Brush *br, ePaintMode mode)
+bool paint_supports_dynamic_tex_coords(Brush *br, PaintMode mode)
 {
   if (br->flag & BRUSH_ANCHORED) {
     return false;
   }
 
   switch (mode) {
-    case PAINT_MODE_SCULPT:
+    case PaintMode::Sculpt:
       if (sculpt_is_grab_tool(br)) {
         return false;
       }
@@ -1158,10 +1157,10 @@ wmKeyMap *paint_stroke_modal_keymap(wmKeyConfig *keyconf)
 }
 
 static void paint_stroke_add_sample(
-    const Paint *paint, PaintStroke *stroke, float x, float y, float pressure)
+    PaintStroke *stroke, int input_samples, float x, float y, float pressure)
 {
   PaintSample *sample = &stroke->samples[stroke->cur_sample];
-  int max_samples = std::clamp(paint->num_input_samples, 1, PAINT_MAX_INPUT_SAMPLES);
+  int max_samples = std::clamp(input_samples, 1, PAINT_MAX_INPUT_SAMPLES);
 
   sample->mouse[0] = x;
   sample->mouse[1] = y;
@@ -1208,7 +1207,7 @@ static void paint_line_strokes_spacing(bContext *C,
   UnifiedPaintSettings *ups = stroke->ups;
   Paint *paint = BKE_paint_get_active_from_context(C);
   Brush *brush = BKE_paint_brush(paint);
-  ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+  PaintMode mode = BKE_paintmode_get_active_from_context(C);
   ARegion *region = CTX_wm_region(C);
 
   const bool use_scene_spacing = paint_stroke_use_scene_spacing(brush, mode);
@@ -1225,8 +1224,8 @@ static void paint_line_strokes_spacing(bContext *C,
         C, world_space_position_old, old_pos, stroke->original);
     bool hit_new = SCULPT_stroke_get_location(
         C, world_space_position_new, new_pos, stroke->original);
-    mul_m4_v3(stroke->vc.obact->object_to_world, world_space_position_old);
-    mul_m4_v3(stroke->vc.obact->object_to_world, world_space_position_new);
+    mul_m4_v3(stroke->vc.obact->object_to_world().ptr(), world_space_position_old);
+    mul_m4_v3(stroke->vc.obact->object_to_world().ptr(), world_space_position_new);
     if (hit_old && hit_new && stroke->stroke_over_mesh) {
       sub_v3_v3v3(d_world_space_position, world_space_position_new, world_space_position_old);
       length = len_v3(d_world_space_position);
@@ -1370,7 +1369,8 @@ static bool paint_stroke_curve_end(bContext *C, wmOperator *op, PaintStroke *str
           if (paint_stroke_use_scene_spacing(br, BKE_paintmode_get_active_from_context(C))) {
             stroke->stroke_over_mesh = SCULPT_stroke_get_location(
                 C, stroke->last_world_space_position, data + 2 * j, stroke->original);
-            mul_m4_v3(stroke->vc.obact->object_to_world, stroke->last_world_space_position);
+            mul_m4_v3(stroke->vc.obact->object_to_world().ptr(),
+                      stroke->last_world_space_position);
           }
 
           stroke->stroke_started = stroke->test_start(C, op, stroke->last_mouse_position);
@@ -1431,8 +1431,9 @@ static void paint_stroke_line_constrain(PaintStroke *stroke, float mouse[2])
 
 int paint_stroke_modal(bContext *C, wmOperator *op, const wmEvent *event, PaintStroke **stroke_p)
 {
+  Scene *scene = CTX_data_scene(C);
   Paint *p = BKE_paint_get_active_from_context(C);
-  ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+  PaintMode mode = BKE_paintmode_get_active_from_context(C);
   PaintStroke *stroke = *stroke_p;
   Brush *br = stroke->brush = BKE_paint_brush(p);
   PaintSample sample_average;
@@ -1460,7 +1461,8 @@ int paint_stroke_modal(bContext *C, wmOperator *op, const wmEvent *event, PaintS
     stroke->last_tablet_event_pressure = pressure;
   }
 
-  paint_stroke_add_sample(p, stroke, event->mval[0], event->mval[1], pressure);
+  int input_samples = BKE_brush_input_samples_get(scene, br);
+  paint_stroke_add_sample(stroke, input_samples, event->mval[0], event->mval[1], pressure);
   paint_stroke_sample_average(stroke, &sample_average);
 
   /* Tilt. */
@@ -1502,7 +1504,7 @@ int paint_stroke_modal(bContext *C, wmOperator *op, const wmEvent *event, PaintS
     if (paint_stroke_use_scene_spacing(br, mode)) {
       stroke->stroke_over_mesh = SCULPT_stroke_get_location(
           C, stroke->last_world_space_position, sample_average.mouse, stroke->original);
-      mul_m4_v3(stroke->vc.obact->object_to_world, stroke->last_world_space_position);
+      mul_m4_v3(stroke->vc.obact->object_to_world().ptr(), stroke->last_world_space_position);
     }
     stroke->stroke_started = stroke->test_start(C, op, sample_average.mouse);
 

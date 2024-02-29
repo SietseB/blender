@@ -9,6 +9,7 @@
 #include "COM_BuffersIterator.h"
 #include "COM_Enums.h"
 
+#include "BLI_math_base.hh"
 #include "BLI_math_interp.hh"
 #include "BLI_math_vector.h"
 #include "BLI_rect.h"
@@ -20,28 +21,14 @@ struct ImBuf;
 
 namespace blender::compositor {
 
-/**
- * \brief state of a memory buffer
- * \ingroup Memory
- */
-enum class MemoryBufferState {
-  /** \brief memory has been allocated on creator device and CPU machine,
-   * but kernel has not been executed */
-  Default = 0,
-  /** \brief chunk is consolidated from other chunks. special state. */
-  Temporary = 6,
-};
-
 enum class MemoryBufferExtend {
   Clip,
   Extend,
   Repeat,
 };
 
-class MemoryProxy;
-
 /**
- * \brief a MemoryBuffer contains access to the data of a chunk
+ * \brief a MemoryBuffer contains access to the data
  */
 class MemoryBuffer {
  public:
@@ -65,24 +52,14 @@ class MemoryBuffer {
 
  private:
   /**
-   * \brief proxy of the memory (same for all chunks in the same buffer)
-   */
-  MemoryProxy *memory_proxy_;
-
-  /**
    * \brief the type of buffer DataType::Value, DataType::Vector, DataType::Color
    */
   DataType datatype_;
 
   /**
-   * \brief region of this buffer inside relative to the MemoryProxy
+   * \brief region of this buffer inside
    */
   rcti rect_;
-
-  /**
-   * \brief state of the buffer
-   */
-  MemoryBufferState state_;
 
   /**
    * \brief the actual float buffer/data
@@ -112,11 +89,6 @@ class MemoryBuffer {
   int to_positive_y_stride_;
 
  public:
-  /**
-   * \brief construct new temporarily MemoryBuffer for an area
-   */
-  MemoryBuffer(MemoryProxy *memory_proxy, const rcti &rect, MemoryBufferState state);
-
   /**
    * \brief construct new temporarily MemoryBuffer for an area
    */
@@ -194,9 +166,24 @@ class MemoryBuffer {
     return buffer_ + get_coords_offset(x, y);
   }
 
+  /**
+   * Get buffer element at given coordinates, clamped to border.
+   */
+  const float *get_elem_clamped(int x, int y) const
+  {
+    const int clamped_x = math::clamp(x, 0, this->get_width() - 1);
+    const int clamped_y = math::clamp(y, 0, this->get_height() - 1);
+    return buffer_ + get_coords_offset(clamped_x, clamped_y);
+  }
+
   void read_elem(int x, int y, float *out) const
   {
     memcpy(out, get_elem(x, y), get_elem_bytes_len());
+  }
+
+  void read_elem_clamped(int x, int y, float *out) const
+  {
+    memcpy(out, get_elem_clamped(x, y), get_elem_bytes_len());
   }
 
   void read_elem_checked(int x, int y, float *out) const
@@ -249,17 +236,17 @@ class MemoryBuffer {
         single_y = rel_y - last_y;
       }
 
-      BLI_bilinear_interpolation_fl(buffer_, out, 1, 1, num_channels_, single_x, single_y);
+      math::interpolate_bilinear_border_fl(buffer_, out, 1, 1, num_channels_, single_x, single_y);
       return;
     }
 
-    BLI_bilinear_interpolation_fl(buffer_,
-                                  out,
-                                  get_width(),
-                                  get_height(),
-                                  num_channels_,
-                                  get_relative_x(x),
-                                  get_relative_y(y));
+    math::interpolate_bilinear_border_fl(buffer_,
+                                         out,
+                                         get_width(),
+                                         get_height(),
+                                         num_channels_,
+                                         get_relative_x(x),
+                                         get_relative_y(y));
   }
 
   void read_elem_sampled(float x, float y, PixelSampler sampler, float *out) const
@@ -368,12 +355,6 @@ class MemoryBuffer {
     return buffer_;
   }
 
-  float *release_ownership_buffer()
-  {
-    owns_data_ = false;
-    return buffer_;
-  }
-
   /**
    * Converts a single elem buffer to a full size buffer (allocates memory for all
    * elements in resolution).
@@ -451,10 +432,7 @@ class MemoryBuffer {
         }
         break;
       case MemoryBufferExtend::Repeat:
-        x = fmodf(x, w);
-        if (x < 0.0f) {
-          x += w;
-        }
+        x = floored_fmod(x, w);
         break;
     }
 
@@ -470,10 +448,7 @@ class MemoryBuffer {
         }
         break;
       case MemoryBufferExtend::Repeat:
-        y = fmodf(y, h);
-        if (y < 0.0f) {
-          y += h;
-        }
+        y = floored_fmod(y, h);
         break;
     }
 
@@ -481,8 +456,6 @@ class MemoryBuffer {
     y = y + rect_.ymin;
   }
 
-  /* TODO(manzanilla): to be removed with tiled implementation. For applying #MemoryBufferExtend
-   * use #wrap_pixel. */
   inline void read(float *result,
                    int x,
                    int y,
@@ -504,28 +477,6 @@ class MemoryBuffer {
       memcpy(result, buffer, sizeof(float) * num_channels_);
     }
   }
-
-  /* TODO(manzanilla): to be removed with tiled implementation. */
-  inline void read_no_check(float *result,
-                            int x,
-                            int y,
-                            MemoryBufferExtend extend_x = MemoryBufferExtend::Clip,
-                            MemoryBufferExtend extend_y = MemoryBufferExtend::Clip)
-  {
-    int u = x;
-    int v = y;
-
-    this->wrap_pixel(u, v, extend_x, extend_y);
-    const int offset = get_coords_offset(u, v);
-
-    BLI_assert(offset >= 0);
-    BLI_assert(offset < this->buffer_len() * num_channels_);
-    BLI_assert(!(extend_x == MemoryBufferExtend::Clip && (u < rect_.xmin || u >= rect_.xmax)) &&
-               !(extend_y == MemoryBufferExtend::Clip && (v < rect_.ymin || v >= rect_.ymax)));
-    float *buffer = &buffer_[offset];
-    memcpy(result, buffer, sizeof(float) * num_channels_);
-  }
-
   void write_pixel(int x, int y, const float color[4]);
   void add_pixel(int x, int y, const float color[4]);
   inline void read_bilinear(float *result,
@@ -547,7 +498,7 @@ class MemoryBuffer {
       memcpy(result, buffer_, sizeof(float) * num_channels_);
     }
     else {
-      BLI_bilinear_interpolation_wrap_fl(buffer_,
+      math::interpolate_bilinear_wrap_fl(buffer_,
                                          result,
                                          get_width(),
                                          get_height(),
@@ -557,16 +508,6 @@ class MemoryBuffer {
                                          extend_x == MemoryBufferExtend::Repeat,
                                          extend_y == MemoryBufferExtend::Repeat);
     }
-  }
-
-  void readEWA(float *result, const float uv[2], const float derivatives[2][2]);
-
-  /**
-   * \brief is this MemoryBuffer a temporarily buffer (based on an area, not on a chunk)
-   */
-  inline bool is_temporarily() const
-  {
-    return state_ == MemoryBufferState::Temporary;
   }
 
   /**

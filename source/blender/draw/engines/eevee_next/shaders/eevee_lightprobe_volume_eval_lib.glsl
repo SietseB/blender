@@ -30,7 +30,7 @@ ivec3 lightprobe_irradiance_grid_brick_coord(vec3 lP)
 /**
  * Return the local coordinated of the shading point inside the brick in unnormalized coordinate.
  */
-vec3 lightprobe_irradiance_grid_brick_local_coord(IrradianceGridData grid_data,
+vec3 lightprobe_irradiance_grid_brick_local_coord(VolumeProbeData grid_data,
                                                   vec3 lP,
                                                   ivec3 brick_coord)
 {
@@ -44,7 +44,7 @@ vec3 lightprobe_irradiance_grid_brick_local_coord(IrradianceGridData grid_data,
 /**
  * Return the biased local brick local coordinated.
  */
-vec3 lightprobe_irradiance_grid_bias_sample_coord(IrradianceGridData grid_data,
+vec3 lightprobe_irradiance_grid_bias_sample_coord(VolumeProbeData grid_data,
                                                   uvec2 brick_atlas_coord,
                                                   vec3 brick_lP,
                                                   vec3 lNg)
@@ -150,9 +150,7 @@ SphericalHarmonicL1 lightprobe_irradiance_sample(
       index = i;
 #ifdef IRRADIANCE_GRID_SAMPLING
       float distance_to_border = reduce_min(min(lP, vec3(grids_infos_buf[i].grid_size) - lP));
-      if (distance_to_border < random) {
-        /* Remap random to the remaining interval. */
-        random = (random - distance_to_border) / (1.0 - distance_to_border);
+      if (distance_to_border < random * 0.5 /* Half cell blending. */) {
         /* Try to sample another grid to get smooth transitions at borders. */
         continue;
       }
@@ -161,7 +159,7 @@ SphericalHarmonicL1 lightprobe_irradiance_sample(
     }
   }
 
-  IrradianceGridData grid_data = grids_infos_buf[index];
+  VolumeProbeData grid_data = grids_infos_buf[index];
 
   /* TODO(fclem): Make sure this is working as expected. */
   mat3x3 world_to_grid_transposed = mat3x3(grid_data.world_to_grid_transposed);

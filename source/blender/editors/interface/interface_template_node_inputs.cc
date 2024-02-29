@@ -13,7 +13,7 @@
 #include "BKE_node_runtime.hh"
 #include "BKE_screen.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "NOD_node_declaration.hh"
 
@@ -43,7 +43,9 @@ static void draw_node_input(bContext *C,
 {
   BLI_assert(socket.typeinfo != nullptr);
   /* Ignore disabled sockets and linked sockets and sockets without a `draw` callback. */
-  if (!socket.is_available() || (socket.flag & SOCK_IS_LINKED) || socket.typeinfo->draw == nullptr)
+  if (!socket.is_available() || (socket.flag & (SOCK_IS_LINKED | SOCK_HIDE_VALUE)) ||
+      socket.typeinfo->draw == nullptr ||
+      ELEM(socket.type, SOCK_GEOMETRY, SOCK_MATRIX, SOCK_SHADER))
   {
     return;
   }
@@ -92,8 +94,8 @@ static void handle_node_declaration_items(bContext *C,
       LayoutPanelState *state = BKE_panel_layout_panel_state_ensure(
           root_panel, panel_idname.c_str(), panel_decl->default_collapsed);
       PointerRNA state_ptr = RNA_pointer_create(nullptr, &RNA_LayoutPanelState, state);
-      uiLayout *panel_layout = uiLayoutPanel(
-          C, layout, IFACE_(panel_decl->name.c_str()), &state_ptr, "is_open");
+      uiLayout *panel_layout = uiLayoutPanelProp(
+          C, layout, &state_ptr, "is_open", IFACE_(panel_decl->name.c_str()));
       /* Draw panel buttons at the top of each panel section. */
       if (panel_layout && panel_decl->draw_buttons) {
         panel_decl->draw_buttons(panel_layout, C, node_ptr);

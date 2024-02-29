@@ -4,9 +4,9 @@
 
 #include "node_shader_util.hh"
 
-#include "BKE_node.h"
+#include "BKE_node.hh"
 
-#include "GPU_material.h"
+#include "GPU_material.hh"
 
 #include "UI_interface.hh"
 #include "UI_resources.hh"

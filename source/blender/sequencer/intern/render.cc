@@ -1,18 +1,17 @@
 /* SPDX-FileCopyrightText: 2001-2002 NaN Holding BV. All rights reserved.
- * SPDX-FileCopyrightText: 2003-2009 Blender Authors
+ * SPDX-FileCopyrightText: 2003-2024 Blender Authors
  * SPDX-FileCopyrightText: 2005-2006 Peter Schlaile <peter [at] schlaile [dot] de>
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
- * \ingroup bke
+ * \ingroup sequencer
  */
 
 #include <ctime>
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_anim_types.h"
 #include "DNA_defaults.h"
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
@@ -27,17 +26,17 @@
 #include "BLI_path_util.h"
 #include "BLI_rect.h"
 
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_fcurve.h"
-#include "BKE_global.h"
+#include "BKE_global.hh"
 #include "BKE_image.h"
-#include "BKE_layer.h"
+#include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_mask.h"
 #include "BKE_movieclip.h"
-#include "BKE_scene.h"
+#include "BKE_scene.hh"
 #include "BKE_sequencer_offscreen.h"
 
 #include "DEG_depsgraph.hh"
@@ -48,7 +47,6 @@
 #include "IMB_imbuf_types.hh"
 #include "IMB_metadata.hh"
 
-#include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
 #include "RE_engine.h"
@@ -72,8 +70,11 @@
 #include "prefetch.hh"
 #include "proxy.hh"
 #include "render.hh"
-#include "strip_time.hh"
 #include "utils.hh"
+
+#include <algorithm>
+
+using namespace blender;
 
 static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
                                      SeqRenderState *state,
@@ -89,7 +90,7 @@ SequencerDrawView sequencer_view3d_fn = nullptr; /* nullptr in background mode *
 /** \name Color-space utility functions
  * \{ */
 
-void seq_imbuf_assign_spaces(Scene *scene, ImBuf *ibuf)
+void seq_imbuf_assign_spaces(const Scene *scene, ImBuf *ibuf)
 {
 #if 0
   /* Byte buffer is supposed to be in sequencer working space already. */
@@ -102,7 +103,7 @@ void seq_imbuf_assign_spaces(Scene *scene, ImBuf *ibuf)
   }
 }
 
-void seq_imbuf_to_sequencer_space(Scene *scene, ImBuf *ibuf, bool make_float)
+void seq_imbuf_to_sequencer_space(const Scene *scene, ImBuf *ibuf, bool make_float)
 {
   /* Early output check: if both buffers are nullptr we have nothing to convert. */
   if (ibuf->float_buffer.data == nullptr && ibuf->byte_buffer.data == nullptr) {
@@ -138,7 +139,7 @@ void seq_imbuf_to_sequencer_space(Scene *scene, ImBuf *ibuf, bool make_float)
       /* We perform conversion to a float buffer so we don't worry about
        * precision loss.
        */
-      imb_addrectfloatImBuf(ibuf, 4);
+      imb_addrectfloatImBuf(ibuf, 4, false);
       IMB_colormanagement_transform_from_byte_threaded(ibuf->float_buffer.data,
                                                        ibuf->byte_buffer.data,
                                                        ibuf->x,
@@ -243,11 +244,6 @@ void SEQ_render_new_render_data(Main *bmain,
   r_context->is_prefetch_render = false;
 }
 
-void seq_render_state_init(SeqRenderState *state)
-{
-  state->scene_parents = nullptr;
-}
-
 StripElem *SEQ_render_give_stripelem(const Scene *scene, Sequence *seq, int timeline_frame)
 {
   StripElem *se = seq->strip->stripdata;
@@ -268,40 +264,106 @@ StripElem *SEQ_render_give_stripelem(const Scene *scene, Sequence *seq, int time
   return se;
 }
 
-static int seq_channel_cmp_fn(const void *a, const void *b)
+Vector<Sequence *> seq_get_shown_sequences(const Scene *scene,
+                                           ListBase *channels,
+                                           ListBase *seqbase,
+                                           const int timeline_frame,
+                                           const int chanshown)
 {
-  return (*(Sequence **)a)->machine - (*(Sequence **)b)->machine;
-}
-
-int seq_get_shown_sequences(const Scene *scene,
-                            ListBase *channels,
-                            ListBase *seqbase,
-                            const int timeline_frame,
-                            const int chanshown,
-                            Sequence **r_seq_arr)
-{
-  blender::VectorSet strips = SEQ_query_rendered_strips(
+  Vector<Sequence *> result;
+  VectorSet strips = SEQ_query_rendered_strips(
       scene, channels, seqbase, timeline_frame, chanshown);
   const int strip_count = strips.size();
 
   if (UNLIKELY(strip_count > MAXSEQ)) {
     BLI_assert_msg(0, "Too many strips, this shouldn't happen");
-    return 0;
+    return result;
   }
 
-  /* Copy collection elements into array. */
-  memset(r_seq_arr, 0, sizeof(Sequence *) * (MAXSEQ + 1));
-  int index = 0;
+  result.reserve(strips.size());
   for (Sequence *seq : strips) {
-    r_seq_arr[index] = seq;
-    index++;
+    result.append(seq);
   }
 
-  /* Sort array by channel. */
-  qsort(r_seq_arr, strip_count, sizeof(Sequence *), seq_channel_cmp_fn);
-
-  return strip_count;
+  /* Sort strips by channel. */
+  std::sort(result.begin(), result.end(), [](const Sequence *a, const Sequence *b) {
+    return a->machine < b->machine;
+  });
+  return result;
 }
+
+/* Strip corner coordinates in screen pixel space. Note that they might not be
+ * axis aligned when rotation is present. */
+struct StripScreenQuad {
+  float2 v0, v1, v2, v3;
+
+  bool is_empty() const
+  {
+    return v0 == v1 && v2 == v3 && v0 == v2;
+  }
+};
+
+static StripScreenQuad get_strip_screen_quad(const SeqRenderData *context, const Sequence *seq)
+{
+  Scene *scene = context->scene;
+  const int x = context->rectx;
+  const int y = context->recty;
+  float2 offset{x * 0.5f, y * 0.5f};
+
+  float quad[4][2];
+  SEQ_image_transform_final_quad_get(scene, seq, quad);
+  return StripScreenQuad{quad[0] + offset, quad[1] + offset, quad[2] + offset, quad[3] + offset};
+}
+
+/* Is quad `a` fully contained (i.e. covered by) quad `b`? For that to happen,
+ * all corners of `a` have to be inside `b`. */
+static bool is_quad_a_inside_b(const StripScreenQuad &a, const StripScreenQuad &b)
+{
+  return isect_point_quad_v2(a.v0, b.v0, b.v1, b.v2, b.v3) &&
+         isect_point_quad_v2(a.v1, b.v0, b.v1, b.v2, b.v3) &&
+         isect_point_quad_v2(a.v2, b.v0, b.v1, b.v2, b.v3) &&
+         isect_point_quad_v2(a.v3, b.v0, b.v1, b.v2, b.v3);
+}
+
+/* Tracking of "known to be opaque" strip quad coordinates, along with their
+ * order index within visible strips during rendering. */
+
+struct OpaqueQuad {
+  StripScreenQuad quad;
+  int order_index;
+};
+
+struct OpaqueQuadTracker {
+  Vector<OpaqueQuad, 4> opaques;
+
+  /* Determine if the input strip is completely behind opaque strips that are
+   * above it. Current implementation is simple and only checks if strip is
+   * completely covered by any other strip. It does not detect case where
+   * a strip is not covered by a single strip, but is behind of the union
+   * of the strips above. */
+  bool is_occluded(const SeqRenderData *context, const Sequence *seq, int order_index) const
+  {
+    StripScreenQuad quad = get_strip_screen_quad(context, seq);
+    if (quad.is_empty()) {
+      /* Strip size is not initialized/valid, we can't know if it is occluded. */
+      return false;
+    }
+    for (const OpaqueQuad &q : opaques) {
+      if (q.order_index > order_index && is_quad_a_inside_b(quad, q.quad)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void add_occluder(const SeqRenderData *context, const Sequence *seq, int order_index)
+  {
+    StripScreenQuad quad = get_strip_screen_quad(context, seq);
+    if (!quad.is_empty()) {
+      opaques.append({quad, order_index});
+    }
+  }
+};
 
 /** \} */
 
@@ -424,9 +486,9 @@ static void sequencer_image_crop_transform_matrix(const Sequence *seq,
   float rotation_matrix[3][3];
   axis_angle_to_mat3_single(rotation_matrix, 'Z', transform->rotation);
   loc_rot_size_to_mat4(r_transform_matrix,
-                       blender::float3{translate_x, translate_y, 0.0f},
+                       float3{translate_x, translate_y, 0.0f},
                        rotation_matrix,
-                       blender::float3{scale_x, scale_y, 1.0f});
+                       float3{scale_x, scale_y, 1.0f});
   transform_pivot_set_m4(r_transform_matrix, pivot);
   invert_m4(r_transform_matrix);
 }
@@ -460,19 +522,13 @@ static void sequencer_thumbnail_transform(ImBuf *in, ImBuf *out)
   float rotation_matrix[3][3];
   unit_m3(rotation_matrix);
   loc_rot_size_to_mat4(transform_matrix,
-                       blender::float3{image_center_offs_x, image_center_offs_y, 0.0f},
+                       float3{image_center_offs_x, image_center_offs_y, 0.0f},
                        rotation_matrix,
-                       blender::float3{scale_x, scale_y, 1.0f});
+                       float3{scale_x, scale_y, 1.0f});
   transform_pivot_set_m4(transform_matrix, pivot);
   invert_m4(transform_matrix);
-  const int num_subsamples = 1;
-  IMB_transform(in,
-                out,
-                IMB_TRANSFORM_MODE_REGULAR,
-                IMB_FILTER_NEAREST,
-                num_subsamples,
-                transform_matrix,
-                nullptr);
+  IMB_transform(
+      in, out, IMB_TRANSFORM_MODE_REGULAR, IMB_FILTER_NEAREST, transform_matrix, nullptr);
 }
 
 /* Check whether transform introduces transparent ares in the result (happens when the transformed
@@ -482,36 +538,44 @@ static void sequencer_thumbnail_transform(ImBuf *in, ImBuf *out)
  * image. If they do not the image will have transparent areas. */
 static bool seq_image_transform_transparency_gained(const SeqRenderData *context, Sequence *seq)
 {
-  Scene *scene = context->scene;
-  const int x = context->rectx;
-  const int y = context->recty;
-
-  float seq_image_quad[4][2];
-  SEQ_image_transform_final_quad_get(scene, seq, seq_image_quad);
-  for (int i = 0; i < 4; i++) {
-    add_v2_v2(seq_image_quad[i], blender::float2{x / 2.0f, y / 2.0f});
+  float x0 = 0.0f;
+  float y0 = 0.0f;
+  float x1 = float(context->rectx);
+  float y1 = float(context->recty);
+  float x_aspect = context->scene->r.xasp / context->scene->r.yasp;
+  if (x_aspect != 1.0f) {
+    float xmid = (x0 + x1) * 0.5f;
+    x0 = xmid - (xmid - x0) * x_aspect;
+    x1 = xmid + (x1 - xmid) * x_aspect;
   }
+  StripScreenQuad quad = get_strip_screen_quad(context, seq);
+  StripScreenQuad screen{float2(x0, y0), float2(x1, y0), float2(x0, y1), float2(x1, y1)};
 
-  return !isect_point_quad_v2(blender::float2{float(x), float(y)},
-                              seq_image_quad[0],
-                              seq_image_quad[1],
-                              seq_image_quad[2],
-                              seq_image_quad[3]) ||
-         !isect_point_quad_v2(blender::float2{0, float(y)},
-                              seq_image_quad[0],
-                              seq_image_quad[1],
-                              seq_image_quad[2],
-                              seq_image_quad[3]) ||
-         !isect_point_quad_v2(blender::float2{float(x), 0},
-                              seq_image_quad[0],
-                              seq_image_quad[1],
-                              seq_image_quad[2],
-                              seq_image_quad[3]) ||
-         !isect_point_quad_v2(blender::float2{0, 0},
-                              seq_image_quad[0],
-                              seq_image_quad[1],
-                              seq_image_quad[2],
-                              seq_image_quad[3]);
+  return !is_quad_a_inside_b(screen, quad);
+}
+
+/* Automatic filter:
+ * - No scale, no rotation and non-fractional position: nearest.
+ * - Scale up by more than 2x: cubic mitchell.
+ * - Scale down by more than 2x: box.
+ * - Otherwise: bilinear. */
+static eIMBInterpolationFilterMode get_auto_filter(const StripTransform *transform)
+{
+  const float sx = fabsf(transform->scale_x);
+  const float sy = fabsf(transform->scale_y);
+  if (sx > 2.0f && sy > 2.0f) {
+    return IMB_FILTER_CUBIC_MITCHELL;
+  }
+  if (sx < 0.5f && sy < 0.5f) {
+    return IMB_FILTER_BOX;
+  }
+  const float px = transform->xofs;
+  const float py = transform->yofs;
+  const float rot = transform->rotation;
+  if (sx == 1.0f && sy == 1.0f && roundf(px) == px && roundf(py) == py && rot == 0.0f) {
+    return IMB_FILTER_NEAREST;
+  }
+  return IMB_FILTER_BILINEAR;
 }
 
 static void sequencer_preprocess_transform_crop(
@@ -537,30 +601,28 @@ static void sequencer_preprocess_transform_crop(
 
   const StripTransform *transform = seq->strip->transform;
   eIMBInterpolationFilterMode filter = IMB_FILTER_NEAREST;
-  int num_subsamples = 1;
   switch (transform->filter) {
+    case SEQ_TRANSFORM_FILTER_AUTO:
+      filter = get_auto_filter(seq->strip->transform);
+      break;
     case SEQ_TRANSFORM_FILTER_NEAREST:
       filter = IMB_FILTER_NEAREST;
       break;
     case SEQ_TRANSFORM_FILTER_BILINEAR:
       filter = IMB_FILTER_BILINEAR;
       break;
-    case SEQ_TRANSFORM_FILTER_BICUBIC:
-      filter = IMB_FILTER_BICUBIC;
+    case SEQ_TRANSFORM_FILTER_CUBIC_BSPLINE:
+      filter = IMB_FILTER_CUBIC_BSPLINE;
       break;
-    case SEQ_TRANSFORM_FILTER_NEAREST_3x3:
-      filter = IMB_FILTER_NEAREST;
-      num_subsamples = 3;
+    case SEQ_TRANSFORM_FILTER_CUBIC_MITCHELL:
+      filter = IMB_FILTER_CUBIC_MITCHELL;
+      break;
+    case SEQ_TRANSFORM_FILTER_BOX:
+      filter = IMB_FILTER_BOX;
       break;
   }
 
-  IMB_transform(in,
-                out,
-                IMB_TRANSFORM_MODE_CROP_SRC,
-                filter,
-                num_subsamples,
-                transform_matrix,
-                &source_crop);
+  IMB_transform(in, out, IMB_TRANSFORM_MODE_CROP_SRC, filter, transform_matrix, &source_crop);
 
   if (!seq_image_transform_transparency_gained(context, seq)) {
     out->planes = in->planes;
@@ -704,8 +766,10 @@ static ImBuf *seq_render_preprocess_ibuf(const SeqRenderData *context,
     use_preprocess = true;
   }
 
-  /* Proxies and effect strips are not stored in cache. */
-  if (!is_proxy_image && (seq->type & SEQ_TYPE_EFFECT) == 0) {
+  /* Proxies and non-generator effect strips are not stored in cache. */
+  const bool is_effect_with_inputs = (seq->type & SEQ_TYPE_EFFECT) != 0 &&
+                                     SEQ_effect_get_num_inputs(seq->type) != 0;
+  if (!is_proxy_image && !is_effect_with_inputs) {
     seq_cache_put(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW, ibuf);
   }
 
@@ -816,7 +880,6 @@ static ImBuf *seq_render_effect_strip_impl(const SeqRenderData *context,
 {
   Scene *scene = context->scene;
   float fac;
-  int early_out;
   int i;
   SeqEffectHandle sh = SEQ_effect_handle_get(seq);
   FCurve *fcu = nullptr;
@@ -849,13 +912,13 @@ static ImBuf *seq_render_effect_strip_impl(const SeqRenderData *context,
     }
   }
 
-  early_out = sh.early_out(seq, fac);
+  StripEarlyOut early_out = sh.early_out(seq, fac);
 
   switch (early_out) {
-    case EARLY_NO_INPUT:
+    case StripEarlyOut::NoInput:
       out = sh.execute(context, seq, timeline_frame, fac, nullptr, nullptr, nullptr);
       break;
-    case EARLY_DO_EFFECT:
+    case StripEarlyOut::DoEffect:
       for (i = 0; i < 3; i++) {
         /* Speed effect requires time remapping of `timeline_frame` for input(s). */
         if (input[0] && seq->type == SEQ_TYPE_SPEED) {
@@ -879,12 +942,12 @@ static ImBuf *seq_render_effect_strip_impl(const SeqRenderData *context,
         }
       }
       break;
-    case EARLY_USE_INPUT_1:
+    case StripEarlyOut::UseInput1:
       if (input[0]) {
         out = seq_render_strip(context, state, input[0], timeline_frame);
       }
       break;
-    case EARLY_USE_INPUT_2:
+    case StripEarlyOut::UseInput2:
       if (input[1]) {
         out = seq_render_strip(context, state, input[1], timeline_frame);
       }
@@ -1338,7 +1401,8 @@ ImBuf *seq_render_mask(const SeqRenderData *context,
     const float *fp_src;
     float *fp_dst;
 
-    ibuf = IMB_allocImBuf(context->rectx, context->recty, 32, IB_rectfloat);
+    ibuf = IMB_allocImBuf(
+        context->rectx, context->recty, 32, IB_rectfloat | IB_uninitialized_pixels);
 
     fp_src = maskbuf;
     fp_dst = ibuf->float_buffer.data;
@@ -1356,7 +1420,7 @@ ImBuf *seq_render_mask(const SeqRenderData *context,
     const float *fp_src;
     uchar *ub_dst;
 
-    ibuf = IMB_allocImBuf(context->rectx, context->recty, 32, IB_rect);
+    ibuf = IMB_allocImBuf(context->rectx, context->recty, 32, IB_rect | IB_uninitialized_pixels);
 
     fp_src = maskbuf;
     ub_dst = ibuf->byte_buffer.data;
@@ -1831,22 +1895,22 @@ static bool seq_must_swap_input_in_blend_mode(Sequence *seq)
   return swap_input;
 }
 
-static int seq_get_early_out_for_blend_mode(Sequence *seq)
+static StripEarlyOut seq_get_early_out_for_blend_mode(Sequence *seq)
 {
   SeqEffectHandle sh = seq_effect_get_sequence_blend(seq);
   float fac = seq->blend_opacity / 100.0f;
-  int early_out = sh.early_out(seq, fac);
+  StripEarlyOut early_out = sh.early_out(seq, fac);
 
-  if (ELEM(early_out, EARLY_DO_EFFECT, EARLY_NO_INPUT)) {
+  if (ELEM(early_out, StripEarlyOut::DoEffect, StripEarlyOut::NoInput)) {
     return early_out;
   }
 
   if (seq_must_swap_input_in_blend_mode(seq)) {
-    if (early_out == EARLY_USE_INPUT_2) {
-      return EARLY_USE_INPUT_1;
+    if (early_out == StripEarlyOut::UseInput2) {
+      return StripEarlyOut::UseInput1;
     }
-    if (early_out == EARLY_USE_INPUT_1) {
-      return EARLY_USE_INPUT_2;
+    if (early_out == StripEarlyOut::UseInput1) {
+      return StripEarlyOut::UseInput2;
     }
   }
   return early_out;
@@ -1889,21 +1953,18 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
                                      float timeline_frame,
                                      int chanshown)
 {
-  Sequence *seq_arr[MAXSEQ + 1];
-  int count;
-  int i;
-  ImBuf *out = nullptr;
-
-  count = seq_get_shown_sequences(
-      context->scene, channels, seqbasep, timeline_frame, chanshown, seq_arr);
-
-  if (count == 0) {
+  Vector<Sequence *> strips = seq_get_shown_sequences(
+      context->scene, channels, seqbasep, timeline_frame, chanshown);
+  if (strips.is_empty()) {
     return nullptr;
   }
 
-  for (i = count - 1; i >= 0; i--) {
-    int early_out;
-    Sequence *seq = seq_arr[i];
+  OpaqueQuadTracker opaques;
+
+  int64_t i;
+  ImBuf *out = nullptr;
+  for (i = strips.size() - 1; i >= 0; i--) {
+    Sequence *seq = strips[i];
 
     out = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_COMPOSITE);
 
@@ -1915,33 +1976,49 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
       break;
     }
 
-    early_out = seq_get_early_out_for_blend_mode(seq);
+    StripEarlyOut early_out = seq_get_early_out_for_blend_mode(seq);
+
+    if (early_out == StripEarlyOut::DoEffect && opaques.is_occluded(context, seq, i)) {
+      early_out = StripEarlyOut::UseInput1;
+    }
 
     /* Early out for alpha over. It requires image to be rendered, so it can't use
      * `seq_get_early_out_for_blend_mode`. */
-    if (out == nullptr && seq->blend_mode == SEQ_TYPE_ALPHAOVER && seq->blend_opacity == 100.0f) {
+    if (out == nullptr && seq->blend_mode == SEQ_TYPE_ALPHAOVER &&
+        early_out == StripEarlyOut::DoEffect && seq->blend_opacity == 100.0f)
+    {
       ImBuf *test = seq_render_strip(context, state, seq, timeline_frame);
       if (ELEM(test->planes, R_IMF_PLANES_BW, R_IMF_PLANES_RGB)) {
-        early_out = EARLY_USE_INPUT_2;
+        early_out = StripEarlyOut::UseInput2;
       }
       else {
-        early_out = EARLY_DO_EFFECT;
+        early_out = StripEarlyOut::DoEffect;
       }
       /* Free the image. It is stored in cache, so this doesn't affect performance. */
       IMB_freeImBuf(test);
+
+      /* Check whether the raw (before preprocessing, which can add alpha) strip content
+       * was opaque. */
+      ImBuf *ibuf_raw = seq_cache_get(context, seq, timeline_frame, SEQ_CACHE_STORE_RAW);
+      if (ibuf_raw != nullptr) {
+        if (ibuf_raw->planes != R_IMF_PLANES_RGBA) {
+          opaques.add_occluder(context, seq, i);
+        }
+        IMB_freeImBuf(ibuf_raw);
+      }
     }
 
     switch (early_out) {
-      case EARLY_NO_INPUT:
-      case EARLY_USE_INPUT_2:
+      case StripEarlyOut::NoInput:
+      case StripEarlyOut::UseInput2:
         out = seq_render_strip(context, state, seq, timeline_frame);
         break;
-      case EARLY_USE_INPUT_1:
+      case StripEarlyOut::UseInput1:
         if (i == 0) {
           out = IMB_allocImBuf(context->rectx, context->recty, 32, IB_rect);
         }
         break;
-      case EARLY_DO_EFFECT:
+      case StripEarlyOut::DoEffect:
         if (i == 0) {
           ImBuf *ibuf1 = IMB_allocImBuf(context->rectx, context->recty, 32, IB_rect);
           ImBuf *ibuf2 = seq_render_strip(context, state, seq, timeline_frame);
@@ -1949,7 +2026,7 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
           out = seq_render_strip_stack_apply_effect(context, seq, timeline_frame, ibuf1, ibuf2);
           IMB_metadata_copy(out, ibuf2);
 
-          seq_cache_put(context, seq_arr[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
+          seq_cache_put(context, strips[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
 
           IMB_freeImBuf(ibuf1);
           IMB_freeImBuf(ibuf2);
@@ -1963,10 +2040,14 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
   }
 
   i++;
-  for (; i < count; i++) {
-    Sequence *seq = seq_arr[i];
+  for (; i < strips.size(); i++) {
+    Sequence *seq = strips[i];
 
-    if (seq_get_early_out_for_blend_mode(seq) == EARLY_DO_EFFECT) {
+    if (opaques.is_occluded(context, seq, i)) {
+      continue;
+    }
+
+    if (seq_get_early_out_for_blend_mode(seq) == StripEarlyOut::DoEffect) {
       ImBuf *ibuf1 = out;
       ImBuf *ibuf2 = seq_render_strip(context, state, seq, timeline_frame);
 
@@ -1976,7 +2057,7 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context,
       IMB_freeImBuf(ibuf2);
     }
 
-    seq_cache_put(context, seq_arr[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
+    seq_cache_put(context, strips[i], timeline_frame, SEQ_CACHE_STORE_COMPOSITE, out);
   }
 
   return out;
@@ -2005,31 +2086,29 @@ ImBuf *SEQ_render_give_ibuf(const SeqRenderData *context, float timeline_frame, 
   }
 
   SeqRenderState state;
-  seq_render_state_init(&state);
   ImBuf *out = nullptr;
-  Sequence *seq_arr[MAXSEQ + 1];
-  int count;
 
-  count = seq_get_shown_sequences(scene, channels, seqbasep, timeline_frame, chanshown, seq_arr);
+  Vector<Sequence *> strips = seq_get_shown_sequences(
+      scene, channels, seqbasep, timeline_frame, chanshown);
 
-  if (count) {
-    out = seq_cache_get(context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT);
+  if (!strips.is_empty()) {
+    out = seq_cache_get(context, strips.last(), timeline_frame, SEQ_CACHE_STORE_FINAL_OUT);
   }
 
   seq_cache_free_temp_cache(context->scene, context->task_id, timeline_frame);
   /* Make sure we only keep the `anim` data for strips that are in view. */
   SEQ_relations_free_all_anim_ibufs(context->scene, timeline_frame);
 
-  if (count && !out) {
+  if (!strips.is_empty() && !out) {
     BLI_mutex_lock(&seq_render_mutex);
     out = seq_render_strip_stack(context, &state, channels, seqbasep, timeline_frame, chanshown);
 
     if (context->is_prefetch_render) {
-      seq_cache_put(context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, out);
+      seq_cache_put(context, strips.last(), timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, out);
     }
     else {
       seq_cache_put_if_possible(
-          context, seq_arr[count - 1], timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, out);
+          context, strips.last(), timeline_frame, SEQ_CACHE_STORE_FINAL_OUT, out);
     }
     BLI_mutex_unlock(&seq_render_mutex);
   }
@@ -2046,7 +2125,6 @@ ImBuf *seq_render_give_ibuf_seqbase(const SeqRenderData *context,
                                     ListBase *seqbasep)
 {
   SeqRenderState state;
-  seq_render_state_init(&state);
 
   return seq_render_strip_stack(context, &state, channels, seqbasep, timeline_frame, chan_shown);
 }
@@ -2056,7 +2134,6 @@ ImBuf *SEQ_render_give_ibuf_direct(const SeqRenderData *context,
                                    Sequence *seq)
 {
   SeqRenderState state;
-  seq_render_state_init(&state);
 
   ImBuf *ibuf = seq_render_strip(context, &state, seq, timeline_frame);
   return ibuf;
@@ -2161,7 +2238,6 @@ void SEQ_render_thumbnails(const SeqRenderData *context,
                            const bool *stop)
 {
   SeqRenderState state;
-  seq_render_state_init(&state);
   const Scene *scene = context->scene;
 
   /* Adding the hold offset value (seq->anim_startofs) to the start frame. Position of image not
@@ -2222,7 +2298,6 @@ void SEQ_render_thumbnails_base_set(const SeqRenderData *context,
                                     const bool *stop)
 {
   SeqRenderState state;
-  seq_render_state_init(&state);
   const Scene *scene = context->scene;
 
   int timeline_frame = SEQ_time_left_handle_frame_get(scene, seq);

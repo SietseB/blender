@@ -2,13 +2,14 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#define DNA_DEPRECATED_ALLOW /* For copy of deprecated NodeKuwaharaData members. */
+
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
 
 #include "COM_KuwaharaNode.h"
 
-#include "COM_GaussianXBlurOperation.h"
-#include "COM_GaussianYBlurOperation.h"
+#include "COM_GaussianBlurBaseOperation.h"
 #include "COM_KuwaharaAnisotropicOperation.h"
 #include "COM_KuwaharaAnisotropicStructureTensorOperation.h"
 #include "COM_KuwaharaClassicOperation.h"

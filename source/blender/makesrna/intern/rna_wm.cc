@@ -16,7 +16,7 @@
 #include "BLI_string_utf8_symbols.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "BKE_keyconfig.h"
 #include "BKE_screen.hh"
@@ -26,7 +26,7 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -554,7 +554,7 @@ const EnumPropertyItem rna_enum_wm_report_items[] = {
 
 #  include "UI_interface.hh"
 
-#  include "BKE_global.h"
+#  include "BKE_global.hh"
 #  include "BKE_idprop.h"
 
 #  include "MEM_guardedalloc.h"
@@ -565,14 +565,16 @@ const EnumPropertyItem rna_enum_wm_report_items[] = {
 
 static wmOperator *rna_OperatorProperties_find_operator(PointerRNA *ptr)
 {
+  if (ptr->owner_id == nullptr || GS(ptr->owner_id->name) != ID_WM) {
+    return nullptr;
+  }
+
   wmWindowManager *wm = (wmWindowManager *)ptr->owner_id;
 
-  if (wm) {
-    IDProperty *properties = (IDProperty *)ptr->data;
-    for (wmOperator *op = static_cast<wmOperator *>(wm->operators.last); op; op = op->prev) {
-      if (op->properties == properties) {
-        return op;
-      }
+  IDProperty *properties = (IDProperty *)ptr->data;
+  for (wmOperator *op = static_cast<wmOperator *>(wm->operators.last); op; op = op->prev) {
+    if (op->properties == properties) {
+      return op;
     }
   }
 
@@ -1338,12 +1340,17 @@ static int rna_operator_exec_cb(bContext *C, wmOperator *op)
 
   RNA_parameter_list_create(&list, &opr, func);
   RNA_parameter_set_lookup(&list, "context", &C);
-  op->type->rna_ext.call(C, &opr, func, &list);
+  const bool has_error = op->type->rna_ext.call(C, &opr, func, &list) == -1;
 
   RNA_parameter_get_lookup(&list, "result", &ret);
   result = *(int *)ret;
 
   RNA_parameter_list_free(&list);
+
+  if (UNLIKELY(has_error)) {
+    /* A modal handler may have been added, ensure this is removed, see: #113479. */
+    WM_event_remove_modal_handler_all(op, false);
+  }
 
   return result;
 }
@@ -1388,12 +1395,17 @@ static int rna_operator_invoke_cb(bContext *C, wmOperator *op, const wmEvent *ev
   RNA_parameter_list_create(&list, &opr, func);
   RNA_parameter_set_lookup(&list, "context", &C);
   RNA_parameter_set_lookup(&list, "event", &event);
-  op->type->rna_ext.call(C, &opr, func, &list);
+  const bool has_error = op->type->rna_ext.call(C, &opr, func, &list) == -1;
 
   RNA_parameter_get_lookup(&list, "result", &ret);
   result = *(int *)ret;
 
   RNA_parameter_list_free(&list);
+
+  if (UNLIKELY(has_error)) {
+    /* A modal handler may have been added, ensure this is removed, see: #113479. */
+    WM_event_remove_modal_handler_all(op, false);
+  }
 
   return result;
 }
@@ -2041,7 +2053,6 @@ static void rna_def_operator(BlenderRNA *brna)
   RNA_def_struct_idprops_func(srna, "rna_OperatorProperties_idprops");
   RNA_def_struct_property_tags(srna, rna_enum_operator_property_tag_items);
   RNA_def_struct_flag(srna, STRUCT_NO_DATABLOCK_IDPROPERTIES | STRUCT_NO_CONTEXT_WITHOUT_OWNER_ID);
-  RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
 }
 
 static void rna_def_macro_operator(BlenderRNA *brna)
@@ -2378,7 +2389,6 @@ static void rna_def_window_stereo3d(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "Stereo3dDisplay", nullptr);
   RNA_def_struct_sdna(srna, "Stereo3dFormat");
-  RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
   RNA_def_struct_ui_text(srna, "Stereo 3D Display", "Settings for stereo 3D display");
 
   prop = RNA_def_property(srna, "display_mode", PROP_ENUM, PROP_NONE);
@@ -2711,12 +2721,12 @@ static void rna_def_keyconfig(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_expanded_items", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", KEYMAP_EXPANDED);
   RNA_def_property_ui_text(prop, "Items Expanded", "Expanded in the user interface");
-  RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
+  RNA_def_property_ui_icon(prop, ICON_RIGHTARROW, 1);
 
   prop = RNA_def_property(srna, "show_expanded_children", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", KEYMAP_CHILDREN_EXPANDED);
   RNA_def_property_ui_text(prop, "Children Expanded", "Children expanded in the user interface");
-  RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
+  RNA_def_property_ui_icon(prop, ICON_RIGHTARROW, 1);
 
   prop = RNA_def_property(srna, "modal_event_values", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -2884,7 +2894,7 @@ static void rna_def_keyconfig(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", KMI_EXPANDED);
   RNA_def_property_ui_text(
       prop, "Expanded", "Show key map event and property details in the user interface");
-  RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
+  RNA_def_property_ui_icon(prop, ICON_RIGHTARROW, 1);
   /* Display only, no need to call `rna_KeyMapItem_update`. */
 
   prop = RNA_def_property(srna, "propvalue", PROP_ENUM, PROP_NONE);

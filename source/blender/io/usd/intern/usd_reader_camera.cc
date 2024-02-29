@@ -5,7 +5,7 @@
  *
  * Adapted from the Blender Alembic importer implementation. */
 
-#include "usd_reader_camera.h"
+#include "usd_reader_camera.hh"
 
 #include "DNA_camera_types.h"
 #include "DNA_object_types.h"
@@ -15,7 +15,6 @@
 #include "BKE_camera.h"
 #include "BKE_object.hh"
 
-#include <pxr/pxr.h>
 #include <pxr/usd/usdGeom/camera.h>
 
 namespace blender::io::usd {

@@ -31,7 +31,7 @@
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "WM_types.hh"
 
@@ -174,8 +174,8 @@ static void modify_stroke_color(Object &ob,
   bke::AttributeAccessor attributes = curves.attributes();
   const VArray<int> stroke_materials = *attributes.lookup_or_default<int>(
       "material_index", bke::AttrDomain::Curve, 0);
-  const VArray<float> vgroup_weights = *attributes.lookup_or_default<float>(
-      tmd.influence.vertex_group_name, bke::AttrDomain::Point, 1.0f);
+  const VArray<float> vgroup_weights = modifier::greasepencil::get_influence_vertex_weights(
+      curves, tmd.influence);
 
   /* Common input color and base factor calculation. */
   auto get_material_color = [&](const int64_t curve_i) {
@@ -217,8 +217,7 @@ static void modify_stroke_color(Object &ob,
       const OffsetIndices<int> points_by_curve = curves.points_by_curve();
       const Span<float3> positions = curves.positions();
       /* Transforms points to the gradient object space. */
-      const float4x4 matrix = float4x4_view(tmd.object->world_to_object) *
-                              float4x4_view(ob.object_to_world);
+      const float4x4 matrix = tmd.object->world_to_object() * ob.object_to_world();
 
       curves_mask.foreach_index(GrainSize(512), [&](const int64_t curve_i) {
         const ColorGeometry4f material_color = get_material_color(curve_i);
@@ -261,8 +260,8 @@ static void modify_fill_color(Object &ob,
                                                                bke::AttrDomain::Curve);
   const VArray<int> stroke_materials = *attributes.lookup_or_default<int>(
       "material_index", bke::AttrDomain::Curve, 0);
-  const VArray<float> vgroup_weights = *attributes.lookup_or_default<float>(
-      tmd.influence.vertex_group_name, bke::AttrDomain::Point, 1.0f);
+  const VArray<float> vgroup_weights = modifier::greasepencil::get_influence_vertex_weights(
+      curves, tmd.influence);
 
   /* Common input color and base factor calculation. */
   auto get_material_color = [&](const int64_t curve_i) {
@@ -297,8 +296,7 @@ static void modify_fill_color(Object &ob,
       const OffsetIndices<int> points_by_curve = curves.points_by_curve();
       const Span<float3> positions = curves.positions();
       /* Transforms points to the gradient object space. */
-      const float4x4 matrix = float4x4_view(tmd.object->world_to_object) *
-                              float4x4_view(ob.object_to_world);
+      const float4x4 matrix = tmd.object->world_to_object() * ob.object_to_world();
 
       curves_mask.foreach_index(GrainSize(512), [&](int64_t curve_i) {
         const ColorGeometry4f material_color = get_material_color(curve_i);
@@ -433,12 +431,8 @@ static void panel_draw(const bContext *C, Panel *panel)
       break;
   }
 
-  LayoutPanelState *influence_panel_state = BKE_panel_layout_panel_state_ensure(
-      panel, "influence", true);
-  PointerRNA influence_state_ptr = RNA_pointer_create(
-      nullptr, &RNA_LayoutPanelState, influence_panel_state);
-  if (uiLayout *influence_panel = uiLayoutPanel(
-          C, layout, "Influence", &influence_state_ptr, "is_open"))
+  if (uiLayout *influence_panel = uiLayoutPanelProp(
+          C, layout, ptr, "open_influence_panel", "Influence"))
   {
     modifier::greasepencil::draw_layer_filter_settings(C, influence_panel, ptr);
     modifier::greasepencil::draw_material_filter_settings(C, influence_panel, ptr);

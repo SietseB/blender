@@ -23,7 +23,7 @@
 #include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_idprop.h"
-#include "BKE_layer.h"
+#include "BKE_layer.hh"
 #include "BKE_main.hh"
 #include "BKE_object.hh"
 #include "BKE_undo_system.hh"
@@ -96,6 +96,11 @@ static void undoarm_to_editarm(UndoArmature *uarm, bArmature *arm)
   }
 
   ED_armature_ebone_listbase_temp_clear(arm->edbo);
+
+  /* Before freeing the old bone collections, copy their 'expanded' flag. This
+   * flag is not supposed to be restored with any undo steps. */
+  bonecolls_copy_expanded_flag(blender::Span(uarm->collection_array, uarm->collection_array_num),
+                               arm->collections_span());
 
   /* Copy bone collections. */
   ANIM_bonecoll_array_free(&arm->collection_array, &arm->collection_array_num, true);

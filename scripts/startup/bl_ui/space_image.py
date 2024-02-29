@@ -231,7 +231,7 @@ class IMAGE_MT_image(Menu):
 
             layout.menu("IMAGE_MT_image_invert")
             layout.operator("image.resize", text="Resize")
-            layout.menu("IMAGE_MT_image_flip")
+            layout.menu("IMAGE_MT_image_transform")
 
         if ima and not show_render:
             if ima.packed_file:
@@ -248,13 +248,17 @@ class IMAGE_MT_image(Menu):
             layout.operator("gpencil.image_to_grease_pencil", text="Generate Grease Pencil")
 
 
-class IMAGE_MT_image_flip(Menu):
-    bl_label = "Flip"
+class IMAGE_MT_image_transform(Menu):
+    bl_label = "Transform"
 
     def draw(self, _context):
         layout = self.layout
-        layout.operator("image.flip", text="Horizontally").use_flip_x = True
-        layout.operator("image.flip", text="Vertically").use_flip_y = True
+        layout.operator("image.flip", text="Flip Horizontally").use_flip_x = True
+        layout.operator("image.flip", text="Flip Vertically").use_flip_y = True
+        layout.separator()
+        layout.operator("image.rotate_orthogonal", text="Rotate 90\u00B0 Clockwise").degrees = '90'
+        layout.operator("image.rotate_orthogonal", text="Rotate 90\u00B0 Counter-Clockwise").degrees = '270'
+        layout.operator("image.rotate_orthogonal", text="Rotate 180\u00B0").degrees = '180'
 
 
 class IMAGE_MT_image_invert(Menu):
@@ -1427,8 +1431,11 @@ class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
         layout = self.layout
 
         sima = context.space_data
+
         layout.template_vectorscope(sima, "scopes")
-        layout.prop(sima.scopes, "vectorscope_alpha")
+        row = layout.split(factor=0.75)
+        row.prop(sima.scopes, "vectorscope_alpha")
+        row.prop(sima.scopes, "vectorscope_mode", text="")
 
 
 class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
@@ -1568,10 +1575,10 @@ class IMAGE_PT_overlay_guides(Panel):
             layout.prop(uvedit, "tile_grid_shape", text="Tiles")
 
 
-class IMAGE_PT_overlay_uv_edit(Panel):
+class IMAGE_PT_overlay_uv_stretch(Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'HEADER'
-    bl_label = "UV Editing"
+    bl_label = "UV Stretch"
     bl_parent_id = "IMAGE_PT_overlay"
 
     @classmethod
@@ -1588,12 +1595,12 @@ class IMAGE_PT_overlay_uv_edit(Panel):
 
         layout.active = overlay.show_overlays
 
-        # UV Stretching
-        row = layout.row()
-        row.prop(uvedit, "show_stretch")
-        subrow = row.row(align=True)
+        row = layout.row(align=True)
+        row.row().prop(uvedit, "show_stretch", text="")
+        subrow = row.row()
         subrow.active = uvedit.show_stretch
         subrow.prop(uvedit, "display_stretch_type", text="")
+        subrow.prop(uvedit, "stretch_opacity", text="Opacity")
 
 
 class IMAGE_PT_overlay_uv_edit_geometry(Panel):
@@ -1684,7 +1691,7 @@ classes = (
     IMAGE_MT_select,
     IMAGE_MT_select_linked,
     IMAGE_MT_image,
-    IMAGE_MT_image_flip,
+    IMAGE_MT_image_transform,
     IMAGE_MT_image_invert,
     IMAGE_MT_uvs,
     IMAGE_MT_uvs_showhide,
@@ -1745,7 +1752,7 @@ classes = (
     IMAGE_PT_gizmo_display,
     IMAGE_PT_overlay,
     IMAGE_PT_overlay_guides,
-    IMAGE_PT_overlay_uv_edit,
+    IMAGE_PT_overlay_uv_stretch,
     IMAGE_PT_overlay_uv_edit_geometry,
     IMAGE_PT_overlay_texture_paint,
     IMAGE_PT_overlay_image,

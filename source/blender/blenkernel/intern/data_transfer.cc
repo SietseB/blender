@@ -21,7 +21,7 @@
 #include "BKE_attribute.hh"
 #include "BKE_customdata.hh"
 #include "BKE_data_transfer.h"
-#include "BKE_deform.h"
+#include "BKE_deform.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 #include "BKE_mesh_remap.hh"
@@ -30,7 +30,7 @@
 #include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"
-#include "BKE_report.h"
+#include "BKE_report.hh"
 
 #include "DEG_depsgraph_query.hh"
 
@@ -1060,7 +1060,7 @@ static bool data_transfer_layersmapping_generate(ListBase *r_map,
         dst_data = static_cast<float3 *>(CustomData_add_layer(
             &me_dst->corner_data, CD_NORMAL, CD_SET_DEFAULT, me_dst->corners_num));
       }
-      if (mix_factor != 1.0f) {
+      if (mix_factor != 1.0f || mix_weights) {
         MutableSpan(dst_data, me_dst->corners_num).copy_from(me_dst->corner_normals());
       }
       /* Post-process will convert it back to CD_CUSTOMLOOPNORMAL. */

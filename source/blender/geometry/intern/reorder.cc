@@ -53,6 +53,9 @@ static void reorder_attributes_group_to_group(const bke::AttributeAccessor src_a
         if (meta_data.domain != domain) {
           return true;
         }
+        if (meta_data.data_type == CD_PROP_STRING) {
+          return true;
+        }
         const GVArray src = *src_attributes.lookup(id, domain);
         bke::GSpanAttributeWriter dst = dst_attributes.lookup_or_add_for_write_only_span(
             id, domain, meta_data.data_type);
@@ -209,31 +212,25 @@ static void reorder_instaces_exec(const bke::Instances &src_instances,
                          {},
                          old_by_new_map,
                          dst_instances.attributes_for_write());
-
-  const Span<int> old_reference_handles = src_instances.reference_handles();
-  MutableSpan<int> new_reference_handles = dst_instances.reference_handles();
-  array_utils::gather(old_reference_handles, old_by_new_map, new_reference_handles);
-
-  const Span<float4x4> old_transforms = src_instances.transforms();
-  MutableSpan<float4x4> new_transforms = dst_instances.transforms();
-  array_utils::gather(old_transforms, old_by_new_map, new_transforms);
 }
 
 static void clean_unused_attributes(const bke::AnonymousAttributePropagationInfo &propagation_info,
                                     bke::MutableAttributeAccessor attributes)
 {
   Vector<std::string> unused_ids;
-  attributes.for_all(
-      [&](const bke::AttributeIDRef &id, const bke::AttributeMetaData /*meta_data*/) {
-        if (!id.is_anonymous()) {
-          return true;
-        }
-        if (propagation_info.propagate(id.anonymous_id())) {
-          return true;
-        }
-        unused_ids.append(id.name());
-        return true;
-      });
+  attributes.for_all([&](const bke::AttributeIDRef &id, const bke::AttributeMetaData meta_data) {
+    if (!id.is_anonymous()) {
+      return true;
+    }
+    if (meta_data.data_type == CD_PROP_STRING) {
+      return true;
+    }
+    if (propagation_info.propagate(id.anonymous_id())) {
+      return true;
+    }
+    unused_ids.append(id.name());
+    return true;
+  });
 
   for (const std::string &unused_id : unused_ids) {
     attributes.remove(unused_id);
@@ -261,15 +258,25 @@ PointCloud *reorder_points(const PointCloud &src_pointcloud,
   return dst_pointcloud;
 }
 
+bke::CurvesGeometry reorder_curves_geometry(
+    const bke::CurvesGeometry &src_curves,
+    Span<int> old_by_new_map,
+    const bke::AnonymousAttributePropagationInfo &propagation_info)
+{
+  bke::CurvesGeometry dst_curves = bke::CurvesGeometry(src_curves);
+  clean_unused_attributes(propagation_info, dst_curves.attributes_for_write());
+  reorder_curves_exec(src_curves, old_by_new_map, dst_curves);
+  return dst_curves;
+}
+
 Curves *reorder_curves(const Curves &src_curves,
                        Span<int> old_by_new_map,
                        const bke::AnonymousAttributePropagationInfo &propagation_info)
 {
   const bke::CurvesGeometry src_curve_geometry = src_curves.geometry.wrap();
   Curves *dst_curves = BKE_curves_copy_for_eval(&src_curves);
-  bke::CurvesGeometry &dst_curve_geometry = dst_curves->geometry.wrap();
-  clean_unused_attributes(propagation_info, dst_curve_geometry.attributes_for_write());
-  reorder_curves_exec(src_curve_geometry, old_by_new_map, dst_curve_geometry);
+  dst_curves->geometry.wrap() = reorder_curves_geometry(
+      src_curve_geometry, old_by_new_map, propagation_info);
   return dst_curves;
 }
 

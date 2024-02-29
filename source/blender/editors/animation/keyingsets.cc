@@ -24,7 +24,7 @@
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
 #include "BKE_main.hh"
-#include "BKE_report.h"
+#include "BKE_report.hh"
 
 #include "DEG_depsgraph.hh"
 
@@ -304,12 +304,9 @@ static int add_keyingset_button_exec(bContext *C, wmOperator *op)
 
   /* Check if property is able to be added. */
   const bool all = RNA_boolean_get(op->ptr, "all");
-  char *path = nullptr;
   bool changed = false;
   if (ptr.owner_id && ptr.data && prop && RNA_property_animateable(&ptr, prop)) {
-    path = RNA_path_from_ID_to_property(&ptr, prop);
-
-    if (path) {
+    if (const std::optional<std::string> path = RNA_path_from_ID_to_property(&ptr, prop)) {
       if (all) {
         pflag |= KSP_FLAG_WHOLE_ARRAY;
 
@@ -322,11 +319,9 @@ static int add_keyingset_button_exec(bContext *C, wmOperator *op)
 
       /* Add path to this setting. */
       BKE_keyingset_add_path(
-          keyingset, ptr.owner_id, nullptr, path, index, pflag, KSP_GROUP_KSNAME);
+          keyingset, ptr.owner_id, nullptr, path->c_str(), index, pflag, KSP_GROUP_KSNAME);
       keyingset->active_path = BLI_listbase_count(&keyingset->paths);
       changed = true;
-
-      MEM_freeN(path);
     }
   }
 
@@ -390,21 +385,16 @@ static int remove_keyingset_button_exec(bContext *C, wmOperator *op)
       BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1));
 
   bool changed = false;
-  char *path = nullptr;
   if (ptr.owner_id && ptr.data && prop) {
-    path = RNA_path_from_ID_to_property(&ptr, prop);
-
-    if (path) {
+    if (const std::optional<std::string> path = RNA_path_from_ID_to_property(&ptr, prop)) {
       /* Try to find a path matching this description. */
       KS_Path *keyingset_path = BKE_keyingset_find_path(
-          keyingset, ptr.owner_id, keyingset->name, path, index, KSP_GROUP_KSNAME);
+          keyingset, ptr.owner_id, keyingset->name, path->c_str(), index, KSP_GROUP_KSNAME);
 
       if (keyingset_path) {
         BKE_keyingset_free_path(keyingset, keyingset_path);
         changed = true;
       }
-
-      MEM_freeN(path);
     }
   }
 
@@ -754,10 +744,10 @@ KeyingSet *ANIM_get_keyingset_for_autokeying(const Scene *scene, const char *tra
   return ANIM_builtin_keyingset_get_named(transformKSName);
 }
 
-static void anim_keyingset_visit_for_search_impl(const bContext *C,
-                                                 StringPropertySearchVisitFunc visit_fn,
-                                                 void *visit_user_data,
-                                                 const bool use_poll)
+static void anim_keyingset_visit_for_search_impl(
+    const bContext *C,
+    blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn,
+    const bool use_poll)
 {
   /* Poll requires context. */
   if (use_poll && (C == nullptr)) {
@@ -768,10 +758,10 @@ static void anim_keyingset_visit_for_search_impl(const bContext *C,
 
   /* Active Keying Set. */
   if (!use_poll || (scene && scene->active_keyingset)) {
-    StringPropertySearchVisitParams visit_params = {nullptr};
+    StringPropertySearchVisitParams visit_params{};
     visit_params.text = "__ACTIVE__";
     visit_params.info = "Active Keying Set";
-    visit_fn(visit_user_data, &visit_params);
+    visit_fn(visit_params);
   }
 
   /* User-defined Keying Sets. */
@@ -780,10 +770,10 @@ static void anim_keyingset_visit_for_search_impl(const bContext *C,
       if (use_poll && !ANIM_keyingset_context_ok_poll((bContext *)C, keyingset)) {
         continue;
       }
-      StringPropertySearchVisitParams visit_params = {nullptr};
+      StringPropertySearchVisitParams visit_params{};
       visit_params.text = keyingset->idname;
       visit_params.info = keyingset->name;
-      visit_fn(visit_user_data, &visit_params);
+      visit_fn(visit_params);
     }
   }
 
@@ -792,31 +782,31 @@ static void anim_keyingset_visit_for_search_impl(const bContext *C,
     if (use_poll && !ANIM_keyingset_context_ok_poll((bContext *)C, keyingset)) {
       continue;
     }
-    StringPropertySearchVisitParams visit_params = {nullptr};
+    StringPropertySearchVisitParams visit_params{};
     visit_params.text = keyingset->idname;
     visit_params.info = keyingset->name;
-    visit_fn(visit_user_data, &visit_params);
+    visit_fn(visit_params);
   }
 }
 
-void ANIM_keyingset_visit_for_search(const bContext *C,
-                                     PointerRNA * /*ptr*/,
-                                     PropertyRNA * /*prop*/,
-                                     const char * /*edit_text*/,
-                                     StringPropertySearchVisitFunc visit_fn,
-                                     void *visit_user_data)
+void ANIM_keyingset_visit_for_search(
+    const bContext *C,
+    PointerRNA * /*ptr*/,
+    PropertyRNA * /*prop*/,
+    const char * /*edit_text*/,
+    blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn)
 {
-  anim_keyingset_visit_for_search_impl(C, visit_fn, visit_user_data, false);
+  anim_keyingset_visit_for_search_impl(C, visit_fn, false);
 }
 
-void ANIM_keyingset_visit_for_search_no_poll(const bContext *C,
-                                             PointerRNA * /*ptr*/,
-                                             PropertyRNA * /*prop*/,
-                                             const char * /*edit_text*/,
-                                             StringPropertySearchVisitFunc visit_fn,
-                                             void *visit_user_data)
+void ANIM_keyingset_visit_for_search_no_poll(
+    const bContext *C,
+    PointerRNA * /*ptr*/,
+    PropertyRNA * /*prop*/,
+    const char * /*edit_text*/,
+    blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn)
 {
-  anim_keyingset_visit_for_search_impl(C, visit_fn, visit_user_data, true);
+  anim_keyingset_visit_for_search_impl(C, visit_fn, true);
 }
 
 /* Menu of All Keying Sets ----------------------------- */

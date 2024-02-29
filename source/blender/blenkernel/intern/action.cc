@@ -32,16 +32,16 @@
 #include "BLI_string_utils.hh"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "BKE_action.h"
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_anim_visualization.h"
 #include "BKE_animsys.h"
 #include "BKE_armature.hh"
 #include "BKE_asset.hh"
 #include "BKE_constraint.h"
-#include "BKE_deform.h"
+#include "BKE_deform.hh"
 #include "BKE_fcurve.h"
 #include "BKE_idprop.h"
 #include "BKE_idtype.hh"
@@ -268,6 +268,7 @@ static AssetTypeInfo AssetType_AC = {
 IDTypeInfo IDType_ID_AC = {
     /*id_code*/ ID_AC,
     /*id_filter*/ FILTER_ID_AC,
+    /*dependencies_id_types*/ 0,
     /*main_listbase_index*/ INDEX_ID_AC,
     /*struct_size*/ sizeof(bAction),
     /*name*/ "Action",
@@ -374,6 +375,12 @@ void action_group_colors_sync(bActionGroup *grp, const bActionGroup *ref_grp)
 
 void action_group_colors_set_from_posebone(bActionGroup *grp, const bPoseChannel *pchan)
 {
+  BLI_assert_msg(pchan, "cannot 'set action group colors from posebone' without a posebone");
+  if (!pchan->bone) {
+    /* pchan->bone is only set after leaving editmode. */
+    return;
+  }
+
   const BoneColor &color = blender::animrig::ANIM_bonecolor_posebone_get(pchan);
   action_group_colors_set(grp, &color);
 }
@@ -1480,7 +1487,6 @@ eAction_TransformFlags BKE_action_get_item_transform_flags(bAction *act,
                                                            ListBase *curves)
 {
   PointerRNA ptr;
-  char *basePath = nullptr;
   short flags = 0;
 
   /* build PointerRNA from provided data to obtain the paths to use */
@@ -1495,8 +1501,8 @@ eAction_TransformFlags BKE_action_get_item_transform_flags(bAction *act,
   }
 
   /* get the basic path to the properties of interest */
-  basePath = RNA_path_from_ID_to_struct(&ptr);
-  if (basePath == nullptr) {
+  const std::optional<std::string> basePath = RNA_path_from_ID_to_struct(&ptr);
+  if (!basePath) {
     return eAction_TransformFlags(0);
   }
 
@@ -1518,13 +1524,13 @@ eAction_TransformFlags BKE_action_get_item_transform_flags(bAction *act,
     }
 
     /* step 1: check for matching base path */
-    bPtr = strstr(fcu->rna_path, basePath);
+    bPtr = strstr(fcu->rna_path, basePath->c_str());
 
     if (bPtr) {
       /* we must add len(basePath) bytes to the match so that we are at the end of the
        * base path so that we don't get false positives with these strings in the names
        */
-      bPtr += strlen(basePath);
+      bPtr += strlen(basePath->c_str());
 
       /* step 2: check for some property with transforms
        * - to speed things up, only check for the ones not yet found
@@ -1596,9 +1602,6 @@ eAction_TransformFlags BKE_action_get_item_transform_flags(bAction *act,
       }
     }
   }
-
-  /* free basePath */
-  MEM_freeN(basePath);
 
   /* return flags found */
   return eAction_TransformFlags(flags);
@@ -1715,7 +1718,7 @@ void what_does_obaction(Object *ob,
   workob->runtime = &workob_runtime;
 
   /* init workob */
-  copy_m4_m4(workob->object_to_world, ob->object_to_world);
+  copy_m4_m4(workob->runtime->object_to_world.ptr(), ob->object_to_world().ptr());
   copy_m4_m4(workob->parentinv, ob->parentinv);
   copy_m4_m4(workob->constinv, ob->constinv);
   workob->parent = ob->parent;
@@ -1776,6 +1779,8 @@ void what_does_obaction(Object *ob,
     /* execute effects of Action on to workob (or its PoseChannels) */
     BKE_animsys_evaluate_animdata(&workob->id, &adt, anim_eval_context, ADT_RECALC_ANIM, false);
   }
+  /* Ensure stack memory set here isn't accessed later, see !118847. */
+  workob->runtime = nullptr;
 }
 
 void BKE_pose_check_uids_unique_and_report(const bPose *pose)

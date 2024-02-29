@@ -6,51 +6,36 @@
 #include <iomanip>
 #include <random>
 
-#include "BLI_endian_defines.h"
-#include "BLI_endian_switch.h"
 #include "BLI_fileops.hh"
 #include "BLI_path_util.h"
 #include "BLI_serialize.hh"
 #include "BLI_string.h"
-#include "BLI_string_utils.hh"
-#include "BLI_time.h"
 #include "BLI_vector.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
 
+#include "ED_object.hh"
 #include "ED_screen.hh"
 
-#include "DNA_curves_types.h"
-#include "DNA_material_types.h"
-#include "DNA_mesh_types.h"
+#include "DNA_array_utils.hh"
 #include "DNA_modifier_types.h"
-#include "DNA_pointcloud_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_bake_geometry_nodes_modifier.hh"
 #include "BKE_context.hh"
-#include "BKE_curves.hh"
-#include "BKE_global.h"
-#include "BKE_instances.hh"
+#include "BKE_global.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
-#include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_node_runtime.hh"
-#include "BKE_object.hh"
-#include "BKE_pointcloud.hh"
-#include "BKE_report.h"
-#include "BKE_scene.h"
-
-#include "BLT_translation.h"
+#include "BKE_report.hh"
+#include "BKE_scene.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
-#include "RNA_enum_types.hh"
 
 #include "DEG_depsgraph.hh"
-#include "DEG_depsgraph_build.hh"
 
 #include "MOD_nodes.hh"
 
@@ -215,6 +200,12 @@ static bool bake_simulation_poll(bContext *C)
     CTX_wm_operator_poll_msg_set(C, "File must be saved before baking");
     return false;
   }
+  Object *ob = ED_object_active_context(C);
+  const bool use_frame_cache = ob->flag & OB_FLAG_USE_SIMULATION_CACHE;
+  if (!use_frame_cache) {
+    CTX_wm_operator_poll_msg_set(C, "Cache has to be enabled");
+    return false;
+  }
   return true;
 }
 
@@ -227,7 +218,7 @@ struct NodeBakeRequest {
   bake::BakePath path;
   int frame_start;
   int frame_end;
-  std::unique_ptr<bake::BlobSharing> blob_sharing;
+  std::unique_ptr<bake::BlobWriteSharing> blob_sharing;
 };
 
 struct BakeGeometryNodesJob {
@@ -317,19 +308,13 @@ static void bake_geometry_nodes_startjob(void *customdata, wmJobWorkerStatus *wo
 
       const bake::BakePath path = request.path;
 
-      const std::string blob_file_name = frame_file_name + ".blob";
-
-      char blob_path[FILE_MAX];
-      BLI_path_join(blob_path, sizeof(blob_path), path.blobs_dir.c_str(), blob_file_name.c_str());
       char meta_path[FILE_MAX];
       BLI_path_join(meta_path,
                     sizeof(meta_path),
                     path.meta_dir.c_str(),
                     (frame_file_name + ".json").c_str());
       BLI_file_ensure_parent_dir_exists(meta_path);
-      BLI_file_ensure_parent_dir_exists(blob_path);
-      fstream blob_file{blob_path, std::ios::out | std::ios::binary};
-      bake::DiskBlobWriter blob_writer{blob_file_name, blob_file, 0};
+      bake::DiskBlobWriter blob_writer{path.blobs_dir, frame_file_name};
       fstream meta_file{meta_path, std::ios::out};
       bake::serialize_bake(frame_cache.state, blob_writer, *request.blob_sharing, meta_file);
     }
@@ -369,6 +354,7 @@ static void bake_geometry_nodes_endjob(void *customdata)
   G.is_rendering = false;
   WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, nullptr);
   WM_main_add_notifier(NC_NODE | ND_DISPLAY, nullptr);
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_VIEW3D | NS_VIEW3D_SHADING, nullptr);
 }
 
 static void reset_old_bake(NodeBakeRequest &request)
@@ -480,7 +466,7 @@ static Vector<NodeBakeRequest> collect_simulations_to_bake(Main &bmain,
         request.nmd = nmd;
         request.bake_id = id;
         request.node_type = node->type;
-        request.blob_sharing = std::make_unique<bake::BlobSharing>();
+        request.blob_sharing = std::make_unique<bake::BlobWriteSharing>();
         std::optional<bake::BakePath> path = bake::get_node_bake_path(bmain, *object, *nmd, id);
         if (!path) {
           continue;
@@ -706,6 +692,17 @@ static void try_delete_bake(
   else if (auto *node_cache = modifier_cache.bake_cache_by_id.lookup_ptr(bake_id)) {
     (*node_cache)->reset();
   }
+  NodesModifierBake *bake = nmd.find_bake(bake_id);
+  if (!bake) {
+    return;
+  }
+  dna::array::clear<NodesModifierDataBlock>(&bake->data_blocks,
+                                            &bake->data_blocks_num,
+                                            &bake->active_data_block,
+                                            [](NodesModifierDataBlock *data_block) {
+                                              nodes_modifier_data_block_destruct(data_block, true);
+                                            });
+
   const std::optional<bake::BakePath> bake_path = bake::get_node_bake_path(
       *bmain, object, nmd, bake_id);
   if (!bake_path) {
@@ -820,7 +817,7 @@ static Vector<NodeBakeRequest> bake_single_node_gather_bake_request(bContext *C,
   request.nmd = &nmd;
   request.bake_id = bake_id;
   request.node_type = node->type;
-  request.blob_sharing = std::make_unique<bake::BlobSharing>();
+  request.blob_sharing = std::make_unique<bake::BlobWriteSharing>();
 
   const NodesModifierBake *bake = nmd.find_bake(bake_id);
   if (!bake) {
@@ -829,7 +826,7 @@ static Vector<NodeBakeRequest> bake_single_node_gather_bake_request(bContext *C,
   const std::optional<bake::BakePath> bake_path = bake::get_node_bake_path(
       *bmain, *object, nmd, bake_id);
   if (!bake_path.has_value()) {
-    BKE_report(op->reports, RPT_ERROR, "Can not determine bake location on disk");
+    BKE_report(op->reports, RPT_ERROR, "Cannot determine bake location on disk");
     return {};
   }
   request.path = std::move(*bake_path);

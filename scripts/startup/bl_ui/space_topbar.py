@@ -77,6 +77,7 @@ class TOPBAR_PT_tool_settings_extra(Panel):
     bl_region_type = 'HEADER'
     bl_space_type = 'TOPBAR'
     bl_label = "Extra Options"
+    bl_description = "Extra options"
 
     def draw(self, context):
         from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
@@ -156,7 +157,7 @@ class TOPBAR_PT_gpencil_layers(Panel):
             srow = col.row(align=True)
             srow.prop(gpl, "opacity", text="Opacity", slider=True)
             srow.prop(gpl, "use_mask_layer", text="",
-                      icon='MOD_MASK' if gpl.use_mask_layer else 'LAYER_ACTIVE')
+                      icon='CLIPUV_DEHLT' if gpl.use_mask_layer else 'CLIPUV_HLT')
 
             srow = col.row(align=True)
             srow.prop(gpl, "use_lights", text="Lights")
@@ -238,34 +239,8 @@ class TOPBAR_MT_file_cleanup(Menu):
         layout = self.layout
         layout.separator()
 
-        props = layout.operator("outliner.orphans_purge", text="Unused Data-Blocks")
-        props.do_local_ids = True
-        props.do_linked_ids = True
-        props.do_recursive = False
-        props = layout.operator("outliner.orphans_purge", text="Recursive Unused Data-Blocks")
-        props.do_local_ids = True
-        props.do_linked_ids = True
-        props.do_recursive = True
-
-        layout.separator()
-        props = layout.operator("outliner.orphans_purge", text="Unused Linked Data-Blocks")
-        props.do_local_ids = False
-        props.do_linked_ids = True
-        props.do_recursive = False
-        props = layout.operator("outliner.orphans_purge", text="Recursive Unused Linked Data-Blocks")
-        props.do_local_ids = False
-        props.do_linked_ids = True
-        props.do_recursive = True
-
-        layout.separator()
-        props = layout.operator("outliner.orphans_purge", text="Unused Local Data-Blocks")
-        props.do_local_ids = True
-        props.do_linked_ids = False
-        props.do_recursive = False
-        props = layout.operator("outliner.orphans_purge", text="Recursive Unused Local Data-Blocks")
-        props.do_local_ids = True
-        props.do_linked_ids = False
-        props.do_recursive = True
+        layout.operator("outliner.orphans_purge", text="Purge Unused Data")
+        layout.operator("outliner.orphans_manage", text="Manage Unused Data")
 
 
 class TOPBAR_MT_file(Menu):
@@ -453,6 +428,7 @@ class TOPBAR_MT_blender_system(Menu):
         layout.separator()
 
         layout.operator("screen.spacedata_cleanup")
+        layout.operator("wm.operator_presets_cleanup")
 
 
 class TOPBAR_MT_templates_more(Menu):

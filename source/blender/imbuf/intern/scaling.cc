@@ -8,16 +8,13 @@
 
 #include <cmath>
 
-#include "BLI_math_color.h"
-#include "BLI_math_interp.hh"
 #include "BLI_utildefines.h"
 #include "MEM_guardedalloc.h"
 
+#include "IMB_filter.hh"
 #include "IMB_imbuf.hh"
 #include "IMB_imbuf_types.hh"
-#include "imbuf.hh"
-
-#include "IMB_filter.hh"
+#include "IMB_interp.hh"
 
 #include "BLI_sys_types.h" /* for intptr_t support */
 
@@ -102,68 +99,6 @@ ImBuf *IMB_half_x(ImBuf *ibuf1)
 
   imb_half_x_no_alloc(ibuf2, ibuf1);
 
-  return ibuf2;
-}
-
-ImBuf *IMB_double_fast_x(ImBuf *ibuf1)
-{
-  ImBuf *ibuf2;
-  int *p1, *dest, i, col, do_rect, do_float;
-  float *p1f, *destf;
-
-  if (ibuf1 == nullptr) {
-    return nullptr;
-  }
-  if (ibuf1->byte_buffer.data == nullptr && ibuf1->float_buffer.data == nullptr) {
-    return nullptr;
-  }
-
-  do_rect = (ibuf1->byte_buffer.data != nullptr);
-  do_float = (ibuf1->float_buffer.data != nullptr);
-
-  ibuf2 = IMB_allocImBuf(2 * ibuf1->x, ibuf1->y, ibuf1->planes, ibuf1->flags);
-  if (ibuf2 == nullptr) {
-    return nullptr;
-  }
-
-  p1 = (int *)ibuf1->byte_buffer.data;
-  dest = (int *)ibuf2->byte_buffer.data;
-  p1f = (float *)ibuf1->float_buffer.data;
-  destf = (float *)ibuf2->float_buffer.data;
-
-  for (i = ibuf1->y * ibuf1->x; i > 0; i--) {
-    if (do_rect) {
-      col = *p1++;
-      *dest++ = col;
-      *dest++ = col;
-    }
-    if (do_float) {
-      destf[0] = destf[4] = p1f[0];
-      destf[1] = destf[5] = p1f[1];
-      destf[2] = destf[6] = p1f[2];
-      destf[3] = destf[7] = p1f[3];
-      destf += 8;
-      p1f += 4;
-    }
-  }
-
-  return ibuf2;
-}
-
-ImBuf *IMB_double_x(ImBuf *ibuf1)
-{
-  ImBuf *ibuf2;
-
-  if (ibuf1 == nullptr) {
-    return nullptr;
-  }
-  if (ibuf1->byte_buffer.data == nullptr && ibuf1->float_buffer.data == nullptr) {
-    return nullptr;
-  }
-
-  ibuf2 = IMB_double_fast_x(ibuf1);
-
-  imb_filterx(ibuf2);
   return ibuf2;
 }
 
@@ -256,70 +191,6 @@ ImBuf *IMB_half_y(ImBuf *ibuf1)
 
   imb_half_y_no_alloc(ibuf2, ibuf1);
 
-  return ibuf2;
-}
-
-ImBuf *IMB_double_fast_y(ImBuf *ibuf1)
-{
-  ImBuf *ibuf2;
-  int *p1, *dest1, *dest2;
-  float *p1f, *dest1f, *dest2f;
-  int x, y;
-
-  if (ibuf1 == nullptr) {
-    return nullptr;
-  }
-  if (ibuf1->byte_buffer.data == nullptr && ibuf1->float_buffer.data == nullptr) {
-    return nullptr;
-  }
-
-  const bool do_rect = (ibuf1->byte_buffer.data != nullptr);
-  const bool do_float = (ibuf1->float_buffer.data != nullptr);
-
-  ibuf2 = IMB_allocImBuf(ibuf1->x, 2 * ibuf1->y, ibuf1->planes, ibuf1->flags);
-  if (ibuf2 == nullptr) {
-    return nullptr;
-  }
-
-  p1 = (int *)ibuf1->byte_buffer.data;
-  dest1 = (int *)ibuf2->byte_buffer.data;
-  p1f = (float *)ibuf1->float_buffer.data;
-  dest1f = (float *)ibuf2->float_buffer.data;
-
-  for (y = ibuf1->y; y > 0; y--) {
-    if (do_rect) {
-      dest2 = dest1 + ibuf2->x;
-      for (x = ibuf2->x; x > 0; x--) {
-        *dest1++ = *dest2++ = *p1++;
-      }
-      dest1 = dest2;
-    }
-    if (do_float) {
-      dest2f = dest1f + (4 * ibuf2->x);
-      for (x = ibuf2->x * 4; x > 0; x--) {
-        *dest1f++ = *dest2f++ = *p1f++;
-      }
-      dest1f = dest2f;
-    }
-  }
-
-  return ibuf2;
-}
-
-ImBuf *IMB_double_y(ImBuf *ibuf1)
-{
-  ImBuf *ibuf2;
-
-  if (ibuf1 == nullptr) {
-    return nullptr;
-  }
-  if (ibuf1->byte_buffer.data == nullptr) {
-    return nullptr;
-  }
-
-  ibuf2 = IMB_double_fast_y(ibuf1);
-
-  IMB_filtery(ibuf2);
   return ibuf2;
 }
 
@@ -1745,6 +1616,7 @@ static void scale_thread_init(void *data_v, int start_line, int tot_line, void *
 
 static void *do_scale_thread(void *data_v)
 {
+  using namespace blender::imbuf;
   ScaleThreadData *data = (ScaleThreadData *)data_v;
   ImBuf *ibuf = data->ibuf;
   int i;
@@ -1761,13 +1633,12 @@ static void *do_scale_thread(void *data_v)
       int offset = y * data->newx + x;
 
       if (data->byte_buffer) {
-        uchar *pixel = data->byte_buffer + 4 * offset;
-        BLI_bilinear_interpolation_char(ibuf->byte_buffer.data, pixel, ibuf->x, ibuf->y, u, v);
+        interpolate_bilinear_border_byte(ibuf, data->byte_buffer + 4 * offset, u, v);
       }
 
       if (data->float_buffer) {
         float *pixel = data->float_buffer + ibuf->channels * offset;
-        BLI_bilinear_interpolation_fl(
+        blender::math::interpolate_bilinear_border_fl(
             ibuf->float_buffer.data, pixel, ibuf->x, ibuf->y, ibuf->channels, u, v);
       }
     }

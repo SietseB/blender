@@ -17,13 +17,12 @@ except ImportError:
 
 ENABLE_REALTIME_COMPOSITOR_SCRIPT = "import bpy; " \
     "bpy.context.preferences.experimental.use_experimental_compositors = True; " \
-    "bpy.data.scenes[0].node_tree.execution_mode = 'REALTIME'"
+    "bpy.data.scenes[0].node_tree.execution_mode = 'GPU'"
 
 
 def get_arguments(filepath, output_filepath):
     return [
         "--background",
-        "-noaudio",
         "--factory-startup",
         "--enable-autoexec",
         "--debug-memory",
@@ -42,7 +41,7 @@ def create_argparse():
     parser.add_argument("-blender", nargs="+")
     parser.add_argument("-testdir", nargs=1)
     parser.add_argument("-outdir", nargs=1)
-    parser.add_argument("-idiff", nargs=1)
+    parser.add_argument("-oiiotool", nargs=1)
     parser.add_argument('--batch', default=False, action='store_true')
     return parser
 
@@ -53,11 +52,11 @@ def main():
 
     blender = args.blender[0]
     test_dir = args.testdir[0]
-    idiff = args.idiff[0]
+    oiiotool = args.oiiotool[0]
     output_dir = args.outdir[0]
 
     from modules import render_report
-    report = render_report.Report("Compositor Realtime", output_dir, idiff)
+    report = render_report.Report("Compositor Realtime", output_dir, oiiotool)
     report.set_reference_dir("compositor_realtime_renders")
 
     ok = report.run(test_dir, blender, get_arguments, batch=args.batch)

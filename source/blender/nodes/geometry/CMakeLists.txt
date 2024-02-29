@@ -18,7 +18,6 @@ set(INC
   ../../modifiers
   ../../render
   ../../windowmanager
-  ../../../../extern/fmtlib/include
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -65,6 +64,7 @@ set(SRC
   nodes/node_geo_curve_trim.cc
   nodes/node_geo_deform_curves_on_surface.cc
   nodes/node_geo_delete_geometry.cc
+  nodes/node_geo_distribute_points_in_grid.cc
   nodes/node_geo_distribute_points_in_volume.cc
   nodes/node_geo_distribute_points_on_faces.cc
   nodes/node_geo_dual_mesh.cc
@@ -79,6 +79,7 @@ set(SRC
   nodes/node_geo_flip_faces.cc
   nodes/node_geo_geometry_to_instance.cc
   nodes/node_geo_get_named_grid.cc
+  nodes/node_geo_grid_to_mesh.cc
   nodes/node_geo_image.cc
   nodes/node_geo_image_info.cc
   nodes/node_geo_image_texture.cc
@@ -122,6 +123,7 @@ set(SRC
   nodes/node_geo_material_replace.cc
   nodes/node_geo_material_selection.cc
   nodes/node_geo_merge_by_distance.cc
+  nodes/node_geo_menu_switch.cc
   nodes/node_geo_mesh_face_group_boundaries.cc
   nodes/node_geo_mesh_primitive_circle.cc
   nodes/node_geo_mesh_primitive_cone.cc
@@ -133,7 +135,9 @@ set(SRC
   nodes/node_geo_mesh_primitive_uv_sphere.cc
   nodes/node_geo_mesh_subdivide.cc
   nodes/node_geo_mesh_to_curve.cc
+  nodes/node_geo_mesh_to_density_grid.cc
   nodes/node_geo_mesh_to_points.cc
+  nodes/node_geo_mesh_to_sdf_grid.cc
   nodes/node_geo_mesh_to_volume.cc
   nodes/node_geo_mesh_topology_corners_of_edge.cc
   nodes/node_geo_mesh_topology_corners_of_face.cc
@@ -147,15 +151,16 @@ set(SRC
   nodes/node_geo_offset_point_in_curve.cc
   nodes/node_geo_points.cc
   nodes/node_geo_points_to_curves.cc
+  nodes/node_geo_points_to_sdf_grid.cc
   nodes/node_geo_points_to_vertices.cc
   nodes/node_geo_points_to_volume.cc
   nodes/node_geo_proximity.cc
   nodes/node_geo_raycast.cc
   nodes/node_geo_realize_instances.cc
   nodes/node_geo_remove_attribute.cc
-  nodes/node_geo_repeat_input.cc
-  nodes/node_geo_repeat_output.cc
+  nodes/node_geo_repeat.cc
   nodes/node_geo_rotate_instances.cc
+  nodes/node_geo_sample_grid.cc
   nodes/node_geo_sample_index.cc
   nodes/node_geo_sample_nearest.cc
   nodes/node_geo_sample_nearest_surface.cc
@@ -177,8 +182,7 @@ set(SRC
   nodes/node_geo_set_shade_smooth.cc
   nodes/node_geo_set_spline_cyclic.cc
   nodes/node_geo_set_spline_resolution.cc
-  nodes/node_geo_simulation_input.cc
-  nodes/node_geo_simulation_output.cc
+  nodes/node_geo_simulation.cc
   nodes/node_geo_sort_elements.cc
   nodes/node_geo_split_to_instances.cc
   nodes/node_geo_store_named_attribute.cc
@@ -216,7 +220,7 @@ set(LIB
   bf_geometry
   PRIVATE bf::intern::guardedalloc
   bf_nodes
-  extern_fmtlib
+  PRIVATE bf::extern::fmtlib
 )
 
 if(WITH_BULLET)

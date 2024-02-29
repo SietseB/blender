@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "BKE_global.h"
+#include "BKE_global.hh"
 
 #include "DRW_gpu_wrapper.hh"
 #include "DRW_render.hh"
@@ -395,6 +395,8 @@ struct OVERLAY_PrivateData {
 
     float uv_opacity;
 
+    float stretch_opacity;
+
     int image_size[2];
     float image_aspect[2];
 
@@ -408,11 +410,6 @@ struct OVERLAY_PrivateData {
     eSpaceImage_UVDT_Stretch draw_type;
     ListBase totals;
     float total_area_ratio;
-
-    /* stencil overlay */
-    Image *stencil_image;
-    ImBuf *stencil_ibuf;
-    void *stencil_lock;
 
     /* mask overlay */
     Mask *mask;

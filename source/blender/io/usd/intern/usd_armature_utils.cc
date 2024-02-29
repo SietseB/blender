@@ -2,16 +2,16 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "usd_armature_utils.h"
+#include "usd_armature_utils.hh"
 
 #include "BKE_armature.hh"
 #include "BKE_modifier.hh"
+#include "BLI_listbase.h"
+#include "BLI_vector.hh"
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
+#include "DNA_action_types.h"
 #include "DNA_armature_types.h"
-#include "ED_armature.hh"
-
-#include "WM_api.hh"
 
 namespace blender::io::usd {
 

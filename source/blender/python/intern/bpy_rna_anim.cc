@@ -20,19 +20,18 @@
 #include "DNA_anim_types.h"
 #include "DNA_scene_types.h"
 
-#include "ED_keyframes_edit.hh"
 #include "ED_keyframing.hh"
 
 #include "ANIM_keyframing.hh"
 
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
 #include "BKE_fcurve.h"
-#include "BKE_global.h"
+#include "BKE_global.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
-#include "BKE_report.h"
+#include "BKE_report.hh"
 
 #include "RNA_access.hh"
 #include "RNA_enum_types.hh"
@@ -142,7 +141,8 @@ static int pyrna_struct_anim_args_parse_ex(PointerRNA *ptr,
     *r_path_full = BLI_strdup(path);
   }
   else {
-    *r_path_full = RNA_path_from_ID_to_property(&r_ptr, prop);
+    const std::optional<std::string> path_full = RNA_path_from_ID_to_property(&r_ptr, prop);
+    *r_path_full = path_full ? BLI_strdup(path_full->c_str()) : nullptr;
 
     if (*r_path_full == nullptr) {
       PyErr_Format(PyExc_TypeError, "%.200s could not make path to \"%s\"", error_prefix, path);
@@ -176,8 +176,8 @@ static int pyrna_struct_anim_args_parse_no_resolve(PointerRNA *ptr,
     return 0;
   }
 
-  char *path_prefix = RNA_path_from_ID_to_struct(ptr);
-  if (path_prefix == nullptr) {
+  const std::optional<std::string> path_prefix = RNA_path_from_ID_to_struct(ptr);
+  if (!path_prefix) {
     PyErr_Format(PyExc_TypeError,
                  "%.200s could not make path for type %s",
                  error_prefix,
@@ -186,12 +186,11 @@ static int pyrna_struct_anim_args_parse_no_resolve(PointerRNA *ptr,
   }
 
   if (*path == '[') {
-    *r_path_full = BLI_string_joinN(path_prefix, path);
+    *r_path_full = BLI_string_joinN(path_prefix->c_str(), path);
   }
   else {
-    *r_path_full = BLI_string_join_by_sep_charN('.', path_prefix, path);
+    *r_path_full = BLI_string_join_by_sep_charN('.', path_prefix->c_str(), path);
   }
-  MEM_freeN(path_prefix);
 
   return 0;
 }
@@ -595,7 +594,7 @@ PyObject *pyrna_struct_driver_add(BPy_StructRNA *self, PyObject *args)
 
     bContext *context = BPY_context_get();
     WM_event_add_notifier(BPY_context_get(), NC_ANIMATION | ND_FCURVES_ORDER, nullptr);
-    DEG_id_tag_update(id, ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(id, ID_RECALC_SYNC_TO_EVAL);
     DEG_relations_tag_update(CTX_data_main(context));
   }
   else {

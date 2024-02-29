@@ -10,21 +10,18 @@
 
 #include "DNA_brush_types.h"
 #include "DNA_defaults.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_material_types.h"
-#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math_rotation.h"
 #include "BLI_rand.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
-#include "BKE_bpath.h"
+#include "BKE_bpath.hh"
 #include "BKE_brush.hh"
 #include "BKE_colortools.hh"
-#include "BKE_context.hh"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
@@ -412,6 +409,8 @@ static void brush_undo_preserve(BlendLibReader *reader, ID *id_new, ID *id_old)
 IDTypeInfo IDType_ID_BR = {
     /*id_code*/ ID_BR,
     /*id_filter*/ FILTER_ID_BR,
+    /*dependencies_id_types*/
+    (FILTER_ID_BR | FILTER_ID_IM | FILTER_ID_PC | FILTER_ID_TE | FILTER_ID_MA),
     /*main_listbase_index*/ INDEX_ID_BR,
     /*struct_size*/ sizeof(Brush),
     /*name*/ "Brush",
@@ -1668,10 +1667,12 @@ void BKE_brush_init_curves_sculpt_settings(Brush *brush)
     brush->curves_sculpt_settings = MEM_cnew<BrushCurvesSculptSettings>(__func__);
   }
   BrushCurvesSculptSettings *settings = brush->curves_sculpt_settings;
+  settings->flag = BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_RADIUS;
   settings->add_amount = 1;
   settings->points_per_curve = 8;
   settings->minimum_length = 0.01f;
   settings->curve_length = 0.3f;
+  settings->curve_radius = 0.01f;
   settings->density_add_attempts = 100;
   settings->curve_parameter_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 }
@@ -2474,6 +2475,25 @@ void BKE_brush_weight_set(const Scene *scene, Brush *brush, float value)
   }
 }
 
+int BKE_brush_input_samples_get(const Scene *scene, const Brush *brush)
+{
+  UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+
+  return (ups->flag & UNIFIED_PAINT_INPUT_SAMPLES) ? ups->input_samples : brush->input_samples;
+}
+
+void BKE_brush_input_samples_set(const Scene *scene, Brush *brush, int value)
+{
+  UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+
+  if (ups->flag & UNIFIED_PAINT_INPUT_SAMPLES) {
+    ups->input_samples = value;
+  }
+  else {
+    brush->input_samples = value;
+  }
+}
+
 void BKE_brush_scale_unprojected_radius(float *unprojected_radius,
                                         int new_brush_size,
                                         int old_brush_size)
@@ -2653,10 +2673,10 @@ ImBuf *BKE_brush_gen_radial_control_imbuf(Brush *br, bool secondary, bool displa
   return im;
 }
 
-bool BKE_brush_has_cube_tip(const Brush *brush, ePaintMode paint_mode)
+bool BKE_brush_has_cube_tip(const Brush *brush, PaintMode paint_mode)
 {
   switch (paint_mode) {
-    case PAINT_MODE_SCULPT: {
+    case PaintMode::Sculpt: {
       if (brush->sculpt_tool == SCULPT_TOOL_MULTIPLANE_SCRAPE) {
         return true;
       }

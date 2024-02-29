@@ -41,11 +41,10 @@
 
 #include "WM_types.hh"
 
-#include "UI_interface.hh"
 #include "UI_resources.hh"
 #include "UI_view2d.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
 #include "clip_intern.h" /* own include */
 

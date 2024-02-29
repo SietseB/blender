@@ -12,15 +12,13 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_meshdata_types.h"
-
 #include "bmesh.hh"
 
 #include "BLI_math_geom.h"
 #include "BLI_math_vector.h"
 
 #include "BKE_customdata.hh"
-#include "BKE_deform.h"
+#include "BKE_deform.hh"
 
 #include "bmesh_wireframe.hh"
 

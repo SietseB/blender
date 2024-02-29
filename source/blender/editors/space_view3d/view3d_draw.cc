@@ -8,11 +8,9 @@
 
 #include <cmath>
 
-#include "BLI_jitter_2d.h"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
-#include "BLI_math_vector.hh"
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.hh"
@@ -20,29 +18,26 @@
 
 #include "BKE_armature.hh"
 #include "BKE_camera.h"
-#include "BKE_collection.h"
+#include "BKE_collection.hh"
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
-#include "BKE_global.h"
+#include "BKE_global.hh"
 #include "BKE_image.h"
-#include "BKE_key.h"
-#include "BKE_layer.h"
+#include "BKE_key.hh"
+#include "BKE_layer.hh"
 #include "BKE_main.hh"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
-#include "BKE_scene.h"
-#include "BKE_studiolight.h"
+#include "BKE_scene.hh"
 #include "BKE_unit.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "DNA_armature_types.h"
-#include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_key_types.h"
-#include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
@@ -55,8 +50,6 @@
 #include "ED_keyframing.hh"
 #include "ED_scene.hh"
 #include "ED_screen.hh"
-#include "ED_screen_types.hh"
-#include "ED_transform.hh"
 #include "ED_view3d_offscreen.hh"
 #include "ED_viewer_path.hh"
 
@@ -65,12 +58,10 @@
 #include "DEG_depsgraph_query.hh"
 
 #include "GPU_batch.h"
-#include "GPU_batch_presets.h"
-#include "GPU_capabilities.h"
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
-#include "GPU_material.h"
+#include "GPU_material.hh"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 #include "GPU_viewport.h"
@@ -84,8 +75,6 @@
 
 #include "WM_api.hh"
 #include "WM_types.hh"
-
-#include "RNA_access.hh"
 
 #include "IMB_imbuf.hh"
 #include "IMB_imbuf_types.hh"
@@ -2115,7 +2104,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
 
   rv3d.persp = RV3D_CAMOB;
 
-  copy_m4_m4(rv3d.viewinv, v3d.camera->object_to_world);
+  copy_m4_m4(rv3d.viewinv, v3d.camera->object_to_world().ptr());
   normalize_m4(rv3d.viewinv);
   invert_m4_m4(rv3d.viewmat, rv3d.viewinv);
 
@@ -2153,6 +2142,11 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
                                         ofs,
                                         viewport,
                                         err_out);
+}
+
+bool ED_view3d_draw_offscreen_check_nested()
+{
+  return DRW_draw_in_progress();
 }
 
 /** \} */
@@ -2223,7 +2217,7 @@ static void validate_object_select_id(Depsgraph *depsgraph,
   if (obact_eval && ((obact_eval->base_flag & BASE_ENABLED_AND_MAYBE_VISIBLE_IN_VIEWPORT) != 0)) {
     BKE_view_layer_synced_ensure(scene, view_layer);
     Base *base = BKE_view_layer_base_find(view_layer, obact);
-    DRW_select_buffer_context_create(depsgraph, &base, 1, -1);
+    DRW_select_buffer_context_create(depsgraph, {base}, -1);
   }
 
   v3d->runtime.flag |= V3D_RUNTIME_DEPTHBUF_OVERRIDDEN;

@@ -8,7 +8,7 @@
 
 #include "BLI_index_mask.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "BLO_read_write.hh"
 
@@ -26,7 +26,6 @@
 #include "UI_resources.hh"
 
 #include "MOD_grease_pencil_util.hh"
-#include "MOD_modifiertypes.hh"
 #include "MOD_ui_common.hh"
 
 #include "RNA_prototypes.h"
@@ -40,7 +39,7 @@ static void init_data(ModifierData *md)
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(gpmd, modifier));
 
   MEMCPY_STRUCT_AFTER(gpmd, DNA_struct_default_get(GreasePencilSubdivModifierData), modifier);
-  modifier::greasepencil::init_influence_data(&gpmd->influence, true);
+  modifier::greasepencil::init_influence_data(&gpmd->influence, false);
 }
 
 static void free_data(ModifierData *md)
@@ -80,15 +79,41 @@ static void blend_read(BlendDataReader *reader, ModifierData *md)
 static void subdivide_drawing(ModifierData &md, Object &ob, bke::greasepencil::Drawing &drawing)
 {
   GreasePencilSubdivModifierData &mmd = reinterpret_cast<GreasePencilSubdivModifierData &>(md);
+  const bool use_catmull_clark = mmd.type == MOD_GREASE_PENCIL_SUBDIV_CATMULL;
 
   IndexMaskMemory memory;
   const IndexMask strokes = modifier::greasepencil::get_filtered_stroke_mask(
       &ob, drawing.strokes_for_write(), mmd.influence, memory);
 
-  const VArray<int> cuts = VArray<int>::ForSingle(mmd.level, drawing.strokes().points_num());
+  if (use_catmull_clark) {
+    bke::CurvesGeometry subdivided_curves = drawing.strokes();
+    for ([[maybe_unused]] const int level_i : IndexRange(mmd.level)) {
+      VArray<int> one_cut = VArray<int>::ForSingle(1, subdivided_curves.points_num());
+      subdivided_curves = geometry::subdivide_curves(
+          subdivided_curves, strokes, std::move(one_cut), {});
 
-  drawing.strokes_for_write() = geometry::subdivide_curves(
-      drawing.strokes(), strokes, std::move(cuts), {});
+      offset_indices::OffsetIndices<int> points_by_curve = subdivided_curves.points_by_curve();
+      MutableSpan<float3> positions = subdivided_curves.positions_for_write();
+      threading::parallel_for(subdivided_curves.curves_range(), 1024, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          const IndexRange points = points_by_curve[curve_i];
+          for (const int point_i : points.drop_front(1).drop_back(1)) {
+            positions[point_i] = math::interpolate(
+                positions[point_i],
+                math::interpolate(positions[point_i - 1], positions[point_i + 1], 0.5f),
+                0.5f);
+          }
+        }
+      });
+    }
+    drawing.strokes_for_write() = subdivided_curves;
+  }
+  else {
+    VArray<int> cuts = VArray<int>::ForSingle(math::pow(mmd.level, 2),
+                                              drawing.strokes().points_num());
+    drawing.strokes_for_write() = geometry::subdivide_curves(drawing.strokes(), strokes, cuts, {});
+  }
+
   drawing.tag_topology_changed();
 }
 
@@ -131,10 +156,11 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
+  uiItemR(layout, ptr, "subdivision_type", UI_ITEM_NONE, nullptr, ICON_NONE);
   uiItemR(layout, ptr, "level", UI_ITEM_NONE, IFACE_("Subdivisions"), ICON_NONE);
 
-  if (uiLayout *influence_panel = uiLayoutPanel(
-          C, layout, "Influence", ptr, "open_influence_panel"))
+  if (uiLayout *influence_panel = uiLayoutPanelProp(
+          C, layout, ptr, "open_influence_panel", "Influence"))
   {
     modifier::greasepencil::draw_layer_filter_settings(C, influence_panel, ptr);
     modifier::greasepencil::draw_material_filter_settings(C, influence_panel, ptr);

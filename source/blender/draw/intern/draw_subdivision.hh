@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "BLI_math_matrix_types.hh"
 #include "BLI_span.hh"
 #include "BLI_sys_types.h"
 
@@ -31,8 +32,8 @@ struct MeshRenderData;
  * \{ */
 
 struct DRWPatchMap {
-  struct GPUVertBuf *patch_map_handles;
-  struct GPUVertBuf *patch_map_quadtree;
+  GPUVertBuf *patch_map_handles;
+  GPUVertBuf *patch_map_quadtree;
   int min_patch_face;
   int max_patch_face;
   int max_depth;
@@ -199,7 +200,7 @@ void DRW_create_subdivision(Object *ob,
                             bool is_editmode,
                             bool is_paint_mode,
                             bool is_mode_active,
-                            const float obmat[4][4],
+                            const float4x4 &object_to_world,
                             bool do_final,
                             bool do_uvedit,
                             bool do_cage,

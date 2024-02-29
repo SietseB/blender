@@ -5,20 +5,16 @@
 #include <sstream>
 
 #include "BKE_bake_geometry_nodes_modifier.hh"
-#include "BKE_collection.h"
-#include "BKE_curves.hh"
+#include "BKE_collection.hh"
 #include "BKE_main.hh"
 
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
-#include "DNA_pointcloud_types.h"
 
 #include "BLI_binary_search.hh"
 #include "BLI_fileops.hh"
-#include "BLI_hash_md5.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
-#include "BLI_string_utils.hh"
 
 #include "MOD_nodes.hh"
 
@@ -49,7 +45,7 @@ IndexRange NodeBakeCache::frame_range() const
   }
   const int start_frame = this->frames.first()->frame.frame();
   const int end_frame = this->frames.last()->frame.frame();
-  return {start_frame, end_frame - start_frame + 1};
+  return IndexRange::from_begin_end_inclusive(start_frame, end_frame);
 }
 
 SimulationNodeCache *ModifierCache::get_simulation_node_cache(const int id)
@@ -98,14 +94,13 @@ std::optional<std::string> get_modifier_bake_path(const Main &bmain,
                                                   const Object &object,
                                                   const NodesModifierData &nmd)
 {
-  const StringRefNull bmain_path = BKE_main_blendfile_path(&bmain);
-  if (bmain_path.is_empty()) {
-    return std::nullopt;
-  }
   if (StringRef(nmd.bake_directory).is_empty()) {
     return std::nullopt;
   }
   const char *base_path = ID_BLEND_PATH(&bmain, &object.id);
+  if (StringRef(base_path).is_empty()) {
+    return std::nullopt;
+  }
   char absolute_bake_dir[FILE_MAX];
   STRNCPY(absolute_bake_dir, nmd.bake_directory);
   BLI_path_abs(absolute_bake_dir, base_path);
@@ -126,6 +121,9 @@ std::optional<bake::BakePath> get_node_bake_path(const Main &bmain,
       return std::nullopt;
     }
     const char *base_path = ID_BLEND_PATH(&bmain, &object.id);
+    if (StringRef(base_path).is_empty()) {
+      return std::nullopt;
+    }
     char absolute_bake_dir[FILE_MAX];
     STRNCPY(absolute_bake_dir, bake->directory);
     BLI_path_abs(absolute_bake_dir, base_path);

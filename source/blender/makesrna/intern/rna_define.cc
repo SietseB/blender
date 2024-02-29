@@ -24,13 +24,13 @@
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "UI_interface.hh" /* For things like UI_PRECISION_FLOAT_MAX... */
 
 #include "RNA_define.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "CLG_log.h"
 

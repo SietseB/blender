@@ -44,6 +44,16 @@ struct World;
 struct bGPdata;
 struct bNodeTree;
 
+/** Workaround to forward-declare C++ type in C header. */
+#ifdef __cplusplus
+namespace blender::bke {
+class SceneRuntime;
+}
+using SceneRuntimeHandle = blender::bke::SceneRuntime;
+#else   // __cplusplus
+typedef struct SceneRuntimeHandle SceneRuntimeHandle;
+#endif  // __cplusplus
+
 /* -------------------------------------------------------------------- */
 /** \name FFMPEG
  * \{ */
@@ -189,6 +199,7 @@ typedef struct SceneRenderLayer {
 
   /** Converted to ViewLayer setting. */
   struct Material *mat_override DNA_DEPRECATED;
+  struct World *world_override DNA_DEPRECATED;
 
   /** Converted to LayerCollection cycles camera visibility override. */
   unsigned int lay DNA_DEPRECATED;
@@ -686,20 +697,16 @@ typedef struct RenderData {
   int images, framapto;
   short flag, threads;
 
-  float framelen, blurfac;
+  float framelen;
 
   /** Frames to jump during render/playback. */
   int frame_step;
-
-  char _pad10[2];
 
   /** For the dimensions presets menu. */
   short dimensionspreset;
 
   /** Size in %. */
   short size;
-
-  char _pad6[2];
 
   /* From buttons: */
   /**
@@ -845,7 +852,9 @@ typedef struct RenderData {
   /* Hair Display. */
   short hair_type, hair_subdiv;
 
-  /** Motion blur shutter. */
+  /** Motion blur */
+  float motion_blur_shutter;
+  int motion_blur_position;
   struct CurveMapping mblur_shutter_curve;
 } RenderData;
 
@@ -859,6 +868,13 @@ typedef enum eHairType {
   SCE_HAIR_SHAPE_STRAND = 0,
   SCE_HAIR_SHAPE_STRIP = 1,
 } eHairType;
+
+/** #RenderData::motion_blur_position */
+enum {
+  SCE_MB_CENTER = 0,
+  SCE_MB_START = 1,
+  SCE_MB_END = 2,
+};
 
 /** \} */
 
@@ -967,8 +983,11 @@ typedef struct Paint {
   /** Enum #ePaintFlags. */
   int flags;
 
-  /** Paint stroke can use up to PAINT_MAX_INPUT_SAMPLES inputs to smooth the stroke. */
-  int num_input_samples;
+  /**
+   * Paint stroke can use up to #PAINT_MAX_INPUT_SAMPLES inputs to smooth the stroke.
+   * This value is deprecated. Refer to the #Brush and #UnifiedPaintSetting values instead.
+   */
+  int num_input_samples_deprecated;
 
   /** Flags used for symmetry. */
   int symmetry_flags;
@@ -1107,9 +1126,9 @@ typedef struct Sculpt {
   float constant_detail;
   float detail_percent;
 
+  int automasking_boundary_edges_propagation_steps;
   int automasking_cavity_blur_steps;
   float automasking_cavity_factor;
-  char _pad[4];
 
   float automasking_start_normal_limit, automasking_start_normal_falloff;
   float automasking_view_normal_limit, automasking_view_normal_falloff;
@@ -1338,8 +1357,12 @@ typedef struct UnifiedPaintSettings {
   /** Unified brush secondary color. */
   float secondary_rgb[3];
 
+  /** Unified brush stroke input samples. */
+  int input_samples;
+
   /** User preferences for sculpt and paint. */
   int flag;
+  char _pad[4];
 
   /* Rake rotation. */
 
@@ -1411,6 +1434,7 @@ typedef enum {
   UNIFIED_PAINT_ALPHA = (1 << 1),
   UNIFIED_PAINT_WEIGHT = (1 << 5),
   UNIFIED_PAINT_COLOR = (1 << 6),
+  UNIFIED_PAINT_INPUT_SAMPLES = (1 << 7),
 
   /** Only used if unified size is enabled, mirrors the brush flag #BRUSH_LOCK_SIZE. */
   UNIFIED_PAINT_BRUSH_LOCK_SIZE = (1 << 2),
@@ -1532,7 +1556,7 @@ typedef struct ToolSettings {
   /** Weight paint. */
   VPaint *wpaint;
   Sculpt *sculpt;
-  /** Uv smooth. */
+  /** UV smooth. */
   UvSculpt *uvsculpt;
   /** Gpencil paint. */
   GpPaint *gp_paint;
@@ -1882,8 +1906,8 @@ typedef struct SceneEEVEE {
   int motion_blur_samples DNA_DEPRECATED;
   int motion_blur_max;
   int motion_blur_steps;
-  int motion_blur_position;
-  float motion_blur_shutter;
+  int motion_blur_position_deprecated DNA_DEPRECATED;
+  float motion_blur_shutter_deprecated DNA_DEPRECATED;
   float motion_blur_depth_scale;
 
   int shadow_method DNA_DEPRECATED;
@@ -2090,6 +2114,9 @@ typedef struct Scene {
   struct SceneHydra hydra;
 
   struct SceneOndine ondine_watercolor;
+
+  SceneRuntimeHandle *runtime;
+  void *_pad9;
 } Scene;
 
 /** \} */
@@ -2854,7 +2881,7 @@ enum {
   SCE_EEVEE_GTAO_BOUNCE = (1 << 6),
   // SCE_EEVEE_DOF_ENABLED = (1 << 7), /* Moved to camera->dof.flag */
   SCE_EEVEE_BLOOM_ENABLED = (1 << 8),
-  SCE_EEVEE_MOTION_BLUR_ENABLED = (1 << 9),
+  SCE_EEVEE_MOTION_BLUR_ENABLED_DEPRECATED = (1 << 9), /* Moved to scene->r.mode */
   SCE_EEVEE_SHADOW_HIGH_BITDEPTH = (1 << 10),
   SCE_EEVEE_TAA_REPROJECTION = (1 << 11),
   // SCE_EEVEE_SSS_ENABLED = (1 << 12), /* Unused */
@@ -2895,13 +2922,6 @@ enum {
   SHADOW_ESM = 1,
   /* SHADOW_VSM = 2, */        /* UNUSED */
   /* SHADOW_METHOD_MAX = 3, */ /* UNUSED */
-};
-
-/** #SceneEEVEE::motion_blur_position */
-enum {
-  SCE_EEVEE_MB_CENTER = 0,
-  SCE_EEVEE_MB_START = 1,
-  SCE_EEVEE_MB_END = 2,
 };
 
 /** #SceneDisplay->render_aa and #SceneDisplay->viewport_aa */

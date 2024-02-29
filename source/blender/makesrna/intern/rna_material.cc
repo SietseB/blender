@@ -15,14 +15,14 @@
 
 #include "BLI_math_rotation.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "BKE_customdata.hh"
 
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -72,9 +72,9 @@ const EnumPropertyItem rna_enum_ramp_blend_items[] = {
 #  include "BKE_grease_pencil.hh"
 #  include "BKE_main.hh"
 #  include "BKE_material.h"
-#  include "BKE_node.h"
+#  include "BKE_node.hh"
 #  include "BKE_paint.hh"
-#  include "BKE_scene.h"
+#  include "BKE_scene.hh"
 #  include "BKE_texture.h"
 #  include "BKE_workspace.h"
 
@@ -131,9 +131,9 @@ static void rna_MaterialLineArt_update(Main * /*bmain*/, Scene * /*scene*/, Poin
   WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, ma);
 }
 
-static char *rna_MaterialLineArt_path(const PointerRNA * /*ptr*/)
+static std::optional<std::string> rna_MaterialLineArt_path(const PointerRNA * /*ptr*/)
 {
-  return BLI_strdup("lineart");
+  return "lineart";
 }
 
 static void rna_Material_draw_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
@@ -200,7 +200,7 @@ static void rna_Material_use_nodes_update(bContext *C, PointerRNA *ptr)
     ED_node_shader_default(C, &ma->id);
   }
 
-  DEG_id_tag_update(&ma->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&ma->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   rna_Material_draw_update(bmain, CTX_data_scene(C), ptr);
 }
@@ -353,9 +353,9 @@ static void rna_gpcolordata_uv_update(Main *bmain, Scene *scene, PointerRNA *ptr
   rna_MaterialGpencil_update(bmain, scene, ptr);
 }
 
-static char *rna_GpencilColorData_path(const PointerRNA * /*ptr*/)
+static std::optional<std::string> rna_GpencilColorData_path(const PointerRNA * /*ptr*/)
 {
-  return BLI_strdup("grease_pencil");
+  return "grease_pencil";
 }
 
 static bool rna_GpencilColorData_is_stroke_visible_get(PointerRNA *ptr)

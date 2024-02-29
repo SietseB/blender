@@ -11,11 +11,11 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #ifdef RNA_RUNTIME
 
-#  include "BKE_global.h"
+#  include "BKE_global.hh"
 
 #  include "ED_fileselect.hh"
 #  include "ED_screen.hh"

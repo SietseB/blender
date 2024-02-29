@@ -20,7 +20,7 @@
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h" /* for eReportType */
 
-#include "BLO_readfile.h"
+#include "BLO_readfile.hh"
 
 struct BlendFileData;
 struct BlendFileReadParams;
@@ -65,7 +65,13 @@ struct FileData {
    * to detect unchanged data from memfile. */
   int undo_direction; /* eUndoStepDir */
 
-  /** Now only in use for library appending. */
+  /** Used for relative paths handling.
+   *
+   * Typically the actual filepath of the read blend-file, except when recovering
+   * save-on-exit/autosave files. In the latter case, it will be the path of the file that
+   * generated the auto-saved one being recovered.
+   *
+   * NOTE: Currently expected to be the same path as #BlendFileData.filepath. */
   char relabase[FILE_MAX];
 
   /** General reading variables. */

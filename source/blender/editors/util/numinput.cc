@@ -15,11 +15,11 @@
 #include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "BKE_context.hh"
-#include "BKE_report.h"
-#include "BKE_scene.h"
+#include "BKE_report.hh"
+#include "BKE_scene.hh"
 #include "BKE_unit.hh"
 
 #include "DNA_scene_types.h"
@@ -404,7 +404,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
                                  true);
         if (t_cur != cur) {
           if (t_cur < cur) {
-            SWAP(int, t_cur, cur);
+            std::swap(t_cur, cur);
             n->str_cur = cur;
           }
           /* +1 for trailing '\0'. */

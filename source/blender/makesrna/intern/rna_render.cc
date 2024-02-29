@@ -22,12 +22,12 @@
 #include "DEG_depsgraph.hh"
 
 #include "BKE_image.h"
-#include "BKE_scene.h"
+#include "BKE_scene.hh"
 
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "RE_engine.h"
 #include "RE_pipeline.h"
@@ -88,7 +88,7 @@ const EnumPropertyItem rna_enum_bake_pass_type_items[] = {
 
 #  include "BKE_appdir.hh"
 #  include "BKE_context.hh"
-#  include "BKE_report.h"
+#  include "BKE_report.hh"
 
 #  include "GPU_capabilities.h"
 #  include "GPU_shader.h"

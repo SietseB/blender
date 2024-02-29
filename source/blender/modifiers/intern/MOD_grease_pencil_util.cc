@@ -23,12 +23,6 @@
 
 #include "BLO_read_write.hh"
 
-#include "DNA_defaults.h"
-
-#include "DEG_depsgraph_query.hh"
-
-#include "MOD_ui_common.hh"
-
 #include "RNA_access.hh"
 #include "RNA_prototypes.h"
 
@@ -210,7 +204,7 @@ static IndexMask get_filtered_layer_mask(const GreasePencil &grease_pencil,
   bke::AttributeAccessor layer_attributes = grease_pencil.attributes();
   const Span<const Layer *> layers = grease_pencil.layers();
   const VArray<int> layer_passes =
-      layer_attributes.lookup_or_default<int>("pass", bke::AttrDomain::Layer, 0).varray;
+      layer_attributes.lookup_or_default<int>("pass_index", bke::AttrDomain::Layer, 0).varray;
 
   IndexMask result = IndexMask::from_predicate(
       full_mask, GrainSize(4096), memory, [&](const int64_t layer_i) {
@@ -309,6 +303,18 @@ IndexMask get_filtered_stroke_mask(const Object *ob,
       memory);
 }
 
+VArray<float> get_influence_vertex_weights(const bke::CurvesGeometry &curves,
+                                           const GreasePencilModifierInfluenceData &influence_data)
+{
+  if (influence_data.vertex_group_name[0] == '\0') {
+    /* If vertex group is not set, use full weight for all vertices. */
+    return VArray<float>::ForSingle(1.0f, curves.point_num);
+  }
+  /* Vertex group weights, with zero weight as fallback. */
+  return *curves.attributes().lookup_or_default<float>(
+      influence_data.vertex_group_name, bke::AttrDomain::Point, 0.0f);
+}
+
 Vector<bke::greasepencil::Drawing *> get_drawings_for_write(GreasePencil &grease_pencil,
                                                             const IndexMask &layer_mask,
                                                             const int frame)
@@ -335,12 +341,38 @@ Vector<bke::greasepencil::Drawing *> get_drawings_for_write(GreasePencil &grease
   return drawings;
 }
 
-Vector<DrawingInfo> get_drawing_infos_for_write(GreasePencil &grease_pencil,
-                                                const IndexMask &layer_mask,
-                                                const int frame)
+Vector<LayerDrawingInfo> get_drawing_infos_by_layer(GreasePencil &grease_pencil,
+                                                    const IndexMask &layer_mask,
+                                                    const int frame)
 {
   Set<int> drawing_indices;
-  Vector<DrawingInfo> drawing_infos;
+  Vector<LayerDrawingInfo> drawing_infos;
+  for (const int64_t i : layer_mask.index_range()) {
+    const int layer_index = layer_mask[i];
+    const Layer *layer = grease_pencil.layers()[layer_index];
+    const int drawing_index = layer->drawing_index_at(frame);
+    if (drawing_index < 0) {
+      continue;
+    }
+
+    if (!drawing_indices.contains(drawing_index)) {
+      drawing_indices.add(drawing_index);
+      GreasePencilDrawingBase *drawing_base = grease_pencil.drawing(drawing_index);
+      if (drawing_base->type == GP_DRAWING) {
+        GreasePencilDrawing *drawing = reinterpret_cast<GreasePencilDrawing *>(drawing_base);
+        drawing_infos.append({&drawing->wrap(), layer_index});
+      }
+    }
+  }
+  return drawing_infos;
+}
+
+Vector<FrameDrawingInfo> get_drawing_infos_by_frame(GreasePencil &grease_pencil,
+                                                    const IndexMask &layer_mask,
+                                                    const int frame)
+{
+  Set<int> drawing_indices;
+  Vector<FrameDrawingInfo> drawing_infos;
   for (const int64_t i : layer_mask.index_range()) {
     const Layer *layer = grease_pencil.layers()[layer_mask[i]];
     const std::optional<FramesMapKey> start_frame = layer->frame_key_at(frame);

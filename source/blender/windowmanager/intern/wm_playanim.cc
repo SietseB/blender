@@ -56,7 +56,7 @@
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 #include "DNA_scene_types.h"
 #include "ED_datafiles.h" /* for fonts */
 #include "GHOST_C-api.h"
@@ -486,7 +486,7 @@ static int pupdate_time()
 {
   static double time_last;
 
-  double time = BLI_check_seconds_timer();
+  double time = BLI_time_now_seconds();
 
   g_playanim.total_time += (time - time_last);
   time_last = time;
@@ -607,10 +607,10 @@ static void draw_display_buffer(const PlayDisplayContext *display_ctx,
   BLI_rctf_init(&preview, 0.0f, 1.0f, 0.0f, 1.0f);
   if (draw_flip) {
     if (draw_flip[0]) {
-      SWAP(float, preview.xmin, preview.xmax);
+      std::swap(preview.xmin, preview.xmax);
     }
     if (draw_flip[1]) {
-      SWAP(float, preview.ymin, preview.ymax);
+      std::swap(preview.ymin, preview.ymax);
     }
   }
 
@@ -2022,7 +2022,7 @@ static bool wm_main_playanim_intern(int argc, const char **argv, PlayArgs *args_
 #endif
 
         while (pupdate_time()) {
-          BLI_sleep_ms(1);
+          BLI_time_sleep_ms(1);
         }
         g_playanim.total_time -= g_playanim.swap_time;
         playanim_toscreen(&ps, ps.picture, ibuf);
@@ -2053,7 +2053,7 @@ static bool wm_main_playanim_intern(int argc, const char **argv, PlayArgs *args_
       }
       playanim_change_frame(&ps);
       if (!has_event) {
-        BLI_sleep_ms(1);
+        BLI_time_sleep_ms(1);
       }
       if (ps.wait) {
         continue;

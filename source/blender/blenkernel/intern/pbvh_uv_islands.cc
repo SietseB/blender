@@ -670,7 +670,7 @@ struct Fan {
 
 #endif
 
-  static bool is_path_valid(const Span<FanSegment *> &path,
+  static bool is_path_valid(const Span<FanSegment *> path,
                             const MeshData &mesh_data,
                             const int from_vertex,
                             const int to_vertex)
@@ -1186,7 +1186,7 @@ bool UVBorder::is_ccw() const
   copy_v2_v2(poly[0], uv_vertex1->uv);
   copy_v2_v2(poly[1], uv_vertex2->uv);
   copy_v2_v2(poly[2], uv_vertex3->uv);
-  const bool ccw = cross_poly_v2(poly, 3) < 0.0;
+  const bool ccw = cross_poly_v2(poly, 3) > 0.0;
   return ccw;
 }
 

@@ -3,29 +3,22 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "IO_types.hh"
-#include "usd.h"
-#include "usd_hierarchy_iterator.h"
-#include "usd_reader_geom.h"
-#include "usd_reader_prim.h"
-#include "usd_reader_stage.h"
+#include "usd.hh"
+#include "usd_hook.hh"
+#include "usd_reader_geom.hh"
+#include "usd_reader_prim.hh"
+#include "usd_reader_stage.hh"
 
-#include "BKE_appdir.hh"
-#include "BKE_blender_version.h"
-#include "BKE_cachefile.h"
-#include "BKE_cdderivedmesh.h"
+#include "BKE_cachefile.hh"
+#include "BKE_collection.hh"
 #include "BKE_context.hh"
-#include "BKE_global.h"
-#include "BKE_layer.h"
+#include "BKE_global.hh"
+#include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
-#include "BKE_library.hh"
 #include "BKE_main.hh"
-#include "BKE_node.hh"
 #include "BKE_object.hh"
-#include "BKE_report.h"
-#include "BKE_scene.h"
-#include "BKE_world.h"
+#include "BKE_report.hh"
 
-#include "BLI_fileops.h"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
@@ -33,17 +26,18 @@
 #include "BLI_string.h"
 #include "BLI_timeit.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_build.hh"
-#include "DEG_depsgraph_query.hh"
 
 #include "DNA_cachefile_types.h"
 #include "DNA_collection_types.h"
-#include "DNA_node_types.h"
+#include "DNA_layer_types.h"
+#include "DNA_listBase.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_world_types.h"
+#include "DNA_windowmanager_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -52,9 +46,7 @@
 
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/metrics.h>
-#include <pxr/usd/usdGeom/scope.h>
 #include <pxr/usd/usdGeom/tokens.h>
-#include <pxr/usd/usdGeom/xformCommonAPI.h>
 
 #include <iostream>
 
@@ -150,7 +142,6 @@ static void find_prefix_to_skip(pxr::UsdStageRefPtr stage, ImportSettings *r_set
   }
 
   /* Treat the root as empty */
-  auto path_string = path.GetString();
   if (path == pxr::SdfPath("/")) {
     path = pxr::SdfPath();
   }
@@ -220,7 +211,7 @@ static void import_startjob(void *customdata, wmJobWorkerStatus *worker_status)
         data->bmain, data->scene->master_collection, display_name);
     id_fake_user_set(&import_collection->id);
 
-    DEG_id_tag_update(&import_collection->id, ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(&import_collection->id, ID_RECALC_SYNC_TO_EVAL);
     DEG_relations_tag_update(data->bmain);
 
     BKE_view_layer_synced_ensure(data->scene, data->view_layer);
@@ -304,7 +295,7 @@ static void import_startjob(void *customdata, wmJobWorkerStatus *worker_status)
 
   data->archive = archive;
 
-  archive->collect_readers(data->bmain);
+  archive->collect_readers();
 
   if (data->params.import_materials && data->params.import_all_materials) {
     archive->import_all_materials(data->bmain);
@@ -412,7 +403,7 @@ static void import_endjob(void *customdata)
       if (!reader) {
         continue;
       }
-      if (reader->prim().IsInPrototype()) {
+      if (reader->is_in_proto()) {
         /* Skip prototype prims, as these are added to prototype collections. */
         continue;
       }
@@ -429,6 +420,7 @@ static void import_endjob(void *customdata)
       if (!reader) {
         continue;
       }
+
       Object *ob = reader->object();
       if (!ob) {
         continue;
@@ -437,7 +429,7 @@ static void import_endjob(void *customdata)
       /* TODO: is setting active needed? */
       BKE_view_layer_base_select_and_set_active(view_layer, base);
 
-      DEG_id_tag_update(&lc->collection->id, ID_RECALC_COPY_ON_WRITE);
+      DEG_id_tag_update(&lc->collection->id, ID_RECALC_SYNC_TO_EVAL);
       DEG_id_tag_update_ex(data->bmain,
                            &ob->id,
                            ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION |
@@ -450,6 +442,11 @@ static void import_endjob(void *customdata)
     if (data->params.import_materials && data->params.import_all_materials) {
       data->archive->fake_users_for_unused_materials();
     }
+
+    /* Ensure Python types for invoking hooks are registered. */
+    register_hook_converters();
+
+    call_import_hooks(data->archive->stage(), data->params.worker_status->reports);
   }
 
   WM_set_locked_interface(data->wm, false);
@@ -479,10 +476,6 @@ static void import_freejob(void *user_data)
   delete data->archive;
   delete data;
 }
-
-}  // namespace blender::io::usd
-
-using namespace blender::io::usd;
 
 bool USD_import(bContext *C,
                 const char *filepath,
@@ -571,19 +564,19 @@ USDMeshReadParams create_mesh_read_params(const double motion_sample_time, const
   return params;
 }
 
-Mesh *USD_read_mesh(CacheReader *reader,
-                    Object *ob,
-                    Mesh *existing_mesh,
-                    const USDMeshReadParams params,
-                    const char **err_str)
+void USD_read_geometry(CacheReader *reader,
+                       Object *ob,
+                       blender::bke::GeometrySet &geometry_set,
+                       const USDMeshReadParams params,
+                       const char **err_str)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
   if (usd_reader == nullptr) {
-    return nullptr;
+    return;
   }
 
-  return usd_reader->read_mesh(existing_mesh, params, err_str);
+  return usd_reader->read_geometry(geometry_set, params, err_str);
 }
 
 bool USD_mesh_topology_changed(CacheReader *reader,
@@ -713,3 +706,5 @@ void USD_get_transform(CacheReader *reader, float r_mat_world[4][4], float time,
   mul_m4_m4m4(r_mat_world, mat_parent, object->parentinv);
   mul_m4_m4m4(r_mat_world, r_mat_world, mat_local);
 }
+
+}  // namespace blender::io::usd

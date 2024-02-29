@@ -10,7 +10,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
 #include "BLI_blenlib.h"
 
@@ -30,7 +30,6 @@
 
 #include "UI_interface.hh"
 #include "UI_resources.hh"
-#include "UI_view2d.hh"
 
 #include "text_format.hh"
 #include "text_intern.hh"

@@ -17,7 +17,7 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "WM_types.hh"
 
@@ -39,6 +39,8 @@ BLI_STATIC_ASSERT(ARRAY_SIZE(rna_enum_collection_color_items) - 2 == COLLECTION_
 
 #ifdef RNA_RUNTIME
 
+#  include <fmt/format.h>
+
 #  include "DNA_object_types.h"
 #  include "DNA_scene_types.h"
 
@@ -46,9 +48,9 @@ BLI_STATIC_ASSERT(ARRAY_SIZE(rna_enum_collection_color_items) - 2 == COLLECTION_
 #  include "DEG_depsgraph_build.hh"
 #  include "DEG_depsgraph_query.hh"
 
-#  include "BKE_collection.h"
-#  include "BKE_global.h"
-#  include "BKE_layer.h"
+#  include "BKE_collection.hh"
+#  include "BKE_global.hh"
+#  include "BKE_layer.hh"
 
 #  include "WM_api.hh"
 
@@ -135,7 +137,7 @@ static void rna_Collection_objects_link(Collection *collection,
     return;
   }
 
-  DEG_id_tag_update(&collection->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&collection->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, &object->id);
 }
@@ -157,7 +159,7 @@ static void rna_Collection_objects_unlink(Collection *collection,
     return;
   }
 
-  DEG_id_tag_update(&collection->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&collection->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, &object->id);
 }
@@ -263,7 +265,7 @@ static void rna_Collection_children_link(Collection *collection,
     return;
   }
 
-  DEG_id_tag_update(&collection->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&collection->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, &child->id);
 }
@@ -285,7 +287,7 @@ static void rna_Collection_children_unlink(Collection *collection,
     return;
   }
 
-  DEG_id_tag_update(&collection->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&collection->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, &child->id);
 }
@@ -376,7 +378,7 @@ static void rna_Collection_flag_update(Main *bmain, Scene *scene, PointerRNA *pt
   BKE_collection_object_cache_free(bmain, collection, 0);
   BKE_main_collection_sync(bmain);
 
-  DEG_id_tag_update(&collection->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&collection->id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_SCENE | ND_OB_SELECT, scene);
 }
@@ -412,7 +414,7 @@ static void rna_Collection_instance_offset_update(Main * /*bmain*/,
   DEG_id_tag_update(&collection->id, ID_RECALC_GEOMETRY);
 }
 
-static char *rna_CollectionLightLinking_path(const PointerRNA *ptr)
+static std::optional<std::string> rna_CollectionLightLinking_path(const PointerRNA *ptr)
 {
   Collection *collection = (Collection *)ptr->owner_id;
   CollectionLightLinking *collection_light_linking = (CollectionLightLinking *)ptr->data;
@@ -422,7 +424,7 @@ static char *rna_CollectionLightLinking_path(const PointerRNA *ptr)
   counter = 0;
   LISTBASE_FOREACH (CollectionObject *, collection_object, &collection->gobject) {
     if (&collection_object->light_linking == collection_light_linking) {
-      return BLI_sprintfN("collection_objects[%d].light_linking", counter);
+      return fmt::format("collection_objects[{}].light_linking", counter);
     }
     ++counter;
   }
@@ -430,12 +432,12 @@ static char *rna_CollectionLightLinking_path(const PointerRNA *ptr)
   counter = 0;
   LISTBASE_FOREACH (CollectionChild *, collection_child, &collection->children) {
     if (&collection_child->light_linking == collection_light_linking) {
-      return BLI_sprintfN("collection_children[%d].light_linking", counter);
+      return fmt::format("collection_children[{}].light_linking", counter);
     }
     ++counter;
   }
 
-  return BLI_strdup("..");
+  return "..";
 }
 
 static void rna_CollectionLightLinking_update(Main *bmain, Scene * /*scene*/, PointerRNA *ptr)

@@ -99,6 +99,7 @@ set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
+  PRIVATE bf::extern::fmtlib
   PRIVATE bf::intern::atomic
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
@@ -113,6 +114,19 @@ endif()
 
 if(WIN32)
   add_definitions(-DNOMINMAX)
+endif()
+
+if(WITH_GTESTS)
+  set(TEST_SRC
+    sculpt_detail_test.cc
+  )
+  set(TEST_INC
+  )
+  set(TEST_LIB
+    ${LIB}
+    bf_rna  # RNA_prototypes.h
+  )
+  blender_add_test_suite_lib(editor_sculpt_paint "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${TEST_LIB}")
 endif()
 
 blender_add_lib(bf_editor_sculpt_paint "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

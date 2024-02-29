@@ -2,51 +2,28 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "usd_blend_shape_utils.h"
-#include "usd_skel_convert.h"
+#include "usd_blend_shape_utils.hh"
 
-#include "usd.h"
-
-#include <pxr/usd/sdf/namespaceEdit.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
 #include <pxr/usd/usdSkel/animMapper.h>
 #include <pxr/usd/usdSkel/animation.h>
 #include <pxr/usd/usdSkel/bindingAPI.h>
 #include <pxr/usd/usdSkel/blendShape.h>
-#include <pxr/usd/usdSkel/cache.h>
-#include <pxr/usd/usdSkel/skeletonQuery.h>
-#include <pxr/usd/usdSkel/utils.h>
 
-#include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_key_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
-#include "DNA_meta_types.h"
-#include "DNA_scene_types.h"
 
-#include "BKE_action.h"
-#include "BKE_armature.hh"
-#include "BKE_deform.h"
-#include "BKE_fcurve.h"
-#include "BKE_key.h"
-#include "BKE_lib_id.hh"
+#include "BKE_key.hh"
 #include "BKE_mesh.hh"
-#include "BKE_mesh_runtime.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
-#include "BKE_object_deform.h"
+#include "DNA_object_types.h"
 
+#include "BLI_assert.h"
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 #include "BLI_set.hh"
-#include "BLI_span.hh"
 #include "BLI_vector.hh"
 
-#include "ED_armature.hh"
-#include "ED_keyframing.hh"
-#include "ED_mesh.hh"
-
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -224,8 +201,9 @@ void create_blend_shapes(pxr::UsdStageRefPtr stage,
   pxr::UsdSkelBindingAPI skel_api = pxr::UsdSkelBindingAPI::Apply(mesh_prim);
 
   if (!skel_api) {
-    printf("WARNING: couldn't apply UsdSkelBindingAPI to prim %s\n",
-           mesh_prim.GetPath().GetAsString().c_str());
+    CLOG_WARN(&LOG,
+              "Couldn't apply UsdSkelBindingAPI to mesh prim %s",
+              mesh_prim.GetPath().GetAsString().c_str());
     return;
   }
 

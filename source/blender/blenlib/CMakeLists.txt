@@ -14,7 +14,6 @@ set(INC
 set(INC_SYS
   ../../../extern/wcwidth
   ../../../extern/json/include
-  ../../../extern/fmtlib/include
 
   ${EIGEN3_INCLUDE_DIRS}
   ${ZLIB_INCLUDE_DIRS}
@@ -29,7 +28,7 @@ set(SRC
   intern/BLI_dynstr.c
   intern/BLI_filelist.cc
   intern/BLI_ghash.c
-  intern/BLI_ghash_utils.c
+  intern/BLI_ghash_utils.cc
   intern/BLI_heap.c
   intern/BLI_heap_simple.c
   intern/BLI_index_range.cc
@@ -57,7 +56,7 @@ set(SRC
   intern/buffer.c
   intern/cache_mutex.cc
   intern/compute_context.cc
-  intern/convexhull_2d.c
+  intern/convexhull_2d.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/delaunay_2d.cc
@@ -77,9 +76,9 @@ set(SRC
   intern/generic_virtual_array.cc
   intern/generic_virtual_vector_array.cc
   intern/gsqueue.c
-  intern/hash_md5.c
-  intern/hash_mm2a.c
-  intern/hash_mm3.c
+  intern/hash_md5.cc
+  intern/hash_mm2a.cc
+  intern/hash_mm3.cc
   intern/hash_tables.cc
   intern/implicit_sharing.cc
   intern/index_mask.cc
@@ -156,7 +155,7 @@ set(SRC
   intern/timecode.c
   intern/timeit.cc
   intern/uuid.cc
-  intern/uvproject.c
+  intern/uvproject.cc
   intern/vector.cc
   intern/virtual_array.cc
   intern/voxel.c
@@ -242,9 +241,9 @@ set(SRC
   BLI_gsqueue.h
   BLI_hash.h
   BLI_hash.hh
-  BLI_hash_md5.h
-  BLI_hash_mm2a.h
-  BLI_hash_mm3.h
+  BLI_hash_md5.hh
+  BLI_hash_mm2a.hh
+  BLI_hash_mm3.hh
   BLI_hash_tables.hh
   BLI_heap.h
   BLI_heap_simple.h
@@ -252,6 +251,7 @@ set(SRC
   BLI_implicit_sharing.hh
   BLI_implicit_sharing_ptr.hh
   BLI_index_mask.hh
+  BLI_index_mask_fwd.hh
   BLI_index_range.hh
   BLI_inplace_priority_queue.hh
   BLI_iterator.h
@@ -263,6 +263,7 @@ set(SRC
   BLI_lazy_threading.hh
   BLI_length_parameterize.hh
   BLI_linear_allocator.hh
+  BLI_linear_allocator_chunked_list.hh
   BLI_link_utils.h
   BLI_linklist.h
   BLI_linklist_lockfree.h
@@ -330,6 +331,7 @@ set(SRC
   BLI_quadric.h
   BLI_rand.h
   BLI_rand.hh
+  BLI_random_access_iterator_mixin.hh
   BLI_range.h
   BLI_rect.h
   BLI_resource_scope.hh
@@ -381,6 +383,7 @@ set(SRC
   BLI_vector_set.hh
   BLI_vector_set_slots.hh
   BLI_virtual_array.hh
+  BLI_virtual_array_fwd.hh
   BLI_virtual_vector_array.hh
   BLI_voxel.h
   BLI_winstuff.h
@@ -392,6 +395,7 @@ set(SRC
 
 set(LIB
   PUBLIC bf::dna
+  PRIVATE bf::extern::fmtlib
   bf_intern_eigen
   PRIVATE bf::intern::guardedalloc
   extern_wcwidth
@@ -496,6 +500,7 @@ if(WITH_GTESTS)
     tests/BLI_bitmap_test.cc
     tests/BLI_bounds_test.cc
     tests/BLI_color_test.cc
+    tests/BLI_convexhull_2d_test.cc
     tests/BLI_cpp_type_test.cc
     tests/BLI_delaunay_2d_test.cc
     tests/BLI_disjoint_set_test.cc
@@ -517,6 +522,7 @@ if(WITH_GTESTS)
     tests/BLI_kdtree_test.cc
     tests/BLI_length_parameterize_test.cc
     tests/BLI_linear_allocator_test.cc
+    tests/BLI_linear_allocator_chunked_list_test.cc
     tests/BLI_linklist_lockfree_test.cc
     tests/BLI_listbase_test.cc
     tests/BLI_map_test.cc
@@ -542,6 +548,7 @@ if(WITH_GTESTS)
     tests/BLI_path_util_test.cc
     tests/BLI_polyfill_2d_test.cc
     tests/BLI_pool_test.cc
+    tests/BLI_random_access_iterator_mixin_test.cc
     tests/BLI_ressource_strings.h
     tests/BLI_serialize_test.cc
     tests/BLI_session_uid_test.cc

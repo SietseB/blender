@@ -8,7 +8,7 @@
 
 #include <iomanip>
 
-#include "BKE_global.h"
+#include "BKE_global.hh"
 
 #include "BLI_string.h"
 #include "BLI_vector.hh"
@@ -755,9 +755,9 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
   std::string pre_main, post_main;
 
   ss << "\n/* Interfaces. */\n";
-  const Vector<StageInterfaceInfo *> &in_interfaces = info.geometry_source_.is_empty() ?
-                                                          info.vertex_out_interfaces_ :
-                                                          info.geometry_out_interfaces_;
+  const Span<StageInterfaceInfo *> in_interfaces = info.geometry_source_.is_empty() ?
+                                                       info.vertex_out_interfaces_ :
+                                                       info.geometry_out_interfaces_;
   for (const StageInterfaceInfo *iface : in_interfaces) {
     print_interface(ss, "in", *iface);
   }
@@ -895,11 +895,6 @@ std::string GLShader::geometry_layout_declare(const ShaderCreateInfo &info) cons
   int max_verts = info.geometry_layout_.max_vertices;
   int invocations = info.geometry_layout_.invocations;
 
-  if (GLContext::geometry_shader_invocations == false && invocations != -1) {
-    max_verts *= invocations;
-    invocations = -1;
-  }
-
   std::stringstream ss;
   ss << "\n/* Geometry Layout. */\n";
   ss << "layout(" << to_string(info.geometry_layout_.primitive_in);
@@ -914,7 +909,7 @@ std::string GLShader::geometry_layout_declare(const ShaderCreateInfo &info) cons
   return ss.str();
 }
 
-static StageInterfaceInfo *find_interface_by_name(const Vector<StageInterfaceInfo *> &ifaces,
+static StageInterfaceInfo *find_interface_by_name(const Span<StageInterfaceInfo *> ifaces,
                                                   const StringRefNull &name)
 {
   for (auto *iface : ifaces) {
@@ -1075,33 +1070,13 @@ static const char *glsl_patch_default_get()
 
   /* Enable extensions for features that are not part of our base GLSL version
    * don't use an extension for something already available! */
-  if (GLContext::texture_gather_support) {
-    ss << "#extension GL_ARB_texture_gather: enable\n";
-    /* Some drivers don't agree on epoxy_has_gl_extension("GL_ARB_texture_gather") and the actual
-     * support in the shader so double check the preprocessor define (see #56544). */
-    ss << "#ifdef GL_ARB_texture_gather\n";
-    ss << "#  define GPU_ARB_texture_gather\n";
-    ss << "#endif\n";
-  }
   if (GLContext::shader_draw_parameters_support) {
     ss << "#extension GL_ARB_shader_draw_parameters : enable\n";
     ss << "#define GPU_ARB_shader_draw_parameters\n";
     ss << "#define gpu_BaseInstance gl_BaseInstanceARB\n";
   }
-  if (GLContext::geometry_shader_invocations) {
-    ss << "#extension GL_ARB_gpu_shader5 : enable\n";
-    ss << "#define GPU_ARB_gpu_shader5\n";
-  }
-  if (GLContext::texture_cube_map_array_support) {
-    ss << "#extension GL_ARB_texture_cube_map_array : enable\n";
-    ss << "#define GPU_ARB_texture_cube_map_array\n";
-  }
   if (epoxy_has_gl_extension("GL_ARB_conservative_depth")) {
     ss << "#extension GL_ARB_conservative_depth : enable\n";
-  }
-  if (GPU_shader_image_load_store_support()) {
-    ss << "#extension GL_ARB_shader_image_load_store: enable\n";
-    ss << "#extension GL_ARB_shading_language_420pack: enable\n";
   }
   if (GLContext::layered_rendering_support) {
     ss << "#extension GL_ARB_shader_viewport_layer_array: enable\n";
@@ -1155,11 +1130,6 @@ static const char *glsl_patch_compute_get()
   ss << "#version 430\n";
   ss << "#extension GL_ARB_compute_shader :enable\n";
 
-  if (GLContext::texture_cube_map_array_support) {
-    ss << "#extension GL_ARB_texture_cube_map_array : enable\n";
-    ss << "#define GPU_ARB_texture_cube_map_array\n";
-  }
-
   /* Array compatibility. */
   ss << "#define gpu_Array(_type) _type[]\n";
 
@@ -1202,6 +1172,30 @@ GLuint GLShader::create_shader_stage(GLenum gl_stage,
   /* Patch the shader code using the first source slot. */
   sources[SOURCES_INDEX_VERSION] = glsl_patch_get(gl_stage);
   sources[SOURCES_INDEX_SPECIALIZATION_CONSTANTS] = constants_source.c_str();
+
+  if (DEBUG_LOG_SHADER_SRC_ON_ERROR) {
+    /* Store the generated source for printing in case the link fails. */
+    StringRefNull source_type;
+    switch (gl_stage) {
+      case GL_VERTEX_SHADER:
+        source_type = "VertShader";
+        break;
+      case GL_GEOMETRY_SHADER:
+        source_type = "GeomShader";
+        break;
+      case GL_FRAGMENT_SHADER:
+        source_type = "FragShader";
+        break;
+      case GL_COMPUTE_SHADER:
+        source_type = "ComputeShader";
+        break;
+    }
+
+    debug_source += "\n\n----------" + source_type + "----------\n\n";
+    for (const char *source : sources) {
+      debug_source.append(source);
+    }
+  }
 
   glShaderSource(shader, sources.size(), sources.data(), nullptr);
   glCompileShader(shader);
@@ -1540,7 +1534,7 @@ bool GLShader::program_link()
   if (!status) {
     char log[5000];
     glGetProgramInfoLog(program_id, sizeof(log), nullptr, log);
-    Span<const char *> sources;
+    Span<const char *> sources = {debug_source.c_str()};
     GLLogParser parser;
     print_log(sources, log, "Linking", true, &parser);
   }

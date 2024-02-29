@@ -20,7 +20,7 @@
 
 #include "BKE_attribute_math.hh"
 #include "BKE_context.hh"
-#include "BKE_deform.h"
+#include "BKE_deform.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_mesh.hh"
 
@@ -62,7 +62,7 @@ static void tag_object_after_update(Object *object)
 {
   BLI_assert(object->type == OB_MESH);
   Mesh *mesh = static_cast<Mesh *>(object->data);
-  DEG_id_tag_update(&mesh->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&mesh->id, ID_RECALC_SYNC_TO_EVAL);
   /* NOTE: Original mesh is used for display, so tag it directly here. */
   BKE_mesh_batch_cache_dirty_tag(mesh, BKE_MESH_BATCH_DIRTY_ALL);
 }

@@ -21,9 +21,7 @@
 #include "NOD_socket.hh"
 #include "NOD_socket_search_link.hh"
 
-#include "BLT_translation.h"
-
-#include "RNA_access.hh"
+#include "BLT_translation.hh"
 
 #include "WM_api.hh"
 
@@ -235,12 +233,12 @@ static void gather_search_link_ops_for_asset_library(const bContext &C,
                                                      const bool skip_local,
                                                      Vector<SocketLinkOperation> &search_link_ops)
 {
-  AssetFilterSettings filter_settings{};
+  asset::AssetFilterSettings filter_settings{};
   filter_settings.id_types = FILTER_ID_NT;
 
-  ED_assetlist_storage_fetch(&library_ref, &C);
-  ED_assetlist_iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
-    if (!ED_asset_filter_matches_asset(&filter_settings, asset)) {
+  asset::list::storage_fetch(&library_ref, &C);
+  asset::list::iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
+    if (!asset::filter_matches_asset(&filter_settings, asset)) {
       return true;
     }
     if (skip_local && asset.is_local_id()) {

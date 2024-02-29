@@ -17,13 +17,13 @@
 #include "BLI_sys_types.h"
 #include "BLI_utildefines.h"
 
-#include "rna_internal.h" /* own include */
+#include "rna_internal.hh" /* own include */
 
 #ifdef RNA_RUNTIME
 
 #  include "DNA_mesh_types.h"
 
-#  include "BKE_anim_data.h"
+#  include "BKE_anim_data.hh"
 #  include "BKE_attribute.hh"
 #  include "BKE_mesh.h"
 #  include "BKE_mesh.hh"
@@ -31,7 +31,7 @@
 #  include "BKE_mesh_mapping.hh"
 #  include "BKE_mesh_runtime.hh"
 #  include "BKE_mesh_tangent.hh"
-#  include "BKE_report.h"
+#  include "BKE_report.hh"
 
 #  include "ED_mesh.hh"
 

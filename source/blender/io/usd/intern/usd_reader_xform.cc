@@ -5,29 +5,22 @@
  *
  * Adapted from the Blender Alembic importer implementation. */
 
-#include "usd_reader_xform.h"
+#include "usd_reader_xform.hh"
 
 #include "BKE_constraint.h"
 #include "BKE_lib_id.hh"
-#include "BKE_library.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 
-#include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
 #include "BLI_string.h"
-#include "BLI_utildefines.h"
 
 #include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
-#include "DNA_space_types.h" /* for FILE_MAX */
 
-#include <pxr/base/gf/math.h>
 #include <pxr/base/gf/matrix4f.h>
 
-#include <pxr/usd/usdGeom/xform.h>
+#include <string>
 
 namespace blender::io::usd {
 
@@ -118,7 +111,7 @@ bool USDXformReader::is_root_xform_prim() const
     return false;
   }
 
-  if (prim_.IsInPrototype()) {
+  if (is_in_proto()) {
     /* We don't consider prototypes to be root prims,
      * because we never want to apply global scaling
      * or rotations to the prototypes themselves. */

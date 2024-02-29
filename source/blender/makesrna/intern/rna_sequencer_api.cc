@@ -20,7 +20,7 @@
 
 #include "SEQ_edit.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #ifdef RNA_RUNTIME
 
@@ -35,7 +35,7 @@
 #  include "BKE_mask.h"
 #  include "BKE_movieclip.h"
 
-#  include "BKE_report.h"
+#  include "BKE_report.hh"
 #  include "BKE_sound.h"
 
 #  include "IMB_imbuf.hh"

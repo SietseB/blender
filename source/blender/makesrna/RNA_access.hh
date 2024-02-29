@@ -2,7 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-/* Use a define instead of `#pragma once` because of `rna_internal.h` */
+/* Use a define instead of `#pragma once` because of `rna_internal.hh` */
 #ifndef __RNA_ACCESS_H__
 #define __RNA_ACCESS_H__
 
@@ -10,11 +10,14 @@
  * \ingroup RNA
  */
 
+#include <optional>
 #include <stdarg.h>
+#include <string>
 
 #include "RNA_types.hh"
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_function_ref.hh"
 
 struct ID;
 struct IDOverrideLibrary;
@@ -285,21 +288,21 @@ int RNA_property_enum_bitflag_identifiers(
 StructRNA *RNA_property_pointer_type(PointerRNA *ptr, PropertyRNA *prop);
 bool RNA_property_pointer_poll(PointerRNA *ptr, PropertyRNA *prop, PointerRNA *value);
 
-bool RNA_property_editable(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_editable(const PointerRNA *ptr, PropertyRNA *prop);
 /**
  * Version of #RNA_property_editable that tries to return additional info in \a r_info
  * that can be exposed in UI.
  */
-bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char **r_info);
+bool RNA_property_editable_info(const PointerRNA *ptr, PropertyRNA *prop, const char **r_info);
 /**
  * Same as RNA_property_editable(), except this checks individual items in an array.
  */
-bool RNA_property_editable_index(PointerRNA *ptr, PropertyRNA *prop, const int index);
+bool RNA_property_editable_index(const PointerRNA *ptr, PropertyRNA *prop, const int index);
 
 /**
  * Without lib check, only checks the flag.
  */
-bool RNA_property_editable_flag(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_editable_flag(const PointerRNA *ptr, PropertyRNA *prop);
 
 bool RNA_property_animateable(const PointerRNA *ptr, PropertyRNA *prop);
 bool RNA_property_animated(PointerRNA *ptr, PropertyRNA *prop);
@@ -307,7 +310,7 @@ bool RNA_property_animated(PointerRNA *ptr, PropertyRNA *prop);
  * \note Does not take into account editable status, this has to be checked separately
  * (using #RNA_property_editable_flag() usually).
  */
-bool RNA_property_overridable_get(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_overridable_get(const PointerRNA *ptr, PropertyRNA *prop);
 /**
  * Should only be used for custom properties.
  */
@@ -376,16 +379,15 @@ void RNA_property_string_set_bytes(PointerRNA *ptr, PropertyRNA *prop, const cha
 eStringPropertySearchFlag RNA_property_string_search_flag(PropertyRNA *prop);
 /**
  * Search candidates for string `prop` by calling `visit_fn` with each string.
- * Typically these strings are collected in `visit_user_data` in a format defined by the caller.
  *
  * See #PropStringSearchFunc for details.
  */
-void RNA_property_string_search(const bContext *C,
-                                PointerRNA *ptr,
-                                PropertyRNA *prop,
-                                const char *edit_text,
-                                StringPropertySearchVisitFunc visit_fn,
-                                void *visit_user_data);
+void RNA_property_string_search(
+    const bContext *C,
+    PointerRNA *ptr,
+    PropertyRNA *prop,
+    const char *edit_text,
+    blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn);
 
 /**
  * \return the length without `\0` terminator.
@@ -636,34 +638,34 @@ void RNA_struct_property_unset(PointerRNA *ptr, const char *identifier);
 /**
  * Python compatible string representation of this property, (must be freed!).
  */
-char *RNA_property_as_string(
+std::string RNA_property_as_string(
     bContext *C, PointerRNA *ptr, PropertyRNA *prop, int index, int max_prop_length);
 /**
  * String representation of a property, Python compatible but can be used for display too.
  * \param C: can be NULL.
  */
-char *RNA_pointer_as_string_id(bContext *C, PointerRNA *ptr);
-char *RNA_pointer_as_string(bContext *C,
-                            PointerRNA *ptr,
-                            PropertyRNA *prop_ptr,
-                            PointerRNA *ptr_prop);
+std::string RNA_pointer_as_string_id(bContext *C, PointerRNA *ptr);
+std::optional<std::string> RNA_pointer_as_string(bContext *C,
+                                                 PointerRNA *ptr,
+                                                 PropertyRNA *prop_ptr,
+                                                 PointerRNA *ptr_prop);
 /**
  * \param C: can be NULL.
  */
-char *RNA_pointer_as_string_keywords_ex(bContext *C,
-                                        PointerRNA *ptr,
-                                        bool as_function,
-                                        bool all_args,
-                                        bool nested_args,
-                                        int max_prop_length,
-                                        PropertyRNA *iterprop);
-char *RNA_pointer_as_string_keywords(bContext *C,
-                                     PointerRNA *ptr,
-                                     bool as_function,
-                                     bool all_args,
-                                     bool nested_args,
-                                     int max_prop_length);
-char *RNA_function_as_string_keywords(
+std::string RNA_pointer_as_string_keywords_ex(bContext *C,
+                                              PointerRNA *ptr,
+                                              bool as_function,
+                                              bool all_args,
+                                              bool nested_args,
+                                              int max_prop_length,
+                                              PropertyRNA *iterprop);
+std::string RNA_pointer_as_string_keywords(bContext *C,
+                                           PointerRNA *ptr,
+                                           bool as_function,
+                                           bool all_args,
+                                           bool nested_args,
+                                           int max_prop_length);
+std::string RNA_function_as_string_keywords(
     bContext *C, FunctionRNA *func, bool as_function, bool all_args, int max_prop_length);
 
 /* Function */

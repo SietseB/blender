@@ -440,17 +440,17 @@ static bool bm_face_is_sharp(const BMFace *const &face)
 }
 
 /**
- * Returns whether loop normals are required because of mixed sharp and smooth flags.
+ * Returns which domain of normals is required because of sharp and smooth flags.
  * Similar to #Mesh::normals_domain().
  */
-static bool bm_loop_normals_required(BMesh *bm)
+static bke::MeshNormalDomain bmesh_normals_domain(BMesh *bm)
 {
   if (bm->totface == 0) {
-    return false;
+    return bke::MeshNormalDomain::Point;
   }
 
   if (CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
-    return true;
+    return bke::MeshNormalDomain::Corner;
   }
 
   BM_mesh_elem_table_ensure(bm, BM_FACE);
@@ -458,7 +458,7 @@ static bool bm_loop_normals_required(BMesh *bm)
       Span(bm->ftable, bm->totface));
   const array_utils::BooleanMix face_mix = array_utils::booleans_mix_calc(sharp_faces);
   if (face_mix == array_utils::BooleanMix::AllTrue) {
-    return false;
+    return bke::MeshNormalDomain::Face;
   }
 
   BM_mesh_elem_table_ensure(bm, BM_EDGE);
@@ -466,16 +466,16 @@ static bool bm_loop_normals_required(BMesh *bm)
       Span(bm->etable, bm->totedge));
   const array_utils::BooleanMix edge_mix = array_utils::booleans_mix_calc(sharp_edges);
   if (edge_mix == array_utils::BooleanMix::AllTrue) {
-    return false;
+    return bke::MeshNormalDomain::Face;
   }
 
   if (edge_mix == array_utils::BooleanMix::AllFalse &&
       face_mix == array_utils::BooleanMix::AllFalse)
   {
-    return false;
+    return bke::MeshNormalDomain::Point;
   }
 
-  return true;
+  return bke::MeshNormalDomain::Corner;
 }
 
 void mesh_render_data_update_normals(MeshRenderData &mr, const eMRDataType data_flag)
@@ -499,7 +499,7 @@ void mesh_render_data_update_normals(MeshRenderData &mr, const eMRDataType data_
       /* Use #BMFace.no instead. */
     }
     if (((data_flag & MR_DATA_LOOP_NOR) && !mr.use_simplify_normals &&
-         bm_loop_normals_required(mr.bm)) ||
+         mr.normals_domain == bke::MeshNormalDomain::Corner) ||
         (data_flag & MR_DATA_TAN_LOOP_NOR))
     {
 
@@ -544,16 +544,19 @@ MeshRenderData *mesh_render_data_create(Object *object,
                                         const bool is_editmode,
                                         const bool is_paint_mode,
                                         const bool is_mode_active,
-                                        const float obmat[4][4],
+                                        const float4x4 &object_to_world,
                                         const bool do_final,
                                         const bool do_uvedit,
+                                        const bool use_hide,
                                         const ToolSettings *ts)
 {
   MeshRenderData *mr = MEM_new<MeshRenderData>(__func__);
   mr->toolsettings = ts;
   mr->mat_len = mesh_render_mat_len_get(object, mesh);
 
-  copy_m4_m4(mr->obmat, obmat);
+  mr->object_to_world = object_to_world;
+
+  mr->use_hide = use_hide;
 
   if (is_editmode) {
     Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(object);
@@ -678,13 +681,17 @@ MeshRenderData *mesh_render_data_create(Object *object,
 
     mr->material_indices = *attributes.lookup<int>("material_index", bke::AttrDomain::Face);
 
-    mr->hide_vert = *attributes.lookup<bool>(".hide_vert", bke::AttrDomain::Point);
-    mr->hide_edge = *attributes.lookup<bool>(".hide_edge", bke::AttrDomain::Edge);
-    mr->hide_poly = *attributes.lookup<bool>(".hide_poly", bke::AttrDomain::Face);
+    if (is_mode_active || is_paint_mode) {
+      if (use_hide) {
+        mr->hide_vert = *attributes.lookup<bool>(".hide_vert", bke::AttrDomain::Point);
+        mr->hide_edge = *attributes.lookup<bool>(".hide_edge", bke::AttrDomain::Edge);
+        mr->hide_poly = *attributes.lookup<bool>(".hide_poly", bke::AttrDomain::Face);
+      }
 
-    mr->select_vert = *attributes.lookup<bool>(".select_vert", bke::AttrDomain::Point);
-    mr->select_edge = *attributes.lookup<bool>(".select_edge", bke::AttrDomain::Edge);
-    mr->select_poly = *attributes.lookup<bool>(".select_poly", bke::AttrDomain::Face);
+      mr->select_vert = *attributes.lookup<bool>(".select_vert", bke::AttrDomain::Point);
+      mr->select_edge = *attributes.lookup<bool>(".select_edge", bke::AttrDomain::Edge);
+      mr->select_poly = *attributes.lookup<bool>(".select_poly", bke::AttrDomain::Face);
+    }
 
     mr->sharp_faces = *attributes.lookup<bool>("sharp_face", bke::AttrDomain::Face);
   }
@@ -697,6 +704,8 @@ MeshRenderData *mesh_render_data_create(Object *object,
     mr->loop_len = bm->totloop;
     mr->face_len = bm->totface;
     mr->tri_len = poly_to_tri_count(mr->face_len, mr->loop_len);
+
+    mr->normals_domain = bmesh_normals_domain(bm);
   }
 
   retrieve_active_attribute_names(*mr, *object, *mr->mesh);

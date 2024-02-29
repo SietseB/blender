@@ -42,9 +42,9 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_attribute.hh"
 #include "BKE_brush.hh"
 #include "BKE_curve.hh"
@@ -65,14 +65,14 @@
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_preview_image.hh"
-#include "BKE_scene.h"
+#include "BKE_scene.hh"
 #include "BKE_vfont.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_build.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "GPU_material.h"
+#include "GPU_material.hh"
 
 #include "NOD_shader.h"
 
@@ -231,6 +231,7 @@ static void material_blend_read_data(BlendDataReader *reader, ID *id)
 IDTypeInfo IDType_ID_MA = {
     /*id_code*/ ID_MA,
     /*id_filter*/ FILTER_ID_MA,
+    /*dependencies_id_types*/ FILTER_ID_TE | FILTER_ID_GR,
     /*main_listbase_index*/ INDEX_ID_MA,
     /*struct_size*/ sizeof(Material),
     /*name*/ "Material",
@@ -553,7 +554,7 @@ void BKE_id_materials_copy(Main *bmain, ID *id_src, ID *id_dst)
       id_us_plus((ID *)(*matar_dst)[a]);
     }
 
-    DEG_id_tag_update(id_dst, ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(id_dst, ID_RECALC_SYNC_TO_EVAL);
     DEG_relations_tag_update(bmain);
   }
 }
@@ -585,7 +586,7 @@ void BKE_id_material_resize(Main *bmain, ID *id, short totcol, bool do_id_user)
   }
   *totcolp = totcol;
 
-  DEG_id_tag_update(id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(id, ID_RECALC_SYNC_TO_EVAL);
   DEG_relations_tag_update(bmain);
 }
 
@@ -608,7 +609,7 @@ void BKE_id_material_append(Main *bmain, ID *id, Material *ma)
     id_us_plus((ID *)ma);
     BKE_objects_materials_test_all(bmain, id);
 
-    DEG_id_tag_update(id, ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(id, ID_RECALC_SYNC_TO_EVAL);
     DEG_relations_tag_update(bmain);
   }
 }
@@ -643,7 +644,7 @@ Material *BKE_id_material_pop(Main *bmain, ID *id, int index_i)
 
       material_data_index_remove_id(id, index);
 
-      DEG_id_tag_update(id, ID_RECALC_COPY_ON_WRITE);
+      DEG_id_tag_update(id, ID_RECALC_SYNC_TO_EVAL);
       DEG_relations_tag_update(bmain);
     }
   }
@@ -669,7 +670,7 @@ void BKE_id_material_clear(Main *bmain, ID *id)
     BKE_objects_materials_test_all(bmain, id);
     material_data_index_clear_id(id);
 
-    DEG_id_tag_update(id, ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(id, ID_RECALC_SYNC_TO_EVAL);
     DEG_relations_tag_update(bmain);
   }
 }
@@ -918,7 +919,7 @@ void BKE_object_material_resize(Main *bmain, Object *ob, const short totcol, boo
     ob->actcol = ob->totcol;
   }
 
-  DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE | ID_RECALC_GEOMETRY);
+  DEG_id_tag_update(&ob->id, ID_RECALC_SYNC_TO_EVAL | ID_RECALC_GEOMETRY);
   DEG_relations_tag_update(bmain);
 }
 
@@ -1616,7 +1617,7 @@ void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *o
     }
   }
 
-  /* COW needed when adding texture slot on an object with no materials.
+  /* Copy-on-eval needed when adding texture slot on an object with no materials.
    * But do it only when slots actually change to avoid continuous depsgraph updates. */
   if (ma->tot_slots != prev_tot_slots || ma->paint_active_slot != prev_paint_active_slot ||
       ma->paint_clone_slot != prev_paint_clone_slot ||
@@ -1624,7 +1625,7 @@ void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *o
        memcmp(ma->texpaintslot, prev_texpaintslot, sizeof(*ma->texpaintslot) * ma->tot_slots) !=
            0))
   {
-    DEG_id_tag_update(&ma->id, ID_RECALC_SHADING | ID_RECALC_COPY_ON_WRITE);
+    DEG_id_tag_update(&ma->id, ID_RECALC_SHADING | ID_RECALC_SYNC_TO_EVAL);
   }
 
   MEM_SAFE_FREE(prev_texpaintslot);

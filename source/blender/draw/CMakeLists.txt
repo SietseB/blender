@@ -57,12 +57,13 @@ set(SRC
   intern/mesh_extractors/extract_mesh_vbo_lnor.cc
   intern/mesh_extractors/extract_mesh_vbo_mesh_analysis.cc
   intern/mesh_extractors/extract_mesh_vbo_orco.cc
-  intern/mesh_extractors/extract_mesh_vbo_pos_nor.cc
+  intern/mesh_extractors/extract_mesh_vbo_pos.cc
   intern/mesh_extractors/extract_mesh_vbo_sculpt_data.cc
   intern/mesh_extractors/extract_mesh_vbo_select_idx.cc
   intern/mesh_extractors/extract_mesh_vbo_skin_roots.cc
   intern/mesh_extractors/extract_mesh_vbo_tan.cc
   intern/mesh_extractors/extract_mesh_vbo_uv.cc
+  intern/mesh_extractors/extract_mesh_vbo_vnor.cc
   intern/mesh_extractors/extract_mesh_vbo_weights.cc
   intern/draw_attributes.cc
   intern/draw_cache_impl_curve.cc
@@ -432,7 +433,6 @@ set(GLSL_SRC
   engines/eevee/shaders/bsdf_common_lib.glsl
   engines/eevee/shaders/irradiance_lib.glsl
   engines/eevee/shaders/octahedron_lib.glsl
-  engines/eevee/shaders/cubemap_lib.glsl
   engines/eevee/shaders/bsdf_sampling_lib.glsl
   engines/eevee/shaders/random_lib.glsl
   engines/eevee/shaders/raytrace_lib.glsl
@@ -469,7 +469,6 @@ set(GLSL_SRC
   engines/eevee_next/shaders/eevee_closure_lib.glsl
   engines/eevee_next/shaders/eevee_colorspace_lib.glsl
   engines/eevee_next/shaders/eevee_cryptomatte_lib.glsl
-  engines/eevee_next/shaders/eevee_cubemap_lib.glsl
   engines/eevee_next/shaders/eevee_debug_gbuffer_frag.glsl
   engines/eevee_next/shaders/eevee_debug_surfels_vert.glsl
   engines/eevee_next/shaders/eevee_debug_surfels_frag.glsl
@@ -510,7 +509,8 @@ set(GLSL_SRC
   engines/eevee_next/shaders/eevee_film_lib.glsl
   engines/eevee_next/shaders/eevee_forward_lib.glsl
   engines/eevee_next/shaders/eevee_gbuffer_lib.glsl
-  engines/eevee_next/shaders/eevee_gbuffer_test.glsl
+  engines/eevee_next/shaders/eevee_gbuffer_closure_test.glsl
+  engines/eevee_next/shaders/eevee_gbuffer_normal_test.glsl
   engines/eevee_next/shaders/eevee_geom_curves_vert.glsl
   engines/eevee_next/shaders/eevee_geom_gpencil_vert.glsl
   engines/eevee_next/shaders/eevee_geom_mesh_vert.glsl
@@ -565,8 +565,10 @@ set(GLSL_SRC
   engines/eevee_next/shaders/eevee_ray_trace_screen_comp.glsl
   engines/eevee_next/shaders/eevee_ray_trace_screen_lib.glsl
   engines/eevee_next/shaders/eevee_ray_types_lib.glsl
+  engines/eevee_next/shaders/eevee_reflection_probe_convolve_comp.glsl
   engines/eevee_next/shaders/eevee_reflection_probe_eval_lib.glsl
   engines/eevee_next/shaders/eevee_reflection_probe_lib.glsl
+  engines/eevee_next/shaders/eevee_reflection_probe_mapping_lib.glsl
   engines/eevee_next/shaders/eevee_reflection_probe_remap_comp.glsl
   engines/eevee_next/shaders/eevee_reflection_probe_select_comp.glsl
   engines/eevee_next/shaders/eevee_reflection_probe_update_irradiance_comp.glsl
@@ -674,7 +676,6 @@ set(GLSL_SRC
   intern/shaders/common_grease_pencil_lib.glsl
   intern/shaders/common_hair_lib.glsl
   intern/shaders/common_hair_refine_comp.glsl
-  intern/shaders/common_hair_refine_vert.glsl
   intern/shaders/common_intersect_lib.glsl
   intern/shaders/common_math_geom_lib.glsl
   intern/shaders/common_math_lib.glsl
@@ -957,6 +958,9 @@ if(WITH_GTESTS)
     endif()
     if(WITH_VULKAN_BACKEND)
       add_definitions(-DWITH_VULKAN_BACKEND)
+      list(APPEND INC_SYS
+        PUBLIC ${VULKAN_INCLUDE_DIRS}
+      )
     endif()
   endif()
 endif()

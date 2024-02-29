@@ -24,6 +24,7 @@
 #include "BKE_idprop.h"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
+#include "BKE_scene.hh"
 #include "BKE_sound.h"
 
 #include "DEG_depsgraph.hh"
@@ -76,7 +77,7 @@ static Strip *seq_strip_alloc(int type)
     strip->transform->scale_y = 1;
     strip->transform->origin[0] = 0.5f;
     strip->transform->origin[1] = 0.5f;
-    strip->transform->filter = SEQ_TRANSFORM_FILTER_BILINEAR;
+    strip->transform->filter = SEQ_TRANSFORM_FILTER_AUTO;
     strip->crop = static_cast<StripCrop *>(MEM_callocN(sizeof(StripCrop), "StripCrop"));
   }
 
@@ -906,11 +907,12 @@ static void seq_update_mix_sounds(Scene *scene, Sequence *seq)
 
 static void seq_update_sound_properties(const Scene *scene, const Sequence *seq)
 {
-  BKE_sound_set_scene_sound_volume(
-      seq->scene_sound, seq->volume, (seq->flag & SEQ_AUDIO_VOLUME_ANIMATED) != 0);
+  const int frame = BKE_scene_frame_get(scene);
+  BKE_sound_set_scene_sound_volume_at_frame(
+      seq->scene_sound, frame, seq->volume, (seq->flag & SEQ_AUDIO_VOLUME_ANIMATED) != 0);
   SEQ_retiming_sound_animation_data_set(scene, seq);
-  BKE_sound_set_scene_sound_pan(
-      seq->scene_sound, seq->pan, (seq->flag & SEQ_AUDIO_PAN_ANIMATED) != 0);
+  BKE_sound_set_scene_sound_pan_at_frame(
+      seq->scene_sound, frame, seq->pan, (seq->flag & SEQ_AUDIO_PAN_ANIMATED) != 0);
 }
 
 static void seq_update_sound_modifiers(Sequence *seq)
@@ -928,8 +930,8 @@ static void seq_update_sound_modifiers(Sequence *seq)
 
 static bool must_update_strip_sound(Scene *scene, Sequence *seq)
 {
-  return (scene->id.recalc & (ID_RECALC_AUDIO | ID_RECALC_COPY_ON_WRITE)) != 0 ||
-         (seq->sound->id.recalc & (ID_RECALC_AUDIO | ID_RECALC_COPY_ON_WRITE)) != 0;
+  return (scene->id.recalc & (ID_RECALC_AUDIO | ID_RECALC_SYNC_TO_EVAL)) != 0 ||
+         (seq->sound->id.recalc & (ID_RECALC_AUDIO | ID_RECALC_SYNC_TO_EVAL)) != 0;
 }
 
 static void seq_update_sound_strips(Scene *scene, Sequence *seq)

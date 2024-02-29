@@ -29,12 +29,10 @@
 
 #include "WM_api.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
 #include "UI_interface.hh"
 #include "UI_view2d.hh"
-
-#include "interface_intern.hh"
 
 /* Compute display grid resolution
  ********************************************************/

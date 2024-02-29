@@ -14,7 +14,7 @@
 #include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "MEM_guardedalloc.h"
 
@@ -27,15 +27,13 @@
 #include "DNA_screen_types.h"
 
 #include "BKE_colortools.hh"
-#include "BKE_context.hh"
-#include "BKE_deform.h"
+#include "BKE_deform.hh"
 #include "BKE_gpencil_geom_legacy.h"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_lib_query.hh"
 #include "BKE_material.h"
 #include "BKE_modifier.hh"
-#include "BKE_screen.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
@@ -45,7 +43,6 @@
 
 #include "RNA_access.hh"
 
-#include "MOD_gpencil_legacy_modifiertypes.h"
 #include "MOD_gpencil_legacy_ui_common.h"
 #include "MOD_gpencil_legacy_util.h"
 

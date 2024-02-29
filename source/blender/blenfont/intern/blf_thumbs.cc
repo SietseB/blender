@@ -28,12 +28,12 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
-#include "blf_internal.h"
-#include "blf_internal_types.h"
+#include "blf_internal.hh"
+#include "blf_internal_types.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
-#include "BLI_strict_flags.h"
+#include "BLI_strict_flags.h" /* Keep last. */
 
 /* Maximum length of text sample in char32_t, including nullptr terminator. */
 #define BLF_SAMPLE_LEN 5

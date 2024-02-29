@@ -29,7 +29,6 @@ set(INC
   ../../../intern/memutil
   ../../../intern/mikktspace
   ../../../intern/opensubdiv
-  ../../../extern/fmtlib/include
 
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -70,6 +69,7 @@ set(SRC
   intern/attribute_math.cc
   intern/autoexec.cc
   intern/bake_geometry_nodes_modifier.cc
+  intern/bake_data_block_map.cc
   intern/bake_items.cc
   intern/bake_items_paths.cc
   intern/bake_items_serialize.cc
@@ -150,6 +150,7 @@ set(SRC
   intern/gpencil_update_cache_legacy.cc
   intern/grease_pencil.cc
   intern/grease_pencil_convert_legacy.cc
+  intern/grease_pencil_vertex_groups.cc
   intern/icons.cc
   intern/icons_rasterize.cc
   intern/idprop.cc
@@ -232,6 +233,7 @@ set(SRC
   intern/multires_versioning.cc
   intern/nla.cc
   intern/node.cc
+  intern/node_enum_definition.cc
   intern/node_runtime.cc
   intern/node_socket_value.cc
   intern/node_tree_anonymous_attributes.cc
@@ -313,15 +315,16 @@ set(SRC
   intern/volume_grid_file_cache.cc
   intern/volume_render.cc
   intern/volume_to_mesh.cc
+  intern/wm_runtime.cc
   intern/workspace.cc
   intern/world.cc
-  intern/writeavi.cc
+  intern/writemovie.cc
 
   BKE_DerivedMesh.hh
   BKE_action.h
   BKE_action.hh
   BKE_addon.h
-  BKE_anim_data.h
+  BKE_anim_data.hh
   BKE_anim_path.h
   BKE_anim_visualization.h
   BKE_animsys.h
@@ -334,11 +337,12 @@ set(SRC
   BKE_attribute_math.hh
   BKE_autoexec.hh
   BKE_bake_geometry_nodes_modifier.hh
+  BKE_bake_data_block_map.hh
   BKE_bake_items.hh
   BKE_bake_items_paths.hh
   BKE_bake_items_serialize.hh
   BKE_bake_items_socket.hh
-  BKE_blender.h
+  BKE_blender.hh
   BKE_blender_copybuffer.hh
   BKE_blender_undo.hh
   BKE_blender_user_menu.hh
@@ -346,16 +350,16 @@ set(SRC
   BKE_blendfile.hh
   BKE_blendfile_link_append.hh
   BKE_boids.h
-  BKE_bpath.h
+  BKE_bpath.hh
   BKE_brush.hh
   BKE_bvhutils.hh
-  BKE_cachefile.h
-  BKE_callbacks.h
+  BKE_cachefile.hh
+  BKE_callbacks.hh
   BKE_camera.h
   BKE_ccg.h
   BKE_cdderivedmesh.h
   BKE_cloth.hh
-  BKE_collection.h
+  BKE_collection.hh
   BKE_collision.h
   BKE_colorband.hh
   BKE_colortools.hh
@@ -376,9 +380,9 @@ set(SRC
   BKE_customdata.hh
   BKE_customdata_file.h
   BKE_data_transfer.h
-  BKE_deform.h
+  BKE_deform.hh
   BKE_displist.h
-  BKE_duplilist.h
+  BKE_duplilist.hh
   BKE_dynamicpaint.h
   BKE_editlattice.h
   BKE_editmesh.hh
@@ -394,7 +398,7 @@ set(SRC
   BKE_geometry_fields.hh
   BKE_geometry_set.hh
   BKE_geometry_set_instances.hh
-  BKE_global.h
+  BKE_global.hh
   BKE_gpencil_curve_legacy.h
   BKE_gpencil_geom_legacy.h
   BKE_gpencil_legacy.h
@@ -402,6 +406,8 @@ set(SRC
   BKE_gpencil_update_cache_legacy.h
   BKE_grease_pencil.h
   BKE_grease_pencil.hh
+  BKE_grease_pencil_legacy_convert.hh
+  BKE_grease_pencil_vertex_groups.hh
   BKE_icons.h
   BKE_idprop.h
   BKE_idprop.hh
@@ -414,10 +420,10 @@ set(SRC
   BKE_instances.hh
   BKE_ipo.h
   BKE_kelvinlet.h
-  BKE_key.h
+  BKE_key.hh
   BKE_keyconfig.h
   BKE_lattice.hh
-  BKE_layer.h
+  BKE_layer.hh
   BKE_lib_id.hh
   BKE_lib_override.hh
   BKE_lib_query.hh
@@ -432,8 +438,8 @@ set(SRC
   BKE_main_namemap.hh
   BKE_mask.h
   BKE_material.h
-  BKE_mball.h
-  BKE_mball_tessellate.h
+  BKE_mball.hh
+  BKE_mball_tessellate.hh
   BKE_mesh.h
   BKE_mesh.hh
   BKE_mesh_boolean_convert.hh
@@ -454,8 +460,8 @@ set(SRC
   BKE_movieclip.h
   BKE_multires.hh
   BKE_nla.h
-  BKE_node.h
   BKE_node.hh
+  BKE_node_enum.hh
   BKE_node_runtime.hh
   BKE_node_socket_value.hh
   BKE_node_tree_anonymous_attributes.hh
@@ -479,9 +485,10 @@ set(SRC
   BKE_pose_backup.h
   BKE_preferences.h
   BKE_preview_image.hh
-  BKE_report.h
+  BKE_report.hh
   BKE_rigidbody.h
-  BKE_scene.h
+  BKE_scene.hh
+  BKE_scene_runtime.hh
   BKE_screen.hh
   BKE_sequencer_offscreen.h
   BKE_shader_fx.h
@@ -516,9 +523,10 @@ set(SRC
   BKE_volume_openvdb.hh
   BKE_volume_render.hh
   BKE_volume_to_mesh.hh
+  BKE_wm_runtime.hh
   BKE_workspace.h
   BKE_world.h
-  BKE_writeavi.h
+  BKE_writemovie.hh
 
   nla_private.h
   particle_private.h
@@ -569,7 +577,7 @@ set(LIB
   bf_rna
   bf_shader_fx
   bf_simulation
-  extern_fmtlib
+  PRIVATE bf::extern::fmtlib
   PRIVATE bf::intern::atomic
   # For `vfontdata_freetype.c`.
   ${FREETYPE_LIBRARIES} ${BROTLI_LIBRARIES}
@@ -634,13 +642,6 @@ endif()
 
 if(WITH_IMAGE_WEBP)
   add_definitions(-DWITH_WEBP)
-endif()
-
-if(WITH_CODEC_AVI)
-  list(APPEND INC
-    ../io/avi
-  )
-  add_definitions(-DWITH_AVI)
 endif()
 
 if(WITH_CODEC_FFMPEG)

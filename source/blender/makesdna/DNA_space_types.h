@@ -76,18 +76,21 @@ namespace blender::ed::text {
 struct SpaceText_Runtime;
 }  // namespace blender::ed::text
 using SpaceText_Runtime = blender::ed::text::SpaceText_Runtime;
+
+namespace blender::ed::spreadsheet {
+struct SpaceSpreadsheet_Runtime;
+}  // namespace blender::ed::spreadsheet
+using SpaceSpreadsheet_Runtime = blender::ed::spreadsheet::SpaceSpreadsheet_Runtime;
 #else
 typedef struct SpaceNode_Runtime SpaceNode_Runtime;
 typedef struct SpaceOutliner_Runtime SpaceOutliner_Runtime;
 typedef struct SpaceSeq_Runtime SpaceSeq_Runtime;
 typedef struct SpaceText_Runtime SpaceText_Runtime;
+typedef struct SpaceSpreadsheet_Runtime SpaceSpreadsheet_Runtime;
 #endif
 
 /** Defined in `file_intern.hh`. */
 typedef struct SpaceFile_Runtime SpaceFile_Runtime;
-
-/** Defined in `spreadsheet_intern.hh`. */
-typedef struct SpaceSpreadsheet_Runtime SpaceSpreadsheet_Runtime;
 
 /* -------------------------------------------------------------------- */
 /** \name SpaceLink (Base)
@@ -507,7 +510,8 @@ typedef enum eGraphEdit_Flag {
   SIPO_NOTRANSKEYCULL = (1 << 1),
   /* don't show any keyframe handles at all */
   SIPO_NOHANDLES = (1 << 2),
-  /* SIPO_NODRAWCFRANUM = (1 << 3), DEPRECATED */
+  /* Automatically lock the transform to whichever axis the cursor has moved the most. */
+  SIPO_AUTOLOCK_AXIS = (1 << 3),
   /* show timing in seconds instead of frames */
   SIPO_DRAWTIME = (1 << 4),
   /* draw names of F-Curves beside the respective curves */
@@ -1030,7 +1034,7 @@ typedef enum eFileSelectType {
 /**
  * #FileSelectParams.flag / `sfile->params->flag`.
  * \note short flag, also used as 16 lower bits of flags in link/append code
- * (WM and BLO code area, see #eBLOLibLinkFlags in BLO_readfile.h).
+ * (WM and BLO code area, see #eBLOLibLinkFlags in BLO_readfile.hh).
  */
 typedef enum eFileSel_Params_Flag {
   FILE_PARAMS_FLAG_UNUSED_1 = (1 << 0),
@@ -1264,11 +1268,13 @@ typedef struct SpaceImage {
   char gizmo_flag;
 
   char grid_shape_source;
-  char _pad1[2];
+  char _pad1[6];
 
   int flag;
 
   float uv_opacity;
+
+  float stretch_opacity;
 
   int tile_grid_shape[2];
   /**
@@ -2034,6 +2040,7 @@ typedef enum eSpreadsheetColumnValueType {
   SPREADSHEET_VALUE_TYPE_INT8 = 9,
   SPREADSHEET_VALUE_TYPE_INT32_2D = 10,
   SPREADSHEET_VALUE_TYPE_QUATERNION = 11,
+  SPREADSHEET_VALUE_TYPE_FLOAT4X4 = 12,
 } eSpreadsheetColumnValueType;
 
 /**

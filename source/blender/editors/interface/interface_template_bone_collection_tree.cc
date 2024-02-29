@@ -8,7 +8,7 @@
 
 #include "BKE_context.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "ANIM_armature_iter.hh"
 #include "ANIM_bone_collections.hh"
@@ -37,6 +37,8 @@ class BoneCollectionTreeView : public AbstractTreeView {
  public:
   explicit BoneCollectionTreeView(bArmature &armature);
   void build_tree() override;
+
+  bool listen(const wmNotifier &notifier) const override;
 
  private:
   void build_tree_node_recursive(TreeViewItemContainer &parent, const int bcoll_index);
@@ -97,6 +99,10 @@ class BoneCollectionDropTarget : public TreeViewItemDropTarget {
 
   bool can_drop(const wmDrag &drag, const char **r_disabled_hint) const override
   {
+    if (drag.type != WM_DRAG_BONE_COLLECTION) {
+      return false;
+    }
+
     const ArmatureBoneCollection *drag_arm_bcoll = static_cast<const ArmatureBoneCollection *>(
         drag.poin);
 
@@ -129,8 +135,8 @@ class BoneCollectionDropTarget : public TreeViewItemDropTarget {
     const BoneCollection &drag_bcoll = drag_bone_collection->bcoll();
     const BoneCollection &drop_bcoll = drop_bonecoll_.bcoll();
 
-    std::string_view drag_name = drag_bcoll.name;
-    std::string_view drop_name = drop_bcoll.name;
+    const StringRef drag_name = drag_bcoll.name;
+    const StringRef drop_name = drop_bcoll.name;
 
     switch (drag_info.drop_location) {
       case DropLocation::Into:
@@ -236,12 +242,21 @@ class BoneCollectionItem : public AbstractTreeViewItem {
 
     /* Visibility eye icon. */
     {
+      const bool is_solo_active = armature_.flag & ARM_BCOLL_SOLO_ACTIVE;
       uiLayout *visibility_sub = uiLayoutRow(sub, true);
-      uiLayoutSetActive(visibility_sub, bone_collection_.is_visible_ancestors());
+      uiLayoutSetActive(visibility_sub,
+                        !is_solo_active && bone_collection_.is_visible_ancestors());
 
       const int icon = bone_collection_.is_visible() ? ICON_HIDE_OFF : ICON_HIDE_ON;
       PointerRNA bcoll_ptr = rna_pointer();
       uiItemR(visibility_sub, &bcoll_ptr, "is_visible", UI_ITEM_R_ICON_ONLY, "", icon);
+    }
+
+    /* Solo icon. */
+    {
+      const int icon = bone_collection_.is_solo() ? ICON_SOLO_ON : ICON_SOLO_OFF;
+      PointerRNA bcoll_ptr = rna_pointer();
+      uiItemR(sub, &bcoll_ptr, "is_solo", UI_ITEM_R_ICON_ONLY, "", icon);
     }
   }
 
@@ -270,6 +285,37 @@ class BoneCollectionItem : public AbstractTreeViewItem {
     RNA_property_update(&const_cast<bContext &>(C), &bcolls_ptr, prop);
 
     ED_undo_push(&const_cast<bContext &>(C), "Change Armature's Active Bone Collection");
+  }
+
+  std::optional<bool> should_be_collapsed() const override
+  {
+    const bool is_collapsed = !bone_collection_.is_expanded();
+    return is_collapsed;
+  }
+
+  bool set_collapsed(const bool collapsed) override
+  {
+    if (!AbstractTreeViewItem::set_collapsed(collapsed)) {
+      return false;
+    }
+
+    /* Ensure that the flag in DNA is set. */
+    ANIM_armature_bonecoll_is_expanded_set(&bone_collection_, !collapsed);
+    return true;
+  }
+
+  void on_collapse_change(bContext &C, const bool is_collapsed) override
+  {
+    const bool is_expanded = !is_collapsed;
+
+    /* Let RNA handle the property change. This makes sure all the notifiers and DEG
+     * update calls are properly called. */
+    PointerRNA bcoll_ptr = RNA_pointer_create(
+        &armature_.id, &RNA_BoneCollection, &bone_collection_);
+    PropertyRNA *prop = RNA_struct_find_property(&bcoll_ptr, "is_expanded");
+
+    RNA_property_boolean_set(&bcoll_ptr, prop, is_expanded);
+    RNA_property_update(&C, &bcoll_ptr, prop);
   }
 
   bool supports_renaming() const override
@@ -342,13 +388,16 @@ void BoneCollectionTreeView::build_tree_node_recursive(TreeViewItemContainer &pa
   const bool has_any_selected_bones = bcolls_with_selected_bones_.contains(bcoll);
   BoneCollectionItem &bcoll_tree_item = parent.add_tree_item<BoneCollectionItem>(
       armature_, bcoll_index, has_any_selected_bones);
-  bcoll_tree_item.set_collapsed(false);
-
   for (int child_index = bcoll->child_index; child_index < bcoll->child_index + bcoll->child_count;
        child_index++)
   {
     build_tree_node_recursive(bcoll_tree_item, child_index);
   }
+}
+
+bool BoneCollectionTreeView::listen(const wmNotifier &notifier) const
+{
+  return notifier.data == ND_BONE_COLLECTION;
 }
 
 void BoneCollectionTreeView::build_bcolls_with_selected_bones()

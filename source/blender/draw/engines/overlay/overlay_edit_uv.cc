@@ -15,7 +15,7 @@
 #include "BKE_customdata.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_image.h"
-#include "BKE_layer.h"
+#include "BKE_layer.hh"
 #include "BKE_mask.h"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
@@ -35,6 +35,8 @@
 #include "UI_resources.hh"
 
 #include "overlay_private.hh"
+
+using blender::Vector;
 
 /* Forward declarations. */
 static void overlay_edit_uv_cache_populate(OVERLAY_Data *vedata, Object *ob);
@@ -159,6 +161,7 @@ void OVERLAY_edit_uv_init(OVERLAY_Data *vedata)
 
   pd->edit_uv.do_uv_stretching_overlay = show_overlays && do_uvstretching_overlay;
   pd->edit_uv.uv_opacity = sima->uv_opacity;
+  pd->edit_uv.stretch_opacity = sima->stretch_opacity;
   pd->edit_uv.do_tiled_image_overlay = show_overlays && is_image_type && is_tiled_image;
   pd->edit_uv.do_tiled_image_border_overlay = is_image_type && is_tiled_image;
   pd->edit_uv.dash_length = 4.0f * UI_SCALE_FAC;
@@ -282,6 +285,8 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
       pd->edit_uv_stretching_grp = DRW_shgroup_create(sh, psl->edit_uv_stretching_ps);
       DRW_shgroup_uniform_block(pd->edit_uv_stretching_grp, "globalsBlock", G_draw.block_ubo);
       DRW_shgroup_uniform_vec2_copy(pd->edit_uv_stretching_grp, "aspect", pd->edit_uv.uv_aspect);
+      DRW_shgroup_uniform_float_copy(
+          pd->edit_uv_stretching_grp, "stretch_opacity", pd->edit_uv.stretch_opacity);
     }
     else /* SI_UVDT_STRETCH_AREA */ {
       GPUShader *sh = OVERLAY_shader_edit_uv_stretching_area_get();
@@ -289,6 +294,8 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
       DRW_shgroup_uniform_block(pd->edit_uv_stretching_grp, "globalsBlock", G_draw.block_ubo);
       DRW_shgroup_uniform_float(
           pd->edit_uv_stretching_grp, "totalAreaRatio", &pd->edit_uv.total_area_ratio, 1);
+      DRW_shgroup_uniform_float_copy(
+          pd->edit_uv_stretching_grp, "stretch_opacity", pd->edit_uv.stretch_opacity);
     }
   }
 
@@ -352,24 +359,15 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
   if (pd->edit_uv.do_stencil_overlay) {
     const Brush *brush = BKE_paint_brush(&ts->imapaint.paint);
     ::Image *stencil_image = brush->clone.image;
-    ImBuf *stencil_ibuf = BKE_image_acquire_ibuf(
-        stencil_image, nullptr, &pd->edit_uv.stencil_lock);
+    GPUTexture *stencil_texture = BKE_image_get_gpu_texture(stencil_image, nullptr);
 
-    if (stencil_ibuf == nullptr) {
-      pd->edit_uv.stencil_ibuf = nullptr;
-      pd->edit_uv.stencil_image = nullptr;
-    }
-    else {
+    if (stencil_texture != nullptr) {
       DRW_PASS_CREATE(psl->edit_uv_stencil_ps,
                       DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_ALWAYS |
                           DRW_STATE_BLEND_ALPHA_PREMUL);
       GPUShader *sh = OVERLAY_shader_edit_uv_stencil_image();
       GPUBatch *geom = DRW_cache_quad_get();
       DRWShadingGroup *grp = DRW_shgroup_create(sh, psl->edit_uv_stencil_ps);
-      pd->edit_uv.stencil_ibuf = stencil_ibuf;
-      pd->edit_uv.stencil_image = stencil_image;
-      GPUTexture *stencil_texture = BKE_image_get_gpu_texture(
-          stencil_image, nullptr, stencil_ibuf);
       DRW_shgroup_uniform_texture(grp, "imgTexture", stencil_texture);
       DRW_shgroup_uniform_bool_copy(grp, "imgPremultiplied", true);
       DRW_shgroup_uniform_bool_copy(grp, "imgAlphaBlend", true);
@@ -378,7 +376,8 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
 
       float size_image[2];
       BKE_image_get_size_fl(image, nullptr, size_image);
-      float size_stencil_image[2] = {float(stencil_ibuf->x), float(stencil_ibuf->y)};
+      float size_stencil_image[2] = {float(GPU_texture_original_width(stencil_texture)),
+                                     float(GPU_texture_original_height(stencil_texture))};
 
       float obmat[4][4];
       unit_m4(obmat);
@@ -389,10 +388,6 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
 
       DRW_shgroup_call_obmat(grp, geom, obmat);
     }
-  }
-  else {
-    pd->edit_uv.stencil_ibuf = nullptr;
-    pd->edit_uv.stencil_image = nullptr;
   }
 
   if (pd->edit_uv.do_mask_overlay) {
@@ -422,15 +417,13 @@ void OVERLAY_edit_uv_cache_init(OVERLAY_Data *vedata)
   if ((pd->edit_uv.do_uv_overlay || pd->edit_uv.do_uv_shadow_overlay) &&
       draw_ctx->obact->type == OB_MESH)
   {
-    uint objects_len = 0;
-    Object **objects = BKE_view_layer_array_from_objects_in_mode_unique_data(
-        draw_ctx->scene, draw_ctx->view_layer, nullptr, &objects_len, draw_ctx->object_mode);
-    for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-      Object *object_eval = DEG_get_evaluated_object(draw_ctx->depsgraph, objects[ob_index]);
+    Vector<Object *> objects = BKE_view_layer_array_from_objects_in_mode_unique_data(
+        draw_ctx->scene, draw_ctx->view_layer, nullptr, draw_ctx->object_mode);
+    for (Object *object : objects) {
+      Object *object_eval = DEG_get_evaluated_object(draw_ctx->depsgraph, object);
       DRW_mesh_batch_cache_validate(object_eval, (Mesh *)object_eval->data);
       overlay_edit_uv_cache_populate(vedata, object_eval);
     }
-    MEM_freeN(objects);
   }
 }
 
@@ -544,13 +537,6 @@ static void OVERLAY_edit_uv_draw_finish(OVERLAY_Data *vedata)
 {
   OVERLAY_StorageList *stl = vedata->stl;
   OVERLAY_PrivateData *pd = stl->pd;
-
-  if (pd->edit_uv.stencil_ibuf) {
-    BKE_image_release_ibuf(
-        pd->edit_uv.stencil_image, pd->edit_uv.stencil_ibuf, pd->edit_uv.stencil_lock);
-    pd->edit_uv.stencil_image = nullptr;
-    pd->edit_uv.stencil_ibuf = nullptr;
-  }
 
   DRW_TEXTURE_FREE_SAFE(pd->edit_uv.mask_texture);
 }

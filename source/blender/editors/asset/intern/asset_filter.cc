@@ -8,7 +8,6 @@
 
 #include "AS_asset_representation.hh"
 
-#include "BKE_asset.hh"
 #include "BKE_idtype.hh"
 
 #include "BLI_listbase.h"
@@ -19,15 +18,12 @@
 #include "AS_asset_library.hh"
 
 #include "ED_asset_filter.hh"
-#include "ED_asset_handle.h"
-#include "ED_asset_library.h"
-#include "ED_asset_list.h"
 #include "ED_asset_list.hh"
 
-using namespace blender;
+namespace blender::ed::asset {
 
-bool ED_asset_filter_matches_asset(const AssetFilterSettings *filter,
-                                   const asset_system::AssetRepresentation &asset)
+bool filter_matches_asset(const AssetFilterSettings *filter,
+                          const asset_system::AssetRepresentation &asset)
 {
   ID_Type asset_type = asset.get_id_type();
   uint64_t asset_id_filter = BKE_idtype_idcode_to_idfilter(asset_type);
@@ -50,18 +46,15 @@ bool ED_asset_filter_matches_asset(const AssetFilterSettings *filter,
   return true;
 }
 
-namespace blender::ed::asset {
-
 asset_system::AssetCatalogTree build_filtered_catalog_tree(
     const asset_system::AssetLibrary &library,
     const AssetLibraryReference &library_ref,
-    const blender::FunctionRef<bool(const asset_system::AssetRepresentation &)>
-        is_asset_visible_fn)
+    const FunctionRef<bool(const asset_system::AssetRepresentation &)> is_asset_visible_fn)
 {
   Set<StringRef> known_paths;
 
   /* Collect paths containing assets. */
-  ED_assetlist_iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
+  list::iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
     if (!is_asset_visible_fn(asset)) {
       return true;
     }
@@ -82,8 +75,8 @@ asset_system::AssetCatalogTree build_filtered_catalog_tree(
 
   /* Build catalog tree. */
   asset_system::AssetCatalogTree filtered_tree;
-  asset_system::AssetCatalogTree &full_tree = *library.catalog_service->get_catalog_tree();
-  full_tree.foreach_item([&](asset_system::AssetCatalogTreeItem &item) {
+  const asset_system::AssetCatalogTree &full_tree = library.catalog_service->catalog_tree();
+  full_tree.foreach_item([&](const asset_system::AssetCatalogTreeItem &item) {
     if (!known_paths.contains(item.catalog_path().str())) {
       return;
     }
@@ -109,14 +102,14 @@ AssetItemTree build_filtered_all_catalog_tree(
       assets_per_path;
   Vector<asset_system::AssetRepresentation *> unassigned_assets;
 
-  ED_assetlist_storage_fetch(&library_ref, &C);
-  asset_system::AssetLibrary *library = ED_assetlist_library_get_once_available(library_ref);
+  list::storage_fetch(&library_ref, &C);
+  asset_system::AssetLibrary *library = list::library_get_once_available(library_ref);
   if (!library) {
     return {};
   }
 
-  ED_assetlist_iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
-    if (!ED_asset_filter_matches_asset(&filter_settings, asset)) {
+  list::iterate(library_ref, [&](asset_system::AssetRepresentation &asset) {
+    if (!filter_matches_asset(&filter_settings, asset)) {
       return true;
     }
     const AssetMetaData &meta_data = asset.get_metadata();
@@ -142,8 +135,8 @@ AssetItemTree build_filtered_all_catalog_tree(
   });
 
   asset_system::AssetCatalogTree catalogs_with_node_assets;
-  asset_system::AssetCatalogTree &catalog_tree = *library->catalog_service->get_catalog_tree();
-  catalog_tree.foreach_item([&](asset_system::AssetCatalogTreeItem &item) {
+  const asset_system::AssetCatalogTree &catalog_tree = library->catalog_service->catalog_tree();
+  catalog_tree.foreach_item([&](const asset_system::AssetCatalogTreeItem &item) {
     if (assets_per_path.lookup(item.catalog_path()).is_empty()) {
       return;
     }

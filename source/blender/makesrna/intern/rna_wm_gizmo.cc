@@ -17,13 +17,13 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "WM_types.hh"
 
@@ -43,7 +43,7 @@
 
 #  include "UI_interface.hh"
 
-#  include "BKE_global.h"
+#  include "BKE_global.hh"
 #  include "BKE_idprop.h"
 #  include "BKE_workspace.h"
 

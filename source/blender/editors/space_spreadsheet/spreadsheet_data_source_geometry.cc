@@ -12,7 +12,7 @@
 #include "BKE_editmesh.hh"
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_global.h"
+#include "BKE_global.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_lib_id.hh"
@@ -37,7 +37,7 @@
 #include "NOD_geometry_nodes_lazy_function.hh"
 #include "NOD_geometry_nodes_log.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "RNA_access.hh"
 #include "RNA_enum_types.hh"
@@ -204,6 +204,13 @@ void GeometryDataSource::foreach_default_column_ids(
         if (!bke::allow_procedural_attribute_access(attribute_id.name())) {
           return true;
         }
+        if (meta_data.domain == bke::AttrDomain::Instance &&
+            attribute_id.name() == "instance_transform")
+        {
+          /* Don't display the instance transform attribute, since matrix visualization in the
+           * spreadsheet isn't helpful. */
+          return true;
+        }
         SpreadsheetColumnID column_id;
         column_id.name = (char *)attribute_id.name().data();
         const bool is_front = attribute_id.name() == ".viewer";
@@ -212,6 +219,7 @@ void GeometryDataSource::foreach_default_column_ids(
       });
 
   if (component_->type() == bke::GeometryComponent::Type::Instance) {
+    fn({(char *)"Position"}, false);
     fn({(char *)"Rotation"}, false);
     fn({(char *)"Scale"}, false);
   }
@@ -257,6 +265,12 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
                 }));
       }
       Span<float4x4> transforms = instances->transforms();
+      if (STREQ(column_id.name, "Position")) {
+        return std::make_unique<ColumnValues>(
+            column_id.name, VArray<float3>::ForFunc(domain_num, [transforms](int64_t index) {
+              return transforms[index].location();
+            }));
+      }
       if (STREQ(column_id.name, "Rotation")) {
         return std::make_unique<ColumnValues>(
             column_id.name, VArray<float3>::ForFunc(domain_num, [transforms](int64_t index) {
@@ -487,14 +501,14 @@ std::unique_ptr<ColumnValues> VolumeDataSource::get_column_values(
   if (STREQ(column_id.name, "Grid Name")) {
     return std::make_unique<ColumnValues>(
         IFACE_("Grid Name"), VArray<std::string>::ForFunc(size, [volume](int64_t index) {
-          const blender::bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
+          const bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
           return volume_grid->name();
         }));
   }
   if (STREQ(column_id.name, "Data Type")) {
     return std::make_unique<ColumnValues>(
         IFACE_("Data Type"), VArray<std::string>::ForFunc(size, [volume](int64_t index) {
-          const blender::bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
+          const bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
           const VolumeGridType type = volume_grid->grid_type();
           const char *name = nullptr;
           RNA_enum_name_from_value(rna_enum_volume_grid_data_type_items, type, &name);
@@ -504,7 +518,7 @@ std::unique_ptr<ColumnValues> VolumeDataSource::get_column_values(
   if (STREQ(column_id.name, "Class")) {
     return std::make_unique<ColumnValues>(
         IFACE_("Class"), VArray<std::string>::ForFunc(size, [volume](int64_t index) {
-          const blender::bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
+          const bke::VolumeGridData *volume_grid = BKE_volume_grid_get(volume, index);
           openvdb::GridClass grid_class = volume_grid->grid_class();
           if (grid_class == openvdb::GridClass::GRID_FOG_VOLUME) {
             return IFACE_("Fog Volume");
@@ -545,7 +559,7 @@ bke::GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *ss
           /* This is a potentially heavy operation to do on every redraw. The best solution here is
            * to display the data directly from the bmesh without a conversion, which can be
            * implemented a bit later. */
-          BM_mesh_bm_to_me_for_eval(em->bm, new_mesh, nullptr);
+          BM_mesh_bm_to_me_for_eval(*em->bm, *new_mesh, nullptr);
           geometry_set.replace_mesh(new_mesh, bke::GeometryOwnershipType::Owned);
         }
       }

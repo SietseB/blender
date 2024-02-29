@@ -12,9 +12,9 @@
 #include "BLI_rect.h"
 #include "BLI_string.h"
 
-#include "BKE_global.h"
+#include "BKE_global.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 
 #include "MEM_guardedalloc.h"
 
@@ -165,7 +165,7 @@ void DRW_stats_reset()
     /* Swap queries for the next frame and sum up each lvl time. */
     for (int i = DTP.timer_increment - 1; i >= 0; i--) {
       DRWTimer *timer = &DTP.timers[i];
-      SWAP(uint32_t, timer->query[0], timer->query[1]);
+      std::swap(timer->query[0], timer->query[1]);
 
       BLI_assert(timer->lvl < MAX_NESTED_TIMER);
 

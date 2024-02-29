@@ -58,17 +58,17 @@
 #include "BLI_threads.h"
 #include "BLI_time.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_asset.hh"
 #include "BKE_blender_version.h"
-#include "BKE_collection.h"
-#include "BKE_global.h" /* for G */
+#include "BKE_collection.hh"
+#include "BKE_global.hh" /* for G */
 #include "BKE_idprop.h"
 #include "BKE_idtype.hh"
-#include "BKE_layer.h"
+#include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_override.hh"
 #include "BKE_lib_query.hh"
@@ -82,8 +82,8 @@
 #include "BKE_node.hh" /* for tree type defines */
 #include "BKE_object.hh"
 #include "BKE_packedFile.h"
-#include "BKE_report.h"
-#include "BKE_scene.h"
+#include "BKE_report.hh"
+#include "BKE_scene.hh"
 #include "BKE_screen.hh"
 #include "BKE_undo_system.hh"
 #include "BKE_workspace.h"
@@ -95,7 +95,7 @@
 #include "BLO_blend_defs.hh"
 #include "BLO_blend_validate.hh"
 #include "BLO_read_write.hh"
-#include "BLO_readfile.h"
+#include "BLO_readfile.hh"
 #include "BLO_undofile.hh"
 
 #include "SEQ_iterator.hh"
@@ -2039,7 +2039,7 @@ static int direct_link_id_restore_recalc(const FileData *fd,
     /* If the contents datablock changed, the depsgraph needs to copy the
      * datablock again to ensure it matches the original datablock. */
     if (!is_identical) {
-      recalc |= ID_RECALC_COPY_ON_WRITE;
+      recalc |= ID_RECALC_SYNC_TO_EVAL;
     }
 
     /* Special exceptions. */
@@ -2401,91 +2401,30 @@ static void placeholders_ensure_valid(Main *bmain)
   }
 }
 
-static const char *dataname(short id_code)
+static const char *idtype_alloc_name_get(short id_code)
 {
-  switch ((ID_Type)id_code) {
-    case ID_OB:
-      return "Data from OB";
-    case ID_ME:
-      return "Data from ME";
-    case ID_IP:
-      return "Data from IP";
-    case ID_SCE:
-      return "Data from SCE";
-    case ID_MA:
-      return "Data from MA";
-    case ID_TE:
-      return "Data from TE";
-    case ID_CU_LEGACY:
-      return "Data from CU";
-    case ID_GR:
-      return "Data from GR";
-    case ID_AR:
-      return "Data from AR";
-    case ID_AC:
-      return "Data from AC";
-    case ID_LI:
-      return "Data from LI";
-    case ID_MB:
-      return "Data from MB";
-    case ID_IM:
-      return "Data from IM";
-    case ID_LT:
-      return "Data from LT";
-    case ID_LA:
-      return "Data from LA";
-    case ID_CA:
-      return "Data from CA";
-    case ID_KE:
-      return "Data from KE";
-    case ID_WO:
-      return "Data from WO";
-    case ID_SCR:
-      return "Data from SCR";
-    case ID_VF:
-      return "Data from VF";
-    case ID_TXT:
-      return "Data from TXT";
-    case ID_SPK:
-      return "Data from SPK";
-    case ID_LP:
-      return "Data from LP";
-    case ID_SO:
-      return "Data from SO";
-    case ID_NT:
-      return "Data from NT";
-    case ID_BR:
-      return "Data from BR";
-    case ID_PA:
-      return "Data from PA";
-    case ID_PAL:
-      return "Data from PAL";
-    case ID_PC:
-      return "Data from PCRV";
-    case ID_GD_LEGACY:
-      return "Data from GD";
-    case ID_WM:
-      return "Data from WM";
-    case ID_MC:
-      return "Data from MC";
-    case ID_MSK:
-      return "Data from MSK";
-    case ID_LS:
-      return "Data from LS";
-    case ID_CF:
-      return "Data from CF";
-    case ID_WS:
-      return "Data from WS";
-    case ID_CV:
-      return "Data from HA";
-    case ID_PT:
-      return "Data from PT";
-    case ID_VO:
-      return "Data from VO";
-    case ID_GP:
-      return "Data from GP";
+  static const std::array<std::string, INDEX_ID_MAX> id_alloc_names = [] {
+    auto n = decltype(id_alloc_names)();
+    for (int idtype_index = 0; idtype_index < INDEX_ID_MAX; idtype_index++) {
+      const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_idtype_index(idtype_index);
+      BLI_assert(idtype_info);
+      if (idtype_index == INDEX_ID_NULL) {
+        /* #INDEX_ID_NULL returns the #IDType_ID_LINK_PLACEHOLDER type info, here we will rather
+         * use it for unknown/invalid ID types. */
+        n[size_t(idtype_index)] = "Data from UNKNWOWN ID Type";
+      }
+      else {
+        n[size_t(idtype_index)] = std::string("Data from '") + idtype_info->name + "'";
+      }
+    }
+    return n;
+  }();
+
+  const int idtype_index = BKE_idtype_idcode_to_index(id_code);
+  if (LIKELY(idtype_index >= 0 && idtype_index < INDEX_ID_MAX)) {
+    return id_alloc_names[size_t(idtype_index)].c_str();
   }
-  return "Data from Lib Block";
+  return id_alloc_names[INDEX_ID_NULL].c_str();
 }
 
 static bool direct_link_id(FileData *fd, Main *main, const int tag, ID *id, ID *id_old)
@@ -3031,7 +2970,7 @@ static BHead *read_libblock(FileData *fd,
 
   /* Read datablock contents.
    * Use convenient malloc name for debugging and better memory link prints. */
-  const char *allocname = dataname(idcode);
+  const char *allocname = idtype_alloc_name_get(idcode);
   bhead = read_data_into_datamap(fd, bhead, allocname);
   const bool success = direct_link_id(fd, main, id_tag, id, id_old);
   oldnewmap_clear(fd->datamap);
@@ -3109,25 +3048,21 @@ static BHead *read_global(BlendFileData *bfd, FileData *fd, BHead *bhead)
 
   bfd->fileflags = fg->fileflags;
   bfd->globalf = fg->globalf;
-  STRNCPY(bfd->filepath, fg->filepath);
 
-  /* Error in 2.65 and older: `main->filepath` was not set if you save from startup
-   * (not after loading file). */
-  if (bfd->filepath[0] == 0) {
-    if (fd->fileversion < 265 || (fd->fileversion == 265 && fg->subversion < 1)) {
-      if ((G.fileflags & G_FILE_RECOVER_READ) == 0) {
-        STRNCPY(bfd->filepath, BKE_main_blendfile_path(bfd->main));
-      }
-    }
-
-    /* early 2.50 version patch - filepath not in FileGlobal struct at all */
-    if (fd->fileversion <= 250) {
-      STRNCPY(bfd->filepath, BKE_main_blendfile_path(bfd->main));
-    }
-  }
-
+  /* Note: since 88b24bc6bb, `fg->filepath` is only written for crash recovery and autosave files,
+   * so only overwrite `fd->relabase` if it is not empty, in case a regular blendfile is opened
+   * through one of the 'recover' operators.
+   *
+   * In all other cases, the path is just set to the current path of the blendfile being read, so
+   * there is no need to handle anymore older files (pre-2.65) that did not store (correctly) their
+   * path. */
   if (G.fileflags & G_FILE_RECOVER_READ) {
-    STRNCPY(fd->relabase, fg->filepath);
+    if (fg->filepath[0] != '\0') {
+      STRNCPY(fd->relabase, fg->filepath);
+      /* Used to set expected original filepath in read Main, instead of the path of the recovery
+       * file itself. */
+      STRNCPY(bfd->filepath, fg->filepath);
+    }
   }
 
   bfd->curscreen = fg->curscreen;
@@ -3359,7 +3294,7 @@ static void lib_link_all(FileData *fd, Main *bmain)
   }
   FOREACH_MAIN_ID_END;
 
-  /* Cleanup `ID.orig_id`, this is now reserved for depsgraph/COW usage only. */
+  /* Cleanup `ID.orig_id`, this is now reserved for depsgraph/copy-on-eval usage only. */
   FOREACH_MAIN_ID_BEGIN (bmain, id) {
     id->orig_id = nullptr;
   }
@@ -3589,6 +3524,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
   bfd->main = BKE_main_new();
   bfd->main->versionfile = fd->fileversion;
+  STRNCPY(bfd->filepath, filepath);
 
   bfd->type = BLENFILETYPE_BLEND;
 
@@ -3701,7 +3637,9 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
     Main *old_main = static_cast<Main *>(fd->old_mainlist->first);
     BLI_assert(old_main != nullptr);
     BLI_assert(old_main->curlib == nullptr);
-    for (Main *libmain = old_main->next; libmain != nullptr; libmain = libmain->next) {
+    Main *libmain, *libmain_next;
+    for (libmain = old_main->next; libmain != nullptr; libmain = libmain_next) {
+      libmain_next = libmain->next;
       read_undo_move_libmain_data(fd, new_main, old_main, libmain, nullptr);
     }
   }
@@ -3722,7 +3660,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
   }
 
   if ((fd->skip_flags & BLO_READ_SKIP_DATA) == 0) {
-    fd->reports->duration.libraries = BLI_check_seconds_timer();
+    fd->reports->duration.libraries = BLI_time_now_seconds();
     read_libraries(fd, &mainlist);
 
     blo_join_main(&mainlist);
@@ -3737,10 +3675,10 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
       read_undo_remap_noundo_data(fd);
     }
 
-    fd->reports->duration.libraries = BLI_check_seconds_timer() - fd->reports->duration.libraries;
+    fd->reports->duration.libraries = BLI_time_now_seconds() - fd->reports->duration.libraries;
 
     /* Skip in undo case. */
-    if ((fd->flags & FD_FLAGS_IS_MEMFILE) == 0) {
+    if (!is_undo) {
       /* Note that we can't recompute user-counts at this point in undo case, we play too much with
        * IDs from different memory realms, and Main database is not in a fully valid state yet.
        */
@@ -3793,9 +3731,9 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
     /* Now that all our data-blocks are loaded,
      * we can re-generate overrides from their references. */
-    if ((fd->flags & FD_FLAGS_IS_MEMFILE) == 0) {
+    if (!is_undo) {
       /* Do not apply in undo case! */
-      fd->reports->duration.lib_overrides = BLI_check_seconds_timer();
+      fd->reports->duration.lib_overrides = BLI_time_now_seconds();
 
       std::string cur_view_layer_name = bfd->cur_view_layer != nullptr ?
                                             bfd->cur_view_layer->name :
@@ -3816,7 +3754,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
        * Proper fix involves first addressing #90610. */
       BKE_main_collections_parent_relations_rebuild(bfd->main);
 
-      fd->reports->duration.lib_overrides = BLI_check_seconds_timer() -
+      fd->reports->duration.lib_overrides = BLI_time_now_seconds() -
                                             fd->reports->duration.lib_overrides;
     }
 
@@ -4562,13 +4500,13 @@ static void read_library_linked_id(
     read_libblock(fd, mainvar, bhead, id->tag, false, r_id);
   }
   else {
-    BLO_reportf_wrap(basefd->reports,
-                     RPT_INFO,
-                     RPT_("LIB: %s: '%s' missing from '%s', parent '%s'"),
-                     BKE_idtype_idcode_to_name(GS(id->name)),
-                     id->name + 2,
-                     mainvar->curlib->filepath_abs,
-                     library_parent_filepath(mainvar->curlib));
+    CLOG_INFO(&LOG,
+              3,
+              "LIB: %s: '%s' missing from '%s', parent '%s'",
+              BKE_idtype_idcode_to_name(GS(id->name)),
+              id->name + 2,
+              mainvar->curlib->filepath_abs,
+              library_parent_filepath(mainvar->curlib));
     basefd->reports->count.missing_linked_id++;
 
     /* Generate a placeholder for this ID (simplified version of read_libblock actually...). */

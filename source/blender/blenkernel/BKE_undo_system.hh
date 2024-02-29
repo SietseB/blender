@@ -17,6 +17,7 @@ struct UndoType;
 struct bContext;
 
 /* IDs */
+struct GreasePencil;
 struct Main;
 struct Mesh;
 struct Object;
@@ -33,6 +34,7 @@ struct UndoRefID {
     struct ptr_ty *ptr; \
     char name[MAX_ID_NAME]; \
   }
+UNDO_REF_ID_TYPE(GreasePencil);
 UNDO_REF_ID_TYPE(Mesh);
 UNDO_REF_ID_TYPE(Object);
 UNDO_REF_ID_TYPE(Scene);
@@ -95,7 +97,7 @@ enum eUndoPushReturn {
 };
 ENUM_OPERATORS(eUndoPushReturn, UNDO_PUSH_RET_OVERRIDE_CHANGED)
 
-using UndoTypeForEachIDRefFn = void (*)(void *user_data, struct UndoRefID *id_ref);
+using UndoTypeForEachIDRefFn = void (*)(void *user_data, UndoRefID *id_ref);
 
 struct UndoType {
   UndoType *next, *prev;
@@ -116,11 +118,10 @@ struct UndoType {
    * Note that 'step_encode_init' is optional,
    * some undo types need to perform operations before undo push finishes.
    */
-  void (*step_encode_init)(struct bContext *C, UndoStep *us);
+  void (*step_encode_init)(bContext *C, UndoStep *us);
 
-  bool (*step_encode)(struct bContext *C, struct Main *bmain, UndoStep *us);
-  void (*step_decode)(
-      struct bContext *C, struct Main *bmain, UndoStep *us, eUndoStepDir dir, bool is_final);
+  bool (*step_encode)(bContext *C, Main *bmain, UndoStep *us);
+  void (*step_decode)(bContext *C, Main *bmain, UndoStep *us, eUndoStepDir dir, bool is_final);
 
   /**
    * \note When freeing all steps,

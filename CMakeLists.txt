@@ -245,7 +245,9 @@ mark_as_advanced(CPACK_OVERRIDE_PACKAGENAME)
 mark_as_advanced(BUILDINFO_OVERRIDE_DATE)
 mark_as_advanced(BUILDINFO_OVERRIDE_TIME)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16")
+# CMAKE 3.28.2 has issues with the combination of PCH and unity builds, disable for now.
+# upstream ticket https://gitlab.kitware.com/cmake/cmake/-/issues/25650
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16" AND NOT ${CMAKE_VERSION} VERSION_EQUAL "3.28.2")
   option(WITH_UNITY_BUILD "\
 Enable unity build for modules that support it to improve compile times.\n\
 WARNING: this option allows files to be built without all necessary headers!\n
@@ -255,6 +257,28 @@ This option should be disabled before manipulating or removing headers."
   mark_as_advanced(WITH_UNITY_BUILD)
 else()
   set(WITH_UNITY_BUILD OFF)
+endif()
+
+if(COMMAND target_precompile_headers)
+  # Disabling is needed for `./tools/utils_maintenance/code_clean.py` to function.
+  option(WITH_COMPILER_PRECOMPILED_HEADERS "\
+Use pre-compiled headers to speed up compilation."
+    ON
+  )
+  mark_as_advanced(WITH_COMPILER_PRECOMPILED_HEADERS)
+
+  if(WITH_CLANG_TIDY AND CMAKE_COMPILER_IS_GNUCC)
+    if(WITH_COMPILER_PRECOMPILED_HEADERS)
+      message(STATUS
+        "Clang-Tidy and GCC precompiled headers are incompatible, disabling precompiled headers"
+      )
+      set(WITH_COMPILER_PRECOMPILED_HEADERS OFF)
+    endif()
+  endif()
+
+  if(NOT WITH_COMPILER_PRECOMPILED_HEADERS)
+    set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+  endif()
 endif()
 
 option(WITH_IK_ITASC "\
@@ -389,6 +413,18 @@ else()
   set(WITH_SYSTEM_EIGEN3 OFF)
 endif()
 
+if((NOT WITH_PYTHON_MODULE) AND (
+      (WIN32 AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")) OR
+      ((UNIX AND NOT APPLE) AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64"))))
+  option(WITH_CPU_CHECK "\
+Report when a CPU is not compatible on startup \
+instead of failing to start with an inscrutable error."
+    ON
+  )
+  mark_as_advanced(WITH_CPU_CHECK)
+else()
+  set(WITH_CPU_CHECK OFF)
+endif()
 
 # Modifiers
 option(WITH_MOD_FLUID "Enable Mantaflow Fluid Simulation Framework" ON)
@@ -402,7 +438,6 @@ option(WITH_IMAGE_CINEON "Enable CINEON and DPX Image Support" ON)
 option(WITH_IMAGE_WEBP "Enable WebP Image Support" ON)
 
 # Audio/Video format support
-option(WITH_CODEC_AVI "Enable Blenders own AVI file support (raw/jpeg)" ON)
 option(WITH_CODEC_FFMPEG "Enable FFMPeg Support (http://ffmpeg.org)" ON)
 option(WITH_CODEC_SNDFILE "Enable libsndfile Support (http://www.mega-nerd.com/libsndfile)" ON)
 
@@ -705,12 +740,7 @@ mark_as_advanced(WITH_DRAW_DEBUG)
 
 # LLVM
 option(WITH_LLVM "Use LLVM" OFF)
-if(APPLE)
-  # We prefer static llvm build on Apple, dyn build possible though.
-  option(LLVM_STATIC "Link with LLVM static libraries" ON)
-else()
-  option(LLVM_STATIC "Link with LLVM static libraries" OFF)
-endif()
+option(LLVM_STATIC "Link with LLVM static libraries" OFF)
 mark_as_advanced(LLVM_STATIC)
 option(WITH_CLANG "Use Clang" OFF)
 
@@ -755,8 +785,10 @@ if(WIN32)
   option(WITH_TBB_MALLOC_PROXY "Enable the TBB malloc replacement" ON)
 endif()
 
+option(WITH_EXPERIMENTAL_FEATURES "Enable experimental features" ON)
+
 # This should be turned off when Blender enter beta/rc/release
-if("${BLENDER_VERSION_CYCLE}" STREQUAL "alpha")
+if("${BLENDER_VERSION_CYCLE}" STREQUAL "alpha" AND WITH_EXPERIMENTAL_FEATURES)
   set(WITH_EXPERIMENTAL_FEATURES ON)
 else()
   set(WITH_EXPERIMENTAL_FEATURES OFF)
@@ -765,6 +797,7 @@ endif()
 # Unit testing
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
 option(WITH_GPU_RENDER_TESTS "Enable GPU render related unit testing (EEVEE, Workbench and Grease Pencil)" OFF)
+option(WITH_GPU_RENDER_TESTS_SILENT "Run GPU render tests silently (finished tests will pass). Generated report will show failing tests" ON)
 option(WITH_GPU_DRAW_TESTS "Enable GPU drawing related unit testing (GPU backends and draw manager)" OFF)
 option(WITH_COMPOSITOR_REALTIME_TESTS "Enable regression testing for realtime compositor" OFF)
 if(UNIX AND NOT (APPLE OR HAIKU))
@@ -1157,14 +1190,7 @@ set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_CYCLES_OSL OFF)
 # Hydra requires USD.
 set_and_warn_dependency(WITH_USD WITH_HYDRA OFF)
 
-# auto enable openimageio for cycles
-if(WITH_CYCLES)
-  # auto enable llvm for cycles_osl
-  if(WITH_CYCLES_OSL)
-    set(WITH_LLVM ON CACHE BOOL "" FORCE)
-    set(WITH_CLANG ON CACHE BOOL "" FORCE)
-  endif()
-else()
+if(NOT WITH_CYCLES)
   set(WITH_CYCLES_OSL OFF)
 endif()
 
@@ -1381,18 +1407,6 @@ endif()
 
 if(NOT WITH_FFTW3 AND WITH_MOD_OCEANSIM)
   message(FATAL_ERROR "WITH_MOD_OCEANSIM requires WITH_FFTW3 to be ON")
-endif()
-
-if(WITH_CYCLES)
-  if(WITH_CYCLES_OSL)
-    if(NOT WITH_LLVM)
-      message(
-        FATAL_ERROR
-        "Cycles OSL requires WITH_LLVM, the library may not have been found. "
-        "Configure LLVM or disable WITH_CYCLES_OSL"
-      )
-    endif()
-  endif()
 endif()
 
 if(WITH_INTERNATIONAL)
@@ -2405,7 +2419,6 @@ if(FIRST_RUN)
   info_cfg_option(WITH_IMAGE_OPENJPEG)
 
   info_cfg_text("Audio:")
-  info_cfg_option(WITH_CODEC_AVI)
   info_cfg_option(WITH_CODEC_FFMPEG)
   info_cfg_option(WITH_CODEC_SNDFILE)
   info_cfg_option(WITH_COREAUDIO)

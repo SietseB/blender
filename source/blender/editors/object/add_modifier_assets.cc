@@ -20,10 +20,10 @@
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
-#include "BKE_report.h"
+#include "BKE_report.hh"
 #include "BKE_screen.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "RNA_access.hh"
 
@@ -45,12 +45,12 @@ namespace blender::ed::object {
 static bool all_loading_finished()
 {
   AssetLibraryReference all_library_ref = asset_system::all_library_reference();
-  return ED_assetlist_is_loaded(&all_library_ref);
+  return asset::list::is_loaded(&all_library_ref);
 }
 
 static asset::AssetItemTree build_catalog_tree(const bContext &C)
 {
-  AssetFilterSettings type_filter{};
+  asset::AssetFilterSettings type_filter{};
   type_filter.id_types = FILTER_ID_NT;
   auto meta_data_filter = [&](const AssetMetaData &meta_data) {
     const IDProperty *tree_type = BKE_asset_metadata_idprop_find(&meta_data, "type");
@@ -65,6 +65,7 @@ static asset::AssetItemTree build_catalog_tree(const bContext &C)
     return true;
   };
   const AssetLibraryReference library = asset_system::all_library_reference();
+  asset_system::all_library_reload_catalogs_if_dirty();
   return asset::build_filtered_all_catalog_tree(library, C, type_filter, meta_data_filter);
 }
 
@@ -87,7 +88,7 @@ static void catalog_assets_draw(const bContext *C, Menu *menu)
       *static_cast<const asset_system::AssetCatalogPath *>(menu_path_ptr.data);
 
   const Span<asset_system::AssetRepresentation *> assets = tree.assets_per_path.lookup(menu_path);
-  asset_system::AssetCatalogTreeItem *catalog_item = tree.catalogs.find_item(menu_path);
+  const asset_system::AssetCatalogTreeItem *catalog_item = tree.catalogs.find_item(menu_path);
   BLI_assert(catalog_item != nullptr);
 
   if (assets.is_empty() && !catalog_item->has_children()) {
@@ -111,13 +112,13 @@ static void catalog_assets_draw(const bContext *C, Menu *menu)
     asset::operator_asset_reference_props_set(*asset, props_ptr);
   }
 
-  asset_system::AssetLibrary *all_library = ED_assetlist_library_get_once_available(
+  asset_system::AssetLibrary *all_library = asset::list::library_get_once_available(
       asset_system::all_library_reference());
   if (!all_library) {
     return;
   }
 
-  catalog_item->foreach_child([&](asset_system::AssetCatalogTreeItem &item) {
+  catalog_item->foreach_child([&](const asset_system::AssetCatalogTreeItem &item) {
     asset::draw_menu_for_catalog(
         screen, *all_library, item, "OBJECT_MT_add_modifier_catalog_assets", *layout);
   });
@@ -234,13 +235,13 @@ static void root_catalogs_draw(const bContext *C, Menu *menu)
     return menus;
   }();
 
-  asset_system::AssetLibrary *all_library = ED_assetlist_library_get_once_available(
+  asset_system::AssetLibrary *all_library = asset::list::library_get_once_available(
       asset_system::all_library_reference());
   if (!all_library) {
     return;
   }
 
-  tree.catalogs.foreach_root_item([&](asset_system::AssetCatalogTreeItem &item) {
+  tree.catalogs.foreach_root_item([&](const asset_system::AssetCatalogTreeItem &item) {
     if (!all_builtin_menus.contains(item.get_name())) {
       asset::draw_menu_for_catalog(
           screen, *all_library, item, "OBJECT_MT_add_modifier_catalog_assets", *layout);
@@ -358,7 +359,7 @@ static MenuType modifier_add_unassigned_assets_menu_type()
   MenuType type{};
   STRNCPY(type.idname, "OBJECT_MT_add_modifier_unassigned_assets");
   type.draw = unassigned_assets_draw;
-  type.listener = asset::asset_reading_region_listen_fn;
+  type.listener = asset::list::asset_reading_region_listen_fn;
   type.description = N_(
       "Modifier node group assets not assigned to a catalog.\n"
       "Catalogs can be assigned in the Asset Browser");
@@ -370,7 +371,7 @@ static MenuType modifier_add_catalog_assets_menu_type()
   MenuType type{};
   STRNCPY(type.idname, "OBJECT_MT_add_modifier_catalog_assets");
   type.draw = catalog_assets_draw;
-  type.listener = asset::asset_reading_region_listen_fn;
+  type.listener = asset::list::asset_reading_region_listen_fn;
   type.flag = MenuTypeFlag::ContextDependent;
   return type;
 }
@@ -380,7 +381,7 @@ static MenuType modifier_add_root_catalogs_menu_type()
   MenuType type{};
   STRNCPY(type.idname, "OBJECT_MT_modifier_add_root_catalogs");
   type.draw = root_catalogs_draw;
-  type.listener = asset::asset_reading_region_listen_fn;
+  type.listener = asset::list::asset_reading_region_listen_fn;
   type.flag = MenuTypeFlag::ContextDependent;
   return type;
 }
@@ -406,7 +407,7 @@ void ui_template_modifier_asset_menu_items(uiLayout &layout,
   if (!item) {
     return;
   }
-  asset_system::AssetLibrary *all_library = ED_assetlist_library_get_once_available(
+  asset_system::AssetLibrary *all_library = asset::list::library_get_once_available(
       asset_system::all_library_reference());
   if (!all_library) {
     return;

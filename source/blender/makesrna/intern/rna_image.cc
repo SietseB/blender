@@ -25,7 +25,7 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "rna_internal.h"
+#include "rna_internal.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -58,7 +58,7 @@ static const EnumPropertyItem image_source_items[] = {
 #  include "BLI_math_base.h"
 #  include "BLI_math_vector.h"
 
-#  include "BKE_global.h"
+#  include "BKE_global.hh"
 
 #  include "GPU_texture.h"
 
@@ -95,7 +95,7 @@ static void rna_Image_source_set(PointerRNA *ptr, int value)
     }
 
     DEG_id_tag_update(&ima->id, 0);
-    DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS);
+    DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS | ID_RECALC_SOURCE);
     DEG_relations_tag_update(G_MAIN);
   }
 }
@@ -106,7 +106,7 @@ static void rna_Image_reload_update(Main *bmain, Scene * /*scene*/, PointerRNA *
   BKE_image_signal(bmain, ima, nullptr, IMA_SIGNAL_RELOAD);
   WM_main_add_notifier(NC_IMAGE | NA_EDITED, &ima->id);
   DEG_id_tag_update(&ima->id, 0);
-  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS);
+  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS | ID_RECALC_SOURCE);
 }
 
 static int rna_Image_generated_type_get(PointerRNA *ptr)
@@ -191,6 +191,7 @@ static void rna_Image_generated_update(Main *bmain, Scene * /*scene*/, PointerRN
   Image *ima = (Image *)ptr->owner_id;
   BKE_image_signal(bmain, ima, nullptr, IMA_SIGNAL_FREE);
   BKE_image_partial_update_mark_full_update(ima);
+  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS | ID_RECALC_SOURCE);
 }
 
 static void rna_Image_colormanage_update(Main *bmain, Scene * /*scene*/, PointerRNA *ptr)
@@ -230,6 +231,7 @@ static void rna_Image_views_format_update(Main *bmain, Scene *scene, PointerRNA 
 
   BKE_image_release_ibuf(ima, ibuf, lock);
   BKE_image_partial_update_mark_full_update(ima);
+  DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS | ID_RECALC_SOURCE);
 }
 
 static void rna_ImageUser_update(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -261,7 +263,7 @@ static void rna_ImageUser_relations_update(Main *bmain, Scene *scene, PointerRNA
   DEG_relations_tag_update(bmain);
 }
 
-static char *rna_ImageUser_path(const PointerRNA *ptr)
+static std::optional<std::string> rna_ImageUser_path(const PointerRNA *ptr)
 {
   if (ptr->owner_id) {
     // ImageUser *iuser = ptr->data;
@@ -269,7 +271,7 @@ static char *rna_ImageUser_path(const PointerRNA *ptr)
     switch (GS(ptr->owner_id->name)) {
       case ID_OB:
       case ID_TE:
-        return BLI_strdup("image_user");
+        return "image_user";
       case ID_NT:
         return rna_Node_ImageUser_path(ptr);
       case ID_CA:
@@ -279,7 +281,7 @@ static char *rna_ImageUser_path(const PointerRNA *ptr)
     }
   }
 
-  return BLI_strdup("");
+  return "";
 }
 
 static void rna_Image_gpu_texture_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
