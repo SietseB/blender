@@ -1682,12 +1682,12 @@ endif()
 # -----------------------------------------------------------------------------
 # Ondine addon
 
-if(EXISTS ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon)
-  install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon
-    DESTINATION ${TARGETDIR_VER}/scripts/addons
-  )
-endif()
+#if(EXISTS ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon)
+#  install(
+#    DIRECTORY ${CMAKE_SOURCE_DIR}/../../ondine-renderer/ondine_addon
+#    DESTINATION ${TARGETDIR_VER}/scripts/addons
+#  )
+#endif()
 
 
 # -----------------------------------------------------------------------------
