@@ -16,7 +16,7 @@
 #include "BLI_math_vector.hh"
 #include "BLI_string_utils.hh"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "DNA_anim_types.h"
 #include "DNA_gpencil_legacy_types.h"
@@ -27,12 +27,12 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
-#include "BKE_anim_data.h"
+#include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_report.h"
+#include "BKE_report.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -49,7 +49,7 @@
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
-#include "BLF_api.h"
+#include "BLF_api.hh"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
@@ -459,7 +459,7 @@ static void gpencil_morph_target_edit_exit(bContext *C, wmOperator *op)
 
     /* Update morphed GP object. */
     DEG_id_tag_update(&tgpm->gpd_morph->id,
-                      ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
+                      ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
     WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, nullptr);
 
     MEM_freeN(tgpm);

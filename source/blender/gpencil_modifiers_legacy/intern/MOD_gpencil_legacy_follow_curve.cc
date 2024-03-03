@@ -16,7 +16,7 @@
 #include "BLI_rand.h"
 #include "BLI_string.h"
 
-#include "BLT_translation.h"
+#include "BLT_translation.hh"
 
 #include "DNA_anim_types.h"
 #include "DNA_collection_types.h"
@@ -32,14 +32,14 @@
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_curves.h"
-#include "BKE_deform.h"
+#include "BKE_deform.hH"
 #include "BKE_fcurve.h"
 #include "BKE_gpencil_geom_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_lib_query.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
-#include "BKE_scene.h"
+#include "BKE_scene.hH"
 #include "BKE_screen.hh"
 
 #include "UI_interface.hh"
@@ -173,7 +173,7 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
       /* Transform to world space. */
       for (int i = 0; i < follow_curve->points_len; i++) {
         GPFollowCurvePoint *point = &follow_curve->points[i];
-        mul_m4_v3(ob_eval->object_to_world, point->co);
+        mul_m4_v3(ob_eval->object_to_world().ptr(), point->co);
       }
 
       /* Calculate the vectors from one point to the next.
@@ -253,7 +253,7 @@ void MOD_gpencil_follow_curve_frame_init(Depsgraph *depsgraph,
         break;
       }
     }
-    mul_m4_v3(ob->object_to_world, mmd->profile_start);
+    mul_m4_v3(ob->object_to_world().ptr(), mmd->profile_start);
     float profile_length = len_v3(mmd->profile_vec);
     normalize_v3(mmd->profile_vec);
 

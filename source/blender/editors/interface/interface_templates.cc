@@ -5853,8 +5853,6 @@ void uiTemplatePalette(uiLayout *layout, PointerRNA *ptr, const char *propname, 
                                                       -1,
                                                       0.0,
                                                       1.0,
-                                                      0.0,
-                                                      0.0,
                                                       "");
       color_but->is_pallete_color = true;
       color_but->palette_color_index = col_id;

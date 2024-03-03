@@ -1731,8 +1731,6 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                     -1,
                                     0,
                                     0,
-                                    0,
-                                    0,
                                     TIP_("Globally disable in Ondine renders\n"
                                          "* Ctrl to isolate collection\n"
                                          "* Shift to set inside collections and objects"));

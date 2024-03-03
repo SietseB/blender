@@ -17,7 +17,7 @@
 #include "BKE_gpencil_legacy.h"
 #include "BKE_main.hh"
 #include "BKE_material.h"
-#include "BKE_scene.h"
+#include "BKE_scene.hh"
 #include "BKE_screen.hh"
 
 #include "BLI_ghash.h"
@@ -113,14 +113,14 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
     BKE_camera_params_compute_matrix(&params);
 
     float viewmat[4][4];
-    invert_m4_m4(viewmat, cam_ob->object_to_world);
+    invert_m4_m4(viewmat, cam_ob->object_to_world().ptr());
 
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
 
     /* Store camera position and normal vector. */
     float cam_mat[3][3];
     camera_loc_ = cam_ob->loc;
-    transpose_m3_m4(cam_mat, cam_ob->world_to_object);
+    transpose_m3_m4(cam_mat, cam_ob->world_to_object().ptr());
     copy_v3_v3(camera_normal_vec_, cam_mat[2]);
 
     /* Store camera rotation. */
@@ -269,7 +269,7 @@ void GpencilOndine::set_zdepth(Object *object)
   }
 
   /* Save z-depth from view to sort from back to front. */
-  gpd->runtime.render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world[3]);
+  gpd->runtime.render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world()[3]);
 }
 
 void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matrix_world)
@@ -374,7 +374,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
 
         /* Get distance to camera.
          * Somehow we have to apply the object world matrix here again, I don't know why... */
-        mul_m4_v3(object->object_to_world, co);
+        mul_m4_v3(object->object_to_world().ptr(), co);
         dist_to_cam = math::min(0.0f, math::dot(co - camera_loc_, camera_normal_vec_));
         pt_2d.data[ONDINE_DIST_TO_CAM] = dist_to_cam;
 
@@ -419,7 +419,7 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
       if (has_stroke) {
         /* Get stroke thickness, taking object scale and layer line change into account. */
         float thickness = gps->thickness + gpl->line_change;
-        thickness *= mat4_to_scale(object->object_to_world);
+        thickness *= mat4_to_scale(object->object_to_world().ptr());
         CLAMP_MIN(thickness, 1.0f);
         const float max_stroke_radius = stroke_point_radius_get(
             gps, min_dist_point_index, thickness);

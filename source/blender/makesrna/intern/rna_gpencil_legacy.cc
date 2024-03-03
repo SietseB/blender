@@ -1304,7 +1304,7 @@ static void rna_GPencil_active_morph_target_set(PointerRNA *ptr,
   WM_main_add_notifier(NC_GPENCIL | NA_EDITED, nullptr);
 }
 
-static char *rna_GPencilMorphTarget_path(const PointerRNA *ptr)
+static std::optional<std::string> rna_GPencilMorphTarget_path(const PointerRNA *ptr)
 {
   bGPDmorph_target *gpmt = (bGPDmorph_target *)ptr->data;
   char name_esc[sizeof(gpmt->name) * 2];
