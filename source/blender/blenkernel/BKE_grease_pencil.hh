@@ -14,6 +14,7 @@
 #include "BLI_array_utils.hh"
 #include "BLI_color.hh"
 #include "BLI_function_ref.hh"
+#include "BLI_implicit_sharing_ptr.hh"
 #include "BLI_map.hh"
 #include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector_types.hh"
@@ -46,6 +47,8 @@ class DrawingRuntime {
    */
   mutable SharedCache<Vector<float3>> curve_plane_normals_cache;
 
+  mutable SharedCache<Vector<float4x2>> curve_texture_matrices;
+
   /**
    * Number of users for this drawing. The users are the frames in the Grease Pencil layers.
    * Different frames can refer to the same drawing, so we need to make sure we count these users
@@ -70,8 +73,20 @@ class Drawing : public ::GreasePencilDrawing {
    * Normal vectors for a plane that fits the stroke.
    */
   Span<float3> curve_plane_normals() const;
+  void tag_texture_matrices_changed();
   void tag_positions_changed();
   void tag_topology_changed();
+
+  /**
+   * Returns the matrices that transform from a 3D point in layer-space to a 2D point in
+   * texture-space.
+   */
+  Span<float4x2> texture_matrices() const;
+  /**
+   * Sets the matrices the that transform from a 3D point in layer-space to a 2D point in
+   * texture-space
+   */
+  void set_texture_matrices(Span<float4x2> matrices, const IndexMask &selection);
 
   /**
    * Radii of the points. Values are expected to be in blender units.
@@ -148,6 +163,7 @@ class Layer;
   bool is_selected() const; \
   void set_selected(bool selected); \
   bool use_onion_skinning() const; \
+  bool use_masks() const; \
   bool is_child_of(const LayerGroup &group) const;
 
 /* Implements the forwarding of the methods defined by #TREENODE_COMMON_METHODS. */
@@ -192,6 +208,10 @@ class Layer;
   { \
     return this->as_node().use_onion_skinning(); \
   } \
+  inline bool class_name::use_masks() const \
+  { \
+    return this->as_node().use_masks(); \
+  } \
   inline bool class_name::is_child_of(const LayerGroup &group) const \
   { \
     return this->as_node().is_child_of(group); \
@@ -225,20 +245,23 @@ class TreeNode : public ::GreasePencilLayerTreeNode {
   /**
    * \returns this node as a #Layer.
    */
-  Layer &as_layer();
   const Layer &as_layer() const;
+  Layer &as_layer();
 
   /**
    * \returns this node as a #LayerGroup.
    */
-  LayerGroup &as_group();
   const LayerGroup &as_group() const;
+  LayerGroup &as_group();
 
   /**
    * \returns the parent layer group or nullptr for the root group.
    */
-  LayerGroup *parent_group() const;
-  TreeNode *parent_node() const;
+  const LayerGroup *parent_group() const;
+  LayerGroup *parent_group();
+
+  const TreeNode *parent_node() const;
+  TreeNode *parent_node();
 
   /**
    * \returns the number of non-null parents of the node.
@@ -354,7 +377,8 @@ class Layer : public ::GreasePencilLayer {
   /**
    * \returns the parent #LayerGroup of this layer.
    */
-  LayerGroup &parent_group() const;
+  const LayerGroup &parent_group() const;
+  LayerGroup &parent_group();
 
   /**
    * \returns the frames mapping.
@@ -455,6 +479,13 @@ class Layer : public ::GreasePencilLayer {
    */
   StringRefNull parent_bone_name() const;
   void set_parent_bone_name(const char *new_name);
+
+  /**
+   * Returns the view layer name that this layer should be rendered in or an empty
+   * `StringRefNull` if no such name is set.
+   */
+  StringRefNull view_layer_name() const;
+  void set_view_layer_name(const char *new_name);
 
  private:
   using SortedKeysIterator = const int *;
@@ -676,7 +707,13 @@ inline void TreeNode::set_selected(const bool selected)
 }
 inline bool TreeNode::use_onion_skinning() const
 {
-  return ((this->flag & GP_LAYER_TREE_NODE_USE_ONION_SKINNING) != 0);
+  return ((this->flag & GP_LAYER_TREE_NODE_HIDE_ONION_SKINNING) == 0) &&
+         (!this->parent_group() || this->parent_group()->as_node().use_onion_skinning());
+}
+inline bool TreeNode::use_masks() const
+{
+  return ((this->flag & GP_LAYER_TREE_NODE_HIDE_MASKS) == 0) &&
+         (!this->parent_group() || this->parent_group()->as_node().use_masks());
 }
 inline bool TreeNode::is_child_of(const LayerGroup &group) const
 {
@@ -717,7 +754,11 @@ inline bool Layer::is_empty() const
 {
   return (this->frames().is_empty());
 }
-inline LayerGroup &Layer::parent_group() const
+inline const LayerGroup &Layer::parent_group() const
+{
+  return *this->as_node().parent_group();
+}
+inline LayerGroup &Layer::parent_group()
 {
   return *this->as_node().parent_group();
 }
@@ -742,7 +783,11 @@ class GreasePencilRuntime {
 
 class GreasePencilDrawingEditHints {
  public:
-  std::optional<Array<float3>> positions;
+  const greasepencil::Drawing *drawing_orig;
+  ImplicitSharingPtrAndData positions_data;
+
+  std::optional<Span<float3>> positions() const;
+  std::optional<MutableSpan<float3>> positions_for_write();
 };
 
 /**

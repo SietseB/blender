@@ -7,7 +7,7 @@
 #include "vk_data_conversion.hh"
 #include "vk_device.hh"
 
-#include "gpu_vertex_format_private.h"
+#include "gpu_vertex_format_private.hh"
 
 namespace blender::gpu::tests {
 static void test_f32_f16(uint32_t f32_in, uint32_t f16_expected)
@@ -257,7 +257,7 @@ TEST(VulkanDataConversion, vertex_format_multiple_attributes)
 TEST(VulkanDataConversion, texture_rgb16f_as_floats_to_rgba16f)
 {
   const size_t num_pixels = 4;
-  float input[] = {
+  const float input[] = {
       1.0,
       0.5,
       0.2,
@@ -289,7 +289,7 @@ TEST(VulkanDataConversion, texture_rgb16f_as_floats_to_rgba16f)
 TEST(VulkanDataConversion, texture_rgb32f_as_floats_to_rgba32f)
 {
   const size_t num_pixels = 4;
-  float input[] = {
+  const float input[] = {
       1.0,
       0.5,
       0.2,

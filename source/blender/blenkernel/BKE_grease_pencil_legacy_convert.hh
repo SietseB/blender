@@ -10,6 +10,7 @@
 
 struct bGPdata;
 struct bGPDframe;
+struct BlendFileReadReport;
 struct GreasePencil;
 struct GreasePencilDrawing;
 struct ListBase;
@@ -27,10 +28,11 @@ void legacy_gpencil_to_grease_pencil(Main &bmain, GreasePencil &grease_pencil, b
 
 void legacy_gpencil_object(Main &bmain, Object &object);
 
+/** Main entry point to convert all legacy GPData into GreasePencil data and objects. */
+void legacy_main(Main &bmain, BlendFileReadReport &reports);
+
 void thickness_factor_to_modifier(const bGPdata &src_object_data, Object &dst_object);
-void layer_adjustments_to_modifiers(Main &bmain,
-                                    const bGPdata &src_object_data,
-                                    Object &dst_object);
+void layer_adjustments_to_modifiers(Main &bmain, bGPdata &src_object_data, Object &dst_object);
 
 void lineart_wrap_v3(const LineartGpencilModifierData *lmd_legacy,
                      GreasePencilLineartModifierData *lmd);

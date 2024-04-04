@@ -40,7 +40,7 @@
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_global.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
@@ -2850,8 +2850,9 @@ static void nlastrip_evaluate_transition(const int evaluation_mode,
       break;
     }
     case STRIP_EVAL_NOBLEND: {
-      BLI_assert( !"This case shouldn't occur. Transitions assumed to not reference other "
-"transitions. ");
+      BLI_assert_msg(false,
+                     "This case shouldn't occur. "
+                     "Transitions assumed to not reference other transitions.");
       break;
     }
   }
@@ -3673,6 +3674,11 @@ void nlasnapshot_blend_get_inverted_lower_snapshot(NlaEvalData *eval_data,
 NlaKeyframingContext *BKE_animsys_get_nla_keyframing_context(
     ListBase *cache, PointerRNA *ptr, AnimData *adt, const AnimationEvalContext *anim_eval_context)
 {
+  /* The PointerRNA needs to point to an ID because animsys_evaluate_nla_for_keyframing uses
+   * F-Curve paths to resolve properties. Since F-Curve paths are always relative to the ID this
+   * would fail if the PointerRNA was e.g. a bone. */
+  BLI_assert(RNA_struct_is_ID(ptr->type));
+
   /* No remapping needed if NLA is off or no action. */
   if ((adt == nullptr) || (adt->action == nullptr) || (adt->nla_tracks.first == nullptr) ||
       (adt->flag & ADT_NLA_EVAL_OFF))

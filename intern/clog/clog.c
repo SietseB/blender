@@ -175,9 +175,8 @@ static void clg_str_vappendf(CLogStringBuf *cstr, const char *fmt, va_list args)
 {
   /* Use limit because windows may use '-1' for a formatting error. */
   const uint len_max = 65535;
+  uint len_avail = cstr->len_alloc - cstr->len;
   while (true) {
-    uint len_avail = cstr->len_alloc - cstr->len;
-
     va_list args_cpy;
     va_copy(args_cpy, args);
     int retval = vsnprintf(cstr->data + cstr->len, len_avail, fmt, args_cpy);
@@ -188,22 +187,23 @@ static void clg_str_vappendf(CLogStringBuf *cstr, const char *fmt, va_list args)
        * message. */
       break;
     }
-    else if ((uint)retval <= len_avail) {
+
+    if ((uint)retval <= len_avail) {
       /* Copy was successful. */
       cstr->len += (uint)retval;
       break;
     }
-    else {
-      /* vsnprintf was not successful, due to lack of allocated space, retval contains expected
-       * length of the formatted string, use it to allocate required amount of memory. */
-      uint len_alloc = cstr->len + (uint)retval;
-      if (len_alloc >= len_max) {
-        /* Safe upper-limit, just in case... */
-        break;
-      }
-      clg_str_reserve(cstr, len_alloc);
-      len_avail = cstr->len_alloc - cstr->len;
+
+    /* `vsnprintf` was not successful, due to lack of allocated space, `retval` contains expected
+     * length of the formatted string, use it to allocate required amount of memory. */
+    uint len_alloc = cstr->len + (uint)retval;
+    if (len_alloc >= len_max) {
+      /* Safe upper-limit, just in case... */
+      break;
     }
+
+    clg_str_reserve(cstr, len_alloc);
+    len_avail = cstr->len_alloc - cstr->len;
   }
 }
 
@@ -429,7 +429,7 @@ static void write_severity(CLogStringBuf *cstr, enum CLG_Severity severity, bool
   }
 }
 
-static void write_type(CLogStringBuf *cstr, CLG_LogType *lg)
+static void write_type(CLogStringBuf *cstr, const CLG_LogType *lg)
 {
   clg_str_append(cstr, " (");
   clg_str_append(cstr, lg->identifier);
@@ -460,7 +460,7 @@ static void write_file_line_fn(CLogStringBuf *cstr,
   clg_str_append(cstr, ": ");
 }
 
-void CLG_log_str(CLG_LogType *lg,
+void CLG_log_str(const CLG_LogType *lg,
                  enum CLG_Severity severity,
                  const char *file_line,
                  const char *fn,
@@ -498,7 +498,7 @@ void CLG_log_str(CLG_LogType *lg,
   }
 }
 
-void CLG_logf(CLG_LogType *lg,
+void CLG_logf(const CLG_LogType *lg,
               enum CLG_Severity severity,
               const char *file_line,
               const char *fn,

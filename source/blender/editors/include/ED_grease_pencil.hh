@@ -11,7 +11,7 @@
 #include "BKE_grease_pencil.hh"
 
 #include "BLI_generic_span.hh"
-#include "BLI_index_mask.hh"
+#include "BLI_index_mask_fwd.hh"
 #include "BLI_math_matrix_types.hh"
 
 #include "ED_keyframes_edit.hh"
@@ -120,9 +120,11 @@ bool mirror_selected_frames(GreasePencil &grease_pencil,
                             Scene &scene,
                             const eEditKeyframes_Mirror mode);
 
-/* Creates duplicate frames for each selected frame in the layer. The duplicates are stored in the
- * LayerTransformData structure of the layer runtime data. This function also deselects the
- * selected frames, while keeping the duplicates selected. */
+/**
+ * Creates duplicate frames for each selected frame in the layer.
+ * The duplicates are stored in the LayerTransformData structure of the layer runtime data.
+ * This function also deselects the selected frames, while keeping the duplicates selected.
+ */
 bool duplicate_selected_frames(GreasePencil &grease_pencil, bke::greasepencil::Layer &layer);
 
 bool remove_all_selected_frames(GreasePencil &grease_pencil, bke::greasepencil::Layer &layer);
@@ -159,9 +161,9 @@ void select_frames_range(bke::greasepencil::TreeNode &node,
 bool has_any_frame_selected(const bke::greasepencil::Layer &layer);
 
 /**
- * Check for an active keyframe at the current scene time. When there is not, create one when
- * Autokey is on (taking Additive drawing setting into account).
- * Returns false when no keyframe could be found or created.
+ * Check for an active keyframe at the current scene time. When there is not,
+ * create one when auto-key is on (taking additive drawing setting into account).
+ * \return false when no keyframe could be found or created.
  */
 bool ensure_active_keyframe(const Scene &scene, GreasePencil &grease_pencil);
 
@@ -178,6 +180,11 @@ struct DrawingInfo {
   const bke::greasepencil::Drawing &drawing;
   const int layer_index;
   const int frame_number;
+  /* This is used by the onion skinning system. A value of 0 means the drawing is on the current
+   * frame. Negative values are before the current frame, positive values are drawings after the
+   * current frame. The magnitude of the value indicates how far the drawing is from the current
+   * frame (either in absolute frames, or in number of keyframes). */
+  const int onion_id;
 };
 struct MutableDrawingInfo {
   bke::greasepencil::Drawing &drawing;
@@ -192,7 +199,8 @@ Vector<MutableDrawingInfo> retrieve_editable_drawings_with_falloff(const Scene &
 Vector<MutableDrawingInfo> retrieve_editable_drawings_from_layer(
     const Scene &scene, GreasePencil &grease_pencil, const bke::greasepencil::Layer &layer);
 Vector<DrawingInfo> retrieve_visible_drawings(const Scene &scene,
-                                              const GreasePencil &grease_pencil);
+                                              const GreasePencil &grease_pencil,
+                                              bool do_onion_skinning);
 
 IndexMask retrieve_editable_strokes(Object &grease_pencil_object,
                                     const bke::greasepencil::Drawing &drawing,
@@ -228,10 +236,21 @@ void create_blank(Main &bmain, Object &object, int frame_number);
 void create_stroke(Main &bmain, Object &object, const float4x4 &matrix, int frame_number);
 void create_suzanne(Main &bmain, Object &object, const float4x4 &matrix, int frame_number);
 
+/**
+ * An implementation of the Ramer-Douglas-Peucker algorithm.
+ *
+ * \param range: The range to simplify.
+ * \param epsilon: The threshold distance from the coord between two points for when a point
+ * in-between needs to be kept.
+ * \param dist_function: A function that computes the distance to a point at an index in the range.
+ * The IndexRange is a subrange of \a range and the index is an index relative to the subrange.
+ * \param points_to_delete: Writes true to the indices for which the points should be removed.
+ * \returns the total number of points to remove.
+ */
 int64_t ramer_douglas_peucker_simplify(IndexRange range,
                                        float epsilon,
                                        FunctionRef<float(int64_t, int64_t, int64_t)> dist_function,
-                                       MutableSpan<bool> dst);
+                                       MutableSpan<bool> points_to_delete);
 
 Array<float2> polyline_fit_curve(Span<float2> points,
                                  float error_threshold,

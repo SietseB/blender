@@ -17,7 +17,7 @@
 #include "vk_texture.hh"
 #include "vk_vertex_buffer.hh"
 
-#include "GPU_capabilities.h"
+#include "GPU_capabilities.hh"
 
 #include "BLI_math_matrix_types.hh"
 
@@ -26,6 +26,12 @@
 extern "C" char datatoc_glsl_shader_defines_glsl[];
 
 namespace blender::gpu {
+
+void VKDevice::reinit()
+{
+  samplers_.free();
+  samplers_.init();
+}
 
 void VKDevice::deinit()
 {

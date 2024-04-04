@@ -31,7 +31,7 @@
 
 #include "BKE_context.hh"
 #include "BKE_global.hh"
-#include "BKE_idprop.h"
+#include "BKE_idprop.hh"
 #include "BKE_screen.hh"
 
 #include "RNA_access.hh"
@@ -1294,8 +1294,7 @@ static uiBut *uiItemFullO_ptr_ex(uiLayout *layout,
       opptr->data = properties;
     }
     else {
-      const IDPropertyTemplate val = {0};
-      opptr->data = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
+      opptr->data = blender::bke::idprop::create_group("wmOperatorProperties").release();
     }
     if (r_opptr) {
       *r_opptr = *opptr;
@@ -2276,7 +2275,7 @@ void uiItemFullR(uiLayout *layout,
         char str[2] = {'\0'};
         for (int a = 0; a < len; a++) {
           str[0] = RNA_property_array_item_char(prop, a);
-          const bool use_prefix = (a == 0 && name && name[0]);
+          const bool use_prefix = (a == 0 && name[0]);
           if (use_prefix) {
             char *s = name_with_suffix;
             s += STRNCPY_RLEN(name_with_suffix, name);
@@ -2303,14 +2302,11 @@ void uiItemFullR(uiLayout *layout,
         }
       }
       else {
-        if (name) {
-          but = uiDefBut(
-              block, UI_BTYPE_LABEL, 0, name, 0, 0, w, UI_UNIT_Y, nullptr, 0.0, 0.0, "");
-          but->drawflag |= UI_BUT_TEXT_RIGHT;
-          but->drawflag &= ~UI_BUT_TEXT_LEFT;
+        but = uiDefBut(block, UI_BTYPE_LABEL, 0, name, 0, 0, w, UI_UNIT_Y, nullptr, 0.0, 0.0, "");
+        but->drawflag |= UI_BUT_TEXT_RIGHT;
+        but->drawflag &= ~UI_BUT_TEXT_LEFT;
 
-          label_added = true;
-        }
+        label_added = true;
       }
 
       if (!label_added && heading_layout) {
@@ -3151,7 +3147,8 @@ void uiItemDecoratorR_prop(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop,
 
     UI_but_func_set(but, ui_but_anim_decorate_cb, but, nullptr);
     but->flag |= UI_BUT_UNDO | UI_BUT_DRAG_LOCK;
-    /* Decorators have own RNA data, using the normal #uiBut RNA members has many side-effects. */
+    /* Decorators have their own RNA data, using the normal #uiBut RNA members has many
+     * side-effects. */
     but->decorated_rnapoin = *ptr;
     but->decorated_rnaprop = prop;
     /* ui_def_but_rna() sets non-array buttons to have a RNA index of 0. */
@@ -6135,11 +6132,19 @@ static bool ui_layout_has_panel_label(const uiLayout *layout, const PanelType *p
 
 static void ui_paneltype_draw_impl(bContext *C, PanelType *pt, uiLayout *layout, bool show_header)
 {
+  uiBlock *block = uiLayoutGetBlock(layout);
   Panel *panel = BKE_panel_new(pt);
   panel->flag = PNL_POPOVER;
 
   if (pt->listener) {
-    ui_block_add_dynamic_listener(uiLayoutGetBlock(layout), pt->listener);
+    ui_block_add_dynamic_listener(block, pt->listener);
+  }
+
+  /* This check may be paranoid, this function might run outside the context of a popup or can run
+   * in popovers that are not supposed to support refreshing, see #ui_popover_create_block. */
+  if (block->handle && block->handle->region) {
+    /* Allow popovers to contain collapsible sections, see #uiItemPopoverPanel. */
+    UI_popup_dummy_panel_set(block->handle->region, block);
   }
 
   uiLayout *last_item = static_cast<uiLayout *>(layout->items.last);

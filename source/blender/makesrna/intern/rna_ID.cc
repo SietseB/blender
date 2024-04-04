@@ -34,6 +34,7 @@
  */
 const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_AC, "ACTION", ICON_ACTION, "Action", ""},
+    {ID_AN, "ANIMATION", ICON_ACTION, "Animation", ""}, /* TODO: give Animation its own icon. */
     {ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
     {ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
     {ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
@@ -219,7 +220,7 @@ const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
 
 #  include "BKE_anim_data.hh"
 #  include "BKE_global.hh" /* XXX, remove me */
-#  include "BKE_idprop.h"
+#  include "BKE_idprop.hh"
 #  include "BKE_idtype.hh"
 #  include "BKE_lib_override.hh"
 #  include "BKE_lib_query.hh"
@@ -498,6 +499,8 @@ StructRNA *ID_code_to_RNA_type(short idcode)
   switch ((ID_Type)idcode) {
     case ID_AC:
       return &RNA_Action;
+    case ID_AN:
+      break;
     case ID_AR:
       return &RNA_Armature;
     case ID_BR:
@@ -1057,7 +1060,8 @@ static void rna_ID_update_tag(ID *id, Main *bmain, ReportList *reports, int flag
         allow_flag = OB_RECALC_ALL | PSYS_RECALC;
         break;
 #  endif
-      case ID_AC:
+      case ID_AC: /* Fall-through. */
+      case ID_AN:
         allow_flag = ID_RECALC_ANIMATION;
         break;
       default:

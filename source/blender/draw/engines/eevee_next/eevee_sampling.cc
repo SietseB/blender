@@ -28,6 +28,10 @@ void Sampling::init(const Scene *scene)
 {
   sample_count_ = inst_.is_viewport() ? scene->eevee.taa_samples : scene->eevee.taa_render_samples;
 
+  if (inst_.is_image_render()) {
+    sample_count_ = math::max(uint64_t(1), sample_count_);
+  }
+
   if (sample_count_ == 0) {
     BLI_assert(inst_.is_viewport());
     sample_count_ = infinite_sample_count_;
@@ -143,8 +147,8 @@ void Sampling::step()
     }
     /* Using leaped Halton sequence so we can reused the same primes as lens. */
     double3 r, offset = {0, 0, 0};
-    uint64_t leap = 11;
-    uint3 primes = {5, 4, 7};
+    uint64_t leap = 13;
+    uint3 primes = {5, 7, 11};
     BLI_halton_3d(primes, offset, sample_raytrace * leap, r);
     data_.dimensions[SAMPLING_SHADOW_U] = r[0];
     data_.dimensions[SAMPLING_SHADOW_V] = r[1];

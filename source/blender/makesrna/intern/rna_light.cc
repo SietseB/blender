@@ -22,6 +22,17 @@
 #include "DNA_material_types.h"
 #include "DNA_texture_types.h"
 
+/* NOTE(@dingto): Don't define icons here,
+ * so they don't show up in the Light UI (properties editor). */
+
+const EnumPropertyItem rna_enum_light_type_items[] = {
+    {LA_LOCAL, "POINT", 0, "Point", "Omnidirectional point light source"},
+    {LA_SUN, "SUN", 0, "Sun", "Constant direction parallel ray light source"},
+    {LA_SPOT, "SPOT", 0, "Spot", "Directional cone light source"},
+    {LA_AREA, "AREA", 0, "Area", "Directional area light source"},
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
 #ifdef RNA_RUNTIME
 
 #  include "MEM_guardedalloc.h"
@@ -82,17 +93,6 @@ static void rna_Light_use_nodes_update(bContext *C, PointerRNA *ptr)
 }
 
 #else
-
-/* NOTE(@dingto): Don't define icons here,
- * so they don't show up in the Light UI (properties editor). */
-
-const EnumPropertyItem rna_enum_light_type_items[] = {
-    {LA_LOCAL, "POINT", 0, "Point", "Omnidirectional point light source"},
-    {LA_SUN, "SUN", 0, "Sun", "Constant direction parallel ray light source"},
-    {LA_SPOT, "SPOT", 0, "Spot", "Directional cone light source"},
-    {LA_AREA, "AREA", 0, "Area", "Directional area light source"},
-    {0, nullptr, 0, nullptr, nullptr},
-};
 
 static void rna_def_light(BlenderRNA *brna)
 {
@@ -301,6 +301,17 @@ static void rna_def_light_shadow(StructRNA *srna, bool sun)
   RNA_def_property_ui_range(prop, 0.0f, 5.0f, 1.0f, 2);
   RNA_def_property_ui_text(
       prop, "Shadow Filter Radius", "Blur shadow aliasing using Percentage Closer Filtering");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_update(prop, 0, "rna_Light_update");
+
+  prop = RNA_def_property(srna, "shadow_resolution_scale", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_range(prop, 0.0f, 2.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 0.25f, 2);
+  RNA_def_property_ui_text(
+      prop,
+      "Shadow Resolution Scale",
+      "Scale the Shadow Map target resolution, where 1.0 tries to match shadow map and screen "
+      "pixel density. (The scale is applied on top of the scene Simplify Shadow Resolution)");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_update(prop, 0, "rna_Light_update");
 

@@ -382,8 +382,8 @@ static int palette_color_add_exec(bContext *C, wmOperator * /*op*/)
   color = BKE_palette_color_add(palette);
   palette->active_color = BLI_listbase_count(&palette->colors) - 1;
 
-  if (paint->brush) {
-    const Brush *brush = paint->brush;
+  const Brush *brush = BKE_paint_brush_for_read(paint);
+  if (brush) {
     if (ELEM(mode,
              PaintMode::Texture3D,
              PaintMode::Texture2D,
@@ -1547,7 +1547,11 @@ void ED_operatortypes_paint()
   WM_operatortype_append(PAINT_OT_face_vert_reveal);
 
   /* partial visibility */
+  WM_operatortype_append(hide::PAINT_OT_hide_show_all);
+  WM_operatortype_append(hide::PAINT_OT_hide_show_masked);
   WM_operatortype_append(hide::PAINT_OT_hide_show);
+  WM_operatortype_append(hide::PAINT_OT_hide_show_lasso_gesture);
+  WM_operatortype_append(hide::PAINT_OT_hide_show_line_gesture);
   WM_operatortype_append(hide::PAINT_OT_visibility_invert);
 
   /* paint masking */

@@ -31,7 +31,7 @@
 #include "BKE_callbacks.hh"
 #include "BKE_context.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_global.hh"
 #include "BKE_icons.h"
 #include "BKE_lib_id.hh"
@@ -72,9 +72,9 @@
 #include "UI_resources.hh"
 #include "UI_view2d.hh"
 
-#include "GPU_capabilities.h"
+#include "GPU_capabilities.hh"
 
-#include "screen_intern.h" /* own module include */
+#include "screen_intern.hh" /* own module include */
 
 using blender::Vector;
 
@@ -278,10 +278,24 @@ bool ED_operator_outliner_active(bContext *C)
   return ed_spacetype_test(C, SPACE_OUTLINER);
 }
 
+bool ED_operator_region_outliner_active(bContext *C)
+{
+  if (!ED_operator_outliner_active(C)) {
+    CTX_wm_operator_poll_msg_set(C, "Expected an active Outliner");
+    return false;
+  }
+  const ARegion *region = CTX_wm_region(C);
+  if (!(region && region->regiontype == RGN_TYPE_WINDOW)) {
+    CTX_wm_operator_poll_msg_set(C, "Expected an Outliner region");
+    return false;
+  }
+  return true;
+}
+
 bool ED_operator_outliner_active_no_editobject(bContext *C)
 {
   if (ed_spacetype_test(C, SPACE_OUTLINER)) {
-    Object *ob = ED_object_active_context(C);
+    Object *ob = blender::ed::object::context_active_object(C);
     Object *obedit = CTX_data_edit_object(C);
     if (ob && ob == obedit) {
       return false;
@@ -392,7 +406,7 @@ static bool ed_object_hidden(const Object *ob)
 
 bool ED_operator_object_active(bContext *C)
 {
-  Object *ob = ED_object_active_context(C);
+  Object *ob = blender::ed::object::context_active_object(C);
   return ((ob != nullptr) && !ed_object_hidden(ob));
 }
 
@@ -418,7 +432,7 @@ bool ED_operator_object_active_editable_ex(bContext *C, const Object *ob)
 
 bool ED_operator_object_active_editable(bContext *C)
 {
-  Object *ob = ED_object_active_context(C);
+  Object *ob = blender::ed::object::context_active_object(C);
   return ED_operator_object_active_editable_ex(C, ob);
 }
 
@@ -429,20 +443,20 @@ bool ED_operator_object_active_local_editable_ex(bContext *C, const Object *ob)
 
 bool ED_operator_object_active_local_editable(bContext *C)
 {
-  Object *ob = ED_object_active_context(C);
+  Object *ob = blender::ed::object::context_active_object(C);
   return ED_operator_object_active_editable_ex(C, ob) && !ID_IS_OVERRIDE_LIBRARY(ob);
 }
 
 bool ED_operator_object_active_editable_mesh(bContext *C)
 {
-  Object *ob = ED_object_active_context(C);
+  Object *ob = blender::ed::object::context_active_object(C);
   return ((ob != nullptr) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) && (ob->type == OB_MESH) &&
           !ID_IS_LINKED(ob->data) && !ID_IS_OVERRIDE_LIBRARY(ob->data));
 }
 
 bool ED_operator_object_active_editable_font(bContext *C)
 {
-  Object *ob = ED_object_active_context(C);
+  Object *ob = blender::ed::object::context_active_object(C);
   return ((ob != nullptr) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) && (ob->type == OB_FONT) &&
           !ID_IS_LINKED(ob->data) && !ID_IS_OVERRIDE_LIBRARY(ob->data));
 }
@@ -507,14 +521,14 @@ static bool ed_operator_posemode_exclusive_ex(bContext *C, Object *obact)
 
 bool ED_operator_posemode_exclusive(bContext *C)
 {
-  Object *obact = ED_object_active_context(C);
+  Object *obact = blender::ed::object::context_active_object(C);
 
   return ed_operator_posemode_exclusive_ex(C, obact);
 }
 
 bool ED_operator_object_active_local_editable_posemode_exclusive(bContext *C)
 {
-  Object *obact = ED_object_active_context(C);
+  Object *obact = blender::ed::object::context_active_object(C);
 
   if (!ed_operator_posemode_exclusive_ex(C, obact)) {
     return false;
@@ -1692,7 +1706,7 @@ static void area_move_set_limits(wmWindow *win,
         areamin += U.pixelsize;
       }
 
-      int y1 = screen_geom_area_height(area) - areamin;
+      int y1 = screen_geom_area_height(area) - areamin - int(U.pixelsize);
 
       /* if top or down edge selected, test height */
       if (area->v1->editflag && area->v4->editflag) {
@@ -1712,7 +1726,7 @@ static void area_move_set_limits(wmWindow *win,
         areamin += U.pixelsize;
       }
 
-      int x1 = screen_geom_area_width(area) - areamin;
+      int x1 = screen_geom_area_width(area) - areamin - int(U.pixelsize);
 
       /* if left or right edge selected, test width */
       if (area->v1->editflag && area->v2->editflag) {

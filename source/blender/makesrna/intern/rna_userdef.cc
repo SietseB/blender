@@ -31,6 +31,7 @@
 #include "BKE_addon.h"
 #include "BKE_appdir.hh"
 #include "BKE_callbacks.hh"
+#include "BKE_node_tree_update.hh"
 #include "BKE_sound.h"
 #include "BKE_studiolight.h"
 
@@ -38,7 +39,7 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "GPU_platform.h"
+#include "GPU_platform.hh"
 
 #include "UI_interface_icons.hh"
 
@@ -48,6 +49,8 @@
 #include "WM_types.hh"
 
 #include "BLT_lang.hh"
+
+#include "ED_node.hh"
 
 const EnumPropertyItem rna_enum_preference_section_items[] = {
     {USER_SECTION_INTERFACE, "INTERFACE", 0, "Interface", ""},
@@ -175,7 +178,7 @@ static const EnumPropertyItem rna_enum_preference_gpu_backend_items[] = {
 
 #  include "BKE_blender.hh"
 #  include "BKE_global.hh"
-#  include "BKE_idprop.h"
+#  include "BKE_idprop.hh"
 #  include "BKE_image.h"
 #  include "BKE_main.hh"
 #  include "BKE_mesh_runtime.hh"
@@ -186,9 +189,9 @@ static const EnumPropertyItem rna_enum_preference_gpu_backend_items[] = {
 
 #  include "DEG_depsgraph.hh"
 
-#  include "GPU_capabilities.h"
+#  include "GPU_capabilities.hh"
 #  include "GPU_select.hh"
-#  include "GPU_texture.h"
+#  include "GPU_texture.hh"
 
 #  include "BLF_api.hh"
 
@@ -532,9 +535,11 @@ static bUserExtensionRepo *rna_userdef_extension_repo_new(const char *name,
 
   if (remote_path) {
     STRNCPY(repo->remote_path, remote_path);
-    repo->flag |= USER_EXTENSION_REPO_FLAG_USE_REMOTE_PATH;
   }
 
+  if (repo->remote_path[0]) {
+    repo->flag |= USER_EXTENSION_REPO_FLAG_USE_REMOTE_PATH;
+  }
   if (repo->custom_dirpath[0]) {
     repo->flag |= USER_EXTENSION_REPO_FLAG_USE_CUSTOM_DIRECTORY;
   }
@@ -649,6 +654,18 @@ static void rna_userdef_keyconfig_reload_update(bContext *C,
 {
   WM_keyconfig_reload(C);
   USERDEF_TAG_DIRTY;
+}
+
+static void rna_userdef_use_grease_pencil_version3_update(bContext *C, PointerRNA *ptr)
+{
+  Main *bmain = CTX_data_main(C);
+  rna_userdef_keyconfig_reload_update(C, bmain, nullptr, ptr);
+  /* Update nodes because some sockets may only exist depending on whether grease pencil 3 is
+   * enabled. */
+  LISTBASE_FOREACH (bNodeTree *, ntree, &bmain->nodetrees) {
+    BKE_ntree_update_tag_all(ntree);
+  }
+  ED_node_tree_propagate_change(C, bmain, nullptr);
 }
 
 static void rna_userdef_timecode_style_set(PointerRNA *ptr, int value)
@@ -1055,8 +1072,8 @@ static PointerRNA rna_Addon_preferences_get(PointerRNA *ptr)
   bAddonPrefType *apt = BKE_addon_pref_type_find(addon->module, true);
   if (apt) {
     if (addon->prop == nullptr) {
-      IDPropertyTemplate val = {0};
-      addon->prop = IDP_New(IDP_GROUP, &val, addon->module); /* name is unimportant. */
+      /* name is unimportant. */
+      addon->prop = blender::bke::idprop::create_group(addon->module).release();
     }
     return rna_pointer_inherit_refine(ptr, apt->rna_ext.srna, addon->prop);
   }
@@ -4643,8 +4660,8 @@ static void rna_def_userdef_solidlight(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
-  static float default_dir[3] = {0.0f, 0.0f, 1.0f};
-  static float default_col[3] = {0.8f, 0.8f, 0.8f};
+  static const float default_dir[3] = {0.0f, 0.0f, 1.0f};
+  static const float default_col[3] = {0.8f, 0.8f, 0.8f};
 
   srna = RNA_def_struct(brna, "UserSolidLight", nullptr);
   RNA_def_struct_sdna(srna, "SolidLight");
@@ -6915,8 +6932,10 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "temporary_directory", PROP_STRING, PROP_DIRPATH);
   RNA_def_property_string_sdna(prop, nullptr, "tempdir");
-  RNA_def_property_ui_text(
-      prop, "Temporary Directory", "The directory for storing temporary save files");
+  RNA_def_property_ui_text(prop,
+                           "Temporary Directory",
+                           "The directory for storing temporary save files. "
+                           "The path must reference an existing directory or it will be ignored");
   RNA_def_property_update(prop, 0, "rna_userdef_temp_update");
 
   prop = RNA_def_property(srna, "render_cache_directory", PROP_STRING, PROP_DIRPATH);
@@ -7141,7 +7160,16 @@ static void rna_def_userdef_experimental(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Grease Pencil 3.0", "Enable the new grease pencil 3.0 codebase");
   /* The key-map depends on this setting, it needs to be reloaded. */
   RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-  RNA_def_property_update(prop, 0, "rna_userdef_keyconfig_reload_update");
+  RNA_def_property_update(prop, 0, "rna_userdef_use_grease_pencil_version3_update");
+
+  prop = RNA_def_property(
+      srna, "use_grease_pencil_version3_convert_on_load", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "use_grease_pencil_version3_convert_on_load", 1);
+  RNA_def_property_ui_text(prop,
+                           "Grease Pencil 3.0 Automatic Conversion",
+                           "Enable automatic conversion to grease pencil 3.0 data when opening a "
+                           "blendfile (only active if 'Grease Pencil 3.0' is enabled)");
+  RNA_def_property_update(prop, 0, "rna_userdef_ui_update");
 
   prop = RNA_def_property(srna, "use_new_matrix_socket", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "use_new_matrix_socket", 1);
@@ -7185,6 +7213,11 @@ static void rna_def_userdef_experimental(BlenderRNA *brna)
                            "section of the preferences");
   RNA_def_property_boolean_funcs(
       prop, nullptr, "rna_PreferencesExperimental_use_extension_repos_set");
+
+  prop = RNA_def_property(srna, "use_extension_utils", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop, "Extensions Development Utilities", "Developer support utilities for extensions");
+  RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
 static void rna_def_userdef_addon_collection(BlenderRNA *brna, PropertyRNA *cprop)

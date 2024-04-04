@@ -23,16 +23,19 @@ float shadow_read_depth_at_tilemap_uv(int tilemap_index, vec2 tilemap_uv)
   ivec2 texel_coord = ivec2(tilemap_uv * float(SHADOW_MAP_MAX_RES));
   /* Using bitwise ops is way faster than integer ops. */
   const int page_shift = SHADOW_PAGE_LOD;
+  const int page_mask = ~(0xFFFFFFFF << SHADOW_PAGE_LOD);
 
   ivec2 tile_coord = texel_coord >> page_shift;
-  ShadowTileData tile = shadow_tile_load(shadow_tilemaps_tx, tile_coord, tilemap_index);
+  ShadowSamplingTile tile = shadow_tile_load(shadow_tilemaps_tx, tile_coord, tilemap_index);
 
-  if (!tile.is_allocated) {
+  if (!tile.is_valid) {
     return -1.0;
   }
-
-  int page_mask = ~(0xFFFFFFFF << (SHADOW_PAGE_LOD + int(tile.lod)));
-  ivec2 texel_page = (texel_coord & page_mask) >> int(tile.lod);
+  /* Shift LOD0 pixels so that they get wrapped at the right position for the given LOD. */
+  /* TODO convert everything to uint to avoid signed int operations. */
+  texel_coord += ivec2(tile.lod_offset << SHADOW_PAGE_LOD);
+  /* Scale to LOD pixels (merge LOD0 pixels together) then mask to get pixel in page. */
+  ivec2 texel_page = (texel_coord >> int(tile.lod)) & page_mask;
   ivec3 texel = ivec3((ivec2(tile.page.xy) << page_shift) | texel_page, tile.page.z);
 
   return uintBitsToFloat(texelFetch(shadow_atlas_tx, texel, 0).r);
@@ -210,7 +213,7 @@ ShadowRayDirectional shadow_ray_generate_directional(LightData light,
   vec4 origin = vec4(lP, dist_to_near_plane / z_range);
 
   vec3 disk_direction = sample_uniform_cone(sample_cylinder(random_2d),
-                                            light.shadow_shape_scale_or_angle);
+                                            light_sun_data_get(light).shadow_angle);
   /* Light shape is 1 unit away from the shading point. */
   vec4 direction = vec4(disk_direction, -1.0 / z_range);
 
@@ -221,7 +224,8 @@ ShadowRayDirectional shadow_ray_generate_directional(LightData light,
     origin += direction * thickness;
   }
   /* It only make sense to trace where there can be occluder. Clamp by distance to near plane. */
-  direction *= min(light.shadow_trace_distance, dist_to_near_plane / disk_direction.z);
+  direction *= min(light_sun_data_get(light).shadow_trace_distance,
+                   dist_to_near_plane / disk_direction.z);
 
   ShadowRayDirectional ray;
   ray.origin = origin;
@@ -239,17 +243,22 @@ ShadowTracingSample shadow_map_trace_sample(ShadowMapTracingState state,
   int level = shadow_directional_level(ray.light, ray_pos.xyz - ray.light._position);
   /* This difference needs to be less than 32 for the later shift to be valid.
    * This is ensured by ShadowDirectional::clipmap_level_range(). */
-  int level_relative = level - ray.light.clipmap_lod_min;
+  int level_relative = level - light_sun_data_get(ray.light).clipmap_lod_min;
 
-  int lod_relative = (ray.light.type == LIGHT_SUN_ORTHO) ? ray.light.clipmap_lod_min : level;
+  int lod_relative = (ray.light.type == LIGHT_SUN_ORTHO) ?
+                         light_sun_data_get(ray.light).clipmap_lod_min :
+                         level;
 
-  vec2 clipmap_origin = vec2(ray.light._clipmap_origin_x, ray.light._clipmap_origin_y);
+  vec2 clipmap_origin = light_sun_data_get(ray.light).clipmap_origin;
   vec2 clipmap_pos = ray_pos.xy - clipmap_origin;
   vec2 tilemap_uv = clipmap_pos * exp2(-float(lod_relative)) + 0.5;
 
   /* Compute offset in tile. */
   ivec2 clipmap_offset = shadow_decompress_grid_offset(
-      ray.light.type, ray.light.clipmap_base_offset, level_relative);
+      ray.light.type,
+      light_sun_data_get(ray.light).clipmap_base_offset_neg,
+      light_sun_data_get(ray.light).clipmap_base_offset_pos,
+      level_relative);
   /* Translate tilemap UVs to its origin. */
   tilemap_uv -= vec2(clipmap_offset) / float(SHADOW_TILEMAP_RES);
   /* Clamp to avoid out of tilemap access. */
@@ -296,18 +305,18 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light,
 
   float clip_far = intBitsToFloat(light.clip_far);
   float clip_near = intBitsToFloat(light.clip_near);
-  float clip_side = light.clip_side;
+  float clip_side = light_local_data_get(light).clip_side;
 
   /* TODO(fclem): 3D shift for jittered soft shadows. */
-  vec3 projection_origin = vec3(0.0, 0.0, -light.shadow_projection_shift);
+  vec3 projection_origin = vec3(0.0, 0.0, -light_local_data_get(light).shadow_projection_shift);
   vec3 direction;
   if (is_area_light(light.type)) {
-    random_2d *= vec2(light._area_size_x, light._area_size_y);
+    random_2d *= light_area_data_get(light).size;
 
     vec3 point_on_light_shape = vec3(random_2d, 0.0);
     /* Progressively blend the shape back to the projection origin. */
     point_on_light_shape = mix(
-        -projection_origin, point_on_light_shape, light.shadow_shape_scale_or_angle);
+        -projection_origin, point_on_light_shape, light_local_data_get(light).shadow_scale);
 
     direction = point_on_light_shape - lP;
     r_is_above_surface = dot(direction, lNg) > 0.0;
@@ -333,15 +342,15 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light,
     /* Disk rotated towards light vector. */
     vec3 right, up;
     make_orthonormal_basis(L, right, up);
-    if (is_sphere_light(light.type)) {
-      /* FIXME(weizhen): this is not well-defined when `dist < light._radius`. */
-      random_2d *= light_sphere_disk_radius(light._radius, dist);
-    }
-    else {
-      random_2d *= light._radius;
-    }
 
-    random_2d *= light.shadow_shape_scale_or_angle;
+    float shape_radius = light_spot_data_get(light).radius;
+    if (is_sphere_light(light.type)) {
+      /* FIXME(weizhen): this is not well-defined when `dist < light.spot.radius`. */
+      shape_radius = light_sphere_disk_radius(shape_radius, dist);
+    }
+    random_2d *= shape_radius;
+
+    random_2d *= light_local_data_get(light).shadow_scale;
     vec3 point_on_light_shape = right * random_2d.x + up * random_2d.y;
 
     direction = point_on_light_shape - lP;
@@ -357,7 +366,7 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light,
 #endif
 
     /* Clip the ray to not cross the light shape. */
-    float clip_distance = light._radius;
+    float clip_distance = light_spot_data_get(light).radius;
     direction *= saturate((dist - clip_distance) / dist);
   }
 
@@ -365,7 +374,9 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light,
   vec3 local_ray_start = lP + projection_origin;
   vec3 local_ray_end = local_ray_start + direction;
 
-  int face_id = shadow_punctual_face_index_get(local_ray_start);
+  /* Use an offset in the ray direction to jitter which face is traced.
+   * This helps hiding some harsh discontinuity. */
+  int face_id = shadow_punctual_face_index_get(local_ray_start + direction * 0.5);
   /* Local Light Space > Face Local (View) Space. */
   vec3 view_ray_start = shadow_punctual_local_position_to_face_local(face_id, local_ray_start);
   vec3 view_ray_end = shadow_punctual_local_position_to_face_local(face_id, local_ray_end);
@@ -410,10 +421,17 @@ SHADOW_MAP_TRACE_FN(ShadowRayPunctual)
 
 /* Compute the world space offset of the shading position required for
  * stochastic percentage closer filtering of shadow-maps. */
-vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 Ng)
+vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 Ng, vec2 random)
 {
   if (light.pcf_radius <= 0.001) {
     /* Early return. */
+    return vec3(0.0);
+  }
+
+  vec3 L = light_vector_get(light, is_directional, P).L;
+  if (dot(L, Ng) < 0.001) {
+    /* Don't apply PCF to almost perpendicular,
+     * since we can't project the offset to the surface. */
     return vec3(0.0);
   }
 
@@ -422,10 +440,10 @@ vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 
     params = shadow_directional_sample_params_get(shadow_tilemaps_tx, light, P);
   }
   else {
-    params = shadow_punctual_sample_params_get(shadow_tilemaps_tx, light, P);
+    params = shadow_punctual_sample_params_get(light, P);
   }
-  ShadowTileData tile = shadow_tile_data_get(shadow_tilemaps_tx, params);
-  if (!tile.is_allocated) {
+  ShadowSamplingTile tile = shadow_tile_data_get(shadow_tilemaps_tx, params);
+  if (!tile.is_valid) {
     return vec3(0.0);
   }
 
@@ -438,10 +456,6 @@ vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 
         params, light, params.uv + vec3(uv_offset, 0.0, 0.0));
     BP = shadow_directional_reconstruct_position(
         params, light, params.uv + vec3(0.0, uv_offset, 0.0));
-    vec3 L = light._back;
-    /* Project the offset positions into the surface plane. */
-    TP = line_plane_intersect(TP, dot(L, TP) > 0.0 ? L : -L, P, Ng);
-    BP = line_plane_intersect(BP, dot(L, BP) > 0.0 ? L : -L, P, Ng);
   }
   else {
     mat4 wininv = shadow_punctual_projection_perspective_inverse(light);
@@ -449,9 +463,6 @@ vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 
         params, wininv, light, params.uv + vec3(uv_offset, 0.0, 0.0));
     BP = shadow_punctual_reconstruct_position(
         params, wininv, light, params.uv + vec3(0.0, uv_offset, 0.0));
-    /* Project the offset positions into the surface plane. */
-    TP = line_plane_intersect(light._position, normalize(TP - light._position), P, Ng);
-    BP = line_plane_intersect(light._position, normalize(BP - light._position), P, Ng);
   }
 
   /* TODO: Use a mat2x3 (Currently not supported by the Metal backend). */
@@ -459,15 +470,54 @@ vec3 shadow_pcf_offset(LightData light, const bool is_directional, vec3 P, vec3 
 
   /* Compute the actual offset. */
 
-  vec2 rand = vec2(0.0);
-#ifdef EEVEE_SAMPLING_DATA
-  rand = sampling_rng_2D_get(SAMPLING_SHADOW_V);
-#endif
-  vec2 pcf_offset = interlieved_gradient_noise(UTIL_TEXEL, vec2(0.0), rand);
-  pcf_offset = pcf_offset * 2.0 - 1.0;
+  vec2 pcf_offset = random * 2.0 - 1.0;
   pcf_offset *= light.pcf_radius;
 
-  return TBN * vec3(pcf_offset, 0.0);
+  /* Scale the offset based on shadow LOD. */
+  if (is_directional) {
+    vec3 lP = light_world_to_local(light, P);
+    float level = shadow_directional_level_fractional(light, lP - light._position);
+    float pcf_scale = mix(0.5, 1.0, fract(level));
+    pcf_offset *= pcf_scale;
+  }
+  else {
+    bool is_perspective = drw_view_is_perspective();
+    float dist_to_cam = distance(P, drw_view_position());
+    float footprint_ratio = shadow_punctual_footprint_ratio(
+        light, P, is_perspective, dist_to_cam, uniform_buf.shadow.tilemap_projection_ratio);
+    float lod = -log2(footprint_ratio) + light.lod_bias;
+    lod = clamp(lod, 0.0, float(SHADOW_TILEMAP_LOD));
+    float pcf_scale = exp2(lod);
+    pcf_offset *= pcf_scale;
+  }
+
+  vec3 ws_offset = TBN * vec3(pcf_offset, 0.0);
+  vec3 offset_P = P + ws_offset;
+
+  /* Project the offset position into the surface */
+
+#ifdef GPU_NVIDIA
+  /* Workaround for a bug in the Nvidia shader compiler.
+   * If we don't compute L here again, it breaks shadows on reflection probes. */
+  L = light_vector_get(light, is_directional, P).L;
+#endif
+
+  if (abs(dot(Ng, L)) > 0.999) {
+    return ws_offset;
+  }
+
+  offset_P = line_plane_intersect(offset_P, L, P, Ng);
+  ws_offset = offset_P - P;
+
+  if (dot(ws_offset, L) < 0.0) {
+    /* Project the offset position into the perpendicular plane, since it's closer to the light
+     * (avoids overshadowing at geometry angles). */
+    vec3 perpendicular_plane_normal = cross(Ng, normalize(cross(Ng, L)));
+    offset_P = line_plane_intersect(offset_P, L, P, perpendicular_plane_normal);
+    ws_offset = offset_P - P;
+  }
+
+  return ws_offset;
 }
 
 /**
@@ -487,17 +537,19 @@ ShadowEvalResult shadow_eval(LightData light,
 #  elif defined(GPU_COMPUTE_SHADER)
   vec2 pixel = vec2(gl_GlobalInvocationID.xy);
 #  endif
-  vec3 random_shadow_3d = utility_tx_fetch(utility_tx, pixel, UTIL_BLUE_NOISE_LAYER).rgb;
-  random_shadow_3d += sampling_rng_3D_get(SAMPLING_SHADOW_U);
+  vec3 blue_noise_3d = utility_tx_fetch(utility_tx, pixel, UTIL_BLUE_NOISE_LAYER).rgb;
+  vec3 random_shadow_3d = blue_noise_3d + sampling_rng_3D_get(SAMPLING_SHADOW_U);
+  vec2 random_pcf_2d = fract(blue_noise_3d.xy + sampling_rng_2D_get(SAMPLING_SHADOW_X));
   float normal_offset = uniform_buf.shadow.normal_bias;
 #else
   /* Case of surfel light eval. */
   vec3 random_shadow_3d = vec3(0.5);
+  vec2 random_pcf_2d = vec2(0.0);
   /* TODO(fclem): Parameter on irradiance volumes? */
   float normal_offset = 0.02;
 #endif
 
-  P += shadow_pcf_offset(light, is_directional, P, Ng);
+  P += shadow_pcf_offset(light, is_directional, P, Ng, random_pcf_2d);
 
   /* Avoid self intersection. */
   P = offset_ray(P, Ng);

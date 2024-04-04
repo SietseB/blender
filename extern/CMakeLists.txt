@@ -32,6 +32,7 @@ endif()
 add_subdirectory(rangetree)
 add_subdirectory(nanosvg)
 add_subdirectory(wcwidth)
+add_subdirectory(xxhash)
 
 if(WITH_BULLET)
   if(NOT WITH_SYSTEM_BULLET)
@@ -102,10 +103,6 @@ endif()
 
 if(WITH_MOD_FLUID)
   add_subdirectory(mantaflow)
-endif()
-
-if(WITH_COMPOSITOR_CPU)
-  add_subdirectory(smaa_areatex)
 endif()
 
 if(WITH_VULKAN_BACKEND)

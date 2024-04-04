@@ -247,7 +247,7 @@ class USERPREF_PT_interface_text(InterfacePanel, CenterAlignMixIn, Panel):
 
 
 class USERPREF_PT_interface_translation(InterfacePanel, CenterAlignMixIn, Panel):
-    bl_label = "Translation"
+    bl_label = "Language"
     bl_translation_context = i18n_contexts.id_windowmanager
 
     @classmethod
@@ -260,7 +260,7 @@ class USERPREF_PT_interface_translation(InterfacePanel, CenterAlignMixIn, Panel)
 
         layout.prop(view, "language")
 
-        col = layout.column(heading="Affect")
+        col = layout.column(heading="Translate")
         col.active = (bpy.app.translations.locale != "en_US")
         col.prop(view, "use_translate_tooltips", text="Tooltips")
         col.prop(view, "use_translate_interface", text="Interface")
@@ -409,27 +409,27 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
         flow = layout.grid_flow(row_major=False, columns=0, even_columns=True, even_rows=False, align=True)
 
         datablock_types = (
-            ("use_duplicate_action", "Action", 'ACTION', ''),
-            ("use_duplicate_armature", "Armature", 'OUTLINER_DATA_ARMATURE', ''),
-            ("use_duplicate_camera", "Camera", 'OUTLINER_DATA_CAMERA', ''),
-            ("use_duplicate_curve", "Curve", 'OUTLINER_DATA_CURVE', ''),
-            ("use_duplicate_curves", "Curves", 'OUTLINER_DATA_CURVES', ''),
-            ("use_duplicate_grease_pencil", "Grease Pencil", 'OUTLINER_OB_GREASEPENCIL', ''),
-            ("use_duplicate_lattice", "Lattice", 'OUTLINER_DATA_LATTICE', ''),
+            ("use_duplicate_action", "Action", 'ACTION', ""),
+            ("use_duplicate_armature", "Armature", 'OUTLINER_DATA_ARMATURE', ""),
+            ("use_duplicate_camera", "Camera", 'OUTLINER_DATA_CAMERA', ""),
+            ("use_duplicate_curve", "Curve", 'OUTLINER_DATA_CURVE', ""),
+            ("use_duplicate_curves", "Curves", 'OUTLINER_DATA_CURVES', ""),
+            ("use_duplicate_grease_pencil", "Grease Pencil", 'OUTLINER_OB_GREASEPENCIL', ""),
+            ("use_duplicate_lattice", "Lattice", 'OUTLINER_DATA_LATTICE', ""),
             (None, None, None, None),
-            ("use_duplicate_light", "Light", 'OUTLINER_DATA_LIGHT', ''),
-            ("use_duplicate_lightprobe", "Light Probe", 'OUTLINER_DATA_LIGHTPROBE', ''),
-            ("use_duplicate_material", "Material", 'MATERIAL_DATA', ''),
-            ("use_duplicate_mesh", "Mesh", 'OUTLINER_DATA_MESH', ''),
-            ("use_duplicate_metaball", "Metaball", 'OUTLINER_DATA_META', ''),
-            ("use_duplicate_node_tree", "Node Tree", 'NODETREE', ''),
-            ("use_duplicate_particle", "Particle", 'PARTICLES', ''),
+            ("use_duplicate_light", "Light", 'OUTLINER_DATA_LIGHT', ""),
+            ("use_duplicate_lightprobe", "Light Probe", 'OUTLINER_DATA_LIGHTPROBE', ""),
+            ("use_duplicate_material", "Material", 'MATERIAL_DATA', ""),
+            ("use_duplicate_mesh", "Mesh", 'OUTLINER_DATA_MESH', ""),
+            ("use_duplicate_metaball", "Metaball", 'OUTLINER_DATA_META', ""),
+            ("use_duplicate_node_tree", "Node Tree", 'NODETREE', ""),
+            ("use_duplicate_particle", "Particle", 'PARTICLES', ""),
             (None, None, None, None),
-            ("use_duplicate_pointcloud", "Point Cloud", 'OUTLINER_DATA_POINTCLOUD', ''),
-            ("use_duplicate_speaker", "Speaker", 'OUTLINER_DATA_SPEAKER', ''),
-            ("use_duplicate_surface", "Surface", 'OUTLINER_DATA_SURFACE', ''),
-            ("use_duplicate_text", "Text", 'OUTLINER_DATA_FONT', ''),
-            ("use_duplicate_volume", "Volume", 'OUTLINER_DATA_VOLUME', 'i18n_contexts.id_id'),
+            ("use_duplicate_pointcloud", "Point Cloud", 'OUTLINER_DATA_POINTCLOUD', ""),
+            ("use_duplicate_speaker", "Speaker", 'OUTLINER_DATA_SPEAKER', ""),
+            ("use_duplicate_surface", "Surface", 'OUTLINER_DATA_SURFACE', ""),
+            ("use_duplicate_text", "Text", 'OUTLINER_DATA_FONT', ""),
+            ("use_duplicate_volume", "Volume", 'OUTLINER_DATA_VOLUME', "i18n_contexts.id_id"),
         )
 
         col = flow.column()
@@ -671,8 +671,8 @@ class USERPREF_PT_system_os_settings(SystemPanel, CenterAlignMixIn, Panel):
         import sys
         return sys.platform[:3] == "win"
 
-    def draw_centered(self, _context, layout):
-        if _context.preferences.system.is_microsoft_store_install:
+    def draw_centered(self, context, layout):
+        if context.preferences.system.is_microsoft_store_install:
             layout.label(text="Microsoft Store installation")
             layout.label(text="Use Windows 'Default Apps' to associate with blend files")
         else:
@@ -876,7 +876,8 @@ class USERPREF_PT_theme(ThemePanel, Panel):
         row = split.row(align=True)
         row.menu("USERPREF_MT_interface_theme_presets", text=USERPREF_MT_interface_theme_presets.bl_label)
         row.operator("wm.interface_theme_preset_add", text="", icon='ADD')
-        row.operator("wm.interface_theme_preset_add", text="", icon='REMOVE').remove_active = True
+        row.operator("wm.interface_theme_preset_remove", text="", icon='REMOVE')
+        row.operator("wm.interface_theme_preset_save", text="", icon='FILE_TICK')
 
         row = split.row(align=True)
         row.operator("preferences.theme_install", text="Install...", icon='IMPORT')
@@ -1021,8 +1022,7 @@ class USERPREF_PT_theme_interface_transparent_checker(ThemePanel, CenterAlignMix
         theme = context.preferences.themes[0]
         ui = theme.user_interface
 
-        flow = layout.grid_flow(
-            row_major=False, columns=0, even_columns=True, even_rows=False, align=False)
+        flow = layout.grid_flow(row_major=False, columns=0, even_columns=True, even_rows=False, align=False)
 
         col = flow.column(align=True)
         col.prop(ui, "transparent_checker_primary")
@@ -1597,7 +1597,7 @@ class USERPREF_UL_asset_libraries(UIList):
 class USERPREF_UL_extension_repos(UIList):
     def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         repo = item
-        icon = 'NETWORK_DRIVE' if repo.use_remote_path else 'DISK_DRIVE'
+        icon = 'INTERNET' if repo.use_remote_path else 'DISK_DRIVE'
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(repo, "name", text="", icon=icon, emboss=False)
         elif self.layout_type == 'GRID':
@@ -2045,28 +2045,6 @@ class USERPREF_PT_extensions_repos(Panel):
     # Show wider than most panels so the URL & directory aren't overly clipped.
     bl_ui_units_x = 16
 
-    # NOTE: ideally `if panel := layout.panel("extensions_repo_advanced", default_closed=True):`
-    # would be used but it isn't supported here, use a kludge to achieve a similar UI.
-    _panel_layout_kludge_state = False
-
-    @classmethod
-    def _panel_layout_kludge(cls, layout, *, text):
-        row = layout.row(align=True)
-        row.alignment = 'LEFT'
-        show_advanced = USERPREF_PT_extensions_repos._panel_layout_kludge_state
-        props = row.operator(
-            "wm.context_toggle",
-            text="Advanced",
-            icon='DOWNARROW_HLT' if show_advanced else 'RIGHTARROW',
-            emboss=False,
-        )
-        props.module = "bl_ui.space_userpref"
-        props.data_path = "USERPREF_PT_extensions_repos._panel_layout_kludge_state"
-
-        if show_advanced:
-            return layout.column()
-        return None
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = False
@@ -2115,8 +2093,9 @@ class USERPREF_PT_extensions_repos(Panel):
             split.prop(active_repo, "remote_path", text="URL")
             split = row.split()
 
-        if layout_panel := self._panel_layout_kludge(layout, text="Advanced"):
-
+        layout_header, layout_panel = layout.panel("advanced", default_closed=True)
+        layout_header.label(text="Advanced")
+        if layout_panel:
             layout_panel.prop(active_repo, "use_custom_directory")
 
             row = layout_panel.row()
@@ -2252,8 +2231,11 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
 
         prefs = context.preferences
 
-        use_extension_repos = prefs.experimental.use_extension_repos
-        if use_extension_repos and self.is_extended():
+        if (
+                prefs.view.show_developer_ui and
+                prefs.experimental.use_extension_repos and
+                self.is_extended()
+        ):
             # Rely on the draw function being appended to by the extensions add-on.
             return
 
@@ -2693,9 +2675,11 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
                 ({"property": "use_sculpt_texture_paint"}, ("blender/blender/issues/96225", "#96225")),
                 ({"property": "use_experimental_compositors"}, ("blender/blender/issues/88150", "#88150")),
                 ({"property": "use_grease_pencil_version3"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
+                ({"property": "use_grease_pencil_version3_convert_on_load"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
                 ({"property": "use_new_matrix_socket"}, ("blender/blender/issues/116067", "Matrix Socket")),
                 ({"property": "enable_overlay_next"}, ("blender/blender/issues/102179", "#102179")),
                 ({"property": "use_extension_repos"}, ("/blender/blender/issues/117286", "#117286")),
+                ({"property": "use_extension_utils"}, ("/blender/blender/issues/117286", "#117286")),
             ),
         )
 
@@ -2742,7 +2726,7 @@ class USERPREF_PT_experimental_debugging(ExperimentalPanel, Panel):
 # Class Registration
 
 # Order of registration defines order in UI,
-# so dynamically generated classes are 'injected' in the intended order.
+# so dynamically generated classes are "injected" in the intended order.
 classes = (
     USERPREF_PT_theme_user_interface,
     *ThemeGenericClassGenerator.generate_panel_classes_for_wcols(),

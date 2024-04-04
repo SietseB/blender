@@ -1341,7 +1341,7 @@ static void libdecor_frame_handle_configure(libdecor_frame *frame,
       /* These values are cleared after use & will practically always be zero.
        * Read them because it's possible multiple configure calls run before they can be handled.
        */
-      GWL_LibDecor_Window &decor = *win->libdecor;
+      const GWL_LibDecor_Window &decor = *win->libdecor;
       size_next[0] = decor.pending.size[0];
       size_next[1] = decor.pending.size[1];
     }
@@ -1374,16 +1374,18 @@ static void libdecor_frame_handle_configure(libdecor_frame *frame,
     decor.pending.configuration = configuration;
     decor.pending.ack_configure = true;
 
+#  ifdef USE_EVENT_BACKGROUND_THREAD
     if (!is_main_thread) {
-#  ifdef USE_LIBDECOR_CONFIG_COPY_WORKAROUND
+#    ifdef USE_LIBDECOR_CONFIG_COPY_WORKAROUND
       decor.pending.configuration = ghost_wl_libdecor_configuration_copy(configuration);
       decor.pending.configuration_needs_free = true;
-#  else
+#    else
       /* Without a way to copy the configuration,
        * the configuration will be ignored as it can't be postponed. */
       decor.pending.configuration = nullptr;
-#  endif /* !USE_LIBDECOR_CONFIG_COPY_WORKAROUND */
+#    endif /* !USE_LIBDECOR_CONFIG_COPY_WORKAROUND */
     }
+#  endif
 
 #  ifdef USE_LIBDECOR_CONFIG_COPY_QUEUE
     if (!(size_next[0] && size_next[1])) {
@@ -1877,6 +1879,23 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
 
     xdg_toplevel *toplevel = libdecor_frame_get_xdg_toplevel(decor.frame);
     gwl_window_state_set_for_xdg(toplevel, state, gwl_window_state_get(window_));
+
+    /* NOTE(@ideasman42): Round trips are necessary with LIBDECOR on GNOME
+     * because resizing later on and redrawing does *not* update as it should, see #119871.
+     *
+     * Without the round-trip here:
+     * - The window will be created and this function will return using the requested buffer size,
+     *   instead of the window size which ends up being used (causing a visible flicker).
+     *   This has the down side that Blender's internal window state has the outdated size
+     *   which then gets immediately resized, causing a noticeable glitch.
+     * - The window decorations will be displayed at the wrong size before refreshing
+     *   at the new size.
+     * - On GNOME-Shell 46 shows the previous buffer-size under some conditions.
+     *
+     * In principle this could be used with XDG too however it causes problems with KDE
+     * and some WLROOTS based compositors.
+     */
+    wl_display_roundtrip(system_->wl_display_get());
   }
   else
 #endif /* WITH_GHOST_WAYLAND_LIBDECOR */

@@ -28,7 +28,6 @@ struct Speaker;
 struct bAction;
 
 struct BlendDataReader;
-struct BlendLibReader;
 struct BlendWriter;
 struct PointerRNA;
 struct PropertyRNA;
@@ -395,6 +394,12 @@ struct NlaStrip *BKE_nlastrip_find_active(struct NlaTrack *nlt);
  * Make the given NLA-Strip the active one within the given block.
  */
 void BKE_nlastrip_set_active(struct AnimData *adt, struct NlaStrip *strip);
+/**
+ * Find the NLA-strip with the given name within the given track.
+ *
+ * \return pointer to the strip, or nullptr when not found.
+ */
+struct NlaStrip *BKE_nlastrip_find_by_name(struct NlaTrack *nlt, const char *name);
 
 /**
  * Does the given NLA-strip fall within the given bounds (times)?.
@@ -432,11 +437,11 @@ void BKE_nlastrip_validate_name(struct AnimData *adt, struct NlaStrip *strip);
 /* ............ */
 
 /**
- * Check if the given NLA-Track has any strips with own F-Curves.
+ * Check if the given NLA-Track has any strips with their own F-Curves.
  */
 bool BKE_nlatrack_has_animated_strips(struct NlaTrack *nlt);
 /**
- * Check if given NLA-Tracks have any strips with own F-Curves.
+ * Check if given NLA-Tracks have any strips with their own F-Curves.
  */
 bool BKE_nlatracks_have_animated_strips(ListBase *tracks);
 /**

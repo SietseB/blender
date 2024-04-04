@@ -45,7 +45,7 @@
 
 #include "BKE_action.h"
 #include "BKE_anim_data.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.hh"
 #include "BKE_idtype.hh"
@@ -1022,8 +1022,8 @@ static const char *particle_adrcodes_to_paths(int adrcode, int *r_array_index)
 static char *get_rna_access(ID *id,
                             int blocktype,
                             int adrcode,
-                            char actname[],
-                            char constname[],
+                            const char actname[],
+                            const char constname[],
                             Sequence *seq,
                             int *r_array_index)
 {
@@ -2153,7 +2153,7 @@ void do_versions_ipos_to_animato(Main *bmain)
     if (ob->pose) {
       LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
         LISTBASE_FOREACH (bConstraint *, con, &pchan->constraints) {
-          /* if constraint has own IPO, convert add these to Object
+          /* if constraint has its own IPO, convert add these to Object
            * (NOTE: they're most likely to be drivers too)
            */
           if (con->ipo) {
@@ -2173,7 +2173,7 @@ void do_versions_ipos_to_animato(Main *bmain)
 
     /* check constraints for local IPO's */
     LISTBASE_FOREACH (bConstraint *, con, &ob->constraints) {
-      /* if constraint has own IPO, convert add these to Object
+      /* if constraint has its own IPO, convert add these to Object
        * (NOTE: they're most likely to be drivers too)
        */
       if (con->ipo) {

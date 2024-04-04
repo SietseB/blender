@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <optional>
 
 #include "CLG_log.h"
 
@@ -85,7 +86,7 @@
 #include "BKE_editmesh.hh"
 #include "BKE_editmesh_cache.hh"
 #include "BKE_effect.h"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_fcurve_driver.h"
 #include "BKE_geometry_set.hh"
 #include "BKE_geometry_set_instances.hh"
@@ -94,7 +95,7 @@
 #include "BKE_gpencil_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_grease_pencil.hh"
-#include "BKE_idprop.h"
+#include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
 #include "BKE_image.h"
 #include "BKE_key.hh"
@@ -188,7 +189,11 @@ static void object_init_data(ID *id)
   animviz_settings_init(&ob->avs);
 }
 
-static void object_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
+static void object_copy_data(Main *bmain,
+                             std::optional<Library *> /*owner_library*/,
+                             ID *id_dst,
+                             const ID *id_src,
+                             const int flag)
 {
   Object *ob_dst = (Object *)id_dst;
   const Object *ob_src = (const Object *)id_src;
@@ -240,9 +245,6 @@ static void object_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const in
 
   if (ob_src->pd) {
     ob_dst->pd = (PartDeflect *)MEM_dupallocN(ob_src->pd);
-    if (ob_dst->pd->rng) {
-      ob_dst->pd->rng = (RNG *)MEM_dupallocN(ob_src->pd->rng);
-    }
   }
   BKE_rigidbody_object_copy(bmain, ob_dst, ob_src, flag_subdata);
 
@@ -431,11 +433,9 @@ static void object_foreach_id(ID *id, LibraryForeachIDData *data)
   if (object->pose) {
     LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
       BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-          data,
-          IDP_foreach_property(pchan->prop,
-                               IDP_TYPE_FILTER_ID,
-                               BKE_lib_query_idpropertiesForeachIDLink_callback,
-                               data));
+          data, IDP_foreach_property(pchan->prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
+            BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
+          }));
 
       BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, pchan->custom, IDWALK_CB_USER);
       BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
@@ -1041,20 +1041,13 @@ static void object_lib_override_apply_post(ID *id_dst, ID *id_src)
 
 static IDProperty *object_asset_dimensions_property(Object *ob)
 {
+  using namespace blender::bke;
   float3 dimensions;
   BKE_object_dimensions_get(ob, dimensions);
   if (is_zero_v3(dimensions)) {
     return nullptr;
   }
-
-  IDPropertyTemplate idprop{};
-  idprop.array.len = 3;
-  idprop.array.type = IDP_FLOAT;
-
-  IDProperty *property = IDP_New(IDP_ARRAY, &idprop, "dimensions");
-  memcpy(IDP_Array(property), dimensions, sizeof(dimensions));
-
-  return property;
+  return idprop::create("dimensions", Span(&dimensions.x, 3)).release();
 }
 
 static void object_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_data)
@@ -1063,8 +1056,7 @@ static void object_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_d
   BLI_assert(GS(ob->id.name) == ID_OB);
 
   /* Update dimensions hint for the asset. */
-  IDProperty *dimensions_prop = object_asset_dimensions_property(ob);
-  if (dimensions_prop) {
+  if (IDProperty *dimensions_prop = object_asset_dimensions_property(ob)) {
     BKE_asset_metadata_idprop_ensure(asset_data, dimensions_prop);
   }
 }
@@ -1463,7 +1455,7 @@ bool BKE_object_modifier_stack_copy(Object *ob_dst,
                                     const int flag_subdata)
 {
   if ((ob_dst->type == OB_GPENCIL_LEGACY) != (ob_src->type == OB_GPENCIL_LEGACY)) {
-    BLI_assert_msg(0,
+    BLI_assert_msg(false,
                    "Trying to copy a modifier stack between a GPencil object and another type.");
     return false;
   }
@@ -1471,8 +1463,9 @@ bool BKE_object_modifier_stack_copy(Object *ob_dst,
   if (!BLI_listbase_is_empty(&ob_dst->modifiers) ||
       !BLI_listbase_is_empty(&ob_dst->greasepencil_modifiers))
   {
-    BLI_assert(
-        !"Trying to copy a modifier stack into an object having a non-empty modifier stack.");
+    BLI_assert_msg(
+        false,
+        "Trying to copy a modifier stack into an object having a non-empty modifier stack.");
     return false;
   }
 
@@ -1750,7 +1743,7 @@ bool BKE_object_is_in_editmode(const Object *ob)
 
   switch (ob->type) {
     case OB_MESH:
-      return ((Mesh *)ob->data)->edit_mesh != nullptr;
+      return ((Mesh *)ob->data)->runtime->edit_mesh != nullptr;
     case OB_ARMATURE:
       return ((bArmature *)ob->data)->edbo != nullptr;
     case OB_FONT:
@@ -1785,7 +1778,7 @@ bool BKE_object_data_is_in_editmode(const Object *ob, const ID *id)
   BLI_assert(OB_DATA_SUPPORT_EDITMODE(type));
   switch (type) {
     case ID_ME:
-      return ((const Mesh *)id)->edit_mesh != nullptr;
+      return ((const Mesh *)id)->runtime->edit_mesh != nullptr;
     case ID_CU_LEGACY:
       return ((((const Curve *)id)->editnurb != nullptr) ||
               (((const Curve *)id)->editfont != nullptr));
@@ -1813,7 +1806,7 @@ char *BKE_object_data_editmode_flush_ptr_get(ID *id)
   const short type = GS(id->name);
   switch (type) {
     case ID_ME: {
-      BMEditMesh *em = ((Mesh *)id)->edit_mesh;
+      BMEditMesh *em = ((Mesh *)id)->runtime->edit_mesh;
       if (em != nullptr) {
         return &em->needs_flush_to_id;
       }
@@ -1864,7 +1857,7 @@ bool BKE_object_is_in_wpaint_select_vert(const Object *ob)
 {
   if (ob->type == OB_MESH) {
     Mesh *mesh = (Mesh *)ob->data;
-    return ((ob->mode & OB_MODE_WEIGHT_PAINT) && (mesh->edit_mesh == nullptr) &&
+    return ((ob->mode & OB_MODE_WEIGHT_PAINT) && (mesh->runtime->edit_mesh == nullptr) &&
             (ME_EDIT_PAINT_SEL_MODE(mesh) == SCE_SELECT_VERTEX));
   }
 
@@ -2772,7 +2765,7 @@ void BKE_object_obdata_size_init(Object *ob, const float size)
 /** \name Object Matrix Get/Set API
  * \{ */
 
-void BKE_object_scale_to_mat3(Object *ob, float mat[3][3])
+void BKE_object_scale_to_mat3(const Object *ob, float mat[3][3])
 {
   float3 vec;
   mul_v3_v3v3(vec, ob->scale, ob->dscale);
@@ -2954,7 +2947,7 @@ void BKE_object_tfm_copy(Object *object_dst, const Object *object_src)
 #undef TFMCPY4D
 }
 
-void BKE_object_to_mat3(Object *ob, float r_mat[3][3]) /* no parent */
+void BKE_object_to_mat3(const Object *ob, float r_mat[3][3]) /* no parent */
 {
   float smat[3][3];
   float rmat[3][3];
@@ -2967,7 +2960,7 @@ void BKE_object_to_mat3(Object *ob, float r_mat[3][3]) /* no parent */
   mul_m3_m3m3(r_mat, rmat, smat);
 }
 
-void BKE_object_to_mat4(Object *ob, float r_mat[4][4])
+void BKE_object_to_mat4(const Object *ob, float r_mat[4][4])
 {
   float tmat[3][3];
 
@@ -2995,7 +2988,7 @@ void BKE_object_matrix_local_get(Object *ob, float r_mat[4][4])
 /**
  * \return success if \a mat is set.
  */
-static bool ob_parcurve(Object *ob, Object *par, float r_mat[4][4])
+static bool ob_parcurve(const Object *ob, Object *par, float r_mat[4][4])
 {
   Curve *cu = (Curve *)par->data;
   float vec[4], quat[4], radius, ctime;
@@ -3054,7 +3047,7 @@ static bool ob_parcurve(Object *ob, Object *par, float r_mat[4][4])
   return true;
 }
 
-static void ob_parbone(Object *ob, Object *par, float r_mat[4][4])
+static void ob_parbone(const Object *ob, const Object *par, float r_mat[4][4])
 {
   float3 vec;
 
@@ -3064,7 +3057,7 @@ static void ob_parbone(Object *ob, Object *par, float r_mat[4][4])
   }
 
   /* Make sure the bone is still valid */
-  bPoseChannel *pchan = BKE_pose_channel_find_name(par->pose, ob->parsubstr);
+  const bPoseChannel *pchan = BKE_pose_channel_find_name(par->pose, ob->parsubstr);
   if (!pchan || !pchan->bone) {
     CLOG_WARN(
         &LOG, "Parent Bone: '%s' for Object: '%s' doesn't exist", ob->parsubstr, ob->id.name + 2);
@@ -3088,22 +3081,22 @@ static void ob_parbone(Object *ob, Object *par, float r_mat[4][4])
   }
 }
 
-static void give_parvert(Object *par, int nr, float vec[3])
+static void give_parvert(const Object *par, int nr, float vec[3])
 {
   zero_v3(vec);
 
   if (par->type == OB_MESH) {
-    Mesh *mesh = (Mesh *)par->data;
-    BMEditMesh *em = mesh->edit_mesh;
-    Mesh *me_eval = (em) ? BKE_object_get_editmesh_eval_final(par) :
-                           BKE_object_get_evaluated_mesh(par);
+    const Mesh *mesh = (const Mesh *)par->data;
+    const BMEditMesh *em = mesh->runtime->edit_mesh;
+    const Mesh *mesh_eval = (em) ? BKE_object_get_editmesh_eval_final(par) :
+                                   BKE_object_get_evaluated_mesh(par);
 
-    if (me_eval) {
-      const Span<float3> positions = me_eval->vert_positions();
+    if (mesh_eval) {
+      const Span<float3> positions = mesh_eval->vert_positions();
       int count = 0;
-      int numVerts = me_eval->verts_num;
+      int numVerts = mesh_eval->verts_num;
 
-      if (em && me_eval->runtime->wrapper_type == ME_WRAPPER_TYPE_BMESH) {
+      if (em && mesh_eval->runtime->wrapper_type == ME_WRAPPER_TYPE_BMESH) {
         numVerts = em->bm->totvert;
         if (em->bm->elem_table_dirty & BM_VERT) {
 #ifdef VPARENT_THREADING_HACK
@@ -3118,10 +3111,10 @@ static void give_parvert(Object *par, int nr, float vec[3])
 #endif
         }
         if (nr < numVerts) {
-          if (me_eval && me_eval->runtime->edit_data &&
-              !me_eval->runtime->edit_data->vertexCos.is_empty())
+          if (mesh_eval && mesh_eval->runtime->edit_data &&
+              !mesh_eval->runtime->edit_data->vert_positions.is_empty())
           {
-            add_v3_v3(vec, me_eval->runtime->edit_data->vertexCos[nr]);
+            add_v3_v3(vec, mesh_eval->runtime->edit_data->vert_positions[nr]);
           }
           else {
             const BMVert *v = BM_vert_at_index(em->bm, nr);
@@ -3130,8 +3123,8 @@ static void give_parvert(Object *par, int nr, float vec[3])
           count++;
         }
       }
-      else if (CustomData_has_layer(&me_eval->vert_data, CD_ORIGINDEX)) {
-        const int *index = (const int *)CustomData_get_layer(&me_eval->vert_data, CD_ORIGINDEX);
+      else if (CustomData_has_layer(&mesh_eval->vert_data, CD_ORIGINDEX)) {
+        const int *index = (const int *)CustomData_get_layer(&mesh_eval->vert_data, CD_ORIGINDEX);
         /* Get the average of all verts with (original index == nr). */
         for (int i = 0; i < numVerts; i++) {
           if (index[i] == nr) {
@@ -3155,7 +3148,7 @@ static void give_parvert(Object *par, int nr, float vec[3])
       }
       else {
         /* use first index if its out of range */
-        if (me_eval->verts_num) {
+        if (mesh_eval->verts_num) {
           copy_v3_v3(vec, positions[0]);
         }
       }
@@ -3209,7 +3202,7 @@ static void give_parvert(Object *par, int nr, float vec[3])
   }
 }
 
-static void ob_parvert3(Object *ob, Object *par, float r_mat[4][4])
+static void ob_parvert3(const Object *ob, const Object *par, float r_mat[4][4])
 {
   /* in local ob space */
   if (OB_TYPE_SUPPORT_PARVERT(par->type)) {
@@ -3230,7 +3223,7 @@ static void ob_parvert3(Object *ob, Object *par, float r_mat[4][4])
   }
 }
 
-void BKE_object_get_parent_matrix(Object *ob, Object *par, float r_parentmat[4][4])
+void BKE_object_get_parent_matrix(const Object *ob, Object *par, float r_parentmat[4][4])
 {
   float tmat[4][4];
   float vec[3];
@@ -3285,8 +3278,11 @@ void BKE_object_get_parent_matrix(Object *ob, Object *par, float r_parentmat[4][
  * \param r_originmat: Optional matrix that stores the space the object is in
  * (without its own matrix applied)
  */
-static void solve_parenting(
-    Object *ob, Object *par, const bool set_origin, float r_obmat[4][4], float r_originmat[3][3])
+static void solve_parenting(const Object *ob,
+                            Object *par,
+                            const bool set_origin,
+                            float r_obmat[4][4],
+                            float r_originmat[3][3])
 {
   float totmat[4][4];
   float tmat[4][4];
@@ -3366,7 +3362,7 @@ void BKE_object_where_is_calc_time(Depsgraph *depsgraph, Scene *scene, Object *o
   object_where_is_calc_ex(depsgraph, scene, ob, ctime, nullptr, nullptr);
 }
 
-void BKE_object_where_is_calc_mat4(Object *ob, float r_obmat[4][4])
+void BKE_object_where_is_calc_mat4(const Object *ob, float r_obmat[4][4])
 {
   if (ob->parent) {
     Object *par = ob->parent;
@@ -4210,13 +4206,13 @@ Mesh *BKE_object_get_original_mesh(const Object *object)
   return result;
 }
 
-Mesh *BKE_object_get_editmesh_eval_final(const Object *object)
+const Mesh *BKE_object_get_editmesh_eval_final(const Object *object)
 {
   BLI_assert(!DEG_is_original_id(&object->id));
   BLI_assert(object->type == OB_MESH);
 
   const Mesh *mesh = static_cast<const Mesh *>(object->data);
-  if (mesh->edit_mesh == nullptr) {
+  if (mesh->runtime->edit_mesh == nullptr) {
     /* Happens when requesting material of evaluated 3d font object: the evaluated object get
      * converted to mesh, and it does not have edit mesh. */
     return nullptr;
@@ -4225,16 +4221,23 @@ Mesh *BKE_object_get_editmesh_eval_final(const Object *object)
   return reinterpret_cast<Mesh *>(object->runtime->data_eval);
 }
 
-Mesh *BKE_object_get_editmesh_eval_cage(const Object *object)
+const Mesh *BKE_object_get_editmesh_eval_cage(const Object *object)
 {
   BLI_assert(!DEG_is_original_id(&object->id));
   BLI_assert(object->type == OB_MESH);
 
   const Mesh *mesh = static_cast<const Mesh *>(object->data);
-  BLI_assert(mesh->edit_mesh != nullptr);
+  BLI_assert(mesh->runtime->edit_mesh != nullptr);
   UNUSED_VARS_NDEBUG(mesh);
 
   return object->runtime->editmesh_eval_cage;
+}
+
+const Mesh *BKE_object_get_mesh_deform_eval(const Object *object)
+{
+  BLI_assert(!DEG_is_original_id(&object->id));
+  BLI_assert(object->type == OB_MESH);
+  return object->runtime->mesh_deform_eval;
 }
 
 Lattice *BKE_object_get_lattice(const Object *object)
@@ -4814,7 +4817,7 @@ int BKE_object_scenes_users_get(Main *bmain, Object *ob)
   return num_scenes;
 }
 
-MovieClip *BKE_object_movieclip_get(Scene *scene, Object *ob, bool use_default)
+MovieClip *BKE_object_movieclip_get(Scene *scene, const Object *ob, bool use_default)
 {
   MovieClip *clip = use_default ? scene->clip : nullptr;
   bConstraint *con = (bConstraint *)ob->constraints.first, *scon = nullptr;
@@ -5047,12 +5050,13 @@ KDTree_3d *BKE_object_as_kdtree(Object *ob, int *r_tot)
       Mesh *mesh = (Mesh *)ob->data;
       uint i;
 
-      Mesh *me_eval = ob->runtime->mesh_deform_eval ? ob->runtime->mesh_deform_eval :
-                                                      BKE_object_get_evaluated_mesh(ob);
+      const Mesh *mesh_eval = BKE_object_get_mesh_deform_eval(ob) ?
+                                  BKE_object_get_mesh_deform_eval(ob) :
+                                  BKE_object_get_evaluated_mesh(ob);
       const int *index;
 
-      if (me_eval &&
-          (index = (const int *)CustomData_get_layer(&me_eval->vert_data, CD_ORIGINDEX)))
+      if (mesh_eval &&
+          (index = (const int *)CustomData_get_layer(&mesh_eval->vert_data, CD_ORIGINDEX)))
       {
         const Span<float3> positions = mesh->vert_positions();
 

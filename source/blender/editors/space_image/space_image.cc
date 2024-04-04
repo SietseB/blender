@@ -1004,6 +1004,14 @@ static void image_header_region_listener(const wmRegionListenerParams *params)
         ED_region_tag_redraw(region);
       }
       break;
+    case NC_GPENCIL:
+      if (wmn->data & ND_GPENCIL_EDITMODE) {
+        ED_region_tag_redraw(region);
+      }
+      else if (wmn->action == NA_EDITED) {
+        ED_region_tag_redraw(region);
+      }
+      break;
   }
 }
 
@@ -1017,9 +1025,9 @@ static void image_id_remap(ScrArea * /*area*/,
     return;
   }
 
-  mappings.apply((ID **)&simg->image, ID_REMAP_APPLY_ENSURE_REAL);
-  mappings.apply((ID **)&simg->gpd, ID_REMAP_APPLY_UPDATE_REFCOUNT);
-  mappings.apply((ID **)&simg->mask_info.mask, ID_REMAP_APPLY_ENSURE_REAL);
+  mappings.apply(reinterpret_cast<ID **>(&simg->image), ID_REMAP_APPLY_ENSURE_REAL);
+  mappings.apply(reinterpret_cast<ID **>(&simg->gpd), ID_REMAP_APPLY_UPDATE_REFCOUNT);
+  mappings.apply(reinterpret_cast<ID **>(&simg->mask_info.mask), ID_REMAP_APPLY_ENSURE_REAL);
 }
 
 static void image_foreach_id(SpaceLink *space_link, LibraryForeachIDData *data)

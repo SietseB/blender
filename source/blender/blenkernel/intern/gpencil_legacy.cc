@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #include "CLG_log.h"
 
@@ -59,6 +60,7 @@
 static CLG_LogRef LOG = {"bke.gpencil"};
 
 static void greasepencil_copy_data(Main * /*bmain*/,
+                                   std::optional<Library *> /*owner_library*/,
                                    ID *id_dst,
                                    const ID *id_src,
                                    const int /*flag*/)
@@ -1186,7 +1188,7 @@ void BKE_gpencil_stroke_copy_settings(const bGPDstroke *gps_src, bGPDstroke *gps
   copy_v2_v2_short(gps_dst->caps, gps_src->caps);
   gps_dst->hardness = gps_src->hardness;
   copy_v2_v2(gps_dst->aspect_ratio, gps_src->aspect_ratio);
-  gps_dst->fill_opacity_fac = gps_dst->fill_opacity_fac;
+  gps_dst->fill_opacity_fac = gps_src->fill_opacity_fac;
   copy_v3_v3(gps_dst->boundbox_min, gps_src->boundbox_min);
   copy_v3_v3(gps_dst->boundbox_max, gps_src->boundbox_max);
   gps_dst->uv_rotation = gps_src->uv_rotation;
@@ -1219,7 +1221,7 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool in
   }
 
   /* Copy internal data (layers, etc.) */
-  greasepencil_copy_data(bmain, &gpd_dst->id, &gpd_src->id, 0);
+  greasepencil_copy_data(bmain, std::nullopt, &gpd_dst->id, &gpd_src->id, 0);
 
   /* return new */
   return gpd_dst;
@@ -1926,9 +1928,9 @@ Material *BKE_gpencil_object_material_ensure_from_active_input_toolsettings(Main
                                                                             Object *ob,
                                                                             ToolSettings *ts)
 {
-  if (ts && ts->gp_paint && ts->gp_paint->paint.brush) {
+  if (ts && ts->gp_paint && BKE_paint_brush(&ts->gp_paint->paint)) {
     return BKE_gpencil_object_material_ensure_from_active_input_brush(
-        bmain, ob, ts->gp_paint->paint.brush);
+        bmain, ob, BKE_paint_brush(&ts->gp_paint->paint));
   }
 
   return BKE_gpencil_object_material_ensure_from_active_input_brush(bmain, ob, nullptr);

@@ -28,12 +28,13 @@
 #include "RNA_enum_types.hh"
 #include "RNA_prototypes.h"
 
-#include "GPU_state.h"
+#include "GPU_state.hh"
 
 #include "WM_api.hh" /* For #WM_ghost_backend */
 
 #include "bpy.h"
 #include "bpy_app.h"
+#include "bpy_cli_command.h"
 #include "bpy_driver.h"
 #include "bpy_library.h"
 #include "bpy_operator.h"
@@ -222,7 +223,7 @@ static PyObject *bpy_user_resource(PyObject * /*self*/, PyObject *args, PyObject
       {BLENDER_USER_DATAFILES, "DATAFILES"},
       {BLENDER_USER_CONFIG, "CONFIG"},
       {BLENDER_USER_SCRIPTS, "SCRIPTS"},
-      {BLENDER_USER_AUTOSAVE, "AUTOSAVE"},
+      {BLENDER_USER_EXTENSIONS, "EXTENSIONS"},
       {0, nullptr},
   };
   PyC_StringEnum type = {type_items};
@@ -717,27 +718,28 @@ void BPy_init_modules(bContext *C)
   /* Register methods and property get/set for RNA types. */
   BPY_rna_types_extend_capi();
 
+#define PYMODULE_ADD_METHOD(mod, meth) \
+  PyModule_AddObject(mod, (meth)->ml_name, (PyObject *)PyCFunction_New(meth, nullptr))
+
   for (int i = 0; bpy_methods[i].ml_name; i++) {
     PyMethodDef *m = &bpy_methods[i];
     /* Currently there is no need to support these. */
     BLI_assert((m->ml_flags & (METH_CLASS | METH_STATIC)) == 0);
-    PyModule_AddObject(mod, m->ml_name, (PyObject *)PyCFunction_New(m, nullptr));
+    PYMODULE_ADD_METHOD(mod, m);
   }
 
   /* Register functions (`bpy_rna.cc`). */
-  PyModule_AddObject(mod,
-                     meth_bpy_register_class.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_register_class, nullptr));
-  PyModule_AddObject(mod,
-                     meth_bpy_unregister_class.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_unregister_class, nullptr));
+  PYMODULE_ADD_METHOD(mod, &meth_bpy_register_class);
+  PYMODULE_ADD_METHOD(mod, &meth_bpy_unregister_class);
 
-  PyModule_AddObject(mod,
-                     meth_bpy_owner_id_get.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_owner_id_get, nullptr));
-  PyModule_AddObject(mod,
-                     meth_bpy_owner_id_set.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_owner_id_set, nullptr));
+  PYMODULE_ADD_METHOD(mod, &meth_bpy_owner_id_get);
+  PYMODULE_ADD_METHOD(mod, &meth_bpy_owner_id_set);
+
+  /* Register command functions. */
+  PYMODULE_ADD_METHOD(mod, &BPY_cli_command_register_def);
+  PYMODULE_ADD_METHOD(mod, &BPY_cli_command_unregister_def);
+
+#undef PYMODULE_ADD_METHOD
 
   /* add our own modules dir, this is a python package */
   bpy_package_py = bpy_import_test("bpy");

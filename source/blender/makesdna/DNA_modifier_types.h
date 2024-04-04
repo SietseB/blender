@@ -117,6 +117,10 @@ typedef enum ModifierType {
   eModifierType_GreasePencilTime = 80,
   eModifierType_GreasePencilEnvelope = 81,
   eModifierType_GreasePencilOutline = 82,
+  eModifierType_GreasePencilShrinkwrap = 83,
+  eModifierType_GreasePencilBuild = 84,
+  eModifierType_GreasePencilSimplify = 85,
+  eModifierType_GreasePencilTexture = 86,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
@@ -982,8 +986,8 @@ typedef enum {
 
 /** #BooleanModifierData.solver */
 typedef enum {
-  eBooleanModifierSolver_Fast = 0,
-  eBooleanModifierSolver_Exact = 1,
+  eBooleanModifierSolver_Float = 0,
+  eBooleanModifierSolver_Mesh_Arr = 1,
 } BooleanModifierSolver;
 
 /** #BooleanModifierData.flag */
@@ -3273,3 +3277,189 @@ typedef struct GreasePencilOutlineModifierData {
 typedef enum GreasePencilOutlineModifierFlag {
   MOD_GREASE_PENCIL_OUTLINE_KEEP_SHAPE = (1 << 0),
 } GreasePencilOutlineModifierFlag;
+
+typedef struct GreasePencilShrinkwrapModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+
+  /** Shrink target. */
+  struct Object *target;
+  /** Additional shrink target. */
+  struct Object *aux_target;
+  /** Distance offset to keep from mesh/projection point. */
+  float keep_dist;
+  /** Shrink type projection. */
+  short shrink_type;
+  /** Shrink options. */
+  char shrink_opts;
+  /** Shrink to surface mode. */
+  char shrink_mode;
+  /** Limit the projection ray cast. */
+  float proj_limit;
+  /** Axis to project over. */
+  char proj_axis;
+
+  /**
+   * If using projection over vertex normal this controls the level of subsurface that must be
+   * done before getting the vertex coordinates and normal.
+   */
+  char subsurf_levels;
+  char _pad[2];
+  /** Factor of smooth. */
+  float smooth_factor;
+  /** How many times apply smooth. */
+  int smooth_step;
+
+  /** Runtime only. */
+  struct ShrinkwrapTreeData *cache_data;
+} GreasePencilShrinkwrapModifierData;
+
+typedef struct GreasePencilBuildModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+  /**
+   * If GP_BUILD_RESTRICT_TIME is set,
+   * the defines the frame range where GP frames are considered.
+   */
+  float start_frame;
+  float end_frame;
+
+  /** Start time added on top of the drawing frame number */
+  float start_delay;
+  float length;
+
+  /** #GreasePencilBuildFlag. */
+  short flag;
+
+  /** #GreasePencilBuildMode. */
+  short mode;
+  /** #GreasePencilBuildTransition. */
+  short transition;
+
+  /**
+   * #GreasePencilBuildTimeAlignment.
+   * For the "Concurrent" mode, when should "shorter" strips start/end.
+   */
+  short time_alignment;
+
+  /** Speed factor for #GP_BUILD_TIMEMODE_DRAWSPEED. */
+  float speed_fac;
+  /** Maximum time gap between strokes for #GP_BUILD_TIMEMODE_DRAWSPEED. */
+  float speed_maxgap;
+  /** GreasePencilBuildTimeMode. */
+  short time_mode;
+  char _pad[6];
+
+  /** Build origin control object. */
+  struct Object *object;
+
+  /** Factor of the stroke (used instead of frame evaluation). */
+  float percentage_fac;
+
+  /** Weight fading at the end of the stroke. */
+  float fade_fac;
+  /** Target vertex-group name, #MAX_VGROUP_NAME. */
+  char target_vgname[64];
+  /** Fading strength of opacity and thickness */
+  float fade_opacity_strength;
+  float fade_thickness_strength;
+} GreasePencilBuildModifierData;
+
+typedef enum GreasePencilBuildMode {
+  /* Strokes are shown one by one until all have appeared */
+  MOD_GREASE_PENCIL_BUILD_MODE_SEQUENTIAL = 0,
+  /* All strokes start at the same time */
+  MOD_GREASE_PENCIL_BUILD_MODE_CONCURRENT = 1,
+  /* Only the new strokes are built */
+  MOD_GREASE_PENCIL_BUILD_MODE_ADDITIVE = 2,
+} GreasePencilBuildMode;
+
+typedef enum GreasePencilBuildTransition {
+  /* Show in forward order */
+  MOD_GREASE_PENCIL_BUILD_TRANSITION_GROW = 0,
+  /* Hide in reverse order */
+  MOD_GREASE_PENCIL_BUILD_TRANSITION_SHRINK = 1,
+  /* Hide in forward order */
+  MOD_GREASE_PENCIL_BUILD_TRANSITION_VANISH = 2,
+} GreasePencilBuildTransition;
+
+typedef enum GreasePencilBuildTimeAlignment {
+  /* All strokes start at same time */
+  MOD_GREASE_PENCIL_BUILD_TIMEALIGN_START = 0,
+  /* All strokes end at same time */
+  MOD_GREASE_PENCIL_BUILD_TIMEALIGN_END = 1,
+
+  /* TODO: Random Offsets, Stretch-to-Fill */
+} GreasePencilBuildTimeAlignment;
+
+typedef enum GreasePencilBuildTimeMode {
+  /** Use a number of frames build. */
+  MOD_GREASE_PENCIL_BUILD_TIMEMODE_FRAMES = 0,
+  /** Use manual percentage to build. */
+  MOD_GREASE_PENCIL_BUILD_TIMEMODE_PERCENTAGE = 1,
+  /** Use factor of recorded speed to build. */
+  MOD_GREASE_PENCIL_BUILD_TIMEMODE_DRAWSPEED = 2,
+} GreasePencilBuildTimeMode;
+
+typedef enum GreasePencilBuildFlag {
+  /* Restrict modifier to only operating between the nominated frames */
+  MOD_GREASE_PENCIL_BUILD_RESTRICT_TIME = (1 << 0),
+  MOD_GREASE_PENCIL_BUILD_USE_FADING = (1 << 14),
+} GreasePencilBuildFlag;
+
+typedef struct GreasePencilSimplifyModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+
+  /** #GreasePencilSimplifyModifierMode. */
+  short mode;
+  char _pad[4];
+  /** Every n vertex to keep. */
+  short step;
+  float factor;
+  /** For sampling. */
+  float length;
+  float sharp_threshold;
+
+  /** Merge distance */
+  float distance;
+} GreasePencilSimplifyModifierData;
+
+typedef enum GreasePencilSimplifyModifierMode {
+  MOD_GREASE_PENCIL_SIMPLIFY_FIXED = 0,
+  MOD_GREASE_PENCIL_SIMPLIFY_ADAPTIVE = 1,
+  MOD_GREASE_PENCIL_SIMPLIFY_SAMPLE = 2,
+  MOD_GREASE_PENCIL_SIMPLIFY_MERGE = 3,
+} GreasePencilSimplifyModifierMode;
+
+typedef struct GreasePencilTextureModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+  /* Offset value to add to uv_fac. */
+  float uv_offset;
+  float uv_scale;
+  float fill_rotation;
+  float fill_offset[2];
+  float fill_scale;
+  /* Custom index for passes. */
+  int layer_pass;
+  /* Texture fit options. */
+  short fit_method;
+  short mode;
+  /* Dot texture rotation. */
+  float alignment_rotation;
+  char _pad[4];
+} GreasePencilTextureModifierData;
+
+/* Texture->fit_method */
+typedef enum GreasePencilTextureModifierFit {
+  MOD_GREASE_PENCIL_TEXTURE_FIT_STROKE = 0,
+  MOD_GREASE_PENCIL_TEXTURE_CONSTANT_LENGTH = 1,
+} GreasePencilTextureModifierFit;
+
+/* Texture->mode */
+typedef enum GreasePencilTextureModifierMode {
+  MOD_GREASE_PENCIL_TEXTURE_STROKE = 0,
+  MOD_GREASE_PENCIL_TEXTURE_FILL = 1,
+  MOD_GREASE_PENCIL_TEXTURE_STROKE_AND_FILL = 2,
+} GreasePencilTextureModifierMode;

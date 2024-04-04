@@ -35,7 +35,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_global.hh"
 #include "BKE_nla.h"
 #include "BKE_report.hh"
@@ -43,6 +43,7 @@
 
 #include "DEG_depsgraph_build.hh"
 
+#include "UI_interface_icons.hh"
 #include "UI_view2d.hh"
 
 #include "ANIM_animdata.hh"
@@ -58,7 +59,7 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "graph_intern.h"
+#include "graph_intern.hh"
 
 /* -------------------------------------------------------------------- */
 /** \name Insert Keyframes Operator
@@ -209,7 +210,6 @@ static void insert_graph_keys(bAnimContext *ac, eGraphKeys_InsertKey_Types mode)
         insert_keyframe(ac->bmain,
                         reports,
                         ale->id,
-                        nullptr,
                         ((fcu->grp) ? (fcu->grp->name) : (nullptr)),
                         fcu->rna_path,
                         fcu->array_index,
@@ -801,6 +801,20 @@ static int graphkeys_delete_exec(bContext *C, wmOperator * /*op*/)
   return OPERATOR_FINISHED;
 }
 
+static int graphkeys_delete_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
+{
+  if (RNA_boolean_get(op->ptr, "confirm")) {
+    return WM_operator_confirm_ex(C,
+                                  op,
+                                  IFACE_("Delete selected keyframes?"),
+                                  nullptr,
+                                  IFACE_("Delete"),
+                                  ALERT_ICON_NONE,
+                                  false);
+  }
+  return graphkeys_delete_exec(C, op);
+}
+
 void GRAPH_OT_delete(wmOperatorType *ot)
 {
   /* Identifiers */
@@ -809,7 +823,7 @@ void GRAPH_OT_delete(wmOperatorType *ot)
   ot->description = "Remove all selected keyframes";
 
   /* API callbacks */
-  ot->invoke = WM_operator_confirm_or_exec;
+  ot->invoke = graphkeys_delete_invoke;
   ot->exec = graphkeys_delete_exec;
   ot->poll = graphop_editable_keyframes_poll;
 
@@ -967,6 +981,20 @@ static int graphkeys_keys_to_samples_exec(bContext *C, wmOperator * /*op*/)
   return OPERATOR_FINISHED;
 }
 
+static int graphkeys_keys_to_samples_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
+{
+  if (RNA_boolean_get(op->ptr, "confirm")) {
+    return WM_operator_confirm_ex(C,
+                                  op,
+                                  IFACE_("Convert selected keys to samples?"),
+                                  nullptr,
+                                  IFACE_("Convert"),
+                                  ALERT_ICON_NONE,
+                                  false);
+  }
+  return graphkeys_keys_to_samples_exec(C, op);
+}
+
 void GRAPH_OT_keys_to_samples(wmOperatorType *ot)
 {
   /* Identifiers */
@@ -976,7 +1004,7 @@ void GRAPH_OT_keys_to_samples(wmOperatorType *ot)
       "Convert selected channels to an uneditable set of samples to save storage space";
 
   /* API callbacks */
-  ot->invoke = WM_operator_confirm_or_exec;
+  ot->invoke = graphkeys_keys_to_samples_invoke;
   ot->exec = graphkeys_keys_to_samples_exec;
   ot->poll = graphop_selected_fcurve_poll;
 

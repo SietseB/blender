@@ -17,7 +17,7 @@ set(INC
   ../render
   ../windowmanager
   ../../../intern/eigen
-  
+
   # Needed for shared line art functions from legacy implementations.
   ../gpencil_modifiers_legacy
   ../gpencil_modifiers_legacy/intern
@@ -51,6 +51,7 @@ set(SRC
   intern/MOD_fluid.cc
   intern/MOD_grease_pencil_armature.cc
   intern/MOD_grease_pencil_array.cc
+  intern/MOD_grease_pencil_build.cc
   intern/MOD_grease_pencil_color.cc
   intern/MOD_grease_pencil_dash.cc
   intern/MOD_grease_pencil_envelope.cc
@@ -63,8 +64,11 @@ set(SRC
   intern/MOD_grease_pencil_offset.cc
   intern/MOD_grease_pencil_opacity.cc
   intern/MOD_grease_pencil_outline.cc
+  intern/MOD_grease_pencil_shrinkwrap.cc
+  intern/MOD_grease_pencil_simplify.cc
   intern/MOD_grease_pencil_smooth.cc
   intern/MOD_grease_pencil_subdiv.cc
+  intern/MOD_grease_pencil_texture.cc
   intern/MOD_grease_pencil_thickness.cc
   intern/MOD_grease_pencil_time.cc
   intern/MOD_grease_pencil_tint.cc

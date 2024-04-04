@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.1.0 Beta (b'e938b516a994')\n"
+"Project-Id-Version: Blender 4.1.0 Release Candidate (b'64bfe491645f')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-26 11:48+0000\n"
+"POT-Creation-Date: 2020-01-01 00:00+0000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Martin Reininger <martinreininger@gmx.net>\n"
 "Language-Team: German translation team\n"
@@ -3603,18 +3603,6 @@ msgid "Curve used for the strength"
 msgstr "Kurve verwendet für die Stärke"
 
 
-msgid "Direction"
-msgstr "Richtung"
-
-
-msgid "Add effect of brush"
-msgstr "Hinzufügen-Effekt des Pinsels"
-
-
-msgid "Subtract effect of brush"
-msgstr "Abziehen-Effekt des Pinsels"
-
-
 msgid "Eraser Mode"
 msgstr "Radiermodus"
 
@@ -3657,6 +3645,10 @@ msgstr "Menge zum Radieren der Dicke"
 
 msgid "Strokes end extension for closing gaps, use zero to disable"
 msgstr "Striche Enderweiterung zum Schließen von Lücken, verwenden Sie Null zum deaktivieren"
+
+
+msgid "Direction"
+msgstr "Richtung"
 
 
 msgid "Direction of the fill"
@@ -12963,6 +12955,14 @@ msgstr "Gewebesimulation"
 
 msgid "Brush deforms the mesh by deforming the constraints of a cloth simulation"
 msgstr "Pinsel deformiert die Schleife indem eine Deformation, der Bedingung, einer Gewebesimulation durchgeführt wird"
+
+
+msgid "Add effect of brush"
+msgstr "Hinzufügen-Effekt des Pinsels"
+
+
+msgid "Subtract effect of brush"
+msgstr "Abziehen-Effekt des Pinsels"
 
 
 msgid "Max Element Distance"
@@ -44422,10 +44422,6 @@ msgid "Temporary Directory"
 msgstr "Temporäres Verzeichnis"
 
 
-msgid "The directory for storing temporary save files"
-msgstr "Das Verzeichnis, um temporär gespeicherte Dateien abzulegen"
-
-
 msgid "The default directory to search for textures"
 msgstr "Das Vorgabeverzeichnis, um nach Texturen zu suchen"
 
@@ -54332,14 +54328,6 @@ msgid "Mask Value"
 msgstr "Maskiere Wert"
 
 
-msgid "CCW"
-msgstr "CCW"
-
-
-msgid "CW"
-msgstr "CW"
-
-
 msgid "Invert to Fill"
 msgstr "Zum füllen invertieren"
 
@@ -58818,10 +58806,6 @@ msgid "Enable F-Curve modifiers"
 msgstr "Aktiviere F-Kurven Modifikator"
 
 
-msgid "Nothing selected"
-msgstr "Nichts ausgewählt"
-
-
 msgid "<invalid>"
 msgstr "<ungültig>"
 
@@ -59102,6 +59086,10 @@ msgstr "Kein aktives Einzelbild zum Löschen"
 
 msgid "No active frame(s) to delete"
 msgstr "Kein aktive(s) Einzelbild(er) zum Löschen"
+
+
+msgid "Nothing selected"
+msgstr "Nichts ausgewählt"
 
 
 msgid "No active area"

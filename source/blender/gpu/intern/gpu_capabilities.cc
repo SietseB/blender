@@ -11,7 +11,7 @@
 
 #include "DNA_userdef_types.h" /* For `U.glreslimit`. */
 
-#include "GPU_capabilities.h"
+#include "GPU_capabilities.hh"
 
 #include "gpu_context_private.hh"
 
@@ -69,6 +69,11 @@ int GPU_max_textures_frag()
 int GPU_max_textures()
 {
   return GCaps.max_textures;
+}
+
+int GPU_max_images()
+{
+  return GCaps.max_images;
 }
 
 int GPU_max_work_group_count(int index)

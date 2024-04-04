@@ -116,7 +116,7 @@ const EnumPropertyItem rna_enum_strip_color_items[] = {
 #  include <fmt/format.h>
 
 #  include "BKE_global.hh"
-#  include "BKE_idprop.h"
+#  include "BKE_idprop.hh"
 #  include "BKE_movieclip.h"
 #  include "BKE_report.hh"
 
@@ -970,7 +970,7 @@ static int rna_Sequence_input_count_get(PointerRNA *ptr)
 }
 
 static void rna_Sequence_input_set(PointerRNA *ptr,
-                                   PointerRNA ptr_value,
+                                   const PointerRNA &ptr_value,
                                    ReportList *reports,
                                    int input_num)
 {
@@ -1507,7 +1507,8 @@ static void rna_Sequence_separate(ID *id, Sequence *seqm, Main *bmain)
 }
 
 /* Find channel owner. If nullptr, owner is `Editing`, otherwise it's `Sequence`. */
-static Sequence *rna_SeqTimelineChannel_owner_get(Editing *ed, SeqTimelineChannel *channel)
+static Sequence *rna_SeqTimelineChannel_owner_get(const Editing *ed,
+                                                  const SeqTimelineChannel *channel)
 {
   blender::VectorSet strips = SEQ_query_all_meta_strips_recursive(&ed->seqbase);
 
@@ -3466,7 +3467,7 @@ static void rna_def_text(StructRNA *srna)
 
 static void rna_def_color_mix(StructRNA *srna)
 {
-  static EnumPropertyItem blend_color_items[] = {
+  static const EnumPropertyItem blend_color_items[] = {
       {SEQ_TYPE_DARKEN, "DARKEN", 0, "Darken", ""},
       {SEQ_TYPE_MUL, "MULTIPLY", 0, "Multiply", ""},
       {SEQ_TYPE_COLOR_BURN, "BURN", 0, "Color Burn", ""},
@@ -3750,7 +3751,7 @@ static void rna_def_brightcontrast_modifier(BlenderRNA *brna)
   prop = RNA_def_property(srna, "bright", PROP_FLOAT, PROP_UNSIGNED);
   RNA_def_property_float_sdna(prop, nullptr, "bright");
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
-  RNA_def_property_ui_text(prop, "Bright", "Adjust the luminosity of the colors");
+  RNA_def_property_ui_text(prop, "Brightness", "Adjust the luminosity of the colors");
   RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_SequenceModifier_update");
 
   prop = RNA_def_property(srna, "contrast", PROP_FLOAT, PROP_UNSIGNED);

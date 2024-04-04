@@ -28,7 +28,7 @@
 #include "BKE_anim_data.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.hh"
 #include "BKE_screen.hh"
@@ -51,7 +51,7 @@
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
-#include "graph_intern.h" /* own include */
+#include "graph_intern.hh" /* own include */
 
 #define B_REDR 1
 

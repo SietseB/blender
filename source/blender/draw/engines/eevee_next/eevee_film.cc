@@ -15,8 +15,8 @@
 #include "BLI_hash.h"
 #include "BLI_rect.h"
 
-#include "GPU_framebuffer.h"
-#include "GPU_texture.h"
+#include "GPU_framebuffer.hh"
+#include "GPU_texture.hh"
 
 #include "DRW_render.hh"
 #include "RE_pipeline.h"
@@ -151,7 +151,7 @@ void Film::sync_mist()
 inline bool operator==(const FilmData &a, const FilmData &b)
 {
   return (a.extent == b.extent) && (a.offset == b.offset) &&
-         (a.render_extent == b.render_extent) && (a.render_offset == b.render_offset) &&
+         (a.render_extent == b.render_extent) && (a.overscan == b.overscan) &&
          (a.filter_radius == b.filter_radius) && (a.scaling_factor == b.scaling_factor) &&
          (a.background_opacity == b.background_opacity);
 }
@@ -242,6 +242,17 @@ void Film::init(const int2 &extent, const rcti *output_rect)
     }
   }
   {
+    data_.scaling_factor = 1;
+    if (inst_.is_viewport()) {
+      if (!bool(enabled_passes_ &
+                (EEVEE_RENDER_PASS_CRYPTOMATTE_ASSET | EEVEE_RENDER_PASS_CRYPTOMATTE_MATERIAL |
+                 EEVEE_RENDER_PASS_CRYPTOMATTE_OBJECT | EEVEE_RENDER_PASS_NORMAL)))
+      {
+        data_.scaling_factor = BKE_render_preview_pixel_size(&inst_.scene->r);
+      }
+    }
+  }
+  {
     rcti fallback_rect;
     if (BLI_rcti_is_empty(output_rect)) {
       BLI_rcti_init(&fallback_rect, 0, extent[0], 0, extent[1]);
@@ -253,16 +264,12 @@ void Film::init(const int2 &extent, const rcti *output_rect)
     data_.extent = int2(BLI_rcti_size_x(output_rect), BLI_rcti_size_y(output_rect));
     data_.offset = int2(output_rect->xmin, output_rect->ymin);
     data_.extent_inv = 1.0f / float2(data_.extent);
-    /* TODO(fclem): parameter hidden in experimental.
-     * We need to figure out LOD bias first in order to preserve texture crispiness. */
-    data_.scaling_factor = 1;
     data_.render_extent = math::divide_ceil(extent, int2(data_.scaling_factor));
-    data_.render_offset = data_.offset;
+    data_.overscan = 0;
 
     if (inst_.camera.overscan() != 0.0f) {
-      int2 overscan = int2(inst_.camera.overscan() * math::max(UNPACK2(data_.render_extent)));
-      data_.render_extent += overscan * 2;
-      data_.render_offset += overscan;
+      data_.overscan = inst_.camera.overscan() * math::max(UNPACK2(data_.render_extent));
+      data_.render_extent += data_.overscan * 2;
     }
 
     /* Disable filtering if sample count is 1. */
@@ -380,7 +387,9 @@ void Film::init(const int2 &extent, const rcti *output_rect)
     }
   }
   {
-    int2 weight_extent = inst_.camera.is_panoramic() ? data_.extent : int2(data_.scaling_factor);
+    int2 weight_extent = (inst_.camera.is_panoramic() || (data_.scaling_factor > 1)) ?
+                             data_.extent :
+                             int2(1);
 
     eGPUTextureFormat color_format = GPU_RGBA16F;
     eGPUTextureFormat float_format = GPU_R16F;
@@ -448,6 +457,7 @@ void Film::sync()
   accumulate_ps_.specialize_constant(sh, "enabled_categories", uint(enabled_categories_));
   accumulate_ps_.specialize_constant(sh, "samples_len", &data_.samples_len);
   accumulate_ps_.specialize_constant(sh, "use_reprojection", &use_reprojection_);
+  accumulate_ps_.specialize_constant(sh, "scaling_factor", data_.scaling_factor);
   accumulate_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS);
   accumulate_ps_.shader_set(sh);
   accumulate_ps_.bind_resources(inst_.uniform_data);

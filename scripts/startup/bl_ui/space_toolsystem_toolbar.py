@@ -171,8 +171,8 @@ class _defs_annotate:
 
             gpl = context.active_annotation_layer
             if gpl is not None:
-                layout.label(text="Annotation:")
-                if context.space_data.type in {'VIEW_3D', 'SEQUENCE_EDITOR'}:
+                if context.space_data.type in {'VIEW_3D', 'SEQUENCE_EDITOR', 'IMAGE_EDITOR', 'NODE_EDITOR'}:
+                    layout.label(text="Annotation:")
                     if region_type == 'TOOL_HEADER':
                         sub = layout.split(align=True, factor=0.5)
                         sub.ui_units_x = 6.5
@@ -184,7 +184,15 @@ class _defs_annotate:
                         panel="TOPBAR_PT_annotation_layers",
                         text=text,
                     )
+                elif context.space_data.type == 'PROPERTIES':
+                    row = layout.row(align=True)
+                    row.prop(gpl, "color", text="Annotation")
+                    row.popover(
+                        panel="TOPBAR_PT_annotation_layers",
+                        text=text,
+                    )
                 else:
+                    layout.label(text="Annotation:")
                     layout.prop(gpl, "color", text="")
 
         space_type = tool.space_type
@@ -1132,7 +1140,7 @@ class _defs_edit_mesh:
         )
 
 
-def curve_draw_settings(context, layout, _tool, *, extra=False):
+def curve_draw_settings(context, layout, tool, *, extra=False):
     # Tool settings initialize operator options.
     tool_settings = context.tool_settings
     cps = tool_settings.curve_paint_settings
@@ -1186,6 +1194,11 @@ def curve_draw_settings(context, layout, _tool, *, extra=False):
         if cps.use_stroke_endpoints:
             colsub = layout.column(align=True)
             colsub.prop(cps, "surface_plane")
+
+    props = tool.operator_properties("curves.draw")
+    col = layout.column(align=True)
+    col.prop(props, "is_curve_2d", text="Curve 2D")
+    col.prop(props, "bezier_as_nurbs", text="As NURBS")
 
 
 class _defs_edit_curve:
@@ -1287,12 +1300,6 @@ class _defs_edit_curves:
         def curve_draw(context, layout, tool, *, extra=False):
             curve_draw_settings(context, layout, tool, extra=extra)
 
-            if extra:
-                props = tool.operator_properties("curves.draw")
-                col = layout.column(align=True)
-                col.prop(props, "is_curve_2d", text="Curve 2D")
-                col.prop(props, "bezier_as_nurbs", text="As NURBS")
-
         return dict(
             idname="builtin.draw",
             label="Draw",
@@ -1381,12 +1388,47 @@ class _defs_sculpt:
 
     @ToolDef.from_fn
     def hide_border():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("paint.hide_show")
+            layout.prop(props, "area", expand=False)
+
         return dict(
             idname="builtin.box_hide",
             label="Box Hide",
             icon="ops.sculpt.border_hide",
             widget=None,
             keymap=(),
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def hide_lasso():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("paint.hide_show_lasso_gesture")
+            layout.prop(props, "area", expand=False)
+
+        return dict(
+            idname="builtin.lasso_hide",
+            label="Lasso Hide",
+            icon="ops.sculpt.lasso_hide",
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def hide_line():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("paint.hide_show_line_gesture")
+            layout.prop(props, "use_limit_to_segment", expand=False)
+
+        return dict(
+            idname="builtin.line_hide",
+            label="Line Hide",
+            icon="ops.sculpt.line_hide",
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
@@ -1469,6 +1511,7 @@ class _defs_sculpt:
     def trim_box():
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("sculpt.trim_box_gesture")
+            layout.prop(props, "trim_solver", expand=False)
             layout.prop(props, "trim_mode", expand=False)
             layout.prop(props, "trim_orientation", expand=False)
             layout.prop(props, "trim_extrude_mode", expand=False)
@@ -1486,6 +1529,7 @@ class _defs_sculpt:
     def trim_lasso():
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("sculpt.trim_lasso_gesture")
+            layout.prop(props, "trim_solver", expand=False)
             layout.prop(props, "trim_mode", expand=False)
             layout.prop(props, "trim_orientation", expand=False)
             layout.prop(props, "trim_extrude_mode", expand=False)
@@ -1785,6 +1829,15 @@ class _defs_paint_grease_pencil:
             label="Erase",
             icon="brush.gpencil_draw.erase",
             data_block='ERASE',
+        )
+
+    @ToolDef.from_fn
+    def tint():
+        return dict(
+            idname="builtin_brush.Tint",
+            label="Tint",
+            icon="brush.gpencil_draw.tint",
+            data_block='TINT',
         )
 
 
@@ -3104,7 +3157,11 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
                 _defs_sculpt.mask_lasso,
                 _defs_sculpt.mask_line,
             ),
-            _defs_sculpt.hide_border,
+            (
+                _defs_sculpt.hide_border,
+                _defs_sculpt.hide_lasso,
+                _defs_sculpt.hide_line,
+            ),
             (
                 _defs_sculpt.face_set_box,
                 _defs_sculpt.face_set_lasso,
@@ -3176,6 +3233,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             _defs_paint_grease_pencil.draw,
             _defs_paint_grease_pencil.erase,
+            _defs_paint_grease_pencil.tint,
         ],
         'PAINT_GPENCIL': [
             _defs_view3d_generic.cursor,

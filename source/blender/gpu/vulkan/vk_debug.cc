@@ -14,6 +14,7 @@
 #include "vk_backend.hh"
 #include "vk_context.hh"
 #include "vk_debug.hh"
+#include "vk_to_string.hh"
 
 static CLG_LogRef LOG = {"gpu.debug.vulkan"};
 
@@ -257,12 +258,12 @@ void VKDebuggingTools::print_labels(const VkDebugUtilsMessengerCallbackDataEXT *
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
 messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                   VkDebugUtilsMessageTypeFlagsEXT /* message_type*/,
+                   VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
                    const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
                    void *user_data);
 VKAPI_ATTR VkBool32 VKAPI_CALL
 messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                   VkDebugUtilsMessageTypeFlagsEXT /* message_type*/,
+                   VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
                    const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
                    void *user_data)
 {

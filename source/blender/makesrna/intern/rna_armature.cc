@@ -66,7 +66,7 @@ constexpr int COLOR_SETS_MAX_THEMED_INDEX = 20;
 #  include "BKE_action.h"
 #  include "BKE_context.hh"
 #  include "BKE_global.hh"
-#  include "BKE_idprop.h"
+#  include "BKE_idprop.hh"
 #  include "BKE_main.hh"
 
 #  include "BKE_armature.hh"
@@ -1903,7 +1903,7 @@ static void rna_def_edit_bone(BlenderRNA *brna)
   RNA_define_verify_sdna(true);
 }
 
-/* armature.bones.* */
+/* `armature.bones.*`. */
 static void rna_def_armature_bones(BlenderRNA *brna, PropertyRNA *cprop)
 {
   StructRNA *srna;
@@ -1929,7 +1929,7 @@ static void rna_def_armature_bones(BlenderRNA *brna, PropertyRNA *cprop)
   // RNA_def_property_collection_active(prop, prop_act);
 }
 
-/* armature.bones.* */
+/* `armature.bones.*`. */
 static void rna_def_armature_edit_bones(BlenderRNA *brna, PropertyRNA *cprop)
 {
   StructRNA *srna;

@@ -17,6 +17,7 @@
 #include "CLG_log.h"
 
 #include "BLI_array_utils.hh"
+#include "BLI_bit_span_ops.hh"
 #include "BLI_blenlib.h"
 #include "BLI_dial_2d.h"
 #include "BLI_ghash.h"
@@ -777,7 +778,7 @@ static void sculpt_vertex_neighbors_get_grids(SculptSession *ss,
   iter->neighbors = iter->neighbors_fixed;
   iter->neighbor_indices = iter->neighbor_indices_fixed;
 
-  for (int i = 0; i < neighbors.size; i++) {
+  for (const int i : neighbors.coords.index_range()) {
     int v = neighbors.coords[i].grid_index * key->grid_area +
             neighbors.coords[i].y * key->grid_size + neighbors.coords[i].x;
 
@@ -790,10 +791,6 @@ static void sculpt_vertex_neighbors_get_grids(SculptSession *ss,
       int v = ss->fake_neighbors.fake_neighbor_index[vertex.i];
       sculpt_vertex_neighbor_add(iter, BKE_pbvh_make_vref(v), v);
     }
-  }
-
-  if (neighbors.coords != neighbors.coords_fixed) {
-    MEM_freeN(neighbors.coords);
   }
 }
 
@@ -1337,12 +1334,20 @@ static void paint_mesh_restore_node(Object *ob, const undo::Type type, PBVHNode 
           break;
         }
         case PBVH_GRIDS: {
-          PBVHVertexIter vd;
-          BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
-            *CCG_elem_mask(&vd.key, vd.grid) = unode->mask[vd.i];
-            break;
+          SubdivCCG &subdiv_ccg = *ss->subdiv_ccg;
+          const BitGroupVector<> grid_hidden = subdiv_ccg.grid_hidden;
+          const CCGKey key = BKE_subdiv_ccg_key_top_level(subdiv_ccg);
+          const Span<CCGElem *> grids = subdiv_ccg.grids;
+          int index = 0;
+          for (const int grid : unode->grids) {
+            CCGElem *elem = grids[grid];
+            for (const int i : IndexRange(key.grid_area)) {
+              if (grid_hidden.is_empty() || !grid_hidden[grid][i]) {
+                *CCG_elem_offset_mask(&key, elem, i) = unode->mask[index];
+              }
+              index++;
+            }
           }
-          BKE_pbvh_vertex_iter_end;
           break;
         }
       }
@@ -5775,7 +5780,7 @@ void SCULPT_OT_brush_stroke(wmOperatorType *ot)
   ot->cancel = sculpt_brush_stroke_cancel;
   ot->ui = sculpt_redo_empty_ui;
 
-  /* Flags (sculpt does own undo? (ton)). */
+  /* Flags (sculpt does its own undo? (ton)). */
   ot->flag = OPTYPE_BLOCKING;
 
   /* Properties. */

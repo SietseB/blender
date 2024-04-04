@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <optional>
 
 #include "CLG_log.h"
 
@@ -91,7 +92,11 @@ static void material_init_data(ID *id)
   *((short *)id->name) = ID_MA;
 }
 
-static void material_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
+static void material_copy_data(Main *bmain,
+                               std::optional<Library *> owner_library,
+                               ID *id_dst,
+                               const ID *id_src,
+                               const int flag)
 {
   Material *material_dst = (Material *)id_dst;
   const Material *material_src = (const Material *)id_src;
@@ -105,10 +110,11 @@ static void material_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const 
       material_dst->nodetree = ntreeLocalize(material_src->nodetree);
     }
     else {
-      BKE_id_copy_ex(bmain,
-                     (ID *)material_src->nodetree,
-                     (ID **)&material_dst->nodetree,
-                     flag_private_id_data);
+      BKE_id_copy_in_lib(bmain,
+                         owner_library,
+                         (ID *)material_src->nodetree,
+                         (ID **)&material_dst->nodetree,
+                         flag_private_id_data);
     }
     material_dst->nodetree->owner_id = &material_dst->id;
   }
@@ -724,14 +730,14 @@ Material *BKE_object_material_get(Object *ob, short act)
   return ma_p ? *ma_p : nullptr;
 }
 
-static ID *get_evaluated_object_data_with_materials(Object *ob)
+static const ID *get_evaluated_object_data_with_materials(Object *ob)
 {
-  ID *data = static_cast<ID *>(ob->data);
+  const ID *data = static_cast<ID *>(ob->data);
   /* Meshes in edit mode need special handling. */
   if (ob->type == OB_MESH && ob->mode == OB_MODE_EDIT) {
-    Mesh *mesh = static_cast<Mesh *>(ob->data);
-    Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(ob);
-    if (mesh->edit_mesh && editmesh_eval_final) {
+    const Mesh *mesh = static_cast<const Mesh *>(ob->data);
+    const Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(ob);
+    if (mesh->runtime->edit_mesh && editmesh_eval_final) {
       data = &editmesh_eval_final->id;
     }
   }
@@ -742,8 +748,8 @@ Material *BKE_object_material_get_eval(Object *ob, short act)
 {
   BLI_assert(DEG_is_evaluated_object(ob));
 
-  ID *data = get_evaluated_object_data_with_materials(ob);
-  const short *tot_slots_data_ptr = BKE_id_material_len_p(data);
+  const ID *data = get_evaluated_object_data_with_materials(ob);
+  const short *tot_slots_data_ptr = BKE_id_material_len_p(const_cast<ID *>(data));
   const int tot_slots_data = tot_slots_data_ptr ? *tot_slots_data_ptr : 0;
 
   if (tot_slots_data == 0) {
@@ -754,7 +760,7 @@ Material *BKE_object_material_get_eval(Object *ob, short act)
   const int slot_index = clamp_i(act - 1, 0, tot_slots_data - 1);
   const int tot_slots_object = ob->totcol;
 
-  Material ***materials_data_ptr = BKE_id_material_array_p(data);
+  Material ***materials_data_ptr = BKE_id_material_array_p(const_cast<ID *>(data));
   Material **materials_data = materials_data_ptr ? *materials_data_ptr : nullptr;
   Material **materials_object = ob->mat;
 
@@ -1253,7 +1259,7 @@ void BKE_object_material_array_assign(
 
   /* now we have the right number of slots */
   for (int i = 0; i < totcol; i++) {
-    if (to_object_only && ob->matbits[i] == 0) {
+    if (to_object_only && ob->matbits && ob->matbits[i] == 0) {
       /* If we only assign to object, and that slot uses obdata material, do nothing. */
       continue;
     }

@@ -8,6 +8,7 @@
 
 #include "BLI_utildefines.h"
 
+#include "BLI_array.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_simd.h"
@@ -148,7 +149,7 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
     DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_TRANSFORM, "Mesh Deform Modifier");
     DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_GEOMETRY, "Mesh Deform Modifier");
   }
-  /* We need own transformation as well. */
+  /* We need our own transformation as well. */
   DEG_add_depends_on_transform_relation(ctx->node, "Mesh Deform Modifier");
 }
 

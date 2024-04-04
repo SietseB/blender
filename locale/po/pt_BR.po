@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.1.0 Beta (b'e938b516a994')\n"
+"Project-Id-Version: Blender 4.1.0 Release Candidate (b'64bfe491645f')\n"
 "Report-Msgid-Bugs-To: Leandro Paganelli <leandrobp@fastmail.com>\n"
-"POT-Creation-Date: 2024-02-26 11:48+0000\n"
+"POT-Creation-Date: 2020-01-01 00:00+0000\n"
 "PO-Revision-Date: 2024-02-19 09:39+0000\n"
 "Last-Translator: Gilberto Rodrigues <gilbertorodrigues@outlook.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.blender.org/projects/blender-ui/ui/pt_BR/>\n"
@@ -3621,24 +3621,16 @@ msgid "Curve used for the strength"
 msgstr "A curva usada para a força."
 
 
-msgid "Direction"
-msgstr "Direção"
-
-
-msgid "Add effect of brush"
-msgstr "Adiciona o efeito do pincel"
-
-
-msgid "Subtract effect of brush"
-msgstr "Subtrai o efeito do pincel."
-
-
 msgid "Dissolve"
 msgstr "Dissolver"
 
 
 msgid "Stroke"
 msgstr "Traços"
+
+
+msgid "Direction"
+msgstr "Direção"
 
 
 msgid "Normal"
@@ -12581,6 +12573,14 @@ msgstr "Máscara de textura de sobreposição de alfa"
 
 msgid "Editable falloff curve"
 msgstr "Curva de decaimento editável."
+
+
+msgid "Add effect of brush"
+msgstr "Adiciona o efeito do pincel"
+
+
+msgid "Subtract effect of brush"
+msgstr "Subtrai o efeito do pincel."
 
 
 msgid "Falloff Angle"
@@ -54782,10 +54782,6 @@ msgid "Temporary Directory"
 msgstr "Diretório temporário"
 
 
-msgid "The directory for storing temporary save files"
-msgstr "O diretório para armazenar arquivos temporários."
-
-
 msgid "The default directory to search for textures"
 msgstr "O diretório padrão para pesquisar por texturas."
 
@@ -65303,14 +65299,6 @@ msgid "Mask Value"
 msgstr "Valor de máscara"
 
 
-msgid "CCW"
-msgstr "Sentido anti-horário"
-
-
-msgid "CW"
-msgstr "Sentido horário"
-
-
 msgctxt "Operator"
 msgid "Copy Active to Selected Objects"
 msgstr "Copiar do objeto ativo para os selecionados"
@@ -68844,10 +68832,6 @@ msgid "Display action without any time remapping (when unpinned)"
 msgstr "Mostra a ação sem qualquer remapeamento de tempo (quando não afixada)."
 
 
-msgid "Nothing selected"
-msgstr "Nada selecionado."
-
-
 msgid "<invalid>"
 msgstr "<inválido>"
 
@@ -69284,6 +69268,10 @@ msgstr "Nenhum quadro ativo para apagar."
 
 msgid "No active frame(s) to delete"
 msgstr "Sem quaisquer quadros ativos para apagar."
+
+
+msgid "Nothing selected"
+msgstr "Nada selecionado."
 
 
 msgid "No active area"

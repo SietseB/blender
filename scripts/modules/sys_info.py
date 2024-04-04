@@ -96,7 +96,7 @@ def write_sysinfo(filepath):
             output.write("datafiles: %r\n" % (bpy.utils.user_resource('DATAFILES')))
             output.write("config: %r\n" % (bpy.utils.user_resource('CONFIG')))
             output.write("scripts: %r\n" % (bpy.utils.user_resource('SCRIPTS')))
-            output.write("autosave: %r\n" % (bpy.utils.user_resource('AUTOSAVE')))
+            output.write("extensions: %r\n" % (bpy.utils.user_resource('EXTENSIONS')))
             output.write("tempdir: %r\n" % (bpy.app.tempdir))
 
             output.write(title("FFmpeg"))
@@ -181,7 +181,7 @@ def write_sysinfo(filepath):
                 output.write("SDL: Blender was built without SDL support\n")
 
             if bpy.app.background:
-                output.write("\nOpenGL: missing, background mode\n")
+                output.write("\nGPU: missing, background mode\n")
             else:
                 output.write(title("GPU"))
                 output.write("renderer:\t%r\n" % gpu.platform.renderer_get())
@@ -208,6 +208,7 @@ def write_sysinfo(filepath):
                 output.write("Maximum Vertex Image Units:\t%d\n" % gpu.capabilities.max_textures_vert_get())
                 output.write("Maximum Fragment Image Units:\t%d\n" % gpu.capabilities.max_textures_frag_get())
                 output.write("Maximum Pipeline Image Units:\t%d\n" % gpu.capabilities.max_textures_get())
+                output.write("Maximum Image Units:\t%d\n" % gpu.capabilities.max_images_get())
 
                 output.write("\nFeatures:\n")
                 output.write("Compute Shader Support:               \t%d\n" %

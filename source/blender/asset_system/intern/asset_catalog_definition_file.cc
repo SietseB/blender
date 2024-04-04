@@ -223,7 +223,7 @@ bool AssetCatalogDefinitionFile::write_to_disk_unsafe(const CatalogFilePath &des
 }
 
 bool AssetCatalogDefinitionFile::ensure_directory_exists(
-    const CatalogFilePath directory_path) const
+    const CatalogFilePath &directory_path) const
 {
   /* TODO(@sybren): design a way to get such errors presented to users (or ensure that they never
    * occur). */
@@ -280,7 +280,7 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogDefinitionFile::copy_and
       continue;
     }
 
-    BLI_assert(!"A CDF should only reference known catalogs.");
+    BLI_assert_msg(false, "A CDF should only reference known catalogs.");
   }
 
   return copy;

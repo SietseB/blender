@@ -19,7 +19,7 @@
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_idprop.h"
+#include "BKE_idprop.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -32,9 +32,9 @@
 
 #include "UI_resources.hh"
 
-#include "GPU_matrix.h"
+#include "GPU_matrix.hh"
 #include "GPU_select.hh"
-#include "GPU_state.h"
+#include "GPU_state.hh"
 
 #include "WM_api.hh"
 
@@ -46,7 +46,7 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 
-#include "view3d_intern.h" /* own include */
+#include "view3d_intern.hh" /* own include */
 #include "view3d_navigate.hh"
 
 /* -------------------------------------------------------------------- */
@@ -1097,7 +1097,7 @@ static int localview_remove_from_exec(bContext *C, wmOperator *op)
   LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     if (BASE_SELECTED(v3d, base)) {
       base->local_view_bits &= ~v3d->local_view_uid;
-      ED_object_base_select(base, BA_DESELECT);
+      blender::ed::object::base_select(base, blender::ed::object::BA_DESELECT);
 
       if (base == view_layer->basact) {
         view_layer->basact = nullptr;
@@ -1147,7 +1147,9 @@ void VIEW3D_OT_localview_remove_from(wmOperatorType *ot)
 /** \name Local Collections
  * \{ */
 
-static uint free_localcollection_bit(Main *bmain, ushort local_collections_uid, bool *r_reset)
+static uint free_localcollection_bit(const Main *bmain,
+                                     ushort local_collections_uid,
+                                     bool *r_reset)
 {
   ushort local_view_bits = 0;
 
@@ -1196,7 +1198,7 @@ static void local_collections_reset_uuid(LayerCollection *layer_collection,
   }
 }
 
-static void view3d_local_collections_reset(Main *bmain, const uint local_view_bit)
+static void view3d_local_collections_reset(const Main *bmain, const uint local_view_bit)
 {
   LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
     LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
@@ -1207,7 +1209,7 @@ static void view3d_local_collections_reset(Main *bmain, const uint local_view_bi
   }
 }
 
-bool ED_view3d_local_collections_set(Main *bmain, View3D *v3d)
+bool ED_view3d_local_collections_set(const Main *bmain, View3D *v3d)
 {
   if ((v3d->flag & V3D_LOCAL_COLLECTIONS) == 0) {
     return true;
@@ -1231,7 +1233,7 @@ bool ED_view3d_local_collections_set(Main *bmain, View3D *v3d)
   return true;
 }
 
-void ED_view3d_local_collections_reset(bContext *C, const bool reset_all)
+void ED_view3d_local_collections_reset(const bContext *C, const bool reset_all)
 {
   Main *bmain = CTX_data_main(C);
   uint local_view_bit = ~(0);

@@ -1754,8 +1754,8 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
      nullptr,
      nullptr},
     /* 18: CD_TANGENT */
-    {sizeof(float[4][4]),
-     alignof(float[4][4]),
+    {sizeof(float[4]),
+     alignof(float[4]),
      "",
      0,
      N_("Tangent"),
@@ -4799,7 +4799,7 @@ void CustomData_external_read(CustomData *data, ID *id, eCustomDataMask mask, co
       /* pass */
     }
     else if ((layer->flag & CD_FLAG_EXTERNAL) && typeInfo->read) {
-      CDataFileLayer *blay = cdf_layer_find(cdf, layer->type, layer->name);
+      const CDataFileLayer *blay = cdf_layer_find(cdf, layer->type, layer->name);
 
       if (blay) {
         if (cdf_read_layer(cdf, blay)) {

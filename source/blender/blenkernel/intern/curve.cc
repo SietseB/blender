@@ -9,6 +9,7 @@
 #include <cmath> /* floor */
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #include "MEM_guardedalloc.h"
 
@@ -79,7 +80,11 @@ static void curve_init_data(ID *id)
   MEMCPY_STRUCT_AFTER(curve, DNA_struct_default_get(Curve), id);
 }
 
-static void curve_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
+static void curve_copy_data(Main *bmain,
+                            std::optional<Library *> owner_library,
+                            ID *id_dst,
+                            const ID *id_src,
+                            const int flag)
 {
   Curve *curve_dst = (Curve *)id_dst;
   const Curve *curve_src = (const Curve *)id_src;
@@ -97,7 +102,7 @@ static void curve_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
   curve_dst->bevel_profile = BKE_curveprofile_copy(curve_src->bevel_profile);
 
   if (curve_src->key && (flag & LIB_ID_COPY_SHAPEKEY)) {
-    BKE_id_copy_ex(bmain, &curve_src->key->id, (ID **)&curve_dst->key, flag);
+    BKE_id_copy_in_lib(bmain, owner_library, &curve_src->key->id, (ID **)&curve_dst->key, flag);
     /* XXX This is not nice, we need to make BKE_id_copy_ex fully re-entrant... */
     curve_dst->key->from = &curve_dst->id;
   }
@@ -4745,7 +4750,6 @@ bool BKE_nurb_valid_message(const int pnts,
   NURBSValidationStatus status = nurb_check_valid(
       pnts, order, flag, type, is_surf, &points_needed);
 
-  const char *msg_template = nullptr;
   switch (status) {
     case NURBSValidationStatus::Valid:
       message_dst[0] = 0;
@@ -4756,20 +4760,24 @@ bool BKE_nurb_valid_message(const int pnts,
         message_dst[0] = 0;
         return false;
       }
-      msg_template = RPT_("At least two points required");
+      BLI_strncpy(message_dst, RPT_("At least two points required"), maxncpy);
       break;
     case NURBSValidationStatus::MorePointsThanOrderRequired:
-      msg_template = RPT_("Must have more control points than Order");
+      BLI_strncpy(message_dst, RPT_("Must have more control points than Order"), maxncpy);
       break;
     case NURBSValidationStatus::MoreRowsForBezierRequired:
-      msg_template = RPT_("%d more %s row(s) needed for Bézier");
+      BLI_snprintf(message_dst,
+                   maxncpy,
+                   RPT_("%d more %s row(s) needed for Bézier"),
+                   points_needed,
+                   dir == 0 ? "U" : "V");
       break;
     case NURBSValidationStatus::MorePointsForBezierRequired:
-      msg_template = RPT_("%d more point(s) needed for Bézier");
+      BLI_snprintf(
+          message_dst, maxncpy, RPT_("%d more point(s) needed for Bézier"), points_needed);
       break;
   }
 
-  BLI_snprintf(message_dst, maxncpy, msg_template, points_needed, dir == 0 ? "U" : "V");
   return true;
 }
 

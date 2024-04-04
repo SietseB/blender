@@ -55,7 +55,7 @@ typedef struct uiFont {
   struct uiFont *next, *prev;
   /** 1024 = FILE_MAX. */
   char filepath[1024];
-  /** From blfont lib. */
+  /** From BLF library. */
   short blf_id;
   /** Own id (eUIFont_ID). */
   short uifont_id;
@@ -333,10 +333,10 @@ typedef struct ThemeSpace {
   float dash_alpha;
 
   /* Syntax for text-window and nodes. */
-  unsigned char syntaxl[4], syntaxs[4]; /* in nodespace used for backdrop matte */
-  unsigned char syntaxb[4], syntaxn[4]; /* in nodespace used for color input */
-  unsigned char syntaxv[4], syntaxc[4]; /* in nodespace used for converter group */
-  unsigned char syntaxd[4], syntaxr[4]; /* in nodespace used for distort */
+  unsigned char syntaxl[4], syntaxs[4]; /* In node-space used for backdrop matte. */
+  unsigned char syntaxb[4], syntaxn[4]; /* In node-space used for color input. */
+  unsigned char syntaxv[4], syntaxc[4]; /* In node-space used for converter group. */
+  unsigned char syntaxd[4], syntaxr[4]; /* In node-space used for distort. */
 
   unsigned char line_numbers[4];
   char _pad6[3];
@@ -625,7 +625,7 @@ typedef struct bUserExtensionRepo {
 
   /**
    * The "local" directory where extensions are stored.
-   * When unset, use `{BLENDER_RESOURCE_PATH_USER}/extensions/{bUserExtensionRepo::module}`.
+   * When unset, use `{BLENDER_USER_EXTENSIONS}/{bUserExtensionRepo::module}`.
    */
   char custom_dirpath[1024]; /* FILE_MAX */
   char remote_path[1024];    /* FILE_MAX */
@@ -731,8 +731,10 @@ typedef struct UserDef_Experimental {
   char use_new_volume_nodes;
   char use_shader_node_previews;
   char use_extension_repos;
+  char use_extension_utils;
+  char use_grease_pencil_version3_convert_on_load;
 
-  char _pad[3];
+  char _pad[1];
   /** `makesdna` does not allow empty structs. */
 } UserDef_Experimental;
 
@@ -750,6 +752,12 @@ typedef struct bUserScriptDirectory {
   char dir_path[768]; /* FILE_MAXDIR */
 } bUserScriptDirectory;
 
+/**
+ * Main user preferences data, typically accessed from #U.
+ * See: #BKE_blendfile_userdef_from_defaults & #BKE_blendfile_userdef_read.
+ *
+ * \note This is either loaded from the file #BLENDER_USERPREF_FILE or from memory, see #U_default.
+ */
 typedef struct UserDef {
   DNA_DEFINE_CXX_METHODS(UserDef)
 

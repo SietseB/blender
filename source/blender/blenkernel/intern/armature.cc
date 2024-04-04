@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <optional>
 
 #include "MEM_guardedalloc.h"
 
@@ -43,7 +44,7 @@
 #include "BKE_armature.hh"
 #include "BKE_constraint.h"
 #include "BKE_curve.hh"
-#include "BKE_idprop.h"
+#include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
@@ -130,7 +131,11 @@ static void copy_bone_collection(bArmature *armature_dst,
  *
  * \param flag: Copying options (see BKE_lib_id.hh's LIB_ID_COPY_... flags for more).
  */
-static void armature_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int flag)
+static void armature_copy_data(Main * /*bmain*/,
+                               std::optional<Library *> /*owner_library*/,
+                               ID *id_dst,
+                               const ID *id_src,
+                               const int flag)
 {
   bArmature *armature_dst = (bArmature *)id_dst;
   const bArmature *armature_src = (const bArmature *)id_src;
@@ -222,9 +227,9 @@ static void armature_free_data(ID *id)
 static void armature_foreach_id_bone(Bone *bone, LibraryForeachIDData *data)
 {
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-      data,
-      IDP_foreach_property(
-          bone->prop, IDP_TYPE_FILTER_ID, BKE_lib_query_idpropertiesForeachIDLink_callback, data));
+      data, IDP_foreach_property(bone->prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
+        BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
+      }));
 
   LISTBASE_FOREACH (Bone *, curbone, &bone->childbase) {
     BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(data, armature_foreach_id_bone(curbone, data));
@@ -234,21 +239,17 @@ static void armature_foreach_id_bone(Bone *bone, LibraryForeachIDData *data)
 static void armature_foreach_id_editbone(EditBone *edit_bone, LibraryForeachIDData *data)
 {
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-      data,
-      IDP_foreach_property(edit_bone->prop,
-                           IDP_TYPE_FILTER_ID,
-                           BKE_lib_query_idpropertiesForeachIDLink_callback,
-                           data));
+      data, IDP_foreach_property(edit_bone->prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
+        BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
+      }));
 }
 
 static void armature_foreach_id_bone_collection(BoneCollection *bcoll, LibraryForeachIDData *data)
 {
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-      data,
-      IDP_foreach_property(bcoll->prop,
-                           IDP_TYPE_FILTER_ID,
-                           BKE_lib_query_idpropertiesForeachIDLink_callback,
-                           data));
+      data, IDP_foreach_property(bcoll->prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
+        BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
+      }));
 }
 
 static void armature_foreach_id(ID *id, LibraryForeachIDData *data)

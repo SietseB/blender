@@ -105,7 +105,7 @@ static int outliner_highlight_update_invoke(bContext *C, wmOperator * /*op*/, co
     return OPERATOR_PASS_THROUGH;
   }
 
-  /* Drag and drop does own highlighting. */
+  /* Drag and drop does its own highlighting. */
   wmWindowManager *wm = CTX_wm_manager(C);
   if (wm->drags.first) {
     return OPERATOR_PASS_THROUGH;
@@ -296,7 +296,7 @@ void OUTLINER_OT_item_openclose(wmOperatorType *ot)
   ot->invoke = outliner_item_openclose_invoke;
   ot->modal = outliner_item_openclose_modal;
 
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   RNA_def_boolean(ot->srna, "all", false, "All", "Close or open all items");
 }
@@ -445,7 +445,7 @@ void OUTLINER_OT_item_rename(wmOperatorType *ot)
 
   ot->invoke = outliner_item_rename_invoke;
 
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -596,7 +596,7 @@ void OUTLINER_OT_id_delete(wmOperatorType *ot)
   ot->description = "Delete the ID under cursor";
 
   ot->invoke = outliner_id_delete_invoke;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -735,7 +735,7 @@ void OUTLINER_OT_id_remap(wmOperatorType *ot)
   /* callbacks */
   ot->invoke = outliner_id_remap_invoke;
   ot->exec = outliner_id_remap_exec;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -995,7 +995,7 @@ void OUTLINER_OT_lib_relocate(wmOperatorType *ot)
   ot->description = "Relocate the library under cursor";
 
   ot->invoke = outliner_lib_relocate_invoke;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1051,7 +1051,7 @@ void OUTLINER_OT_lib_reload(wmOperatorType *ot)
   ot->description = "Reload the library under cursor";
 
   ot->invoke = outliner_lib_reload_invoke;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1180,7 +1180,7 @@ void OUTLINER_OT_expanded_toggle(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = outliner_toggle_expanded_exec;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* no undo or registry, UI option */
 }
@@ -1382,7 +1382,7 @@ void OUTLINER_OT_show_active(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = outliner_show_active_exec;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 }
 
 /** \} */
@@ -1421,7 +1421,7 @@ void OUTLINER_OT_scroll_page(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = outliner_scroll_page_exec;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* properties */
   prop = RNA_def_boolean(ot->srna, "up", false, "Up", "Scroll up one page");
@@ -1493,7 +1493,7 @@ void OUTLINER_OT_show_one_level(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = outliner_one_level_exec;
-  ot->poll = ED_operator_outliner_active;
+  ot->poll = ED_operator_region_outliner_active;
 
   /* no undo or registry, UI option */
 
@@ -1586,7 +1586,8 @@ void OUTLINER_OT_show_hierarchy(wmOperatorType *ot)
 
   /* callbacks */
   ot->exec = outliner_show_hierarchy_exec;
-  ot->poll = ED_operator_outliner_active; /* TODO: shouldn't be allowed in RNA views... */
+  /* TODO: shouldn't be allowed in RNA views... */
+  ot->poll = ED_operator_region_outliner_active;
 
   /* no undo or registry, UI option */
 }
@@ -1796,7 +1797,7 @@ static void do_outliner_drivers_editop(SpaceOutliner *space_outliner,
     PropertyRNA *prop = te_rna ? te_rna->get_property_rna() : nullptr;
 
     /* check if RNA-property described by this selected element is an animatable prop */
-    if (prop && RNA_property_animateable(&ptr, prop)) {
+    if (prop && RNA_property_anim_editable(&ptr, prop)) {
       /* get id + path + index info from the selected element */
       tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);
     }
@@ -1987,7 +1988,7 @@ static void do_outliner_keyingset_editop(SpaceOutliner *space_outliner,
     const TreeElementRNACommon *te_rna = tree_element_cast<TreeElementRNACommon>(te);
     PointerRNA ptr = te_rna->get_pointer_rna();
     if (te_rna && te_rna->get_property_rna() &&
-        RNA_property_animateable(&ptr, te_rna->get_property_rna()))
+        RNA_property_anim_editable(&ptr, te_rna->get_property_rna()))
     {
       /* get id + path + index info from the selected element */
       tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);

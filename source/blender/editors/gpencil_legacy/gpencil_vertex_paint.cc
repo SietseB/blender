@@ -24,6 +24,7 @@
 #include "BKE_context.hh"
 #include "BKE_gpencil_legacy.h"
 #include "BKE_material.h"
+#include "BKE_paint.hh"
 #include "BKE_report.hh"
 
 #include "WM_api.hh"
@@ -41,7 +42,7 @@
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "gpencil_intern.h"
+#include "gpencil_intern.hh"
 
 /* ************************************************ */
 /* General Brush Editing Context */
@@ -723,7 +724,7 @@ static bool gpencil_vertexpaint_brush_init(bContext *C, wmOperator *op)
       MEM_callocN(sizeof(tGP_BrushVertexpaintData), "tGP_BrushVertexpaintData"));
   op->customdata = gso;
 
-  gso->brush = paint->brush;
+  gso->brush = BKE_paint_brush(paint);
   srgb_to_linearrgb_v3_v3(gso->linear_color, gso->brush->rgb);
   BKE_curvemapping_init(gso->brush->curve);
 
@@ -861,7 +862,7 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
                                               const bool mode_stroke)
 {
   GP_SpaceConversion *gsc = &gso->gsc;
-  rcti *rect = &gso->brush_rect;
+  const rcti *rect = &gso->brush_rect;
   Brush *brush = gso->brush;
   const int radius = (brush->flag & GP_BRUSH_USE_PRESSURE) ? gso->brush->size * gso->pressure :
                                                              gso->brush->size;
@@ -1166,7 +1167,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
 static bool gpencil_vertexpaint_brush_apply_to_layers(bContext *C, tGP_BrushVertexpaintData *gso)
 {
   ToolSettings *ts = CTX_data_tool_settings(C);
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   Object *obact = gso->object;
   bool changed = false;
 

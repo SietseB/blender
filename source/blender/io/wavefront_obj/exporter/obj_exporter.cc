@@ -265,7 +265,7 @@ void export_frame(Depsgraph *depsgraph, const OBJExportParams &export_params, co
     return;
   }
   if (!frame_writer) {
-    BLI_assert(!"File should be writable by now.");
+    BLI_assert_msg(false, "File should be writable by now.");
     return;
   }
   std::unique_ptr<MTLWriter> mtl_writer = nullptr;
@@ -317,7 +317,7 @@ bool append_frame_to_filename(const char *filepath, const int frame, char *r_fil
 
 void exporter_main(bContext *C, const OBJExportParams &export_params)
 {
-  ED_object_mode_set(C, OB_MODE_OBJECT);
+  ed::object::mode_set(C, OB_MODE_OBJECT);
   OBJDepsgraph obj_depsgraph(C, export_params.export_eval_mode);
   Scene *scene = DEG_get_input_scene(obj_depsgraph.get());
   const char *filepath = export_params.filepath;

@@ -12,6 +12,7 @@
 
 #include "BKE_context.hh"
 #include "BKE_grease_pencil.hh"
+#include "BKE_paint.hh"
 #include "BKE_report.hh"
 
 #include "DEG_depsgraph.hh"
@@ -350,9 +351,13 @@ bool ensure_active_keyframe(const Scene &scene, GreasePencil &grease_pencil)
                                  (*active_layer.frame_key_at(current_frame) < current_frame);
 
   if (blender::animrig::is_autokey_on(&scene) && needs_new_drawing) {
-    if ((scene.toolsettings->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) != 0) {
+    const Brush *brush = BKE_paint_brush_for_read(&scene.toolsettings->gp_paint->paint);
+    if (((scene.toolsettings->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) != 0) ||
+        (brush->gpencil_tool == GPAINT_TOOL_ERASE))
+    {
       /* For additive drawing, we duplicate the frame that's currently visible and insert it at the
-       * current frame. */
+       * current frame. Also duplicate the frame when erasing, Otherwise empty drawing is added,
+       * see !119051 */
       grease_pencil.insert_duplicate_frame(
           active_layer, *active_layer.frame_key_at(current_frame), current_frame, false);
     }

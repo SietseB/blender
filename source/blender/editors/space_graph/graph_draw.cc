@@ -22,16 +22,16 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_curve.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_nla.h"
 
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
+#include "GPU_immediate.hh"
+#include "GPU_matrix.hh"
+#include "GPU_state.hh"
 
 #include "ED_anim_api.hh"
 
-#include "graph_intern.h"
+#include "graph_intern.hh"
 
 #include "UI_interface.hh"
 #include "UI_resources.hh"
@@ -184,7 +184,7 @@ static void set_fcurve_vertex_color(FCurve *fcu, bool sel)
  * NOTE: the caller MUST HAVE GL_LINE_SMOOTH & GL_BLEND ENABLED, otherwise the controls don't
  * have a consistent appearance (due to off-pixel alignments).
  */
-static void draw_cross(float position[2], float scale[2], uint attr_id)
+static void draw_cross(float position[2], const float scale[2], uint attr_id)
 {
   GPU_matrix_push();
   GPU_matrix_translate_2fv(position);
@@ -858,7 +858,7 @@ static void add_bezt_vertices(BezTriple *bezt,
   }
 
   /* If the resolution goes too high the line will not end exactly at the keyframe. Probably due to
-   * accumulating floating point issues in BKE_curve_forward_diff_bezier.*/
+   * accumulating floating point issues in BKE_curve_forward_diff_bezier. */
   resolution = min_ii(64, resolution);
 
   float prev_key[2], prev_handle[2], bez_handle[2], bez_key[2];

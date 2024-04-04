@@ -13,10 +13,10 @@
 
 #include "BLI_utildefines.h"
 
-#include "GPU_capabilities.h"
+#include "GPU_capabilities.hh"
 
-#include "gpu_py.h"
-#include "gpu_py_capabilities.h" /* own include */
+#include "gpu_py.hh"
+#include "gpu_py_capabilities.hh" /* own include */
 
 /* -------------------------------------------------------------------- */
 /** \name Functions
@@ -109,6 +109,20 @@ PyDoc_STRVAR(
 static PyObject *pygpu_max_textures_frag_get(PyObject * /*self*/)
 {
   return PyLong_FromLong(GPU_max_textures_frag());
+}
+
+PyDoc_STRVAR(
+    /* Wrap. */
+    pygpu_max_images_get_doc,
+    ".. function:: max_images_get()\n"
+    "\n"
+    "   Get maximum supported number of image units.\n"
+    "\n"
+    "   :return: Number of image units.\n"
+    "   :rtype: int\n");
+static PyObject *pygpu_max_images_get(PyObject * /*self*/)
+{
+  return PyLong_FromLong(GPU_max_images());
 }
 
 PyDoc_STRVAR(
@@ -345,6 +359,7 @@ static PyMethodDef pygpu_capabilities__tp_methods[] = {
      (PyCFunction)pygpu_max_textures_frag_get,
      METH_NOARGS,
      pygpu_max_textures_frag_get_doc},
+    {"max_images_get", (PyCFunction)pygpu_max_images_get, METH_NOARGS, pygpu_max_images_get_doc},
     {"max_uniforms_vert_get",
      (PyCFunction)pygpu_max_uniforms_vert_get,
      METH_NOARGS,

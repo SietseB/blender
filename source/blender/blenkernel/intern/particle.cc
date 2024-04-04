@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #include "MEM_guardedalloc.h"
 
@@ -99,6 +100,7 @@ static void particle_settings_init(ID *id)
 }
 
 static void particle_settings_copy_data(Main * /*bmain*/,
+                                        std::optional<Library *> /*owner_library*/,
                                         ID *id_dst,
                                         const ID *id_src,
                                         const int /*flag*/)
@@ -311,11 +313,8 @@ static void particle_settings_blend_write(BlendWriter *writer, ID *id, const voi
   }
 }
 
-void BKE_particle_partdeflect_blend_read_data(BlendDataReader * /*reader*/, PartDeflect *pd)
+void BKE_particle_partdeflect_blend_read_data(BlendDataReader * /*reader*/, PartDeflect * /*pd*/)
 {
-  if (pd) {
-    pd->rng = nullptr;
-  }
 }
 
 static void particle_settings_blend_read_data(BlendDataReader *reader, ID *id)

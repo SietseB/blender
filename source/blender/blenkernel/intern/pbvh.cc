@@ -1281,6 +1281,9 @@ void update_normals(PBVH &pbvh, SubdivCCG *subdiv_ccg)
 {
   Vector<PBVHNode *> nodes = search_gather(
       &pbvh, [&](PBVHNode &node) { return update_search(&node, PBVH_UpdateNormals); });
+  if (nodes.is_empty()) {
+    return;
+  }
 
   if (pbvh.header.type == PBVH_BMESH) {
     bmesh_normals_update(nodes);
@@ -1785,9 +1788,9 @@ bool BKE_pbvh_node_fully_unmasked_get(const PBVHNode *node)
   return (node->flag & PBVH_Leaf) && (node->flag & PBVH_FullyUnmasked);
 }
 
-blender::Span<int> BKE_pbvh_node_get_loops(const PBVHNode *node)
+blender::Span<int> BKE_pbvh_node_get_corner_indices(const PBVHNode *node)
 {
-  return node->loop_indices;
+  return node->corner_indices;
 }
 
 blender::Span<int> BKE_pbvh_node_get_vert_indices(const PBVHNode *node)
@@ -1833,26 +1836,6 @@ Span<int> node_face_indices_calc_grids(const PBVH &pbvh, const PBVHNode &node, V
 }
 
 }  // namespace blender::bke::pbvh
-
-blender::Vector<int> BKE_pbvh_node_calc_face_indices(const PBVH &pbvh, const PBVHNode &node)
-{
-  using namespace blender::bke::pbvh;
-  Vector<int> faces;
-  switch (pbvh.header.type) {
-    case PBVH_FACES: {
-      node_face_indices_calc_mesh(pbvh, node, faces);
-      break;
-    }
-    case PBVH_GRIDS: {
-      node_face_indices_calc_grids(pbvh, node, faces);
-      break;
-    }
-    case PBVH_BMESH:
-      BLI_assert_unreachable();
-      break;
-  }
-  return faces;
-}
 
 int BKE_pbvh_node_num_unique_verts(const PBVH &pbvh, const PBVHNode &node)
 {
@@ -2304,7 +2287,7 @@ void clip_ray_ortho(
   axis_dominant_v3_to_m3(mat, ray_normal);
   float a[3], b[3], min[3] = {FLT_MAX, FLT_MAX, FLT_MAX}, max[3] = {FLT_MIN, FLT_MIN, FLT_MIN};
 
-  /* Compute AABB bounds rotated along ray_normal.*/
+  /* Compute AABB bounds rotated along ray_normal. */
   copy_v3_v3(a, bb_root.min);
   copy_v3_v3(b, bb_root.max);
   mul_m3_v3(mat, a);
@@ -3098,7 +3081,7 @@ void BKE_pbvh_ensure_node_loops(PBVH *pbvh)
       continue;
     }
 
-    if (!node.loop_indices.is_empty()) {
+    if (!node.corner_indices.is_empty()) {
       return;
     }
 
@@ -3108,27 +3091,26 @@ void BKE_pbvh_ensure_node_loops(PBVH *pbvh)
   BLI_bitmap *visit = BLI_BITMAP_NEW(totloop, __func__);
 
   /* Create loop indices from node loop triangles. */
-  Vector<int> loop_indices;
+  Vector<int> corner_indices;
   for (PBVHNode &node : pbvh->nodes) {
     if (!(node.flag & PBVH_Leaf)) {
       continue;
     }
 
-    loop_indices.clear();
+    corner_indices.clear();
 
     for (const int i : node.prim_indices) {
       const int3 &tri = pbvh->corner_tris[i];
 
       for (int k = 0; k < 3; k++) {
         if (!BLI_BITMAP_TEST(visit, tri[k])) {
-          loop_indices.append(tri[k]);
+          corner_indices.append(tri[k]);
           BLI_BITMAP_ENABLE(visit, tri[k]);
         }
       }
     }
 
-    node.loop_indices.reinitialize(loop_indices.size());
-    node.loop_indices.as_mutable_span().copy_from(loop_indices);
+    node.corner_indices = corner_indices.as_span();
   }
 
   MEM_SAFE_FREE(visit);

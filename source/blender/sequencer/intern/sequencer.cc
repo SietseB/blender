@@ -20,8 +20,8 @@
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
 
-#include "BKE_fcurve.h"
-#include "BKE_idprop.h"
+#include "BKE_fcurve.hh"
+#include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_scene.hh"

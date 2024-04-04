@@ -17,6 +17,17 @@ struct Curve;
 struct Curve;
 struct GPencilUpdateCache;
 struct MDeformVert;
+#ifdef __cplusplus
+namespace blender::gpu {
+class VertBuf;
+class Batch;
+}  // namespace blender::gpu
+using GPUBatchHandle = blender::gpu::Batch;
+using GPUVertBufHandle = blender::gpu::VertBuf;
+#else
+typedef struct GPUBatchHandle GPUBatchHandle;
+typedef struct GPUVertBufHandle GPUVertBufHandle;
+#endif
 
 #define GP_DEFAULT_PIX_FACTOR 1.0f
 #define GP_DEFAULT_GRID_LINES 4
@@ -52,7 +63,8 @@ typedef struct bGPDspoint_Runtime {
   char _pad0[4];
 } bGPDspoint_Runtime;
 
-/* Grease-Pencil Annotations - 'Stroke Point'
+/**
+ * Grease-Pencil Annotations - 'Stroke Point'
  * -> Coordinates may either be 2d or 3d depending on settings at the time
  * -> Coordinates of point on stroke, in proportions of window size
  *    This assumes that the bottom-left corner is (0,0)
@@ -80,9 +92,10 @@ typedef struct bGPDspoint {
 
   /** Vertex Color RGBA (A=mix factor). */
   float vert_color[4];
-  char _pad0[4];
 
   /** Runtime data */
+  char _pad2[4];
+
   bGPDspoint_Runtime runtime;
 } bGPDspoint;
 
@@ -333,7 +346,8 @@ typedef enum eGPDstroke_RuntimeFlag {
   GP_STROKE_UPDATE_GEOMETRY = (1 << 0),
 } eGPDstroke_RuntimeFlag;
 
-/* Grease-Pencil Annotations - 'Stroke'
+/**
+ * Grease-Pencil Annotations - 'Stroke'
  * -> A stroke represents a (simplified version) of the curve
  *    drawn by the user in one 'mouse-down'->'mouse-up' operation
  */
@@ -498,7 +512,8 @@ typedef struct bGPDframe_Runtime {
   struct bGPDframe *gpf_orig;
 } bGPDframe_Runtime;
 
-/* Grease-Pencil Annotations - 'Frame'
+/**
+ * Grease-Pencil Annotations - 'Frame'
  * -> Acts as storage for the 'image' formed by strokes
  */
 typedef struct bGPDframe {
@@ -576,7 +591,7 @@ typedef struct bGPDlmorph {
   short order_applied;
 } bGPDlmorph;
 
-/* Runtime temp data for bGPDlayer */
+/** Runtime temp data for #bGPDlayer. */
 typedef struct bGPDlayer_Runtime {
   DNA_DEFINE_CXX_METHODS(bGPDlayer_Runtime)
 
@@ -590,7 +605,7 @@ typedef struct bGPDlayer_Runtime {
   struct bGPDlayer *gpl_orig;
 } bGPDlayer_Runtime;
 
-/* Grease-Pencil Annotations - 'Layer' */
+/** Grease-Pencil Annotations - 'Layer'. */
 typedef struct bGPDlayer {
   DNA_DEFINE_CXX_METHODS(bGPDlayer)
 
@@ -772,9 +787,9 @@ typedef struct bGPdata_Runtime {
   /** Stroke buffer. */
   void *sbuffer;
   /** Temp batches cleared after drawing. */
-  struct GPUVertBuf *sbuffer_position_buf;
-  struct GPUVertBuf *sbuffer_color_buf;
-  struct GPUBatch *sbuffer_batch;
+  GPUVertBufHandle *sbuffer_position_buf;
+  GPUVertBufHandle *sbuffer_color_buf;
+  GPUBatchHandle *sbuffer_batch;
   /** Temp stroke used for drawing. */
   struct bGPDstroke *sbuffer_gps;
 
@@ -862,7 +877,7 @@ typedef enum eGPDmorph_target_Flag {
   GP_MORPH_TARGET_MUTE = (1 << 1),
 } eGPDmorph_target_Flag;
 
-/* Grease-Pencil Annotations - 'DataBlock' */
+/** Grease-Pencil Annotations - 'DataBlock'. */
 typedef struct bGPdata {
   DNA_DEFINE_CXX_METHODS(bGPdata)
 
@@ -942,6 +957,7 @@ typedef struct bGPdata {
   int select_last_index;
 
   int vertex_group_active_index;
+
   bGPgrid grid;
 
   /** Morph targets. */

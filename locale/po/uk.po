@@ -1,17 +1,18 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.1.0 Beta (b'e938b516a994')\n"
+"Project-Id-Version: Blender 4.1.0 Release Candidate (b'64bfe491645f')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-26 11:48+0000\n"
-"PO-Revision-Date: 2021-03-01 19:15+0000\n"
-"Last-Translator: lxlalexlxl <lxlalexlxl@ukr.net>\n"
-"Language-Team: Ukrainian (Ukraine) (http://www.transifex.com/lxlalexlxl/blender/language/uk_UA/)\n"
+"POT-Creation-Date: 2020-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-03-13 11:04+0000\n"
+"Last-Translator: Bartosz <gang65@poczta.onet.pl>\n"
+"Language-Team: Ukrainian <https://translate.blender.org/projects/blender-ui/ui/uk/>\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: uk_UA\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"X-Generator: Weblate 5.0.1"
 
 
 msgid "Shader AOV"
@@ -2851,7 +2852,7 @@ msgstr "X вводу"
 
 
 msgid "X-axis handle offset for start of the B-Bone's curve, adjusts curvature"
-msgstr " X-вісь зсуву держака для початку кривої Б-кістки, наладнує кривину"
+msgstr "X-вісь зсуву держака для початку кривої Б-кістки, наладнує кривину"
 
 
 msgid "Out X"
@@ -3458,18 +3459,6 @@ msgid "Curve used for the strength"
 msgstr "Крива, використовувана для сили"
 
 
-msgid "Direction"
-msgstr "Напрям"
-
-
-msgid "Add effect of brush"
-msgstr "Додати ефект пензля"
-
-
-msgid "Subtract effect of brush"
-msgstr "Відняти ефект пензля"
-
-
 msgid "Eraser Mode"
 msgstr "Режим Стирача"
 
@@ -3512,6 +3501,10 @@ msgstr "Величина стирання для товщини"
 
 msgid "Strokes end extension for closing gaps, use zero to disable"
 msgstr "Розширення кінця штрихів для закриття проміжків, використовуйте нуль для вимкнення"
+
+
+msgid "Direction"
+msgstr "Напрям"
 
 
 msgid "Direction of the fill"
@@ -16962,6 +16955,14 @@ msgstr "Пензель деформує сіть шляхом деформува
 
 msgid "Amount of random elements that are going to be affected by the brush"
 msgstr "Кількість випадкових елементів, на які буде впливати пензель"
+
+
+msgid "Add effect of brush"
+msgstr "Додати ефект пензля"
+
+
+msgid "Subtract effect of brush"
+msgstr "Відняти ефект пензля"
 
 
 msgid "Max Element Distance"
@@ -44901,22 +44902,6 @@ msgid "Apply sampling to all animations"
 msgstr "Застосовувати відбір для всіх анімацій"
 
 
-msgid "glTF Binary (.glb)"
-msgstr "glTF Двійково (.glb)"
-
-
-msgid "Exports a single file, with all data packed in binary form. Most efficient and portable, but more difficult to edit later"
-msgstr "Експортує єдиний файл, з усіма даними, запакованими у двійковій формі. Більш ефективно та портативно, але більш важко для подальшого редагування"
-
-
-msgid "glTF Separate (.gltf + .bin + textures)"
-msgstr "glTF Відокремлено (.gltf + .bin + текстури)"
-
-
-msgid "Exports multiple files, with separate JSON, binary and texture data. Easiest to edit later"
-msgstr "Експортує багато файлів, окремо JSON, двійкові дані та текстури. Найлегше для подальшого редагування"
-
-
 msgid "Limit to Playback Range"
 msgstr "Лімітувати Діапазоном Програвання"
 
@@ -70959,10 +70944,6 @@ msgid "Temporary Directory"
 msgstr "Тимчасова тека"
 
 
-msgid "The directory for storing temporary save files"
-msgstr "Тека для збереження тимчасових файлів"
-
-
 msgid "The default directory to search for textures"
 msgstr "Стандартна тека для пошуку текстур"
 
@@ -87042,14 +87023,6 @@ msgid "Mask Value"
 msgstr "Значення Маски"
 
 
-msgid "CCW"
-msgstr "ПротиГС"
-
-
-msgid "CW"
-msgstr "ЗаГС"
-
-
 msgid "Invert to Fill"
 msgstr "Інвертувати в Заповнення"
 
@@ -89554,6 +89527,10 @@ msgstr "Лише Активний Набір Ключування"
 
 msgid "Layered Recording"
 msgstr "Нашаровуване Записування"
+
+
+msgid "    Operator"
+msgstr "    Оператор"
 
 
 msgid "Drag:"
@@ -92579,10 +92556,6 @@ msgid "Can't edit this property from a linked data-block"
 msgstr "Неможливо редагувати цю властивістю з пов'язаного блоку даних"
 
 
-msgid "Nothing selected"
-msgstr "Нічого не вибрано"
-
-
 msgid "<invalid>"
 msgstr "<неправильний>"
 
@@ -93239,6 +93212,10 @@ msgstr "Нема активних кадру(ів) для видалення"
 
 msgid "Cannot separate an object with one layer only"
 msgstr "Неможливо відокремити об'єкт з одним лише шаром"
+
+
+msgid "Nothing selected"
+msgstr "Нічого не вибрано"
 
 
 msgid "No active area"

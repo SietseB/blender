@@ -15,7 +15,7 @@
 #include "BLI_math_bits.h"
 
 #include "DRW_render.hh"
-#include "draw_shader_shared.h"
+#include "draw_shader_shared.hh"
 
 #include "eevee_lut.hh"
 #include "eevee_subsurface.hh"
@@ -40,7 +40,7 @@ class BackgroundPipeline {
  public:
   BackgroundPipeline(Instance &inst) : inst_(inst){};
 
-  void sync(GPUMaterial *gpumat, float background_opacity);
+  void sync(GPUMaterial *gpumat, float background_opacity, float background_blur);
   void render(View &view);
 };
 

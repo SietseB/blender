@@ -21,9 +21,10 @@
 
 #include "DNA_customdata_types.h"
 
+struct BMEditMesh;
 struct BVHCache;
 struct Mesh;
-struct ShrinkwrapBoundaryData;
+class ShrinkwrapBoundaryData;
 struct SubdivCCG;
 struct SubsurfRuntimeData;
 namespace blender::bke {
@@ -107,6 +108,13 @@ struct MeshRuntime {
   const ImplicitSharingInfo *face_offsets_sharing_info = nullptr;
 
   /**
+   * Storage of the edit mode mesh. If it exists, it generally has the most up-to-date
+   * information about the mesh.
+   * \note When the object is available, the preferred access method is #BKE_editmesh_from_object.
+   */
+  BMEditMesh *edit_mesh = nullptr;
+
+  /**
    * A cache of bounds shared between data-blocks with unchanged positions. When changing positions
    * affect the bounds, the cache is "un-shared" with other geometries. See #SharedCache comments.
    */
@@ -132,9 +140,6 @@ struct MeshRuntime {
   /** Cache for BVH trees generated for the mesh. Defined in 'BKE_bvhutil.c' */
   BVHCache *bvh_cache = nullptr;
 
-  /** Cache of non-manifold boundary data for Shrink-wrap Target Project. */
-  std::unique_ptr<ShrinkwrapBoundaryData> shrinkwrap_data;
-
   /** Needed in case we need to lazily initialize the mesh. */
   CustomData_MeshMasks cd_mask_extra = {};
 
@@ -158,11 +163,6 @@ struct MeshRuntime {
 
   /** #eMeshWrapperType and others. */
   eMeshWrapperType wrapper_type = ME_WRAPPER_TYPE_MDATA;
-  /**
-   * A type mask from wrapper_type,
-   * in case there are differences in finalizing logic between types.
-   */
-  eMeshWrapperType wrapper_type_finalize = ME_WRAPPER_TYPE_MDATA;
 
   /**
    * Settings for lazily evaluating the subdivision on the CPU if needed. These are
@@ -195,6 +195,9 @@ struct MeshRuntime {
   SharedCache<LooseVertCache> loose_verts_cache;
   /** Cache of data about vertices not used by faces. See #Mesh::verts_no_face(). */
   SharedCache<LooseVertCache> verts_no_face_cache;
+
+  /** Cache of non-manifold boundary data for shrinkwrap target Project. */
+  SharedCache<ShrinkwrapBoundaryData> shrinkwrap_boundary_cache;
 
   /**
    * A bit vector the size of the number of vertices, set to true for the center vertices of

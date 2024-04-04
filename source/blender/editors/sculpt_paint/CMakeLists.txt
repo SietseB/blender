@@ -43,6 +43,7 @@ set(SRC
   grease_pencil_draw_ops.cc
   grease_pencil_erase.cc
   grease_pencil_paint.cc
+  grease_pencil_tint.cc
   paint_canvas.cc
   paint_cursor.cc
   paint_curve.cc
@@ -83,8 +84,10 @@ set(SRC
   sculpt_paint_color.cc
   sculpt_paint_image.cc
   sculpt_pose.cc
+  sculpt_project.cc
   sculpt_smooth.cc
   sculpt_transform.cc
+  sculpt_trim.cc
   sculpt_undo.cc
   sculpt_uv.cc
 

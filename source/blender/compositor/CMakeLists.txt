@@ -520,6 +520,8 @@ if(WITH_COMPOSITOR_CPU)
     operations/COM_DilateErodeOperation.h
     operations/COM_GlareBaseOperation.cc
     operations/COM_GlareBaseOperation.h
+    operations/COM_GlareBloomOperation.cc
+    operations/COM_GlareBloomOperation.h
     operations/COM_GlareFogGlowOperation.cc
     operations/COM_GlareFogGlowOperation.h
     operations/COM_GlareGhostOperation.cc
@@ -577,24 +579,6 @@ if(WITH_COMPOSITOR_CPU)
     bf_realtime_compositor
     PRIVATE bf::intern::atomic
   )
-
-  list(APPEND INC
-    ${CMAKE_CURRENT_BINARY_DIR}/operations
-  )
-
-  set(GENSRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/operations)
-  set(GENSRC ${GENSRC_DIR}/COM_SMAAAreaTexture.h)
-  add_custom_command(
-    OUTPUT ${GENSRC}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENSRC_DIR}
-    COMMAND "$<TARGET_FILE:smaa_areatex>" ${GENSRC}
-    DEPENDS smaa_areatex
-  )
-  list(APPEND SRC
-    ${GENSRC}
-  )
-  unset(GENSRC)
-  unset(GENSRC_DIR)
 
   if(WITH_OPENIMAGEDENOISE)
     add_definitions(-DWITH_OPENIMAGEDENOISE)

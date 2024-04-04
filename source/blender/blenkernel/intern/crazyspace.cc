@@ -342,7 +342,7 @@ int BKE_sculpt_get_first_deform_matrices(Depsgraph *depsgraph,
                                          blender::Array<blender::float3, 0> &deformcos)
 {
   ModifierData *md;
-  Mesh *me_eval = nullptr;
+  Mesh *mesh_eval = nullptr;
   int modifiers_left_num = 0;
   VirtualModifierData virtual_modifier_data;
   Object object_eval;
@@ -371,14 +371,14 @@ int BKE_sculpt_get_first_deform_matrices(Depsgraph *depsgraph,
       if (deformmats.is_empty()) {
         /* NOTE: Evaluated object is re-set to its original un-deformed state. */
         Mesh *mesh = static_cast<Mesh *>(object_eval.data);
-        me_eval = BKE_mesh_copy_for_eval(mesh);
+        mesh_eval = BKE_mesh_copy_for_eval(mesh);
         deformcos = mesh->vert_positions();
         deformmats.reinitialize(mesh->verts_num);
         deformmats.fill(blender::float3x3::identity());
       }
 
       if (mti->deform_matrices) {
-        mti->deform_matrices(md, &mectx, me_eval, deformcos, deformmats);
+        mti->deform_matrices(md, &mectx, mesh_eval, deformcos, deformmats);
       }
       else {
         /* More complex handling will continue in BKE_crazyspace_build_sculpt.
@@ -399,8 +399,8 @@ int BKE_sculpt_get_first_deform_matrices(Depsgraph *depsgraph,
     }
   }
 
-  if (me_eval != nullptr) {
-    BKE_id_free(nullptr, me_eval);
+  if (mesh_eval != nullptr) {
+    BKE_id_free(nullptr, mesh_eval);
   }
 
   return modifiers_left_num;
@@ -599,9 +599,9 @@ GeometryDeformation get_evaluated_curves_deformation(const Object *ob_eval, cons
   if (edit_component_eval != nullptr) {
     const CurvesEditHints *edit_hints = edit_component_eval->curves_edit_hints_.get();
     if (edit_hints != nullptr && &edit_hints->curves_id_orig == &curves_id_orig) {
-      if (edit_hints->positions.has_value()) {
-        BLI_assert(edit_hints->positions->size() == points_num);
-        deformation.positions = *edit_hints->positions;
+      if (const std::optional<Span<float3>> positions = edit_hints->positions()) {
+        BLI_assert(positions->size() == points_num);
+        deformation.positions = *positions;
         uses_extra_positions = true;
       }
       if (edit_hints->deform_mats.has_value()) {
@@ -677,8 +677,8 @@ GeometryDeformation get_evaluated_grease_pencil_drawing_deformation(const Object
     BLI_assert(edit_hints->drawing_hints->size() == layers_orig.size());
     const GreasePencilDrawingEditHints &drawing_hints =
         edit_hints->drawing_hints.value()[layer_index];
-    if (drawing_hints.positions.has_value()) {
-      deformation.positions = *drawing_hints.positions;
+    if (const std::optional<Span<float3>> positions = drawing_hints.positions()) {
+      deformation.positions = *positions;
       return deformation;
     }
   }

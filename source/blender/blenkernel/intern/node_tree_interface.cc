@@ -2,7 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_idprop.h"
+#include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_node.hh"
@@ -607,11 +607,9 @@ static void item_foreach_id(LibraryForeachIDData *data, bNodeTreeInterfaceItem &
       bNodeTreeInterfaceSocket &socket = reinterpret_cast<bNodeTreeInterfaceSocket &>(item);
 
       BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-          data,
-          IDP_foreach_property(socket.properties,
-                               IDP_TYPE_FILTER_ID,
-                               BKE_lib_query_idpropertiesForeachIDLink_callback,
-                               data));
+          data, IDP_foreach_property(socket.properties, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
+            BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
+          }));
 
       socket_types::socket_data_foreach_id(data, socket);
       break;
@@ -1190,6 +1188,10 @@ bNodeTreeInterfaceSocket *bNodeTreeInterface::add_socket(const blender::StringRe
                                                          const NodeTreeInterfaceSocketFlag flag,
                                                          bNodeTreeInterfacePanel *parent)
 {
+  /* Check that each interface socket is either an input or an output. Technically, it can be both
+   * at the same time, but we don't want that for the time being. */
+  BLI_assert(((NODE_INTERFACE_SOCKET_INPUT | NODE_INTERFACE_SOCKET_OUTPUT) & flag) !=
+             (NODE_INTERFACE_SOCKET_INPUT | NODE_INTERFACE_SOCKET_OUTPUT));
   if (parent == nullptr) {
     parent = &root_panel;
   }

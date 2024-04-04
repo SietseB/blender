@@ -10,6 +10,7 @@ set(INC
   ../../makesrna
   ../../sequencer
   ../../windowmanager
+  ../../../../extern/fmtlib/include
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -37,7 +38,7 @@ set(SRC
   keyingsets.cc
   time_scrub_ui.cc
 
-  anim_intern.h
+  anim_intern.hh
 )
 
 set(LIB

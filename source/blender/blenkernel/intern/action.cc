@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #include "MEM_guardedalloc.h"
 
@@ -42,8 +43,8 @@
 #include "BKE_asset.hh"
 #include "BKE_constraint.h"
 #include "BKE_deform.hh"
-#include "BKE_fcurve.h"
-#include "BKE_idprop.h"
+#include "BKE_fcurve.hh"
+#include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
@@ -97,7 +98,11 @@ static CLG_LogRef LOG = {"bke.action"};
  *
  * \param flag: Copying options (see BKE_lib_id.hh's LIB_ID_COPY_... flags for more).
  */
-static void action_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int flag)
+static void action_copy_data(Main * /*bmain*/,
+                             std::optional<Library *> /*owner_library*/,
+                             ID *id_dst,
+                             const ID *id_src,
+                             const int flag)
 {
   bAction *action_dst = (bAction *)id_dst;
   const bAction *action_src = (const bAction *)id_src;
@@ -242,13 +247,9 @@ static void action_blend_read_data(BlendDataReader *reader, ID *id)
 
 static IDProperty *action_asset_type_property(const bAction *action)
 {
+  using namespace blender;
   const bool is_single_frame = BKE_action_has_single_frame(action);
-
-  IDPropertyTemplate idprop = {0};
-  idprop.i = is_single_frame;
-
-  IDProperty *property = IDP_New(IDP_INT, &idprop, "is_single_frame");
-  return property;
+  return bke::idprop::create("is_single_frame", int(is_single_frame)).release();
 }
 
 static void action_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_data)
@@ -349,8 +350,8 @@ void action_group_colors_sync(bActionGroup *grp, const bActionGroup *ref_grp)
   if (grp->customCol) {
     if (grp->customCol > 0) {
       /* copy theme colors on-to group's custom color in case user tries to edit color */
-      bTheme *btheme = static_cast<bTheme *>(U.themes.first);
-      ThemeWireColor *col_set = &btheme->tarm[(grp->customCol - 1)];
+      const bTheme *btheme = static_cast<const bTheme *>(U.themes.first);
+      const ThemeWireColor *col_set = &btheme->tarm[(grp->customCol - 1)];
 
       memcpy(&grp->cs, col_set, sizeof(ThemeWireColor));
     }
@@ -1778,6 +1779,9 @@ void what_does_obaction(Object *ob,
 
     /* execute effects of Action on to workob (or its PoseChannels) */
     BKE_animsys_evaluate_animdata(&workob->id, &adt, anim_eval_context, ADT_RECALC_ANIM, false);
+
+    /* Ensure stack memory set here isn't accessed later, relates to !118847. */
+    workob->adt = nullptr;
   }
   /* Ensure stack memory set here isn't accessed later, see !118847. */
   workob->runtime = nullptr;

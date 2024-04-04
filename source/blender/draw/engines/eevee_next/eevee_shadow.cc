@@ -118,12 +118,14 @@ void ShadowTileMap::sync_cubeface(const float4x4 &object_mat_,
 void ShadowTileMap::debug_draw() const
 {
   /** Used for debug drawing. */
-  float4 debug_color[6] = {{1.0f, 0.1f, 0.1f, 1.0f},
-                           {0.1f, 1.0f, 0.1f, 1.0f},
-                           {0.0f, 0.2f, 1.0f, 1.0f},
-                           {1.0f, 1.0f, 0.3f, 1.0f},
-                           {0.1f, 0.1f, 0.1f, 1.0f},
-                           {1.0f, 1.0f, 1.0f, 1.0f}};
+  const float4 debug_color[6] = {
+      {1.0f, 0.1f, 0.1f, 1.0f},
+      {0.1f, 1.0f, 0.1f, 1.0f},
+      {0.0f, 0.2f, 1.0f, 1.0f},
+      {1.0f, 1.0f, 0.3f, 1.0f},
+      {0.1f, 0.1f, 0.1f, 1.0f},
+      {1.0f, 1.0f, 1.0f, 1.0f},
+  };
   float4 color =
       debug_color[((projection_type == SHADOW_PROJECTION_CUBEFACE ? cubeface : level) + 9999) % 6];
 
@@ -224,7 +226,8 @@ void ShadowPunctual::sync(eLightType light_type,
                           float cone_aperture,
                           float light_shape_radius,
                           float max_distance,
-                          float softness_factor)
+                          float softness_factor,
+                          float shadow_radius)
 {
   if (is_spot_light(light_type)) {
     tilemaps_needed_ = (cone_aperture > DEG2RADF(90.0f)) ? 5 : 1;
@@ -241,12 +244,9 @@ void ShadowPunctual::sync(eLightType light_type,
   light_radius_ = min_ff(light_shape_radius, max_distance_ - 1e-4f);
   light_type_ = light_type;
 
-  /* Keep custom data. */
-  size_x_ = _area_size_x;
-  size_y_ = _area_size_y;
-
   position_ = float3(object_mat[3]);
   softness_factor_ = softness_factor;
+  shadow_radius_ = shadow_radius;
 }
 
 void ShadowPunctual::release_excess_tilemaps()
@@ -341,8 +341,7 @@ void ShadowPunctual::end_sync(Light &light, float lod_bias)
   ShadowTileMapPool &tilemap_pool = shadows_.tilemap_pool;
 
   float side, near, far;
-  compute_projection_boundaries(
-      light_radius_, light_radius_ * softness_factor_, max_distance_, near, far, side);
+  compute_projection_boundaries(light_radius_, shadow_radius_, max_distance_, near, far, side);
 
   /* Shift shadow map origin for area light to avoid clipping nearby geometry. */
   float shift = is_area_light(light.type) ? near : 0.0f;
@@ -371,10 +370,7 @@ void ShadowPunctual::end_sync(Light &light, float lod_bias)
 
   light.tilemap_index = tilemap_pool.tilemaps_data.size();
 
-  /* A bit weird give we are inside a punctual shadow, but this is
-   * in order to make light_tilemap_max_get() work. */
-  light.clipmap_lod_min = 0;
-  light.clipmap_lod_max = tilemaps_needed_ - 1;
+  light.local.tilemaps_count = tilemaps_needed_;
   /* TODO(fclem): `as_uint()`. */
   union {
     float f;
@@ -384,9 +380,9 @@ void ShadowPunctual::end_sync(Light &light, float lod_bias)
   light.clip_near = as_int.i;
   as_int.f = far;
   light.clip_far = as_int.i;
-  light.clip_side = side;
-  light.shadow_projection_shift = shift;
-  light.shadow_shape_scale_or_angle = softness_factor_;
+  light.local.clip_side = side;
+  light.local.shadow_projection_shift = shift;
+  light.local.shadow_scale = softness_factor_;
 
   for (ShadowTileMap *tilemap : tilemaps_) {
     /* Add shadow tile-maps grouped by lights to the GPU buffer. */
@@ -496,12 +492,13 @@ void ShadowDirectional::cascade_tilemaps_distribution(Light &light, const Camera
   /* Offset for smooth level transitions. */
   light.object_mat.location() = near_point;
 
-  /* Offset in tiles from the origin to the center of the first tile-maps. */
+  /* Offset in tiles from the scene origin to the center of the first tile-maps. */
   int2 origin_offset = int2(round(float2(near_point) / tile_size));
   /* Offset in tiles between the first and the last tile-maps. */
   int2 offset_vector = int2(round(farthest_tilemap_center / tile_size));
 
-  light.clipmap_base_offset = (offset_vector * (1 << 16)) / max_ii(levels_range.size() - 1, 1);
+  light.sun.clipmap_base_offset_pos = (offset_vector * (1 << 16)) /
+                                      max_ii(levels_range.size() - 1, 1);
 
   /* \note: cascade_level_range starts the range at the unique LOD to apply to all tile-maps. */
   int level = levels_range.first();
@@ -509,7 +506,8 @@ void ShadowDirectional::cascade_tilemaps_distribution(Light &light, const Camera
     ShadowTileMap *tilemap = tilemaps_[i];
 
     /* Equal spacing between cascades layers since we want uniform shadow density. */
-    int2 level_offset = origin_offset + shadow_cascade_grid_offset(light.clipmap_base_offset, i);
+    int2 level_offset = origin_offset +
+                        shadow_cascade_grid_offset(light.sun.clipmap_base_offset_pos, i);
     tilemap->sync_orthographic(object_mat_, level_offset, level, 0.0f, SHADOW_PROJECTION_CASCADE);
 
     /* Add shadow tile-maps grouped by lights to the GPU buffer. */
@@ -517,20 +515,19 @@ void ShadowDirectional::cascade_tilemaps_distribution(Light &light, const Camera
     tilemap->set_updated();
   }
 
-  light._clipmap_origin_x = origin_offset.x * tile_size;
-  light._clipmap_origin_y = origin_offset.y * tile_size;
+  light.sun.clipmap_origin = float2(origin_offset * tile_size);
 
   light.type = LIGHT_SUN_ORTHO;
 
   /* Not really clip-maps, but this is in order to make #light_tilemap_max_get() work and determine
    * the scaling. */
-  light.clipmap_lod_min = levels_range.first();
-  light.clipmap_lod_max = levels_range.last();
+  light.sun.clipmap_lod_min = levels_range.first();
+  light.sun.clipmap_lod_max = levels_range.last();
 
   /* The bias is applied in cascade_level_range().
    * Using clipmap_lod_min here simplify code in shadow_directional_level().
    * Minus 1 because of the ceil(). */
-  light._clipmap_lod_bias = light.clipmap_lod_min - 1;
+  light.lod_bias = light.sun.clipmap_lod_min - 1;
 }
 
 /************************************************************************
@@ -541,8 +538,8 @@ IndexRange ShadowDirectional::clipmap_level_range(const Camera &camera)
 {
   using namespace blender::math;
 
-  /* Take 16 to be able to pack offset into a single int2. */
-  const int max_tilemap_per_shadows = 16;
+  /* 32 to be able to pack offset into two single int2. */
+  const int max_tilemap_per_shadows = 32;
 
   int user_min_level = floorf(log2(min_resolution_));
   /* Covers the farthest points of the view. */
@@ -592,8 +589,7 @@ void ShadowDirectional::clipmap_tilemaps_distribution(Light &light,
      * single integer where one bit contains offset between 2 levels. Then a single bit shift in
      * the shader gives the number of tile to offset in the given tile-map space. However we need
      * also the sign of the offset for each level offset. To this end, we split the negative
-     * offsets to a separate int.
-     * Recovering the offset with: (pos_offset >> lod) - (neg_offset >> lod). */
+     * offsets to a separate int. */
     int2 lvl_offset_next = tilemaps_[lod + 1]->grid_offset;
     int2 lvl_offset = tilemaps_[lod]->grid_offset;
     int2 lvl_delta = lvl_offset - (lvl_offset_next << 1);
@@ -602,9 +598,9 @@ void ShadowDirectional::clipmap_tilemaps_distribution(Light &light,
     neg_offset |= math::max(-lvl_delta, int2(0)) << lod;
   }
 
-  /* Compressing to a single value to save up storage in light data. Number of levels is limited to
-   * 16 by `clipmap_level_range()` for this reason. */
-  light.clipmap_base_offset = pos_offset | (neg_offset << 16);
+  /* Number of levels is limited to 32 by `clipmap_level_range()` for this reason. */
+  light.sun.clipmap_base_offset_pos = pos_offset;
+  light.sun.clipmap_base_offset_neg = neg_offset;
 
   float tile_size_max = ShadowDirectional::tile_size_get(levels_range.last());
   int2 level_offset_max = tilemaps_[levels_range.size() - 1]->grid_offset;
@@ -614,13 +610,12 @@ void ShadowDirectional::clipmap_tilemaps_distribution(Light &light,
   /* Used for selecting the clipmap level. */
   light.object_mat.location() = camera.position() * float3x3(object_mat_.view<3, 3>());
   /* Used as origin for the clipmap_base_offset trick. */
-  light._clipmap_origin_x = level_offset_max.x * tile_size_max;
-  light._clipmap_origin_y = level_offset_max.y * tile_size_max;
+  light.sun.clipmap_origin = float2(level_offset_max * tile_size_max);
 
-  light.clipmap_lod_min = levels_range.first();
-  light.clipmap_lod_max = levels_range.last();
+  light.sun.clipmap_lod_min = levels_range.first();
+  light.sun.clipmap_lod_max = levels_range.last();
 
-  light._clipmap_lod_bias = lod_bias;
+  light.lod_bias = lod_bias;
 }
 
 void ShadowDirectional::sync(const float4x4 &object_mat,
@@ -691,9 +686,8 @@ void ShadowDirectional::end_sync(Light &light, const Camera &camera, float lod_b
   light.tilemap_index = tilemap_pool.tilemaps_data.size();
   light.clip_near = 0x7F7FFFFF;                    /* floatBitsToOrderedInt(FLT_MAX) */
   light.clip_far = int(0xFF7FFFFFu ^ 0x7FFFFFFFu); /* floatBitsToOrderedInt(-FLT_MAX) */
-  light.shadow_trace_distance = trace_distance_;
-  /* This stores the disk radius directly. */
-  light.shadow_shape_scale_or_angle = disk_shape_angle_;
+  light.sun.shadow_trace_distance = trace_distance_;
+  light.sun.shadow_angle = disk_shape_angle_;
 
   if (directional_distribution_type_get(camera) == SHADOW_PROJECTION_CASCADE) {
     cascade_tilemaps_distribution(light, camera);
@@ -741,6 +735,9 @@ void ShadowModule::init()
     }
   }
 
+  jittered_transparency_ = !inst_.is_viewport() ||
+                           scene.eevee.flag & SCE_EEVEE_SHADOW_JITTERED_VIEWPORT;
+
   data_.ray_count = clamp_i(inst_.scene->eevee.shadow_ray_count, 1, SHADOW_MAX_RAY);
   data_.step_count = clamp_i(inst_.scene->eevee.shadow_step_count, 1, SHADOW_MAX_STEP);
   data_.normal_bias = max_ff(inst_.scene->eevee.shadow_normal_bias, 0.0f);
@@ -756,7 +753,7 @@ void ShadowModule::init()
     simplify_shadows = inst_.is_viewport() ? scene.r.simplify_shadows :
                                              scene.r.simplify_shadows_render;
   }
-  lod_bias_ = math::interpolate(float(SHADOW_TILEMAP_LOD), 0.0f, simplify_shadows);
+  lod_bias_ = -log2(simplify_shadows);
 
   const int2 atlas_extent = shadow_page_size_ * int2(SHADOW_PAGE_PER_ROW);
   const int atlas_layers = divide_ceil_u(shadow_page_len_, SHADOW_PAGE_PER_LAYER);
@@ -823,6 +820,8 @@ void ShadowModule::begin_sync()
   past_casters_updated_.clear();
   curr_casters_updated_.clear();
   curr_casters_.clear();
+  jittered_transparent_casters_.clear();
+  update_casters_ = true;
 
   {
     Manager &manager = *inst_.manager;
@@ -848,7 +847,7 @@ void ShadowModule::begin_sync()
       sub.bind_ssbo("surfel_buf", &surfels_buf);
       sub.bind_ssbo("capture_info_buf", &capture_info_buf);
       sub.push_constant("directional_level", directional_level);
-      sub.push_constant("tilemap_projection_ratio", projection_ratio);
+      sub.push_constant("tilemap_proj_ratio", projection_ratio);
       sub.bind_resources(inst_.lights);
       sub.dispatch(&inst_.volume_probes.bake.dispatch_per_surfel_);
 
@@ -863,7 +862,7 @@ void ShadowModule::begin_sync()
       sub.bind_ssbo("tilemaps_buf", &tilemap_pool.tilemaps_data);
       sub.bind_ssbo("tiles_buf", &tilemap_pool.tiles_data);
       sub.bind_texture("depth_tx", &src_depth_tx_);
-      sub.push_constant("tilemap_projection_ratio", &tilemap_projection_ratio_);
+      sub.push_constant("tilemap_proj_ratio", &data_.tilemap_projection_ratio);
       sub.bind_resources(inst_.lights);
       sub.dispatch(&dispatch_depth_scan_size_);
     }
@@ -879,7 +878,7 @@ void ShadowModule::begin_sync()
       sub.bind_ssbo("tilemaps_buf", &tilemap_pool.tilemaps_data);
       sub.bind_ssbo("tiles_buf", &tilemap_pool.tiles_data);
       sub.bind_ssbo("bounds_buf", &manager.bounds_buf.current());
-      sub.push_constant("tilemap_projection_ratio", &tilemap_projection_ratio_);
+      sub.push_constant("tilemap_proj_ratio", &data_.tilemap_projection_ratio);
       sub.push_constant("pixel_world_radius", &pixel_world_radius_);
       sub.push_constant("fb_resolution", &usage_tag_fb_resolution_);
       sub.push_constant("fb_lod", &usage_tag_fb_lod_);
@@ -896,7 +895,8 @@ void ShadowModule::begin_sync()
 void ShadowModule::sync_object(const Object *ob,
                                const ObjectHandle &handle,
                                const ResourceHandle &resource_handle,
-                               bool is_alpha_blend)
+                               bool is_alpha_blend,
+                               bool has_transparent_shadows)
 {
   bool is_shadow_caster = !(ob->visibility_flag & OB_HIDE_SHADOW);
   if (!is_shadow_caster && !is_alpha_blend) {
@@ -906,11 +906,18 @@ void ShadowModule::sync_object(const Object *ob,
   ShadowObject &shadow_ob = objects_.lookup_or_add_default(handle.object_key);
   shadow_ob.used = true;
   const bool is_initialized = shadow_ob.resource_handle.raw != 0;
-  if ((handle.recalc != 0 || !is_initialized) && is_shadow_caster) {
-    if (shadow_ob.resource_handle.raw != 0) {
+  const bool has_jittered_transparency = has_transparent_shadows && jittered_transparency_;
+  if (is_shadow_caster && (handle.recalc || !is_initialized || has_jittered_transparency)) {
+    if (handle.recalc && is_initialized) {
       past_casters_updated_.append(shadow_ob.resource_handle.raw);
     }
-    curr_casters_updated_.append(resource_handle.raw);
+
+    if (has_jittered_transparency) {
+      jittered_transparent_casters_.append(resource_handle.raw);
+    }
+    else {
+      curr_casters_updated_.append(resource_handle.raw);
+    }
   }
   shadow_ob.resource_handle = resource_handle;
 
@@ -931,7 +938,7 @@ void ShadowModule::end_sync()
       light.shadow_discard_safe(*this);
     }
     else if (light.directional != nullptr) {
-      light.directional->release_excess_tilemaps(inst_.camera, lod_bias_);
+      light.directional->release_excess_tilemaps(inst_.camera, light.lod_bias);
     }
     else if (light.punctual != nullptr) {
       light.punctual->release_excess_tilemaps();
@@ -945,10 +952,10 @@ void ShadowModule::end_sync()
       light.tilemap_index = LIGHT_NO_SHADOW;
     }
     else if (light.directional != nullptr) {
-      light.directional->end_sync(light, inst_.camera, lod_bias_);
+      light.directional->end_sync(light, inst_.camera, light.lod_bias);
     }
     else if (light.punctual != nullptr) {
-      light.punctual->end_sync(light, lod_bias_);
+      light.punctual->end_sync(light, light.lod_bias);
     }
     else {
       light.tilemap_index = LIGHT_NO_SHADOW;
@@ -972,6 +979,7 @@ void ShadowModule::end_sync()
   }
   past_casters_updated_.push_update();
   curr_casters_updated_.push_update();
+  jittered_transparent_casters_.push_update();
 
   curr_casters_.push_update();
 
@@ -1079,6 +1087,22 @@ void ShadowModule::end_sync()
       pass.barrier(GPU_BARRIER_SHADER_STORAGE);
     }
 
+    {
+      /* Mark for update all shadow pages touching a jittered transparency shadow caster. */
+      PassSimple &pass = jittered_transparent_caster_update_ps_;
+      pass.init();
+      if (jittered_transparent_casters_.size() > 0) {
+        pass.shader_set(inst_.shaders.static_shader_get(SHADOW_TILEMAP_TAG_UPDATE));
+        pass.bind_ssbo("tilemaps_buf", tilemap_pool.tilemaps_data);
+        pass.bind_ssbo("tiles_buf", tilemap_pool.tiles_data);
+        pass.bind_ssbo("bounds_buf", &manager.bounds_buf.current());
+        pass.bind_ssbo("resource_ids_buf", jittered_transparent_casters_);
+        pass.dispatch(
+            int3(jittered_transparent_casters_.size(), 1, tilemap_pool.tilemaps_data.size()));
+        pass.barrier(GPU_BARRIER_SHADER_STORAGE);
+      }
+    }
+
     /* Non volume usage tagging happens between these two steps.
      * (Setup at begin_sync) */
 
@@ -1087,7 +1111,7 @@ void ShadowModule::end_sync()
       sub.shader_set(inst_.shaders.static_shader_get(SHADOW_TILEMAP_TAG_USAGE_VOLUME));
       sub.bind_ssbo("tilemaps_buf", &tilemap_pool.tilemaps_data);
       sub.bind_ssbo("tiles_buf", &tilemap_pool.tiles_data);
-      sub.push_constant("tilemap_projection_ratio", &tilemap_projection_ratio_);
+      sub.push_constant("tilemap_proj_ratio", &data_.tilemap_projection_ratio);
       sub.bind_resources(inst_.uniform_data);
       sub.bind_resources(inst_.hiz_buffer.front);
       sub.bind_resources(inst_.sampling);
@@ -1105,6 +1129,7 @@ void ShadowModule::end_sync()
         /* Mark tiles that are redundant in the mipmap chain as unused. */
         PassSimple::Sub &sub = pass.sub("MaskLod");
         sub.shader_set(inst_.shaders.static_shader_get(SHADOW_PAGE_MASK));
+        sub.push_constant("max_view_per_tilemap", &max_view_per_tilemap_);
         sub.bind_ssbo("tilemaps_buf", tilemap_pool.tilemaps_data);
         sub.bind_ssbo("tiles_buf", tilemap_pool.tiles_data);
         sub.dispatch(int3(1, 1, tilemap_pool.tilemaps_data.size()));
@@ -1173,6 +1198,15 @@ void ShadowModule::end_sync()
         sub.dispatch(int3(1, 1, tilemap_pool.tilemaps_data.size()));
         sub.barrier(GPU_BARRIER_SHADER_STORAGE | GPU_BARRIER_UNIFORM | GPU_BARRIER_TEXTURE_FETCH |
                     GPU_BARRIER_SHADER_IMAGE_ACCESS);
+      }
+      {
+        /* Amend tilemap_tx content to support clipmap LODs. */
+        PassSimple::Sub &sub = pass.sub("Amend");
+        sub.shader_set(inst_.shaders.static_shader_get(SHADOW_TILEMAP_AMEND));
+        sub.bind_image("tilemaps_img", tilemap_pool.tilemap_tx);
+        sub.bind_resources(inst_.lights);
+        sub.dispatch(int3(1));
+        sub.barrier(GPU_BARRIER_TEXTURE_FETCH);
       }
 
       /* NOTE: We do not need to run the clear pass when using the TBDR update variant, as tiles
@@ -1271,7 +1305,7 @@ float ShadowModule::tilemap_pixel_radius()
 
 bool ShadowModule::shadow_update_finished()
 {
-  if (inst_.is_viewport()) {
+  if (!inst_.is_image_render()) {
     /* For viewport, only run the shadow update once per redraw.
      * This avoids the stall from the read-back and freezes from long shadow update. */
     return true;
@@ -1292,6 +1326,37 @@ bool ShadowModule::shadow_update_finished()
   return stats.page_rendered_count == stats.page_update_count;
 }
 
+int ShadowModule::max_view_per_tilemap()
+{
+  if (inst_.is_image_render()) {
+    /* No need to limit updates per lights as we ensure all lights levels will be rendered.
+     * is_image_render. */
+    return SHADOW_TILEMAP_LOD;
+  }
+  /* For now very simple heuristic. Can be improved later by taking into consideration how many
+   * tilemaps are updating, but we cannot know the ones updated by casters. */
+  int potential_view_count = 0;
+  for (auto i : IndexRange(tilemap_pool.tilemaps_data.size())) {
+    if (tilemap_pool.tilemaps_data[i].projection_type == SHADOW_PROJECTION_CUBEFACE) {
+      potential_view_count += SHADOW_TILEMAP_LOD;
+    }
+    else {
+      potential_view_count += 1;
+    }
+  }
+  int max_view_count = divide_ceil_u(SHADOW_VIEW_MAX, math::max(potential_view_count, 1));
+  /* For viewport interactivity, have a hard maximum. This allows smoother experience. */
+  if (inst_.is_transforming() || inst_.is_navigating()) {
+    max_view_count = math::min(2, max_view_count);
+  }
+  /* For animation playback, we always want the maximum performance. */
+  if (inst_.is_playback()) {
+    max_view_count = math::min(1, max_view_count);
+  }
+
+  return max_view_count;
+}
+
 void ShadowModule::set_view(View &view, GPUTexture *depth_tx)
 {
   if (enabled_ == false) {
@@ -1307,9 +1372,11 @@ void ShadowModule::set_view(View &view, GPUTexture *depth_tx)
   GPU_texture_get_mipmap_size(depth_tx, 0, target_size);
 
   dispatch_depth_scan_size_ = math::divide_ceil(target_size, int3(SHADOW_DEPTH_SCAN_GROUP_SIZE));
+  max_view_per_tilemap_ = max_view_per_tilemap();
 
   pixel_world_radius_ = screen_pixel_radius(view, int2(target_size));
-  tilemap_projection_ratio_ = tilemap_pixel_radius() / pixel_world_radius_;
+  data_.tilemap_projection_ratio = tilemap_pixel_radius() / pixel_world_radius_;
+  inst_.uniform_data.push_update();
 
   usage_tag_fb_resolution_ = math::divide_ceil(int2(target_size),
                                                int2(std::exp2(usage_tag_fb_lod_)));
@@ -1337,7 +1404,7 @@ void ShadowModule::set_view(View &view, GPUTexture *depth_tx)
   }
 
   inst_.hiz_buffer.update();
-  bool update_casters = true;
+  bool first_loop = true;
 
   do {
     DRW_stats_group_start("Shadow");
@@ -1345,11 +1412,14 @@ void ShadowModule::set_view(View &view, GPUTexture *depth_tx)
       GPU_uniformbuf_clear_to_zero(shadow_multi_view_.matrices_ubo_get());
 
       inst_.manager->submit(tilemap_setup_ps_, view);
-      if (assign_if_different(update_casters, false)) {
+      if (assign_if_different(update_casters_, false)) {
         /* Run caster update only once. */
         /* TODO(fclem): There is an optimization opportunity here where we can
          * test casters only against the static tilemaps instead of all of them. */
         inst_.manager->submit(caster_update_ps_, view);
+      }
+      if (assign_if_different(first_loop, false)) {
+        inst_.manager->submit(jittered_transparent_caster_update_ps_, view);
       }
       inst_.manager->submit(tilemap_usage_ps_, view);
       inst_.manager->submit(tilemap_update_ps_, view);
@@ -1358,7 +1428,7 @@ void ShadowModule::set_view(View &view, GPUTexture *depth_tx)
 
       statistics_buf_.current().async_flush_to_host();
 
-      /* Isolate shadow update into own command buffer.
+      /* Isolate shadow update into its own command buffer.
        * If parameter buffer exceeds limits, then other work will not be impacted. */
       bool use_flush = (shadow_technique == ShadowTechnique::TILE_COPY) &&
                        (GPU_backend_get_type() == GPU_BACKEND_METAL);

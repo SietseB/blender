@@ -21,6 +21,8 @@ __all__ = (
     "refresh_script_paths",
     "app_template_paths",
     "register_class",
+    "register_cli_command",
+    "unregister_cli_command",
     "register_manual_map",
     "unregister_manual_map",
     "register_classes_factory",
@@ -49,9 +51,11 @@ from _bpy import (
     flip_name,
     unescape_identifier,
     register_class,
+    register_cli_command,
     resource_path,
     script_paths as _bpy_script_paths,
     unregister_class,
+    unregister_cli_command,
     user_resource as _user_resource,
     system_resource,
 )
@@ -735,7 +739,7 @@ def user_resource(resource_type, *, path="", create=False):
     """
     Return a user resource path (normally from the users home directory).
 
-    :arg type: Resource type in ['DATAFILES', 'CONFIG', 'SCRIPTS', 'AUTOSAVE'].
+    :arg type: Resource type in ['DATAFILES', 'CONFIG', 'SCRIPTS', 'EXTENSIONS'].
     :type type: string
     :arg path: Optional subdirectory.
     :type path: string

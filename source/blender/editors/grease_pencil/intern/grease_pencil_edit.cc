@@ -20,6 +20,7 @@
 #include "BKE_attribute.hh"
 #include "BKE_context.hh"
 #include "BKE_curves_utils.hh"
+#include "BKE_deform.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -412,6 +413,8 @@ static bke::CurvesGeometry remove_points_and_split(const bke::CurvesGeometry &cu
   const int total_curves = dst_to_src_curve.size();
 
   bke::CurvesGeometry dst_curves(total_points, total_curves);
+
+  BKE_defgroup_copy_list(&dst_curves.vertex_group_names, &curves.vertex_group_names);
 
   MutableSpan<int> new_curve_offsets = dst_curves.offsets_for_write();
   array_utils::copy(dst_curve_counts.as_span(), new_curve_offsets.drop_back(1));
@@ -1403,7 +1406,7 @@ static void GREASE_PENCIL_OT_clean_loose(wmOperatorType *ot)
 
   ot->invoke = WM_operator_props_popup_confirm;
   ot->exec = grease_pencil_clean_loose_exec;
-  ot->poll = editable_grease_pencil_poll;
+  ot->poll = active_grease_pencil_layer_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
@@ -1861,7 +1864,7 @@ static Object *duplicate_grease_pencil_object(Main *bmain,
                                               GreasePencil &grease_pencil_src)
 {
   const eDupli_ID_Flags dupflag = eDupli_ID_Flags(U.dupflag & USER_DUP_ACT);
-  Base *base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_prev, dupflag);
+  Base *base_new = object::add_duplicate(bmain, scene, view_layer, base_prev, dupflag);
   Object *object_dst = base_new->object;
   object_dst->mode = OB_MODE_OBJECT;
   object_dst->data = BKE_grease_pencil_add(bmain, grease_pencil_src.id.name + 2);
@@ -2035,6 +2038,10 @@ static bool grease_pencil_separate_material(bContext &C,
 
   /* Create a new object for each material. */
   for (const int mat_i : IndexRange(object_src.totcol).drop_front(1)) {
+    if (!BKE_object_material_slot_used(&object_src, mat_i + 1)) {
+      continue;
+    }
+
     Object *object_dst = duplicate_grease_pencil_object(
         &bmain, &scene, &view_layer, &base_prev, grease_pencil_src);
 
@@ -2188,7 +2195,7 @@ struct Clipboard {
   bke::CurvesGeometry curves;
   /* We store the material uid's of the copied curves, so we can match those when pasting the
    * clipboard into another object. */
-  Vector<std::pair<unsigned int, int>> materials;
+  Vector<std::pair<uint, int>> materials;
   int materials_in_source_num;
 };
 
@@ -2240,7 +2247,7 @@ static int grease_pencil_paste_strokes_exec(bContext *C, wmOperator *op)
   selection_in_target.finish();
 
   /* Get a list of all materials in the scene. */
-  Map<unsigned int, Material *> scene_materials;
+  Map<uint, Material *> scene_materials;
   LISTBASE_FOREACH (Material *, material, &bmain->materials) {
     scene_materials.add(material->id.session_uid, material);
   }
@@ -2250,7 +2257,7 @@ static int grease_pencil_paste_strokes_exec(bContext *C, wmOperator *op)
   for (const int i : clipboard.materials.index_range()) {
     /* Check if the material name exists in the scene. */
     int target_index;
-    unsigned int material_id = clipboard.materials[i].first;
+    uint material_id = clipboard.materials[i].first;
     Material *material = scene_materials.lookup_default(material_id, nullptr);
     if (!material) {
       /* Material is removed, so create a new material. */

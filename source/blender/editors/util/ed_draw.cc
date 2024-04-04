@@ -31,9 +31,9 @@
 #include "ED_space_api.hh"
 #include "ED_util.hh"
 
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
+#include "GPU_immediate.hh"
+#include "GPU_matrix.hh"
+#include "GPU_state.hh"
 
 #include "UI_interface.hh"
 #include "UI_resources.hh"
@@ -375,6 +375,10 @@ static void slider_update_factor(tSlider *slider, const wmEvent *event)
   slider->factor = slider->raw_factor;
   copy_v2fl_v2i(slider->last_cursor, event->xy);
 
+  if (slider->increments) {
+    slider->factor = round(slider->factor * 10) / 10;
+  }
+
   if (!slider->overshoot) {
     slider->factor = clamp_f(slider->factor, slider->factor_bounds[0], slider->factor_bounds[1]);
   }
@@ -385,10 +389,6 @@ static void slider_update_factor(tSlider *slider, const wmEvent *event)
     if (!slider->allow_overshoot_upper) {
       slider->factor = min_ff(slider->factor, slider->factor_bounds[1]);
     }
-  }
-
-  if (slider->increments) {
-    slider->factor = round(slider->factor * 10) / 10;
   }
 }
 
@@ -531,7 +531,7 @@ void ED_slider_destroy(bContext *C, tSlider *slider)
 
 /* Setters & Getters */
 
-float ED_slider_factor_get(tSlider *slider)
+float ED_slider_factor_get(const tSlider *slider)
 {
   return slider->factor;
 }
@@ -551,7 +551,7 @@ void ED_slider_allow_overshoot_set(tSlider *slider, const bool lower, const bool
   slider->allow_overshoot_upper = upper;
 }
 
-bool ED_slider_allow_increments_get(tSlider *slider)
+bool ED_slider_allow_increments_get(const tSlider *slider)
 {
   return slider->allow_increments;
 }
@@ -574,7 +574,7 @@ void ED_slider_mode_set(tSlider *slider, SliderMode mode)
   slider->slider_mode = mode;
 }
 
-SliderMode ED_slider_mode_get(tSlider *slider)
+SliderMode ED_slider_mode_get(const tSlider *slider)
 {
   return slider->slider_mode;
 }
@@ -731,7 +731,7 @@ static void metadata_draw_imbuf(ImBuf *ibuf, const rctf *rect, int fontid, const
           BLF_enable(fontid, BLF_WORD_WRAP);
           BLF_wordwrap(fontid, ibuf->x - (margin * 2));
           BLF_position(fontid, xmin, ymax - vertical_offset - ofs_y, 0.0f);
-          BLF_draw_ex(fontid, temp_str, sizeof(temp_str), &info);
+          BLF_draw(fontid, temp_str, sizeof(temp_str), &info);
           BLF_wordwrap(fontid, 0);
           BLF_disable(fontid, BLF_WORD_WRAP);
           ofs_y += vertical_offset * info.lines;
@@ -804,7 +804,7 @@ static float metadata_box_height_get(ImBuf *ibuf, int fontid, const bool is_top)
 
           BLF_enable(fontid, BLF_WORD_WRAP);
           BLF_wordwrap(fontid, ibuf->x - (margin * 2));
-          BLF_boundbox_ex(fontid, str, sizeof(str), &wrap.rect, &wrap.info);
+          BLF_boundbox(fontid, str, sizeof(str), &wrap.rect, &wrap.info);
           BLF_wordwrap(fontid, 0);
           BLF_disable(fontid, BLF_WORD_WRAP);
 
@@ -868,7 +868,7 @@ void ED_region_image_metadata_draw(
     uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
     immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     GPU_blend(GPU_BLEND_ALPHA);
-    immUniformThemeColor(TH_METADATA_BG);
+    immUniformThemeColorAlpha(TH_METADATA_BG, 1.0f);
     immRectf(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
     immUnbindProgram();
 
@@ -895,7 +895,7 @@ void ED_region_image_metadata_draw(
     uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
     immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     GPU_blend(GPU_BLEND_ALPHA);
-    immUniformThemeColor(TH_METADATA_BG);
+    immUniformThemeColorAlpha(TH_METADATA_BG, 1.0f);
     immRectf(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
     immUnbindProgram();
 

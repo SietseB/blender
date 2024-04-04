@@ -2084,8 +2084,7 @@ class WM_OT_properties_edit_value(Operator):
         rna_item = eval("context.%s" % self.data_path)
 
         if WM_OT_properties_edit.get_property_type(rna_item, self.property_name) == 'PYTHON':
-            self.eval_string = WM_OT_properties_edit.convert_custom_property_to_string(rna_item,
-                                                                                       self.property_name)
+            self.eval_string = WM_OT_properties_edit.convert_custom_property_to_string(rna_item, self.property_name)
         else:
             self.eval_string = ""
 
@@ -2723,6 +2722,25 @@ class WM_OT_batch_rename(Operator):
             if id.library is None
         ]))
 
+    @staticmethod
+    def _selected_actions_from_outliner(context):
+        # Actions are a special case because they can be accessed directly or via animation-data.
+        from bpy.types import Action
+
+        def action_from_any_id(id_data):
+            if isinstance(id_data, Action):
+                return id_data
+            # Not all ID's have animation data.
+            if (animation_data := getattr(id_data, "animation_data", None)) is not None:
+                return animation_data.action
+            return None
+
+        return tuple(set(
+            action for id in context.selected_ids
+            if (action := action_from_any_id(id)) is not None
+            if action.library is None
+        ))
+
     @classmethod
     def _data_from_context(cls, context, data_type, only_selected, *, check_context=False):
 
@@ -2866,12 +2884,7 @@ class WM_OT_batch_rename(Operator):
                 data = (
                     (
                         # Outliner.
-                        tuple(set(
-                            action for id in context.selected_ids
-                            if (((animation_data := id.animation_data) is not None) and
-                                ((action := animation_data.action) is not None) and
-                                (action.library is None))
-                        ))
+                        cls._selected_actions_from_outliner(context)
                         if space_type == 'OUTLINER' else
                         # 3D View (default).
                         tuple(set(
@@ -2946,7 +2959,7 @@ class WM_OT_batch_rename(Operator):
                 elif method == 'SUFFIX':
                     name = name + text
                 else:
-                    assert 0
+                    assert False, "unreachable"
 
             elif ty == 'STRIP':
                 chars = action.strip_chars
@@ -2991,9 +3004,9 @@ class WM_OT_batch_rename(Operator):
                 elif method == 'TITLE':
                     name = name.title()
                 else:
-                    assert 0
+                    assert False, "unreachable"
             else:
-                assert 0
+                assert False, "unreachable"
         return name
 
     def _data_update(self, context):
@@ -3354,10 +3367,13 @@ class WM_MT_splash_about(Menu):
         col.scale_y = 0.8
         col.label(text=iface_("Version: %s") % bpy.app.version_string, translate=False)
         col.separator(factor=2.5)
-        col.label(text=iface_("Date: %s %s") % (bpy.app.build_commit_date.decode('utf-8', 'replace'),
-                                                bpy.app.build_commit_time.decode('utf-8', 'replace')), translate=False)
-        col.label(text=iface_("Hash: %s") % bpy.app.build_hash.decode('ascii'), translate=False)
-        col.label(text=iface_("Branch: %s") % bpy.app.build_branch.decode('utf-8', 'replace'), translate=False)
+        col.label(text=iface_("Date: %s %s") % (
+            bpy.app.build_commit_date.decode("utf-8", "replace"),
+            bpy.app.build_commit_time.decode("utf-8", "replace")),
+            translate=False
+        )
+        col.label(text=iface_("Hash: %s") % bpy.app.build_hash.decode("ascii"), translate=False)
+        col.label(text=iface_("Branch: %s") % bpy.app.build_branch.decode("utf-8", "replace"), translate=False)
 
         # This isn't useful information on MS-Windows or Apple systems as dynamically switching
         # between windowing systems is only supported between X11/WAYLAND.

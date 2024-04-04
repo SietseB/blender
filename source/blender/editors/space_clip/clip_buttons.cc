@@ -44,7 +44,7 @@
 #include "IMB_imbuf.hh"
 #include "IMB_imbuf_types.hh"
 
-#include "clip_intern.h" /* own include */
+#include "clip_intern.hh" /* own include */
 
 /* Panels */
 
@@ -797,6 +797,7 @@ void uiTemplateMovieclipInformation(uiLayout *layout,
   else {
     ofs += BLI_strncpy_rlen(str + ofs, RPT_(", failed to load"), sizeof(str) - ofs);
   }
+  UNUSED_VARS(ofs);
 
   uiItemL(col, str, ICON_NONE);
 

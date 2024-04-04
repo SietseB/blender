@@ -11,12 +11,13 @@
 #include "DNA_object_types.h"
 #include "DNA_userdef_types.h"
 
+#include "BKE_customdata.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_subdiv.hh"
 
-#include "GPU_capabilities.h"
-#include "GPU_context.h"
+#include "GPU_capabilities.hh"
+#include "GPU_context.hh"
 
 SubdivSettings BKE_subsurf_modifier_settings_init(const SubsurfModifierData *smd,
                                                   const bool use_render_params)
@@ -83,7 +84,7 @@ static ModifierData *modifier_get_last_enabled_for_mode(const Scene *scene,
 bool BKE_subsurf_modifier_use_custom_loop_normals(const SubsurfModifierData *smd, const Mesh *mesh)
 {
   return smd->flags & eSubsurfModifierFlag_UseCustomNormals &&
-         mesh->normals_domain() == blender::bke::MeshNormalDomain::Corner;
+         CustomData_has_layer(&mesh->corner_data, CD_CUSTOMLOOPNORMAL);
 }
 
 static bool is_subdivision_evaluation_possible_on_gpu()

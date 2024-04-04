@@ -38,11 +38,11 @@
 #include "ED_space_api.hh"
 #include "ED_time_scrub_ui.hh"
 
-#include "GPU_framebuffer.h"
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
+#include "GPU_framebuffer.hh"
+#include "GPU_immediate.hh"
+#include "GPU_immediate_util.hh"
+#include "GPU_matrix.hh"
+#include "GPU_state.hh"
 
 #include "BLF_api.hh"
 
@@ -53,7 +53,7 @@
 #include "UI_resources.hh"
 #include "UI_view2d.hh"
 
-#include "screen_intern.h"
+#include "screen_intern.hh"
 
 enum RegionEmbossSide {
   REGION_EMBOSS_LEFT = (1 << 0),
@@ -3219,7 +3219,7 @@ void ED_region_panels_layout_ex(const bContext *C,
       }
       const int width = panel_draw_width_from_max_width_get(region, panel->type, max_panel_width);
 
-      if (panel && UI_panel_is_dragging(panel)) {
+      if (UI_panel_is_dragging(panel)) {
         /* Prevent View2d.tot rectangle size changes while dragging panels. */
         update_tot_size = false;
       }

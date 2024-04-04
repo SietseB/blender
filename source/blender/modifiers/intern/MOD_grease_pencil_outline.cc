@@ -6,7 +6,6 @@
  * \ingroup modifiers
  */
 
-#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_attribute.hh"
 #include "BKE_material.h"
 #include "BLI_array_utils.hh"
@@ -16,8 +15,6 @@
 #include "BLI_math_vector.hh"
 #include "BLI_offset_indices.hh"
 #include "BLI_span.hh"
-#include "BLI_string.h"
-#include "BLI_string_utf8.h"
 
 #include "BLI_virtual_array.hh"
 #include "DNA_defaults.h"
@@ -51,8 +48,6 @@
 
 #include "MOD_grease_pencil_util.hh"
 #include "MOD_ui_common.hh"
-
-#include <iostream>
 
 namespace blender {
 
@@ -175,7 +170,7 @@ static int find_closest_point(const Span<float3> positions, const float3 &target
   return closest_i;
 }
 
-/* Generate points in an arc between two directions. */
+/* Generate points in an counter-clockwise arc between two directions. */
 static void generate_arc_from_point_to_point(const float3 &from,
                                              const float3 &to,
                                              const float3 &center_pt,
@@ -187,18 +182,26 @@ static void generate_arc_from_point_to_point(const float3 &from,
   const float3 vec_from = from - center_pt;
   const float3 vec_to = to - center_pt;
   if (math::is_zero(vec_from) || math::is_zero(vec_to)) {
+    r_perimeter.append(center_pt);
+    r_src_indices.append(src_point_index);
     return;
   }
 
-  const float dot = math::dot(vec_from.xy(), vec_to.xy());
-  const float det = vec_from.x * vec_to.y - vec_from.y * vec_to.x;
-  const float angle = math::atan2(-det, -dot) + M_PI;
+  const float cos_angle = math::dot(vec_from.xy(), vec_to.xy());
+  const float sin_angle = vec_from.x * vec_to.y - vec_from.y * vec_to.x;
+  /* Compute angle in range [0, 2pi) so that the rotation is always counter-clockwise. */
+  const float angle = math::atan2(-sin_angle, -cos_angle) + M_PI;
 
   /* Number of points is 2^(n+1) + 1 on half a circle (n=subdivisions)
    * so we multiply by (angle / pi) to get the right amount of
    * points to insert. */
-  const int num_points = std::max(int(((1 << (subdivisions + 1)) + 1) * (math::abs(angle) / M_PI)),
-                                  2);
+  const int num_full = (1 << (subdivisions + 1)) + 1;
+  const int num_points = num_full * math::abs(angle) / M_PI;
+  if (num_points < 2) {
+    r_perimeter.append(center_pt + vec_from);
+    r_src_indices.append(src_point_index);
+    return;
+  }
   const float delta_angle = angle / float(num_points - 1);
   const float delta_cos = math::cos(delta_angle);
   const float delta_sin = math::sin(delta_angle);
@@ -259,8 +262,8 @@ static void generate_corner(const float3 &pt_a,
 {
   const float length = math::length(pt_c - pt_b);
   const float length_prev = math::length(pt_b - pt_a);
-  const float3 tangent = math::normalize(pt_c - pt_b);
-  const float3 tangent_prev = math::normalize(pt_b - pt_a);
+  const float2 tangent = math::normalize((pt_c - pt_b).xy());
+  const float2 tangent_prev = math::normalize((pt_b - pt_a).xy());
   const float3 normal = {tangent.y, -tangent.x, 0.0f};
   const float3 normal_prev = {tangent_prev.y, -tangent_prev.x, 0.0f};
 
@@ -278,7 +281,7 @@ static void generate_corner(const float3 &pt_a,
                                      r_src_indices);
   }
   else {
-    const float3 avg_tangent = math::normalize(tangent_prev + tangent);
+    const float2 avg_tangent = math::normalize(tangent_prev + tangent);
     const float3 miter = {avg_tangent.y, -avg_tangent.x, 0.0f};
     const float miter_invscale = math::dot(normal, miter);
 
@@ -317,14 +320,14 @@ static void generate_stroke_perimeter(const Span<float3> all_positions,
     const float3 pt_a = positions[a];
     const float3 pt_b = positions[b];
     const float3 pt_c = positions[c];
-    const float radius = all_radii[point] + radius_offset;
+    const float radius = std::max(all_radii[point] + radius_offset, 0.0f);
     generate_corner(pt_a, pt_b, pt_c, radius, subdivisions, point, r_perimeter, r_point_indices);
   };
   auto add_cap = [&](const int center_i, const int next_i, const eGPDstroke_Caps cap_type) {
     const int point = points[center_i];
     const float3 &center = positions[center_i];
     const float3 dir = math::normalize(positions[next_i] - center);
-    const float radius = all_radii[point] + radius_offset;
+    const float radius = std::max(all_radii[point] + radius_offset, 0.0f);
     generate_cap(center, dir, radius, subdivisions, cap_type, point, r_perimeter, r_point_indices);
   };
 
@@ -336,7 +339,7 @@ static void generate_stroke_perimeter(const Span<float3> all_positions,
     /* Start cap. */
     add_cap(0, 1, start_cap_type);
 
-    /* Left perimeter half. */
+    /* Right perimeter half. */
     for (const int i : points.index_range().drop_front(1).drop_back(1)) {
       add_corner(i - 1, i, i + 1);
     }
@@ -354,7 +357,7 @@ static void generate_stroke_perimeter(const Span<float3> all_positions,
       add_cap(point_num - 1, point_num - 2, end_cap_type);
     }
 
-    /* Right perimeter half. */
+    /* Left perimeter half. */
     if (is_cyclic) {
       add_corner(0, point_num - 1, point_num - 2);
     }
@@ -371,7 +374,7 @@ static void generate_stroke_perimeter(const Span<float3> all_positions,
     /* Generate separate "inside" and an "outside" perimeter curves.
      * The distinction is arbitrary, called left/right here. */
 
-    /* Left side perimeter. */
+    /* Right side perimeter. */
     const int left_perimeter_start = r_perimeter.size();
     add_corner(point_num - 1, 0, 1);
     for (const int i : points.index_range().drop_front(1).drop_back(1)) {
@@ -383,7 +386,7 @@ static void generate_stroke_perimeter(const Span<float3> all_positions,
       r_point_counts.append(left_perimeter_count);
     }
 
-    /* Right side perimeter. */
+    /* Left side perimeter. */
     const int right_perimeter_start = r_perimeter.size();
     add_corner(0, point_num - 1, point_num - 2);
     for (const int i : points.index_range().drop_front(1).drop_back(1)) {

@@ -27,7 +27,7 @@
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_global.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
@@ -296,8 +296,9 @@ char pyrna_struct_keyframe_insert_doc[] =
     "      - ``INSERTKEY_NEEDED`` Only insert keyframes where they're needed in the relevant "
     "F-Curves.\n"
     "      - ``INSERTKEY_VISUAL`` Insert keyframes based on 'visual transforms'.\n"
-    "      - ``INSERTKEY_XYZ_TO_RGB`` Color for newly added transformation F-Curves (Location, "
-    "Rotation, Scale) is based on the transform axis.\n"
+    "      - ``INSERTKEY_XYZ_TO_RGB`` This flag is no longer in use, and is here so that code "
+    "that uses it doesn't break. The XYZ=RGB coloring is determined by the animation "
+    "preferences.\n"
     "      - ``INSERTKEY_REPLACE`` Only replace already existing keyframes.\n"
     "      - ``INSERTKEY_AVAILABLE`` Only insert into already existing F-Curves.\n"
     "      - ``INSERTKEY_CYCLE_AWARE`` Take cyclic extrapolation into account "
@@ -386,7 +387,6 @@ PyObject *pyrna_struct_keyframe_insert(BPy_StructRNA *self, PyObject *args, PyOb
     result = (blender::animrig::insert_keyframe(G_MAIN,
                                                 &reports,
                                                 id,
-                                                nullptr,
                                                 group_name,
                                                 path_full,
                                                 index,

@@ -48,7 +48,8 @@ def geometry_node_group_empty_tool_new(context):
     group.use_fake_user = True
     group.is_tool = True
 
-    ob_type = context.object.type if context.object else 'MESH'
+    ob = context.object
+    ob_type = ob.type if ob else 'MESH'
     if ob_type == 'CURVES':
         group.is_type_curve = True
     elif ob_type == 'POINTCLOUD':
@@ -56,7 +57,7 @@ def geometry_node_group_empty_tool_new(context):
     else:
         group.is_type_mesh = True
 
-    mode = context.object.mode if context.object else 'OBJECT'
+    mode = ob.mode if ob else 'OBJECT'
     if mode in {'SCULPT', 'SCULPT_CURVES'}:
         group.is_mode_sculpt = True
     elif mode == 'EDIT':
@@ -317,6 +318,8 @@ class ZoneOperator:
     @classmethod
     def get_node(cls, context):
         node = context.active_node
+        if node is None:
+            return None
         if node.bl_idname == cls.output_node_type:
             return node
         if node.bl_idname == cls.input_node_type:
@@ -337,6 +340,8 @@ class NodeOperator:
     @classmethod
     def get_node(cls, context):
         node = context.active_node
+        if node is None:
+            return None
         if node.bl_idname == cls.node_type:
             return node
 
