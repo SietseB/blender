@@ -34,7 +34,7 @@
 
 #include "ED_gpencil_legacy.hh"
 
-#include "gpencil_intern.h"
+#include "gpencil_intern.hh"
 
 /* parent type */
 static const EnumPropertyItem parent_type_items[] = {

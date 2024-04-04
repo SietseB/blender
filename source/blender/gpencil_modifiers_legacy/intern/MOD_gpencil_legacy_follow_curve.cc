@@ -33,7 +33,7 @@
 #include "BKE_curve.hh"
 #include "BKE_curves.h"
 #include "BKE_deform.hH"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve.hh"
 #include "BKE_gpencil_geom_legacy.h"
 #include "BKE_gpencil_modifier_legacy.h"
 #include "BKE_lib_query.hh"

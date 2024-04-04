@@ -51,7 +51,7 @@
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "gpencil_intern.h"
+#include "gpencil_intern.hh"
 #include "paint_intern.hh"
 
 /* ************************************************ */
@@ -1532,6 +1532,7 @@ static int gpencil_weight_toggle_direction_invoke(bContext *C,
    */
   bToolRef *tref = WM_toolsystem_ref_from_context(C);
   if (tref && STREQ(tref->idname, "builtin.gradient")) {
+    Main *bmain = CTX_data_main(C);
     brush = (Brush *)BLI_findstring(&bmain->brushes, "Weight Gradient", offsetof(ID, name) + 2);
   }
 

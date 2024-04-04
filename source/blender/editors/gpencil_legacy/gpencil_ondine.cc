@@ -36,7 +36,6 @@
 
 #include "ED_gpencil_legacy.hh"
 #include "ED_view3d.hh"
-#include "gpencil_intern.h"
 
 #include "gpencil_ondine.hh"
 

@@ -50,14 +50,14 @@
 #include "UI_resources.hh"
 
 #include "BLF_api.hh"
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
+#include "GPU_immediate.hh"
+#include "GPU_matrix.hh"
+#include "GPU_state.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "gpencil_intern.h"
+#include "gpencil_intern.hh"
 
 /* Temporary morph operation data `op->customdata`. */
 struct tGPDmorph {
@@ -194,7 +194,8 @@ static int gpencil_morph_target_add_exec(bContext *C, wmOperator *op)
     if (md == nullptr) {
       Main *bmain = CTX_data_main(C);
       Scene *scene = CTX_data_scene(C);
-      md = ED_object_gpencil_modifier_add(
+
+      md = blender::ed::object::gpencil_modifier_add(
           op->reports, bmain, scene, ob, "Morph Targets", eGpencilModifierType_MorphTargets);
       if (md == nullptr) {
         BKE_report(op->reports, RPT_ERROR, "Unable to add a Morph Targets modifier to object");
@@ -298,7 +299,7 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
       if (md->type != eGpencilModifierType_MorphTargets) {
         continue;
       }
-      ED_object_gpencil_modifier_remove(op->reports, bmain, ob, md);
+      blender::ed::object::gpencil_modifier_remove(op->reports, bmain, ob, md);
     }
   }
 
@@ -310,7 +311,7 @@ static int gpencil_morph_target_remove_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-bool gpencil_morph_target_active_poll(bContext *C)
+static bool gpencil_morph_target_active_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
   if ((ob == nullptr) || (ob->type != OB_GPENCIL_LEGACY)) {
@@ -517,7 +518,7 @@ static void gpencil_morph_target_edit_draw(const bContext * /*C*/, ARegion *regi
   BLF_disable(font_id, BLF_SHADOW);
 }
 
-#define EPSILON 0.00001f
+static constexpr float EPSILON = 0.00001f;
 
 static int gpencil_morph_target_create_stroke_deltas(bGPDframe *gpf_base,
                                                      bGPDframe *gpf_morph,
@@ -1090,7 +1091,7 @@ static int gpencil_morph_target_edit_exec(bContext *C, wmOperator *op)
   return OPERATOR_RUNNING_MODAL;
 }
 
-bool gpencil_morph_target_edit_poll(bContext *C)
+static bool gpencil_morph_target_edit_poll(bContext *C)
 {
   if (!gpencil_morph_target_active_poll(C)) {
     return false;
@@ -1122,7 +1123,7 @@ static int gpencil_morph_target_edit_finish_exec(bContext * /*C*/, wmOperator * 
   return OPERATOR_FINISHED;
 }
 
-bool gpencil_morph_target_edit_finish_poll(bContext * /*C*/)
+static bool gpencil_morph_target_edit_finish_poll(bContext * /*C*/)
 {
   return in_edit_mode;
 }
@@ -1260,7 +1261,7 @@ static int gpencil_morph_target_remove_all_exec(bContext *C, wmOperator *op)
     if (md->type != eGpencilModifierType_MorphTargets) {
       continue;
     }
-    ED_object_gpencil_modifier_remove(op->reports, bmain, ob, md);
+    blender::ed::object::gpencil_modifier_remove(op->reports, bmain, ob, md);
   }
 
   /* Notifiers. */
@@ -1301,7 +1302,7 @@ static int gpencil_morph_target_apply_all_exec(bContext *C, wmOperator *op)
   {
     md_prev = md->prev;
     if (md->type == eGpencilModifierType_MorphTargets) {
-      if (!ED_object_gpencil_modifier_apply(bmain, op->reports, depsgraph, ob, md, 0)) {
+      if (!blender::ed::object::gpencil_modifier_apply(bmain, op->reports, depsgraph, ob, md, 0)) {
         return OPERATOR_CANCELLED;
       }
     }
