@@ -115,6 +115,8 @@ typedef enum ModifierType {
   eModifierType_GreasePencilLineart = 78,
   eModifierType_GreasePencilArmature = 79,
   eModifierType_GreasePencilTime = 80,
+  eModifierType_GreasePencilEnvelope = 81,
+  eModifierType_GreasePencilOutline = 82,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
@@ -3066,7 +3068,7 @@ typedef struct GreasePencilLineartModifierData {
    *
    * Do not change any of the data below since the layout of these
    * data is currently shared with the old line art modifier.
-   * See `MOD_lineart_wrap_modifier_v3` for how it works. */
+   * See `BKE_grease_pencil_lineart_wrap_v3` for how it works. */
 
   uint16_t edge_types; /* line type enable flags, bits in eLineartEdgeFlag */
 
@@ -3225,3 +3227,49 @@ typedef enum GreasePencilTimeModifierSegmentMode {
   MOD_GREASE_PENCIL_TIME_SEG_MODE_REVERSE = 1,
   MOD_GREASE_PENCIL_TIME_SEG_MODE_PINGPONG = 2,
 } GreasePencilTimeModifierSegmentMode;
+
+typedef struct GreasePencilEnvelopeModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+  /* #GreasePencilEnvelopeModifierMode. */
+  int mode;
+  /** Material for the new strokes. */
+  int mat_nr;
+  /** Thickness multiplier for the new strokes. */
+  float thickness;
+  /** Strength multiplier for the new strokes. */
+  float strength;
+  /** Number of points to skip over. */
+  int skip;
+  /* Length of the envelope effect. */
+  int spread;
+} GreasePencilEnvelopeModifierData;
+
+/* Texture->mode */
+typedef enum GreasePencilEnvelopeModifierMode {
+  MOD_GREASE_PENCIL_ENVELOPE_DEFORM = 0,
+  MOD_GREASE_PENCIL_ENVELOPE_SEGMENTS = 1,
+  MOD_GREASE_PENCIL_ENVELOPE_FILLS = 2,
+} GreasePencilEnvelopeModifierMode;
+
+typedef struct GreasePencilOutlineModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+
+  /** Target stroke origin. */
+  struct Object *object;
+  /** #GreasePencilOutlineModifierFlag. */
+  int flag;
+  /** Thickness. */
+  int thickness;
+  /** Sample Length. */
+  float sample_length;
+  /** Subdivisions. */
+  int subdiv;
+  /** Material for outline. */
+  struct Material *outline_material;
+} GreasePencilOutlineModifierData;
+
+typedef enum GreasePencilOutlineModifierFlag {
+  MOD_GREASE_PENCIL_OUTLINE_KEEP_SHAPE = (1 << 0),
+} GreasePencilOutlineModifierFlag;

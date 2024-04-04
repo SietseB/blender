@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_volume_grid.hh"
 #include "BKE_volume_to_mesh.hh"
 
@@ -49,6 +50,7 @@ static void node_register()
   geo_node_type_base(&ntype, GEO_NODE_GRID_TO_MESH, "Grid to Mesh", NODE_CLASS_GEOMETRY);
   ntype.declare = node_declare;
   ntype.geometry_node_execute = node_geo_exec;
+  ntype.gather_link_search_ops = search_link_ops_for_volume_grid_node;
   nodeRegisterType(&ntype);
 }
 NOD_REGISTER_NODE(node_register)

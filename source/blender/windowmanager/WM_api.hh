@@ -716,12 +716,9 @@ int WM_menu_invoke(bContext *C, wmOperator *op, const wmEvent *event);
  * Call an existent menu. The menu can be created in C or Python.
  */
 void WM_menu_name_call(bContext *C, const char *menu_name, short context);
-/**
- * Similar to #WM_enum_search_invoke, but draws previews. Also, this can't
- * be used as invoke callback directly since it needs additional info.
- */
-int WM_enum_search_invoke_previews(bContext *C, wmOperator *op, short prv_cols, short prv_rows);
+
 int WM_enum_search_invoke(bContext *C, wmOperator *op, const wmEvent *event);
+
 /**
  * Invoke callback, confirm menu + exec.
  */
@@ -1744,6 +1741,10 @@ void WM_main_playanim(int argc, const char **argv);
  * Convenient to save a blend file from a debugger.
  */
 bool write_crash_blend();
+
+bool WM_autosave_is_scheduled(wmWindowManager *wm);
+/** Flushes all changes from edit modes and stores the auto-save file. */
+void WM_autosave_write(wmWindowManager *wm, Main *bmain);
 
 /**
  * Lock the interface for any communication.

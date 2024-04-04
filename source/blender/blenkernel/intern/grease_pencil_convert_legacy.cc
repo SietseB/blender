@@ -724,13 +724,17 @@ static ModifierData &legacy_object_modifier_common(Object &object,
         return false;
       }
       StringRefNull rna_path = fcurve->rna_path;
+      char legacy_name_esc[MAX_NAME * 2];
+      BLI_str_escape(legacy_name_esc, legacy_md.name, sizeof(legacy_name_esc));
       const std::string legacy_root_path = fmt::format("grease_pencil_modifiers[\"{}\"]",
-                                                       legacy_md.name);
+                                                       legacy_name_esc);
       if (!rna_path.startswith(legacy_root_path)) {
         return false;
       }
+      char new_name_esc[MAX_NAME * 2];
+      BLI_str_escape(new_name_esc, new_md.name, sizeof(new_name_esc));
       const std::string new_rna_path = fmt::format(
-          "modifiers[\"{}\"]{}", new_md.name, rna_path.substr(int64_t(legacy_root_path.size())));
+          "modifiers[\"{}\"]{}", new_name_esc, rna_path.substr(int64_t(legacy_root_path.size())));
       MEM_freeN(fcurve->rna_path);
       fcurve->rna_path = BLI_strdupn(new_rna_path.c_str(), new_rna_path.size());
       return true;
@@ -953,6 +957,45 @@ static void legacy_object_modifier_dash(Object &object, GpencilModifierData &leg
                                    legacy_md_dash.flag & GP_DASH_INVERT_PASS,
                                    "",
                                    false,
+                                   nullptr,
+                                   false);
+}
+
+static void legacy_object_modifier_envelope(Object &object, GpencilModifierData &legacy_md)
+{
+  ModifierData &md = legacy_object_modifier_common(
+      object, eModifierType_GreasePencilEnvelope, legacy_md);
+  auto &md_envelope = reinterpret_cast<GreasePencilEnvelopeModifierData &>(md);
+  auto &legacy_md_envelope = reinterpret_cast<EnvelopeGpencilModifierData &>(legacy_md);
+
+  switch (eEnvelopeGpencil_Mode(legacy_md_envelope.mode)) {
+    case GP_ENVELOPE_DEFORM:
+      md_envelope.mode = MOD_GREASE_PENCIL_ENVELOPE_DEFORM;
+      break;
+    case GP_ENVELOPE_SEGMENTS:
+      md_envelope.mode = MOD_GREASE_PENCIL_ENVELOPE_SEGMENTS;
+      break;
+    case GP_ENVELOPE_FILLS:
+      md_envelope.mode = MOD_GREASE_PENCIL_ENVELOPE_FILLS;
+      break;
+  }
+  md_envelope.mat_nr = legacy_md_envelope.mat_nr;
+  md_envelope.thickness = legacy_md_envelope.thickness;
+  md_envelope.strength = legacy_md_envelope.strength;
+  md_envelope.skip = legacy_md_envelope.skip;
+  md_envelope.spread = legacy_md_envelope.spread;
+
+  legacy_object_modifier_influence(md_envelope.influence,
+                                   legacy_md_envelope.layername,
+                                   legacy_md_envelope.layer_pass,
+                                   legacy_md_envelope.flag & GP_ENVELOPE_INVERT_LAYER,
+                                   legacy_md_envelope.flag & GP_ENVELOPE_INVERT_LAYERPASS,
+                                   &legacy_md_envelope.material,
+                                   legacy_md_envelope.pass_index,
+                                   legacy_md_envelope.flag & GP_ENVELOPE_INVERT_MATERIAL,
+                                   legacy_md_envelope.flag & GP_ENVELOPE_INVERT_PASS,
+                                   legacy_md_envelope.vgname,
+                                   legacy_md_envelope.flag & GP_ENVELOPE_INVERT_VGROUP,
                                    nullptr,
                                    false);
 }
@@ -1281,6 +1324,40 @@ static void legacy_object_modifier_opacity(Object &object, GpencilModifierData &
                                    legacy_md_opacity.flag & GP_OPACITY_CUSTOM_CURVE);
 }
 
+static void legacy_object_modifier_outline(Object &object, GpencilModifierData &legacy_md)
+{
+  ModifierData &md = legacy_object_modifier_common(
+      object, eModifierType_GreasePencilOutline, legacy_md);
+  auto &md_outline = reinterpret_cast<GreasePencilOutlineModifierData &>(md);
+  auto &legacy_md_outline = reinterpret_cast<OutlineGpencilModifierData &>(legacy_md);
+
+  md_outline.flag = 0;
+  if (legacy_md_outline.flag & GP_OUTLINE_KEEP_SHAPE) {
+    md_outline.flag |= MOD_GREASE_PENCIL_OUTLINE_KEEP_SHAPE;
+  }
+  md_outline.object = legacy_md_outline.object;
+  legacy_md_outline.object = nullptr;
+  md_outline.outline_material = legacy_md_outline.outline_material;
+  legacy_md_outline.outline_material = nullptr;
+  md_outline.sample_length = legacy_md_outline.sample_length;
+  md_outline.subdiv = legacy_md_outline.subdiv;
+  md_outline.thickness = legacy_md_outline.thickness;
+
+  legacy_object_modifier_influence(md_outline.influence,
+                                   legacy_md_outline.layername,
+                                   legacy_md_outline.layer_pass,
+                                   legacy_md_outline.flag & GP_OUTLINE_INVERT_LAYER,
+                                   legacy_md_outline.flag & GP_OUTLINE_INVERT_LAYERPASS,
+                                   &legacy_md_outline.material,
+                                   legacy_md_outline.pass_index,
+                                   legacy_md_outline.flag & GP_OUTLINE_INVERT_MATERIAL,
+                                   legacy_md_outline.flag & GP_OUTLINE_INVERT_PASS,
+                                   "",
+                                   false,
+                                   nullptr,
+                                   false);
+}
+
 static void legacy_object_modifier_smooth(Object &object, GpencilModifierData &legacy_md)
 {
   ModifierData &md = legacy_object_modifier_common(
@@ -1594,6 +1671,16 @@ static void legacy_object_modifier_weight_proximity(Object &object, GpencilModif
                                    false);
 }
 
+static void legacy_object_modifier_weight_lineart(Object &object, GpencilModifierData &legacy_md)
+{
+  ModifierData &md = legacy_object_modifier_common(
+      object, eModifierType_GreasePencilWeightAngle, legacy_md);
+  auto &md_lineart = reinterpret_cast<GreasePencilLineartModifierData &>(md);
+  auto &legacy_md_lineart = reinterpret_cast<LineartGpencilModifierData &>(legacy_md);
+
+  greasepencil::convert::lineart_wrap_v3(&legacy_md_lineart, &md_lineart);
+}
+
 static void legacy_object_modifiers(Main & /*bmain*/, Object &object)
 {
   BLI_assert(BLI_listbase_is_empty(&object.modifiers));
@@ -1616,6 +1703,9 @@ static void legacy_object_modifiers(Main & /*bmain*/, Object &object)
         break;
       case eGpencilModifierType_Dash:
         legacy_object_modifier_dash(object, *gpd_md);
+        break;
+      case eGpencilModifierType_Envelope:
+        legacy_object_modifier_envelope(object, *gpd_md);
         break;
       case eGpencilModifierType_Hook:
         legacy_object_modifier_hook(object, *gpd_md);
@@ -1641,6 +1731,9 @@ static void legacy_object_modifiers(Main & /*bmain*/, Object &object)
       case eGpencilModifierType_Opacity:
         legacy_object_modifier_opacity(object, *gpd_md);
         break;
+      case eGpencilModifierType_Outline:
+        legacy_object_modifier_outline(object, *gpd_md);
+        break;
       case eGpencilModifierType_Smooth:
         legacy_object_modifier_smooth(object, *gpd_md);
         break;
@@ -1662,14 +1755,13 @@ static void legacy_object_modifiers(Main & /*bmain*/, Object &object)
       case eGpencilModifierType_WeightProximity:
         legacy_object_modifier_weight_proximity(object, *gpd_md);
         break;
-
+      case eGpencilModifierType_Lineart:
+        legacy_object_modifier_weight_lineart(object, *gpd_md);
+        break;
       case eGpencilModifierType_Build:
       case eGpencilModifierType_Simplify:
       case eGpencilModifierType_Texture:
-      case eGpencilModifierType_Lineart:
       case eGpencilModifierType_Shrinkwrap:
-      case eGpencilModifierType_Envelope:
-      case eGpencilModifierType_Outline:
         break;
     }
 
@@ -1701,6 +1793,100 @@ void legacy_gpencil_object(Main &bmain, Object &object)
   thickness_factor_to_modifier(*gpd, object);
 
   BKE_object_free_derived_caches(&object);
+}
+
+void lineart_wrap_v3(const LineartGpencilModifierData *lmd_legacy,
+                     GreasePencilLineartModifierData *lmd)
+{
+#define LMD_WRAP(var) lmd->var = lmd_legacy->var
+
+  LMD_WRAP(edge_types);
+  LMD_WRAP(source_type);
+  LMD_WRAP(use_multiple_levels);
+  LMD_WRAP(level_start);
+  LMD_WRAP(level_end);
+  LMD_WRAP(source_camera);
+  LMD_WRAP(light_contour_object);
+  LMD_WRAP(source_object);
+  LMD_WRAP(source_collection);
+  LMD_WRAP(target_material);
+  STRNCPY(lmd->source_vertex_group, lmd_legacy->source_vertex_group);
+  STRNCPY(lmd->vgname, lmd_legacy->vgname);
+  LMD_WRAP(overscan);
+  LMD_WRAP(shadow_camera_fov);
+  LMD_WRAP(shadow_camera_size);
+  LMD_WRAP(shadow_camera_near);
+  LMD_WRAP(shadow_camera_far);
+  LMD_WRAP(opacity);
+  lmd->thickness = lmd_legacy->thickness / 2;
+  LMD_WRAP(mask_switches);
+  LMD_WRAP(material_mask_bits);
+  LMD_WRAP(intersection_mask);
+  LMD_WRAP(shadow_selection);
+  LMD_WRAP(silhouette_selection);
+  LMD_WRAP(crease_threshold);
+  LMD_WRAP(angle_splitting_threshold);
+  LMD_WRAP(chain_smooth_tolerance);
+  LMD_WRAP(chaining_image_threshold);
+  LMD_WRAP(calculation_flags);
+  LMD_WRAP(flags);
+  LMD_WRAP(stroke_depth_offset);
+  LMD_WRAP(level_start_override);
+  LMD_WRAP(level_end_override);
+  LMD_WRAP(edge_types_override);
+  LMD_WRAP(shadow_selection_override);
+  LMD_WRAP(shadow_use_silhouette_override);
+  LMD_WRAP(cache);
+  LMD_WRAP(la_data_ptr);
+
+#undef LMD_WRAP
+}
+
+void lineart_unwrap_v3(LineartGpencilModifierData *lmd_legacy,
+                       const GreasePencilLineartModifierData *lmd)
+{
+#define LMD_UNWRAP(var) lmd_legacy->var = lmd->var
+
+  LMD_UNWRAP(edge_types);
+  LMD_UNWRAP(source_type);
+  LMD_UNWRAP(use_multiple_levels);
+  LMD_UNWRAP(level_start);
+  LMD_UNWRAP(level_end);
+  LMD_UNWRAP(source_camera);
+  LMD_UNWRAP(light_contour_object);
+  LMD_UNWRAP(source_object);
+  LMD_UNWRAP(source_collection);
+  LMD_UNWRAP(target_material);
+  STRNCPY(lmd_legacy->source_vertex_group, lmd->source_vertex_group);
+  STRNCPY(lmd_legacy->vgname, lmd->vgname);
+  LMD_UNWRAP(overscan);
+  LMD_UNWRAP(shadow_camera_fov);
+  LMD_UNWRAP(shadow_camera_size);
+  LMD_UNWRAP(shadow_camera_near);
+  LMD_UNWRAP(shadow_camera_far);
+  LMD_UNWRAP(opacity);
+  lmd_legacy->thickness = lmd->thickness * 2;
+  LMD_UNWRAP(mask_switches);
+  LMD_UNWRAP(material_mask_bits);
+  LMD_UNWRAP(intersection_mask);
+  LMD_UNWRAP(shadow_selection);
+  LMD_UNWRAP(silhouette_selection);
+  LMD_UNWRAP(crease_threshold);
+  LMD_UNWRAP(angle_splitting_threshold);
+  LMD_UNWRAP(chain_smooth_tolerance);
+  LMD_UNWRAP(chaining_image_threshold);
+  LMD_UNWRAP(calculation_flags);
+  LMD_UNWRAP(flags);
+  LMD_UNWRAP(stroke_depth_offset);
+  LMD_UNWRAP(level_start_override);
+  LMD_UNWRAP(level_end_override);
+  LMD_UNWRAP(edge_types_override);
+  LMD_UNWRAP(shadow_selection_override);
+  LMD_UNWRAP(shadow_use_silhouette_override);
+  LMD_UNWRAP(cache);
+  LMD_UNWRAP(la_data_ptr);
+
+#undef LMD_UNWRAP
 }
 
 }  // namespace blender::bke::greasepencil::convert

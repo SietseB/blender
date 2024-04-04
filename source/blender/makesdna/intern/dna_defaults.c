@@ -349,6 +349,8 @@ SDNA_DEFAULT_DECL_STRUCT(GreasePencilHookModifierData);
 SDNA_DEFAULT_DECL_STRUCT(GreasePencilArmatureModifierData);
 SDNA_DEFAULT_DECL_STRUCT(GreasePencilTimeModifierSegment);
 SDNA_DEFAULT_DECL_STRUCT(GreasePencilTimeModifierData);
+SDNA_DEFAULT_DECL_STRUCT(GreasePencilEnvelopeModifierData);
+SDNA_DEFAULT_DECL_STRUCT(GreasePencilOutlineModifierData);
 SDNA_DEFAULT_DECL_STRUCT(MorphTargetsGpencilModifierData);
 SDNA_DEFAULT_DECL_STRUCT(FollowCurveGpencilModifierData);
 
@@ -619,6 +621,8 @@ const void *DNA_default_table[SDNA_TYPE_MAX] = {
     SDNA_DEFAULT_DECL(GreasePencilArmatureModifierData),
     SDNA_DEFAULT_DECL(GreasePencilTimeModifierSegment),
     SDNA_DEFAULT_DECL(GreasePencilTimeModifierData),
+    SDNA_DEFAULT_DECL(GreasePencilEnvelopeModifierData),
+    SDNA_DEFAULT_DECL(GreasePencilOutlineModifierData),
     SDNA_DEFAULT_DECL(MorphTargetsGpencilModifierData),
     SDNA_DEFAULT_DECL(FollowCurveGpencilModifierData),
 };

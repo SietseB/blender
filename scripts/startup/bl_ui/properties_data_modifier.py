@@ -156,9 +156,11 @@ class OBJECT_MT_modifier_add_generate(ModifierAddMenu, Menu):
         if ob_type == 'GREASEPENCIL':
             self.operator_modifier_add(layout, 'GREASE_PENCIL_ARRAY')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_DASH')
+            self.operator_modifier_add(layout, 'GREASE_PENCIL_ENVELOPE')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_LENGTH')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_MIRROR')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_MULTIPLY')
+            self.operator_modifier_add(layout, 'GREASE_PENCIL_OUTLINE')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_SUBDIV')
             self.operator_modifier_add(layout, 'LINEART')
         layout.template_modifier_asset_menu_items(catalog_path=self.bl_label)
