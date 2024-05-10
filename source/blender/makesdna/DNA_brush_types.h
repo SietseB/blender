@@ -276,8 +276,6 @@ typedef struct Brush {
 
   /** Active sculpt tool. */
   char sculpt_tool;
-  /** Active sculpt tool. */
-  char uv_sculpt_tool;
   /** Active vertex paint. */
   char vertexpaint_tool;
   /** Active weight paint. */
@@ -296,7 +294,7 @@ typedef struct Brush {
   char gpencil_weight_tool;
   /** Active curves sculpt tool (#eBrushCurvesSculptTool). */
   char curves_sculpt_tool;
-  char _pad1[5];
+  char _pad1[6];
 
   float autosmooth_factor;
 

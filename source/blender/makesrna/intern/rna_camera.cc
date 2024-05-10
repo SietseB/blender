@@ -421,7 +421,11 @@ static void rna_def_camera_stereo_data(BlenderRNA *brna)
   static const EnumPropertyItem convergence_mode_items[] = {
       {CAM_S3D_OFFAXIS, "OFFAXIS", 0, "Off-Axis", "Off-axis frustums converging in a plane"},
       {CAM_S3D_PARALLEL, "PARALLEL", 0, "Parallel", "Parallel cameras with no convergence"},
-      {CAM_S3D_TOE, "TOE", 0, "Toe-in", "Rotated cameras, looking at the convergence distance"},
+      {CAM_S3D_TOE,
+       "TOE",
+       0,
+       "Toe-in",
+       "Rotated cameras, looking at the same point at the convergence distance"},
       {0, nullptr, 0, nullptr, nullptr},
   };
 
@@ -531,7 +535,7 @@ static void rna_def_camera_dof_settings_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "focus_distance", PROP_FLOAT, PROP_DISTANCE);
   // RNA_def_property_pointer_sdna(prop, nullptr, "focus_distance");
   RNA_def_property_range(prop, 0.0f, FLT_MAX);
-  RNA_def_property_ui_range(prop, 0.0f, 5000.0f, 1, 2);
+  RNA_def_property_ui_range(prop, 0.0f, 5000.0f, 1, 4);
   RNA_def_property_ui_text(
       prop, "Focus Distance", "Distance to the focus point for depth of field");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Camera_dof_update");

@@ -1,10 +1,10 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.1.0 Release Candidate (b'64bfe491645f')\n"
+"Project-Id-Version: Blender 4.2.0 Alpha (b'9a3c7290a9c1')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-01-01 00:00+0000\n"
-"PO-Revision-Date: 2024-03-25 00:51+0000\n"
+"POT-Creation-Date: 2024-05-06 10:38+0000\n"
+"PO-Revision-Date: 2024-04-29 13:46+0000\n"
 "Last-Translator: william sélifet <williamselifet@live.be>\n"
 "Language-Team: Esperanto <https://translate.blender.org/projects/blender-ui/ui/eo/>\n"
 "Language: eo\n"
@@ -25,6 +25,14 @@ msgstr "Elektu"
 
 msgid "Add"
 msgstr "Aldonia"
+
+
+msgid "New"
+msgstr "Nova"
+
+
+msgid "F-Curves"
+msgstr "F-Kurbecoj"
 
 
 msgid "Cache Files"
@@ -55,10 +63,6 @@ msgid "Edit Mode"
 msgstr "Prilaborado Modo"
 
 
-msgid "F-Curves"
-msgstr "F-Kurbecoj"
-
-
 msgid "B-Bone"
 msgstr "B-osto"
 
@@ -85,10 +89,6 @@ msgstr "Dosiero"
 
 msgid "Help"
 msgstr "Helpo"
-
-
-msgid "New"
-msgstr "Nova"
 
 
 msgctxt "Operator"

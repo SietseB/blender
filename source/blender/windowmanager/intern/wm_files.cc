@@ -82,7 +82,7 @@
 #include "BKE_screen.hh"
 #include "BKE_sound.h"
 #include "BKE_undo_system.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "BLO_writefile.hh"
 
@@ -226,14 +226,14 @@ static BlendFileReadWMSetupData *wm_file_read_setup_wm_init(bContext *C,
     wm->message_bus = nullptr;
   }
 
-  /* XXX Hack! We have to clear context menu here, because removing all modalhandlers
-   * above frees the active menu (at least, in the 'startup splash' case),
+  /* XXX Hack! We have to clear context popup-region here, because removing all
+   * #wmWindow::modalhandlers above frees the active menu (at least, in the 'startup splash' case),
    * causing use-after-free error in later handling of the button callbacks in UI code
-   * (see ui_apply_but_funcs_after()).
+   * (see #ui_apply_but_funcs_after()).
    * Tried solving this by always nullptr-ing context's menu when setting wm/win/etc.,
    * but it broke popups refreshing (see #47632),
    * so for now just handling this specific case here. */
-  CTX_wm_menu_set(C, nullptr);
+  CTX_wm_region_popup_set(C, nullptr);
 
   ED_editors_exit(bmain, true);
 
@@ -955,7 +955,7 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
   if (bf_reports->resynced_lib_overrides_libraries_count != 0) {
     BKE_reportf(bf_reports->reports,
                 RPT_WARNING,
-                "%d libraries have overrides needing resync (auto resynced in %.0fm%.2fs),  "
+                "%d libraries have overrides needing resync (auto resynced in %.0fm%.2fs), "
                 "please check the Info editor for details",
                 bf_reports->resynced_lib_overrides_libraries_count,
                 duration_lib_override_recursive_resync_minutes,
@@ -1912,7 +1912,7 @@ static bool wm_file_write_check_with_report_on_failure(Main *bmain,
   }
 
   LISTBASE_FOREACH (Library *, li, &bmain->libraries) {
-    if (BLI_path_cmp(li->filepath_abs, filepath) == 0) {
+    if (BLI_path_cmp(li->runtime.filepath_abs, filepath) == 0) {
       BKE_reportf(reports, RPT_ERROR, "Cannot overwrite used library '%.240s'", filepath);
       return false;
     }
@@ -2568,7 +2568,7 @@ static int wm_userpref_read_invoke(bContext *C, wmOperator *op, const wmEvent * 
       C,
       op,
       title.c_str(),
-      IFACE_("To make changes to Preferences permanent, use \"Save Preferences.\""),
+      IFACE_("To make changes to Preferences permanent, use \"Save Preferences\""),
       IFACE_("Load"),
       ALERT_ICON_WARNING,
       false);
@@ -3180,10 +3180,16 @@ void WM_OT_open_mainfile(wmOperatorType *ot)
 
 static int wm_revert_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
+  std::string message = IFACE_("Any unsaved changes will be lost.");
+  if (ED_image_should_save_modified(CTX_data_main(C))) {
+    message += "\n";
+    message += IFACE_("Warning: There are unsaved external image(s).");
+  }
+
   return WM_operator_confirm_ex(C,
                                 op,
                                 IFACE_("Revert to the Saved File"),
-                                IFACE_("Any unsaved changes will be lost."),
+                                message.c_str(),
                                 IFACE_("Revert"),
                                 ALERT_ICON_WARNING,
                                 false);
@@ -3627,7 +3633,7 @@ static int wm_save_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent * 
 
   if (blendfile_path[0] != '\0') {
     if (CTX_data_main(C)->has_forward_compatibility_issues) {
-      wm_save_file_forwardcompat_dialog(C, op);
+      wm_save_file_overwrite_dialog(C, op);
       ret = OPERATOR_INTERFACE;
     }
     else {
@@ -3979,9 +3985,9 @@ static void wm_free_operator_properties_callback(void *user_data)
   IDP_FreeProperty(properties);
 }
 
-static const char *save_file_forwardcompat_dialog_name = "save_file_forwardcompat_popup";
+static const char *save_file_overwrite_dialog_name = "save_file_overwrite_popup";
 
-static void file_forwardcompat_detailed_info_show(uiLayout *parent_layout, Main *bmain)
+static void file_overwrite_detailed_info_show(uiLayout *parent_layout, Main *bmain)
 {
   uiLayout *layout = uiLayoutColumn(parent_layout, true);
   /* Trick to make both lines of text below close enough to look like they are part of a same
@@ -4015,21 +4021,21 @@ static void file_forwardcompat_detailed_info_show(uiLayout *parent_layout, Main 
   uiItemL(layout, message_line2, ICON_NONE);
 }
 
-static void save_file_forwardcompat_cancel(bContext *C, void *arg_block, void * /*arg_data*/)
+static void save_file_overwrite_cancel(bContext *C, void *arg_block, void * /*arg_data*/)
 {
   wmWindow *win = CTX_wm_window(C);
   UI_popup_block_close(C, win, static_cast<uiBlock *>(arg_block));
 }
 
-static void save_file_forwardcompat_cancel_button(uiBlock *block, wmGenericCallback *post_action)
+static void save_file_overwrite_cancel_button(uiBlock *block, wmGenericCallback *post_action)
 {
   uiBut *but = uiDefIconTextBut(
       block, UI_BTYPE_BUT, 0, ICON_NONE, IFACE_("Cancel"), 0, 0, 0, UI_UNIT_Y, nullptr, 0, 0, "");
-  UI_but_func_set(but, save_file_forwardcompat_cancel, block, post_action);
+  UI_but_func_set(but, save_file_overwrite_cancel, block, post_action);
   UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
 }
 
-static void save_file_forwardcompat_overwrite(bContext *C, void *arg_block, void *arg_data)
+static void save_file_overwrite_confirm(bContext *C, void *arg_block, void *arg_data)
 {
   wmWindow *win = CTX_wm_window(C);
 
@@ -4052,8 +4058,7 @@ static void save_file_forwardcompat_overwrite(bContext *C, void *arg_block, void
   WM_generic_callback_free(callback);
 }
 
-static void save_file_forwardcompat_overwrite_button(uiBlock *block,
-                                                     wmGenericCallback *post_action)
+static void save_file_overwrite_confirm_button(uiBlock *block, wmGenericCallback *post_action)
 {
   uiBut *but = uiDefIconTextBut(block,
                                 UI_BTYPE_BUT,
@@ -4068,12 +4073,12 @@ static void save_file_forwardcompat_overwrite_button(uiBlock *block,
                                 0,
                                 0,
                                 "");
-  UI_but_func_set(but, save_file_forwardcompat_overwrite, block, post_action);
+  UI_but_func_set(but, save_file_overwrite_confirm, block, post_action);
   UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
   UI_but_flag_enable(but, UI_BUT_REDALERT);
 }
 
-static void save_file_forwardcompat_saveas(bContext *C, void *arg_block, void * /*arg_data*/)
+static void save_file_overwrite_saveas(bContext *C, void *arg_block, void * /*arg_data*/)
 {
   wmWindow *win = CTX_wm_window(C);
   UI_popup_block_close(C, win, static_cast<uiBlock *>(arg_block));
@@ -4081,7 +4086,7 @@ static void save_file_forwardcompat_saveas(bContext *C, void *arg_block, void * 
   WM_operator_name_call(C, "WM_OT_save_as_mainfile", WM_OP_INVOKE_DEFAULT, nullptr, nullptr);
 }
 
-static void save_file_forwardcompat_saveas_button(uiBlock *block, wmGenericCallback *post_action)
+static void save_file_overwrite_saveas_button(uiBlock *block, wmGenericCallback *post_action)
 {
   uiBut *but = uiDefIconTextBut(block,
                                 UI_BTYPE_BUT,
@@ -4096,19 +4101,17 @@ static void save_file_forwardcompat_saveas_button(uiBlock *block, wmGenericCallb
                                 0,
                                 0,
                                 "");
-  UI_but_func_set(but, save_file_forwardcompat_saveas, block, post_action);
+  UI_but_func_set(but, save_file_overwrite_saveas, block, post_action);
   UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
   UI_but_flag_enable(but, UI_BUT_ACTIVE_DEFAULT);
 }
 
-static uiBlock *block_create_save_file_forwardcompat_dialog(bContext *C,
-                                                            ARegion *region,
-                                                            void *arg1)
+static uiBlock *block_create_save_file_overwrite_dialog(bContext *C, ARegion *region, void *arg1)
 {
   wmGenericCallback *post_action = static_cast<wmGenericCallback *>(arg1);
   Main *bmain = CTX_data_main(C);
 
-  uiBlock *block = UI_block_begin(C, region, save_file_forwardcompat_dialog_name, UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, save_file_overwrite_dialog_name, UI_EMBOSS);
   UI_block_flag_enable(
       block, UI_BLOCK_KEEP_OPEN | UI_BLOCK_LOOP | UI_BLOCK_NO_WIN_CLIP | UI_BLOCK_NUMSELECT);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_POPUP);
@@ -4134,7 +4137,7 @@ static uiBlock *block_create_save_file_forwardcompat_dialog(bContext *C,
   uiItemL(layout, filename, ICON_NONE);
 
   /* Detailed message info. */
-  file_forwardcompat_detailed_info_show(layout, bmain);
+  file_overwrite_detailed_info_show(layout, bmain);
 
   uiItemS_ex(layout, 4.0f);
 
@@ -4144,7 +4147,7 @@ static uiBlock *block_create_save_file_forwardcompat_dialog(bContext *C,
   uiLayoutSetScaleY(split, 1.2f);
 
   uiLayoutColumn(split, false);
-  save_file_forwardcompat_overwrite_button(block, post_action);
+  save_file_overwrite_confirm_button(block, post_action);
 
   uiLayout *split_right = uiLayoutSplit(split, 0.1f, true);
 
@@ -4152,25 +4155,25 @@ static uiBlock *block_create_save_file_forwardcompat_dialog(bContext *C,
   /* Empty space. */
 
   uiLayoutColumn(split_right, false);
-  save_file_forwardcompat_cancel_button(block, post_action);
+  save_file_overwrite_cancel_button(block, post_action);
 
   uiLayoutColumn(split_right, false);
-  save_file_forwardcompat_saveas_button(block, post_action);
+  save_file_overwrite_saveas_button(block, post_action);
 
   UI_block_bounds_set_centered(block, 14 * UI_SCALE_FAC);
   return block;
 }
 
-void wm_save_file_forwardcompat_dialog(bContext *C, wmOperator *op)
+void wm_save_file_overwrite_dialog(bContext *C, wmOperator *op)
 {
-  if (!UI_popup_block_name_exists(CTX_wm_screen(C), save_file_forwardcompat_dialog_name)) {
+  if (!UI_popup_block_name_exists(CTX_wm_screen(C), save_file_overwrite_dialog_name)) {
     wmGenericCallback *callback = MEM_cnew<wmGenericCallback>(__func__);
     callback->exec = nullptr;
     callback->user_data = IDP_CopyProperty(op->properties);
     callback->free_user_data = wm_free_operator_properties_callback;
 
     UI_popup_block_invoke(
-        C, block_create_save_file_forwardcompat_dialog, callback, free_post_file_close_action);
+        C, block_create_save_file_overwrite_dialog, callback, free_post_file_close_action);
   }
 }
 
@@ -4285,7 +4288,7 @@ static void wm_block_file_close_discard_button(uiBlock *block, wmGenericCallback
 
 static void wm_block_file_close_save_button(uiBlock *block,
                                             wmGenericCallback *post_action,
-                                            const bool has_forwardcompat_issues)
+                                            const bool needs_overwrite_confirm)
 {
   uiBut *but = uiDefIconTextBut(
       block,
@@ -4293,7 +4296,7 @@ static void wm_block_file_close_save_button(uiBlock *block,
       0,
       ICON_NONE,
       /* Forward compatibility issues force using 'save as' operator instead of 'save' one. */
-      has_forwardcompat_issues ? IFACE_("Save As...") : IFACE_("Save"),
+      needs_overwrite_confirm ? IFACE_("Save As...") : IFACE_("Save"),
       0,
       0,
       0,
@@ -4329,7 +4332,7 @@ static uiBlock *block_create__close_file_dialog(bContext *C, ARegion *region, vo
 
   uiLayout *layout = uiItemsAlertBox(block, 34, ALERT_ICON_QUESTION);
 
-  const bool has_forwardcompat_issues = bmain->has_forward_compatibility_issues;
+  const bool needs_overwrite_confirm = bmain->has_forward_compatibility_issues;
 
   /* Title. */
   uiItemL_ex(layout, RPT_("Save changes before closing?"), ICON_NONE, true, false);
@@ -4346,8 +4349,8 @@ static uiBlock *block_create__close_file_dialog(bContext *C, ARegion *region, vo
   uiItemL(layout, filename, ICON_NONE);
 
   /* Potential forward compatibility issues message. */
-  if (has_forwardcompat_issues) {
-    file_forwardcompat_detailed_info_show(layout, bmain);
+  if (needs_overwrite_confirm) {
+    file_overwrite_detailed_info_show(layout, bmain);
   }
 
   /* Image Saving Warnings. */
@@ -4452,7 +4455,7 @@ static uiBlock *block_create__close_file_dialog(bContext *C, ARegion *region, vo
     uiLayoutSetScaleY(split, 1.2f);
 
     uiLayoutColumn(split, false);
-    wm_block_file_close_save_button(block, post_action, has_forwardcompat_issues);
+    wm_block_file_close_save_button(block, post_action, needs_overwrite_confirm);
 
     uiLayoutColumn(split, false);
     wm_block_file_close_discard_button(block, post_action);
@@ -4478,7 +4481,7 @@ static uiBlock *block_create__close_file_dialog(bContext *C, ARegion *region, vo
     wm_block_file_close_cancel_button(block, post_action);
 
     uiLayoutColumn(split_right, false);
-    wm_block_file_close_save_button(block, post_action, has_forwardcompat_issues);
+    wm_block_file_close_save_button(block, post_action, needs_overwrite_confirm);
   }
 
   UI_block_bounds_set_centered(block, 14 * UI_SCALE_FAC);

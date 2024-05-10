@@ -47,6 +47,7 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_posemode_toggle);
   WM_operatortype_append(OBJECT_OT_shade_smooth);
   WM_operatortype_append(OBJECT_OT_shade_smooth_by_angle);
+  WM_operatortype_append(OBJECT_OT_shade_auto_smooth);
   WM_operatortype_append(OBJECT_OT_shade_flat);
   WM_operatortype_append(OBJECT_OT_paths_calculate);
   WM_operatortype_append(OBJECT_OT_paths_update);
@@ -119,6 +120,7 @@ void operatortypes_object()
 
   WM_operatortype_append(OBJECT_OT_modifier_add);
   WM_operatortype_append(OBJECT_OT_modifier_remove);
+  WM_operatortype_append(OBJECT_OT_modifiers_clear);
   WM_operatortype_append(OBJECT_OT_modifier_move_up);
   WM_operatortype_append(OBJECT_OT_modifier_move_down);
   WM_operatortype_append(OBJECT_OT_modifier_move_to_index);
@@ -127,6 +129,7 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_modifier_convert);
   WM_operatortype_append(OBJECT_OT_modifier_copy);
   WM_operatortype_append(OBJECT_OT_modifier_copy_to_selected);
+  WM_operatortype_append(OBJECT_OT_modifiers_copy_to_selected);
   WM_operatortype_append(OBJECT_OT_modifier_set_active);
   WM_operatortype_append(OBJECT_OT_multires_subdivide);
   WM_operatortype_append(OBJECT_OT_multires_reshape);
@@ -303,6 +306,7 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_light_linking_unlink_from_collection);
 
   object_modifier_add_asset_register();
+  collection_exporter_register();
 }
 
 void operatormacros_object()

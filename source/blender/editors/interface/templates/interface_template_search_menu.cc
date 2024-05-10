@@ -84,6 +84,7 @@ struct MenuSearch_Item {
   const char *drawwstr_full;
   int icon;
   int state;
+  float weight;
 
   MenuSearch_Parent *menu_parent;
   MenuType *mt;
@@ -175,6 +176,7 @@ static bool menu_items_from_ui_create_item_from_button(MenuSearch_Data *data,
 
     item = (MenuSearch_Item *)BLI_memarena_calloc(memarena, sizeof(*item));
     item->type = MenuSearch_Item::Type::Operator;
+    item->weight = but->search_weight;
 
     item->op.type = but->optype;
     item->op.opcontext = but->opcontext;
@@ -218,6 +220,7 @@ static bool menu_items_from_ui_create_item_from_button(MenuSearch_Data *data,
     else {
       item = (MenuSearch_Item *)BLI_memarena_calloc(memarena, sizeof(*item));
       item->type = MenuSearch_Item::Type::RNA;
+      item->weight = but->search_weight;
 
       item->rna.ptr = but->rnapoin;
       item->rna.prop = but->rnaprop;
@@ -379,11 +382,7 @@ static void menu_items_from_all_operators(bContext *C, MenuSearch_Data *data)
   ListBase operator_items = {nullptr, nullptr};
 
   MemArena *memarena = data->memarena;
-  GHashIterator iter;
-  for (WM_operatortype_iter(&iter); !BLI_ghashIterator_done(&iter); BLI_ghashIterator_step(&iter))
-  {
-    wmOperatorType *ot = (wmOperatorType *)BLI_ghashIterator_getValue(&iter);
-
+  for (wmOperatorType *ot : WM_operatortype_map().values()) {
     if ((ot->flag & OPTYPE_INTERNAL) && (G.debug & G_DEBUG_WM) == 0) {
       continue;
     }
@@ -1007,7 +1006,7 @@ static void menu_search_update_fn(const bContext * /*C*/,
   blender::ui::string_search::StringSearch<MenuSearch_Item> search;
 
   LISTBASE_FOREACH (MenuSearch_Item *, item, &data->items) {
-    search.add(item->drawwstr_full, item);
+    search.add(item->drawwstr_full, item, item->weight);
   }
 
   const blender::Vector<MenuSearch_Item *> filtered_items = search.query(str);

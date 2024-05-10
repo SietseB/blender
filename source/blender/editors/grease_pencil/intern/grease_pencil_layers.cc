@@ -10,6 +10,8 @@
 #include "BKE_grease_pencil.hh"
 #include "BKE_report.hh"
 
+#include "BLT_translation.hh"
+
 #include "DEG_depsgraph.hh"
 
 #include "ED_grease_pencil.hh"
@@ -31,7 +33,7 @@ void select_layer_channel(GreasePencil &grease_pencil, bke::greasepencil::Layer 
     layer->set_selected(true);
   }
 
-  if (grease_pencil.active_layer != layer) {
+  if (grease_pencil.get_active_layer() != layer) {
     grease_pencil.set_active_layer(layer);
     WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, &grease_pencil);
   }
@@ -43,6 +45,7 @@ static int grease_pencil_layer_add_exec(bContext *C, wmOperator *op)
   Object *object = CTX_data_active_object(C);
   Scene *scene = CTX_data_scene(C);
   GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+  TreeNode *active_node = &grease_pencil.active_node->wrap();
 
   int new_layer_name_length;
   char *new_layer_name = RNA_string_get_alloc(
@@ -55,13 +58,23 @@ static int grease_pencil_layer_add_exec(bContext *C, wmOperator *op)
     grease_pencil.move_node_after(new_layer.as_node(),
                                   grease_pencil.get_active_layer()->as_node());
   }
+  else if (active_node && active_node->is_group()) {
+    grease_pencil.move_node_into(new_layer.as_node(), active_node->as_group());
+  }
+
   grease_pencil.set_active_layer(&new_layer);
-  grease_pencil.insert_blank_frame(new_layer, scene->r.cfra, 0, BEZT_KEYTYPE_KEYFRAME);
+  grease_pencil.insert_frame(new_layer, scene->r.cfra);
 
   DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, &grease_pencil);
 
   return OPERATOR_FINISHED;
+}
+
+static int grease_pencil_layer_add_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  return WM_operator_props_popup_confirm_ex(
+      C, op, event, IFACE_("Add New Grease Pencil Layer"), IFACE_("Add"));
 }
 
 static void GREASE_PENCIL_OT_layer_add(wmOperatorType *ot)
@@ -72,7 +85,7 @@ static void GREASE_PENCIL_OT_layer_add(wmOperatorType *ot)
   ot->description = "Add a new Grease Pencil layer in the active object";
 
   /* callbacks */
-  ot->invoke = WM_operator_props_popup_confirm;
+  ot->invoke = grease_pencil_layer_add_invoke;
   ot->exec = grease_pencil_layer_add_exec;
   ot->poll = active_grease_pencil_poll;
 
@@ -201,8 +214,7 @@ static int grease_pencil_layer_active_exec(bContext *C, wmOperator *op)
   GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
   int layer_index = RNA_int_get(op->ptr, "layer");
 
-  const Layer &layer = *grease_pencil.layers()[layer_index];
-
+  const Layer &layer = *grease_pencil.layer(layer_index);
   if (grease_pencil.is_layer_active(&layer)) {
     return OPERATOR_CANCELLED;
   }
@@ -493,8 +505,9 @@ static int grease_pencil_layer_duplicate_exec(bContext *C, wmOperator *op)
   new_layer.frames_for_write().clear();
   for (auto [key, frame] : active_layer.frames().items()) {
     const int duration = frame.is_implicit_hold() ? 0 : active_layer.get_frame_duration_at(key);
-    const int drawing_index = grease_pencil.drawings().size();
-    GreasePencilFrame *new_frame = new_layer.add_frame(key, drawing_index, duration);
+
+    GreasePencilFrame *new_frame = new_layer.add_frame(key, duration);
+    new_frame->drawing_index = grease_pencil.drawings().size();
     new_frame->type = frame.type;
     if (empty_keyframes) {
       grease_pencil.add_empty_drawings(1);

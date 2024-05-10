@@ -25,7 +25,7 @@
 #include "BKE_lib_query.hh"
 #include "BKE_main.hh"
 #include "BKE_viewer_path.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -41,6 +41,8 @@
 static void workspace_init_data(ID *id)
 {
   WorkSpace *workspace = (WorkSpace *)id;
+
+  workspace->runtime = MEM_new<blender::bke::WorkSpaceRuntime>(__func__);
 
   BKE_asset_library_reference_init_default(&workspace->asset_library_ref);
 }
@@ -58,7 +60,9 @@ static void workspace_free_data(ID *id)
     BKE_workspace_tool_remove(workspace, static_cast<bToolRef *>(workspace->tools.first));
   }
 
-  MEM_SAFE_FREE(workspace->status_text);
+  BKE_workspace_status_clear(workspace);
+  MEM_delete(workspace->runtime);
+
   BKE_viewer_path_clear(&workspace->viewer_path);
 }
 
@@ -98,10 +102,10 @@ static void workspace_blend_read_data(BlendDataReader *reader, ID *id)
 {
   WorkSpace *workspace = (WorkSpace *)id;
 
-  BLO_read_list(reader, &workspace->layouts);
-  BLO_read_list(reader, &workspace->hook_layout_relations);
-  BLO_read_list(reader, &workspace->owner_ids);
-  BLO_read_list(reader, &workspace->tools);
+  BLO_read_struct_list(reader, WorkSpaceLayout, &workspace->layouts);
+  BLO_read_struct_list(reader, WorkSpaceDataRelation, &workspace->hook_layout_relations);
+  BLO_read_struct_list(reader, wmOwnerID, &workspace->owner_ids);
+  BLO_read_struct_list(reader, bToolRef, &workspace->tools);
 
   LISTBASE_FOREACH (WorkSpaceDataRelation *, relation, &workspace->hook_layout_relations) {
     /* Parent pointer does not belong to workspace data and is therefore restored in lib_link step
@@ -111,11 +115,11 @@ static void workspace_blend_read_data(BlendDataReader *reader, ID *id)
 
   LISTBASE_FOREACH (bToolRef *, tref, &workspace->tools) {
     tref->runtime = nullptr;
-    BLO_read_data_address(reader, &tref->properties);
+    BLO_read_struct(reader, IDProperty, &tref->properties);
     IDP_BlendDataRead(reader, &tref->properties);
   }
 
-  workspace->status_text = nullptr;
+  workspace->runtime = MEM_new<blender::bke::WorkSpaceRuntime>(__func__);
 
   /* Do not keep the scene reference when appending a workspace. Setting a scene for a workspace is
    * a convenience feature, but the workspace should never truly depend on scene data. */
@@ -630,6 +634,17 @@ void BKE_workspace_layout_name_set(WorkSpace *workspace,
 bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout)
 {
   return layout->screen;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Status
+ * \{ */
+
+void BKE_workspace_status_clear(WorkSpace *workspace)
+{
+  workspace->runtime->status.clear_and_shrink();
 }
 
 /** \} */

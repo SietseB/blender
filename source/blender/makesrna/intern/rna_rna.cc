@@ -78,7 +78,8 @@ const EnumPropertyItem rna_enum_property_type_items[] = {
   {PROP_DISTANCE, "DISTANCE", 0, "Distance", ""}, \
   {PROP_DISTANCE_CAMERA, "DISTANCE_CAMERA", 0, "Camera Distance", ""}, \
   {PROP_POWER, "POWER", 0, "Power", ""}, \
-  {PROP_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""}
+  {PROP_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""}, \
+  {PROP_WAVELENGTH, "WAVELENGTH", 0, "Wavelength", ""}
 
 #define RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ARRAY_ITEMS \
   {PROP_COLOR, "COLOR", 0, "Color", ""}, \
@@ -150,6 +151,7 @@ const EnumPropertyItem rna_enum_property_unit_items[] = {
     {PROP_UNIT_CAMERA, "CAMERA", 0, "Camera", ""},
     {PROP_UNIT_POWER, "POWER", 0, "Power", ""},
     {PROP_UNIT_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""},
+    {PROP_UNIT_WAVELENGTH, "WAVELENGTH", 0, "Wavelength", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -250,8 +252,12 @@ const EnumPropertyItem rna_enum_property_string_search_flag_items[] = {
 #  include "BKE_idprop.hh"
 #  include "BKE_lib_override.hh"
 
+#  include "RNA_path.hh"
+
 #  include <optional>
 #  include <string>
+
+#  include <fmt/format.h>
 
 static CLG_LogRef LOG_COMPARE_OVERRIDE = {"rna.rna_compare_override"};
 
@@ -316,7 +322,7 @@ static PointerRNA rna_Struct_name_property_get(PointerRNA *ptr)
  * iterate over properties of all inheritance levels, and for each struct to
  * also iterator over id properties not known by RNA. */
 
-static int rna_idproperty_known(CollectionPropertyIterator *iter, void *data)
+static bool rna_idproperty_known(CollectionPropertyIterator *iter, void *data)
 {
   IDProperty *idprop = (IDProperty *)data;
   PropertyRNA *prop;
@@ -330,30 +336,30 @@ static int rna_idproperty_known(CollectionPropertyIterator *iter, void *data)
       if ((prop->flag_internal & PROP_INTERN_BUILTIN) == 0 &&
           STREQ(prop->identifier, idprop->name))
       {
-        return 1;
+        return true;
       }
     }
   } while ((ptype = ptype->base));
 
-  return 0;
+  return false;
 }
 
-static int rna_property_builtin(CollectionPropertyIterator * /*iter*/, void *data)
+static bool rna_property_builtin(CollectionPropertyIterator * /*iter*/, void *data)
 {
   PropertyRNA *prop = (PropertyRNA *)data;
 
   /* function to skip builtin rna properties */
 
-  return (prop->flag_internal & PROP_INTERN_BUILTIN);
+  return (prop->flag_internal & PROP_INTERN_BUILTIN) != 0;
 }
 
-static int rna_function_builtin(CollectionPropertyIterator * /*iter*/, void *data)
+static bool rna_function_builtin(CollectionPropertyIterator * /*iter*/, void *data)
 {
   FunctionRNA *func = (FunctionRNA *)data;
 
   /* function to skip builtin rna functions */
 
-  return (func->flag & FUNC_BUILTIN);
+  return (func->flag & FUNC_BUILTIN) != 0;
 }
 
 static void rna_inheritance_next_level_restart(CollectionPropertyIterator *iter,
@@ -538,7 +544,7 @@ PointerRNA rna_builtin_properties_get(CollectionPropertyIterator *iter)
   return rna_Struct_properties_get(iter);
 }
 
-int rna_builtin_properties_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
+bool rna_builtin_properties_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
 {
   StructRNA *srna;
   PropertyRNA *prop;
@@ -843,7 +849,7 @@ static bool rna_Property_is_registered_optional_get(PointerRNA *ptr)
 static bool rna_Property_is_runtime_get(PointerRNA *ptr)
 {
   PropertyRNA *prop = (PropertyRNA *)ptr->data;
-  return (prop->flag_internal & PROP_INTERN_RUNTIME) != 0;
+  return RNA_property_is_runtime(prop);
 }
 
 static bool rna_BoolProperty_default_get(PointerRNA *ptr)
@@ -1045,7 +1051,7 @@ static int rna_EnumProperty_default_get(PointerRNA *ptr)
   return ((EnumPropertyRNA *)prop)->defaultvalue;
 }
 
-static int rna_enum_check_separator(CollectionPropertyIterator * /*iter*/, void *data)
+static bool rna_enum_check_separator(CollectionPropertyIterator * /*iter*/, void *data)
 {
   EnumPropertyItem *item = (EnumPropertyItem *)data;
 
@@ -1218,7 +1224,7 @@ static bool rna_Function_use_self_type_get(PointerRNA *ptr)
 
 /* Blender RNA */
 
-static int rna_struct_is_publc(CollectionPropertyIterator * /*iter*/, void *data)
+static bool rna_struct_is_publc(CollectionPropertyIterator * /*iter*/, void *data)
 {
   StructRNA *srna = static_cast<StructRNA *>(data);
 
@@ -1238,7 +1244,7 @@ static int rna_BlenderRNA_structs_length(PointerRNA *ptr)
   BLI_assert(brna->structs_len == BLI_listbase_count(&brna->structs));
   return brna->structs_len;
 }
-static int rna_BlenderRNA_structs_lookup_int(PointerRNA *ptr, int index, PointerRNA *r_ptr)
+static bool rna_BlenderRNA_structs_lookup_int(PointerRNA *ptr, int index, PointerRNA *r_ptr)
 {
   BlenderRNA *brna = static_cast<BlenderRNA *>(ptr->data);
   StructRNA *srna = static_cast<StructRNA *>(
@@ -1251,9 +1257,9 @@ static int rna_BlenderRNA_structs_lookup_int(PointerRNA *ptr, int index, Pointer
     return false;
   }
 }
-static int rna_BlenderRNA_structs_lookup_string(PointerRNA *ptr,
-                                                const char *key,
-                                                PointerRNA *r_ptr)
+static bool rna_BlenderRNA_structs_lookup_string(PointerRNA *ptr,
+                                                 const char *key,
+                                                 PointerRNA *r_ptr)
 {
   BlenderRNA *brna = static_cast<BlenderRNA *>(ptr->data);
   StructRNA *srna = static_cast<StructRNA *>(BLI_ghash_lookup(brna->structs_map, (void *)key));
@@ -1399,7 +1405,7 @@ static void rna_property_override_diff_propptr_validate_diffing(
       ptrdiff_ctx.rna_itemname_b = rna_itemname_b;
     }
 
-    /* Note: This will always assign nullptr to these lib-pointers in case `do_id_lib` is false,
+    /* NOTE: This will always assign nullptr to these lib-pointers in case `do_id_lib` is false,
      * which ensures that they will not affect the result of `ptrdiff_ctx.is_valid_for_diffing` in
      * the last check below. */
     ID *rna_itemid_a = (do_id_pointer && propptr_a->data) ? static_cast<ID *>(propptr_a->data) :
@@ -2550,15 +2556,21 @@ bool rna_property_override_apply_default(Main *bmain,
   if (prop_src_type != prop_dst_type ||
       (prop_storage && prop_src_type != RNA_property_type(prop_storage)))
   {
+    std::optional<std::string> prop_rna_path = rnaapply_ctx.liboverride_property ?
+                                                   rnaapply_ctx.liboverride_property->rna_path :
+                                                   RNA_path_from_ID_to_property(ptr_dst, prop_dst);
     CLOG_WARN(&LOG_COMPARE_OVERRIDE,
               "%s.%s: Inconsistency between stored property type (%d) and linked reference one "
               "(%d), skipping liboverride apply",
               ptr_dst->owner_id->name,
-              rnaapply_ctx.liboverride_property->rna_path,
+              prop_rna_path ? prop_rna_path->c_str() :
+                              fmt::format(" ... .{}", prop_dst->name).c_str(),
               prop_src_type,
               prop_dst_type);
     /* Keep the liboverride property, update its type to the new actual one. */
-    rnaapply_ctx.liboverride_property->rna_prop_type = prop_dst_type;
+    if (rnaapply_ctx.liboverride_property) {
+      rnaapply_ctx.liboverride_property->rna_prop_type = prop_dst_type;
+    }
     return false;
   }
 

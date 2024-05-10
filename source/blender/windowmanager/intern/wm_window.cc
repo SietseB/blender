@@ -41,7 +41,7 @@
 #include "BKE_main.hh"
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
@@ -2081,6 +2081,9 @@ eWM_CapabilitiesFlag WM_capabilities_flag()
   }
   if (ghost_flag & GHOST_kCapabilityInputIME) {
     flag |= WM_CAPABILITY_INPUT_IME;
+  }
+  if (ghost_flag & GHOST_kCapabilityTrackpadPhysicalDirection) {
+    flag |= WM_CAPABILITY_TRACKPAD_PHYSICAL_DIRECTION;
   }
 
   return flag;

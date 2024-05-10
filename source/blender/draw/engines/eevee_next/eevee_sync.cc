@@ -79,6 +79,17 @@ static inline void geometry_call(PassMain::Sub *sub_pass,
   }
 }
 
+static inline void volume_call(
+    MaterialPass &matpass, Scene *scene, Object *ob, gpu::Batch *geom, ResourceHandle res_handle)
+{
+  if (matpass.sub_pass != nullptr) {
+    PassMain::Sub *object_pass = volume_sub_pass(*matpass.sub_pass, scene, ob, matpass.gpumat);
+    if (object_pass != nullptr) {
+      object_pass->draw(geom, res_handle);
+    }
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -106,10 +117,8 @@ void SyncModule::sync_mesh(Object *ob,
     return;
   }
 
-  if ((ob->dt < OB_SOLID) && !DRW_state_is_scene_render()) {
-    /** NOTE:
-     * EEVEE doesn't render meshes with bounds or wire display type in the viewport,
-     * but Cycles does. */
+  if ((ob->dt < OB_SOLID) && ((inst_.is_viewport() && inst_.v3d->shading.type != OB_RENDER))) {
+    /** Do not render objects with display type lower than solid when in material preview mode. */
     return;
   }
 
@@ -125,13 +134,12 @@ void SyncModule::sync_mesh(Object *ob,
     Material &material = material_array.materials[i];
     GPUMaterial *gpu_material = material_array.gpu_materials[i];
 
-    if (material.has_volume && (i == 0)) {
-      /* Only support single volume material for now. */
-      geometry_call(material.volume_occupancy.sub_pass, geom, res_handle);
-      inst_.pipelines.volume.material_call(material.volume_material, ob, res_handle);
+    if (material.has_volume) {
+      volume_call(material.volume_occupancy, inst_.scene, ob, geom, res_handle);
+      volume_call(material.volume_material, inst_.scene, ob, geom, res_handle);
       /* Do not render surface if we are rendering a volume object
        * and do not have a surface closure. */
-      if (gpu_material && !GPU_material_has_surface_output(gpu_material)) {
+      if (!material.has_surface) {
         continue;
       }
     }
@@ -183,7 +191,7 @@ bool SyncModule::sync_sculpt(Object *ob,
    * when switching from eevee to workbench).
    */
   if (ob_ref.object->sculpt && ob_ref.object->sculpt->pbvh) {
-    BKE_pbvh_is_drawing_set(ob_ref.object->sculpt->pbvh, pbvh_draw);
+    BKE_pbvh_is_drawing_set(*ob_ref.object->sculpt->pbvh, pbvh_draw);
   }
 
   if (!pbvh_draw) {
@@ -206,10 +214,9 @@ bool SyncModule::sync_sculpt(Object *ob,
 
     Material &material = material_array.materials[batch.material_slot];
 
-    if (material.has_volume && (batch.material_slot == 0)) {
-      /* Only support single volume material for now. */
-      geometry_call(material.volume_occupancy.sub_pass, geom, res_handle);
-      inst_.pipelines.volume.material_call(material.volume_material, ob, res_handle);
+    if (material.has_volume) {
+      volume_call(material.volume_occupancy, inst_.scene, ob, geom, res_handle);
+      volume_call(material.volume_material, inst_.scene, ob, geom, res_handle);
       /* Do not render surface if we are rendering a volume object
        * and do not have a surface closure. */
       if (material.has_surface == false) {
@@ -242,7 +249,7 @@ bool SyncModule::sync_sculpt(Object *ob,
 
   /* Use a valid bounding box. The PBVH module already does its own culling, but a valid */
   /* bounding box is still needed for directional shadow tile-map bounds computation. */
-  const Bounds<float3> bounds = BKE_pbvh_bounding_box(ob_ref.object->sculpt->pbvh);
+  const Bounds<float3> bounds = bke::pbvh::bounds_get(*ob_ref.object->sculpt->pbvh);
   const float3 center = math::midpoint(bounds.min, bounds.max);
   const float3 half_extent = bounds.max - center + inflate_bounds;
   inst_.manager->update_handle_bounds(res_handle, center, half_extent);
@@ -286,7 +293,7 @@ void SyncModule::sync_point_cloud(Object *ob,
   if (material.has_volume) {
     /* Only support single volume material for now. */
     drawcall_add(material.volume_occupancy);
-    inst_.pipelines.volume.material_call(material.volume_material, ob, res_handle);
+    drawcall_add(material.volume_material);
 
     /* Do not render surface if we are rendering a volume object
      * and do not have a surface closure. */
@@ -346,9 +353,19 @@ void SyncModule::sync_volume(Object *ob, ObjectHandle & /*ob_handle*/, ResourceH
   /* Use bounding box tag empty spaces. */
   gpu::Batch *geom = DRW_cache_cube_get();
 
-  geometry_call(material.volume_occupancy.sub_pass, geom, res_handle);
+  auto drawcall_add = [&](MaterialPass &matpass, gpu::Batch *geom, ResourceHandle res_handle) {
+    if (matpass.sub_pass == nullptr) {
+      return;
+    }
+    PassMain::Sub *object_pass = volume_sub_pass(
+        *matpass.sub_pass, inst_.scene, ob, matpass.gpumat);
+    if (object_pass != nullptr) {
+      object_pass->draw(geom, res_handle);
+    }
+  };
 
-  inst_.pipelines.volume.material_call(material.volume_material, ob, res_handle);
+  drawcall_add(material.volume_occupancy, geom, res_handle);
+  drawcall_add(material.volume_material, geom, res_handle);
 }
 
 /** \} */
@@ -542,7 +559,7 @@ void SyncModule::sync_curves(Object *ob,
   if (material.has_volume) {
     /* Only support single volume material for now. */
     drawcall_add(material.volume_occupancy);
-    inst_.pipelines.volume.material_call(material.volume_material, ob, res_handle);
+    drawcall_add(material.volume_material);
     /* Do not render surface if we are rendering a volume object
      * and do not have a surface closure. */
     if (material.has_surface == false) {

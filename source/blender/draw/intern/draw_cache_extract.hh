@@ -113,7 +113,7 @@ struct MeshBufferList {
     gpu::IndexBuf *tris;
     /* Loose edges last. */
     gpu::IndexBuf *lines;
-    /* Sub buffer of `lines` only containing the loose edges. */
+    /* Potentially a sub buffer of `lines` only containing the loose edges. */
     gpu::IndexBuf *lines_loose;
     gpu::IndexBuf *points;
     gpu::IndexBuf *fdots;
@@ -225,8 +225,9 @@ struct SortedFaceData {
   Array<int> tris_num_by_material;
   /**
    * The first triangle index for each face, sorted into slices by material.
+   * May be empty if the mesh only has a single material.
    */
-  Array<int> face_tri_offsets;
+  std::optional<Array<int>> face_tri_offsets;
 };
 
 /**
@@ -309,7 +310,7 @@ void mesh_buffer_cache_create_requested(TaskGraph *task_graph,
                                         Mesh *mesh,
                                         bool is_editmode,
                                         bool is_paint_mode,
-                                        bool is_mode_active,
+                                        bool edit_mode_active,
                                         const float4x4 &object_to_world,
                                         bool do_final,
                                         bool do_uvedit,

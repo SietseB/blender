@@ -139,6 +139,9 @@ extern BlenderRNA BLENDER_RNA;
 void RNA_def_ID(BlenderRNA *brna);
 void RNA_def_action(BlenderRNA *brna);
 void RNA_def_animation(BlenderRNA *brna);
+#ifdef WITH_ANIM_BAKLAVA
+void RNA_def_animation_id(BlenderRNA *brna);
+#endif
 void RNA_def_animviz(BlenderRNA *brna);
 void RNA_def_armature(BlenderRNA *brna);
 void RNA_def_attribute(BlenderRNA *brna);
@@ -486,6 +489,9 @@ void RNA_def_main_speakers(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_sounds(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_armatures(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_actions(BlenderRNA *brna, PropertyRNA *cprop);
+#ifdef WITH_ANIM_BAKLAVA
+void RNA_def_main_animations(BlenderRNA *brna, PropertyRNA *cprop);
+#endif
 void RNA_def_main_particles(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_gpencil_legacy(BlenderRNA *brna, PropertyRNA *cprop);
@@ -552,7 +558,7 @@ void rna_builtin_properties_begin(CollectionPropertyIterator *iter, PointerRNA *
 void rna_builtin_properties_next(CollectionPropertyIterator *iter);
 PointerRNA rna_builtin_properties_get(CollectionPropertyIterator *iter);
 PointerRNA rna_builtin_type_get(PointerRNA *ptr);
-int rna_builtin_properties_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr);
+bool rna_builtin_properties_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr);
 
 /* Iterators */
 
@@ -608,7 +614,7 @@ MTex *rna_mtex_texture_slots_add(ID *self, bContext *C, ReportList *reports);
 MTex *rna_mtex_texture_slots_create(ID *self, bContext *C, ReportList *reports, int index);
 void rna_mtex_texture_slots_clear(ID *self, bContext *C, ReportList *reports, int index);
 
-int rna_IDMaterials_assign_int(PointerRNA *ptr, int key, const PointerRNA *assign_ptr);
+bool rna_IDMaterials_assign_int(PointerRNA *ptr, int key, const PointerRNA *assign_ptr);
 
 const char *rna_translate_ui_text(
     const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop, bool translate);

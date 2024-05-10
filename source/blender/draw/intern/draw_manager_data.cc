@@ -1101,29 +1101,21 @@ void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
                               int groups_z_len)
 {
   BLI_assert(groups_x_len > 0 && groups_y_len > 0 && groups_z_len > 0);
-  BLI_assert(GPU_compute_shader_support());
-
   drw_command_compute(shgroup, groups_x_len, groups_y_len, groups_z_len);
 }
 
 void DRW_shgroup_call_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3])
 {
-  BLI_assert(GPU_compute_shader_support());
-
   drw_command_compute_ref(shgroup, groups_ref);
 }
 
 void DRW_shgroup_call_compute_indirect(DRWShadingGroup *shgroup, GPUStorageBuf *indirect_buf)
 {
-  BLI_assert(GPU_compute_shader_support());
-
   drw_command_compute_indirect(shgroup, indirect_buf);
 }
 
 void DRW_shgroup_barrier(DRWShadingGroup *shgroup, eGPUBarrier type)
 {
-  BLI_assert(GPU_compute_shader_support());
-
   drw_command_barrier(shgroup, type);
 }
 
@@ -1310,7 +1302,7 @@ void DRW_sculpt_debug_cb(
   if (flag & (PBVH_Leaf | PBVH_TexLeaf)) {
     DRW_debug_bbox(&bb, SCULPT_DEBUG_COLOR((*debug_node_nr)++));
     int color = (*debug_node_nr)++;
-    color += BKE_pbvh_debug_draw_gen_get(node);
+    color += BKE_pbvh_debug_draw_gen_get(*node);
 
     DRW_debug_bbox(&bb, SCULPT_DEBUG_COLOR(color));
   }
@@ -1336,7 +1328,7 @@ static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd)
 {
   using namespace blender;
   /* PBVH should always exist for non-empty meshes, created by depsgraph eval. */
-  PBVH *pbvh = (scd->ob->sculpt) ? scd->ob->sculpt->pbvh : nullptr;
+  PBVH *pbvh = (scd->ob->sculpt) ? scd->ob->sculpt->pbvh.get() : nullptr;
   if (!pbvh) {
     return;
   }
@@ -1359,12 +1351,12 @@ static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd)
   if (p && (p->flags & PAINT_SCULPT_DELAY_UPDATES)) {
     update_frustum.planes = update_planes;
     update_frustum.num_planes = 6;
-    bke::pbvh::get_frustum_planes(pbvh, &update_frustum);
+    bke::pbvh::get_frustum_planes(*pbvh, &update_frustum);
     if (!navigating) {
       drw_sculpt_get_frustum_planes(scd->ob, update_planes);
       update_frustum.planes = update_planes;
       update_frustum.num_planes = 6;
-      bke::pbvh::set_frustum_planes(pbvh, &update_frustum);
+      bke::pbvh::set_frustum_planes(*pbvh, &update_frustum);
     }
   }
   else {
@@ -1395,7 +1387,7 @@ static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd)
 
   bke::pbvh::draw_cb(
       *mesh,
-      pbvh,
+      *pbvh,
       update_only_visible,
       update_frustum,
       draw_frustum,
@@ -1406,7 +1398,7 @@ static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd)
     int debug_node_nr = 0;
     DRW_debug_modelmat(scd->ob->object_to_world().ptr());
     BKE_pbvh_draw_debug_cb(
-        pbvh,
+        *pbvh,
         (void (*)(PBVHNode *n, void *d, const float min[3], const float max[3], PBVHNodeFlags f))
             DRW_sculpt_debug_cb,
         &debug_node_nr);

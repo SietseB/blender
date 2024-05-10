@@ -92,11 +92,6 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
      "Vertex Paint",
      "Grease Pencil Vertex Paint Strokes"},
     {OB_MODE_SCULPT_CURVES, "SCULPT_CURVES", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
-    {OB_MODE_PAINT_GREASE_PENCIL,
-     "PAINT_GREASE_PENCIL",
-     ICON_GREASEPENCIL,
-     "Draw Mode",
-     "Paint Grease Pencil Strokes"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -165,17 +160,17 @@ const EnumPropertyItem rna_enum_object_gpencil_type_items[] = {
      "LINEART_SCENE",
      ICON_SCENE_DATA,
      "Scene Line Art",
-     "Quickly set up line art for the entire scene"},
+     "Quickly set up Line Art for the entire scene"},
     {GREASE_PENCIL_LINEART_COLLECTION,
      "LINEART_COLLECTION",
      ICON_OUTLINER_COLLECTION,
      "Collection Line Art",
-     "Quickly set up line art for the active collection"},
+     "Quickly set up Line Art for the active collection"},
     {GREASE_PENCIL_LINEART_OBJECT,
      "LINEART_OBJECT",
      ICON_OBJECT_DATA,
      "Object Line Art",
-     "Quickly set up line art for the active object"},
+     "Quickly set up Line Art for the active object"},
     {0, nullptr, 0, nullptr, nullptr}};
 
 static const EnumPropertyItem parent_type_items[] = {
@@ -489,11 +484,11 @@ static void rna_Object_active_shape_update(Main *bmain, Scene * /*scene*/, Point
     switch (ob->type) {
       case OB_MESH: {
         Mesh *mesh = static_cast<Mesh *>(ob->data);
-        BMEditMesh *em = mesh->runtime->edit_mesh;
+        BMEditMesh *em = mesh->runtime->edit_mesh.get();
         int select_mode = em->selectmode;
         EDBM_mesh_load(bmain, ob);
         EDBM_mesh_make(ob, select_mode, true);
-        em = mesh->runtime->edit_mesh;
+        em = mesh->runtime->edit_mesh.get();
 
         DEG_id_tag_update(&mesh->id, 0);
 
@@ -1123,6 +1118,8 @@ static int rna_Object_active_material_index_get(PointerRNA *ptr)
 static void rna_Object_active_material_index_set(PointerRNA *ptr, int value)
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
+
+  value = std::max(std::min(value, ob->totcol - 1), 0);
   ob->actcol = value + 1;
 
   if (ob->type == OB_MESH) {
@@ -1772,7 +1769,7 @@ static void rna_Object_modifier_remove(Object *object,
 
 static void rna_Object_modifier_clear(Object *object, bContext *C)
 {
-  blender::ed::object::modifier_clear(CTX_data_main(C), CTX_data_scene(C), object);
+  blender::ed::object::modifiers_clear(CTX_data_main(C), CTX_data_scene(C), object);
 
   WM_main_add_notifier(NC_OBJECT | ND_MODIFIER | NA_REMOVED, object);
 }
@@ -2888,13 +2885,13 @@ static void rna_def_object_lineart(BlenderRNA *brna)
   };
 
   srna = RNA_def_struct(brna, "ObjectLineArt", nullptr);
-  RNA_def_struct_ui_text(srna, "Object Line Art", "Object line art settings");
+  RNA_def_struct_ui_text(srna, "Object Line Art", "Object Line Art settings");
   RNA_def_struct_sdna(srna, "ObjectLineArt");
   RNA_def_struct_path_func(srna, "rna_ObjectLineArt_path");
 
   prop = RNA_def_property(srna, "usage", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, prop_feature_line_usage_items);
-  RNA_def_property_ui_text(prop, "Usage", "How to use this object in line art calculation");
+  RNA_def_property_ui_text(prop, "Usage", "How to use this object in Line Art calculation");
   RNA_def_property_update(prop, 0, "rna_object_lineart_update");
 
   prop = RNA_def_property(srna, "use_crease_override", PROP_BOOLEAN, PROP_NONE);
@@ -3799,7 +3796,7 @@ static void rna_def_object(BlenderRNA *brna)
   /* Line Art */
   prop = RNA_def_property(srna, "lineart", PROP_POINTER, PROP_NONE);
   RNA_def_property_struct_type(prop, "ObjectLineArt");
-  RNA_def_property_ui_text(prop, "Line Art", "Line art settings for the object");
+  RNA_def_property_ui_text(prop, "Line Art", "Line Art settings for the object");
 
   /* Mesh Symmetry Settings */
 

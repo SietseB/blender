@@ -55,7 +55,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "GREASE_PENCIL_VERTEX_WEIGHT_PROXIMITY",
      ICON_MOD_VERTEX_WEIGHT,
      "Vertex Weight Proximity",
-     "Generate Vertex Weights base on distance to object"},
+     "Generate vertex weights based on distance to object"},
 
     RNA_ENUM_ITEM_HEADING(N_("Modify"), nullptr),
     {eModifierType_DataTransfer,
@@ -128,7 +128,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "GREASE_PENCIL_VERTEX_WEIGHT_ANGLE",
      ICON_MOD_VERTEX_WEIGHT,
      "Vertex Weight Angle",
-     "Generate vertex weights base on stroke angle"},
+     "Generate vertex weights based on stroke angle"},
     {eModifierType_GreasePencilTime,
      "GREASE_PENCIL_TIME",
      ICON_MOD_TIME,
@@ -253,7 +253,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "LINEART",
      ICON_GREASEPENCIL,
      "Line Art",
-     "Generate line art from scene geometries"},
+     "Generate Line Art from scene geometries"},
     {eModifierType_GreasePencilMirror,
      "GREASE_PENCIL_MIRROR",
      ICON_MOD_MIRROR,
@@ -844,6 +844,8 @@ static const EnumPropertyItem grease_pencil_build_time_mode_items[] = {
 #  include "DEG_depsgraph_build.hh"
 #  include "DEG_depsgraph_query.hh"
 
+#  include "ED_object.hh"
+
 #  ifdef WITH_ALEMBIC
 #    include "ABC_alembic.h"
 #  endif
@@ -928,6 +930,30 @@ static void rna_Modifier_is_active_set(PointerRNA *ptr, bool value)
     md->flag |= eModifierFlag_Active;
     WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ptr->owner_id);
   }
+}
+
+static void rna_Modifier_use_pin_to_last_set(PointerRNA *ptr, bool value)
+{
+  Object *object = reinterpret_cast<Object *>(ptr->owner_id);
+  ModifierData *md = static_cast<ModifierData *>(ptr->data);
+  SET_FLAG_FROM_TEST(md->flag, value, eModifierFlag_PinLast);
+
+  int to_index = BLI_findindex(&object->modifiers, md);
+  if (value) {
+    ModifierData *md_iter = md;
+    while (md_iter->next && (md_iter->next->flag & eModifierFlag_PinLast) == 0) {
+      to_index++;
+      md_iter = md_iter->next;
+    }
+  }
+  else {
+    ModifierData *md_iter = md;
+    while (md_iter->prev && (md_iter->prev->flag & eModifierFlag_PinLast)) {
+      to_index--;
+      md_iter = md_iter->prev;
+    }
+  }
+  blender::ed::object::modifier_move_to_index(nullptr, RPT_ERROR, object, md, to_index, true);
 }
 
 /* Vertex Groups */
@@ -2894,6 +2920,7 @@ static void rna_def_modifier_decimate(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, nullptr, "mode");
   RNA_def_property_enum_items(prop, modifier_decim_mode_items);
   RNA_def_property_ui_text(prop, "Mode", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   /* (mode == MOD_DECIM_MODE_COLLAPSE) */
@@ -8378,7 +8405,7 @@ static void rna_def_modifier_grease_pencil_tint(BlenderRNA *brna)
   srna = RNA_def_struct(brna, "GreasePencilTintModifier", "Modifier");
   RNA_def_struct_ui_text(srna, "Grease Pencil Tint Modifier", "");
   RNA_def_struct_sdna(srna, "GreasePencilTintModifierData");
-  RNA_def_struct_ui_icon(srna, ICON_MOD_OPACITY);
+  RNA_def_struct_ui_icon(srna, ICON_MOD_TINT);
 
   rna_def_modifier_grease_pencil_layer_filter(srna);
   rna_def_modifier_grease_pencil_material_filter(
@@ -8490,7 +8517,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "GreasePencilLineartModifier", "Modifier");
   RNA_def_struct_ui_text(
-      srna, "Line Art Modifier", "Generate line art strokes from selected source");
+      srna, "Line Art Modifier", "Generate Line Art strokes from selected source");
   RNA_def_struct_sdna(srna, "GreasePencilLineartModifierData");
   RNA_def_struct_ui_icon(srna, ICON_MOD_LINEART);
 
@@ -8523,7 +8550,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
       prop, nullptr, "calculation_flags", MOD_LINEART_ALLOW_DUPLI_OBJECTS);
   RNA_def_property_ui_text(prop,
                            "Instanced Objects",
-                           "Allow particle objects and face/vertex instances to show in line art");
+                           "Allow particle objects and face/vertex instances to show in Line Art");
   RNA_def_property_update(prop, NC_SCENE, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_edge_overlap", PROP_BOOLEAN, PROP_NONE);
@@ -8549,8 +8576,8 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
   RNA_def_property_ui_text(prop,
                            "Crease Threshold",
                            "Angles smaller than this will be treated as creases. Crease angle "
-                           "priority: object line art crease override > mesh auto smooth angle > "
-                           "line art default crease");
+                           "priority: object Line Art crease override > mesh auto smooth angle > "
+                           "Line Art default crease");
   RNA_def_property_update(prop, NC_SCENE, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "split_angle", PROP_FLOAT, PROP_ANGLE);
@@ -8671,7 +8698,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "Object");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(
-      prop, "Camera Object", "Use specified camera object for generating line art");
+      prop, "Camera Object", "Use specified camera object for generating Line Art strokes");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "light_contour_object", PROP_POINTER, PROP_NONE);
@@ -8684,7 +8711,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "source_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, modifier_lineart_source_type);
-  RNA_def_property_ui_text(prop, "Source Type", "Line art stroke source type");
+  RNA_def_property_ui_text(prop, "Source Type", "Line Art stroke source type");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "source_object", PROP_POINTER, PROP_NONE);
@@ -8821,7 +8848,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "flags", LINEART_GPENCIL_USE_CACHE);
   RNA_def_property_ui_text(prop,
                            "Use Cache",
-                           "Use cached scene data from the first line art modifier in the stack. "
+                           "Use cached scene data from the first Line Art modifier in the stack. "
                            "Certain settings will be unavailable");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -9539,12 +9566,13 @@ static void rna_def_modifier_grease_pencil_array(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "use_object_offset", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_ARRAY_USE_OB_OFFSET);
-  RNA_def_property_ui_text(prop, "Use Object Offset", "Enable object offset");
+  RNA_def_property_ui_text(
+      prop, "Use Object Offset", "Add another object's transformation to the total offset");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_relative_offset", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_ARRAY_USE_RELATIVE);
-  RNA_def_property_ui_text(prop, "Shift", "Enable shift");
+  RNA_def_property_ui_text(prop, "Shift", "Add an offset relative to the object's bounding box");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_uniform_random_scale", PROP_BOOLEAN, PROP_NONE);
@@ -10337,7 +10365,7 @@ static void rna_def_modifier_grease_pencil_envelope(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "GreasePencilEnvelopeModifier", "Modifier");
   RNA_def_struct_ui_text(
-      srna, "Grease Pencil Envelope Modifier", "AEnvelope stroke effect modifier");
+      srna, "Grease Pencil Envelope Modifier", "Envelope stroke effect modifier");
   RNA_def_struct_sdna(srna, "GreasePencilEnvelopeModifierData");
   RNA_def_struct_ui_icon(srna, ICON_MOD_ENVELOPE);
 
@@ -10722,7 +10750,7 @@ static void rna_def_modifier_grease_pencil_build(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   /* Speed factor for MOD_GREASE_PENCIL_BUILD_TIMEMODE_DRAWSPEED. */
-  /* Todo: Does it work? */
+  /* TODO: Does it work? */
   prop = RNA_def_property(srna, "speed_factor", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "speed_fac");
   RNA_def_property_ui_text(prop, "Speed Factor", "Multiply recorded drawing speed by a factor");
@@ -10994,6 +11022,15 @@ void RNA_def_modifier(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Active", "The active modifier in the list");
+  RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, nullptr);
+
+  prop = RNA_def_property(srna, "use_pin_to_last", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", eModifierFlag_PinLast);
+  RNA_def_property_boolean_funcs(prop, nullptr, "rna_Modifier_use_pin_to_last_set");
+  RNA_def_property_flag(prop, PROP_NO_DEG_UPDATE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Stick to Last", "Keep the modifier at the end of the list");
   RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, nullptr);
 
   prop = RNA_def_boolean(srna,

@@ -445,7 +445,7 @@ class NodeDeclaration {
   /* Combined list of socket and panel declarations.
    * This determines order of sockets in the UI and panel content. */
   Vector<ItemDeclarationPtr> items;
-  /* Note: inputs and outputs pointers are owned by the items list. */
+  /* NOTE: inputs and outputs pointers are owned by the items list. */
   Vector<SocketDeclaration *> inputs;
   Vector<SocketDeclaration *> outputs;
   std::unique_ptr<aal::RelationsInNode> anonymous_attribute_relations_;
@@ -580,6 +580,7 @@ void position(const bNode &node, void *r_value);
 void normal(const bNode &node, void *r_value);
 void index(const bNode &node, void *r_value);
 void id_or_index(const bNode &node, void *r_value);
+void instance_transform(const bNode &node, void *r_value);
 }  // namespace implicit_field_inputs
 
 void build_node_declaration(const bNodeType &typeinfo,

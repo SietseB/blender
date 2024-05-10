@@ -30,6 +30,9 @@ def setup():
         # Hair
         scene.render.hair_type = 'STRIP'
 
+        # Shadow
+        eevee.shadow_step_count = 16
+
         # Volumetric
         eevee.volumetric_tile_size = '2'
         eevee.volumetric_start = 1.0
@@ -59,6 +62,11 @@ def setup():
                 ob.hide_probe_sphere = True
                 ob.hide_probe_plane = True
 
+            # Counteract the versioning from legacy EEVEE. Should be changed per file at some point.
+            for mat_slot in ob.material_slots:
+                if mat_slot.material:
+                    mat_slot.material.thickness_mode = 'SPHERE'
+
         # Does not work in edit mode
         if bpy.context.mode == 'OBJECT':
             # Simple probe setup
@@ -77,6 +85,7 @@ def setup():
             grid.data.grid_resolution_z = 8
             grid.data.grid_bake_samples = 128
             grid.data.grid_capture_world = True
+            grid.data.surfel_density = 10.0
             # Make lighting smoother for most of the case.
             grid.data.grid_dilation_threshold = 1.0
             bpy.ops.object.lightprobe_cache_bake(subset='ACTIVE')

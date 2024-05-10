@@ -294,8 +294,6 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
    * false = don't delete unused shaders, not supported. */
   shader_map.post_sync(false);
 
-  free_data_after_sync(b_depsgraph);
-
   VLOG_INFO << "Total time spent synchronizing data: " << timer.get_time();
 
   has_updates_ = false;
@@ -797,6 +795,11 @@ void BlenderSync::free_data_after_sync(BL::Depsgraph &b_depsgraph)
    * but that will need some API support first.
    */
   for (BL::Object &b_ob : b_depsgraph.objects) {
+    /* Grease pencil render requires all evaluated objects available as-is after Cycles is done
+     * with its part. */
+    if (b_ob.type() == BL::Object::type_GREASEPENCIL || b_ob.type() == BL::Object::type_GPENCIL) {
+      continue;
+    }
     b_ob.cache_release();
   }
 }
@@ -984,9 +987,8 @@ DenoiseParams BlenderSync::get_denoise_params(BL::Scene &b_scene,
     denoising.use_gpu = get_boolean(cscene, "denoising_use_gpu");
     denoising.prefilter = (DenoiserPrefilter)get_enum(
         cscene, "denoising_prefilter", DENOISER_PREFILTER_NUM, DENOISER_PREFILTER_NONE);
-    /* This currently only affects NVIDIA and the difference in quality is too small to justify
-     * exposing a setting to the user. */
-    denoising.quality = DENOISER_QUALITY_HIGH;
+    denoising.quality = (DenoiserQuality)get_enum(
+        cscene, "denoising_quality", DENOISER_QUALITY_NUM, DENOISER_QUALITY_HIGH);
 
     input_passes = (DenoiserInput)get_enum(
         cscene, "denoising_input_passes", DENOISER_INPUT_NUM, DENOISER_INPUT_RGB_ALBEDO_NORMAL);
@@ -1006,9 +1008,8 @@ DenoiseParams BlenderSync::get_denoise_params(BL::Scene &b_scene,
     denoising.use_gpu = get_boolean(cscene, "preview_denoising_use_gpu");
     denoising.prefilter = (DenoiserPrefilter)get_enum(
         cscene, "preview_denoising_prefilter", DENOISER_PREFILTER_NUM, DENOISER_PREFILTER_FAST);
-    /* This currently only affects NVIDIA and the difference in quality is too small to justify
-     * exposing a setting to the user. */
-    denoising.quality = DENOISER_QUALITY_BALANCED;
+    denoising.quality = (DenoiserQuality)get_enum(
+        cscene, "preview_denoising_quality", DENOISER_QUALITY_NUM, DENOISER_QUALITY_BALANCED);
     denoising.start_sample = get_int(cscene, "preview_denoising_start_sample");
 
     input_passes = (DenoiserInput)get_enum(

@@ -567,6 +567,53 @@ static int compare_extension(void *user_data, const void *a1, const void *a2)
   return compare_apply_inverted(compare_tiebreaker(entry1, entry2), sort_data);
 }
 
+static int compare_asset_catalog(void *user_data, const void *a1, const void *a2)
+{
+  const FileListInternEntry *entry1 = static_cast<const FileListInternEntry *>(a1);
+  const FileListInternEntry *entry2 = static_cast<const FileListInternEntry *>(a2);
+  const FileSortData *sort_data = static_cast<const FileSortData *>(user_data);
+
+  if (entry1->asset && !entry2->asset) {
+    return 1;
+  }
+  if (!entry1->asset && entry2->asset) {
+    return -1;
+  }
+  if (!entry1->asset && !entry2->asset) {
+    if (int ret = compare_direntry_generic(entry1, entry2); ret) {
+      return ret;
+    }
+
+    return compare_apply_inverted(compare_tiebreaker(entry1, entry2), sort_data);
+  }
+
+  const asset_system::AssetLibrary &asset_library1 = entry1->asset->owner_asset_library();
+  const asset_system::AssetLibrary &asset_library2 = entry2->asset->owner_asset_library();
+
+  const asset_system::AssetCatalog *catalog1 = asset_library1.catalog_service().find_catalog(
+      entry1->asset->get_metadata().catalog_id);
+  const asset_system::AssetCatalog *catalog2 = asset_library2.catalog_service().find_catalog(
+      entry2->asset->get_metadata().catalog_id);
+
+  /* Always keep assets without catalog last. */
+  if (catalog1 && !catalog2) {
+    return 1;
+  }
+  if (!catalog1 && catalog2) {
+    return -1;
+  }
+
+  if (catalog1 && catalog2) {
+    const int order = BLI_strcasecmp_natural(catalog1->path.name().c_str(),
+                                             catalog2->path.name().c_str());
+    if (order) {
+      return compare_apply_inverted(order, sort_data);
+    }
+  }
+
+  return compare_apply_inverted(compare_tiebreaker(entry1, entry2), sort_data);
+}
+
 void filelist_sort(FileList *filelist)
 {
   if (filelist->flags & FL_NEED_SORTING) {
@@ -584,6 +631,9 @@ void filelist_sort(FileList *filelist)
         break;
       case FILE_SORT_EXTENSION:
         sort_cb = compare_extension;
+        break;
+      case FILE_SORT_ASSET_CATALOG:
+        sort_cb = compare_asset_catalog;
         break;
       case FILE_SORT_DEFAULT:
       default:
@@ -614,46 +664,6 @@ void filelist_setsorting(FileList *filelist, const short sort, bool invert_sort)
 
 /* ********** Filter helpers ********** */
 
-/* True if filename is meant to be hidden, eg. starting with period. */
-static bool is_hidden_dot_filename(const char *filename, const FileListInternEntry *file)
-{
-  if (filename[0] == '.' && !ELEM(filename[1], '.', '\0')) {
-    return true; /* ignore .file */
-  }
-
-  int len = strlen(filename);
-  if ((len > 0) && (filename[len - 1] == '~')) {
-    return true; /* ignore file~ */
-  }
-
-  /* filename might actually be a piece of path, in which case we have to check all its parts. */
-
-  bool hidden = false;
-  char *sep = (char *)BLI_path_slash_rfind(filename);
-
-  if (!hidden && sep) {
-    char tmp_filename[FILE_MAX_LIBEXTRA];
-
-    STRNCPY(tmp_filename, filename);
-    sep = tmp_filename + (sep - filename);
-    while (sep) {
-      /* This happens when a path contains 'ALTSEP', '\' on Unix for e.g.
-       * Supporting alternate slashes in paths is a bigger task involving changes
-       * in many parts of the code, for now just prevent an assert, see #74579. */
-#if 0
-      BLI_assert(sep[1] != '\0');
-#endif
-      if (is_hidden_dot_filename(sep + 1, file)) {
-        hidden = true;
-        break;
-      }
-      *sep = '\0';
-      sep = (char *)BLI_path_slash_rfind(tmp_filename);
-    }
-  }
-  return hidden;
-}
-
 /* True if should be hidden, based on current filtering. */
 static bool is_filtered_hidden(const char *filename,
                                const FileListFilter *filter,
@@ -669,16 +679,13 @@ static bool is_filtered_hidden(const char *filename,
     }
   }
 
+  /* Check for _OUR_ "hidden" attribute. This not only mirrors OS-level hidden file
+   * attribute but is also set for Linux/Mac "dot" files. See `filelist_readjob_list_dir`.
+   */
   if ((filter->flags & FLF_HIDE_DOT) && (file->attributes & FILE_ATTR_HIDDEN)) {
-    return true; /* Ignore files with Hidden attribute. */
-  }
-
-#ifndef WIN32
-  /* Check for unix-style names starting with period. */
-  if ((filter->flags & FLF_HIDE_DOT) && is_hidden_dot_filename(filename, file)) {
     return true;
   }
-#endif
+
   /* For data-blocks (but not the group directories), check the asset-only filter. */
   if (!(file->typeflag & FILE_TYPE_DIR) && (file->typeflag & FILE_TYPE_BLENDERLIB) &&
       (filter->flags & FLF_ASSETS_ONLY) && !(file->typeflag & FILE_TYPE_ASSET))
@@ -2250,6 +2257,13 @@ ID *filelist_entry_get_id(const FileList *filelist, const int index)
   return intern_entry->local_data.id;
 }
 
+asset_system::AssetRepresentation *filelist_entry_get_asset_representation(
+    const FileList *filelist, const int index)
+{
+  const FileListInternEntry *intern_entry = filelist_entry_intern_get(filelist, index);
+  return intern_entry->asset;
+}
+
 ID *filelist_file_get_id(const FileDirEntry *file)
 {
   return file->id;
@@ -2730,9 +2744,10 @@ int ED_path_extension_type(const char *path)
   {
     return FILE_TYPE_TEXT;
   }
-  if (BLI_path_extension_check_n(
-          path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", ".woff", ".woff2", nullptr))
-  {
+
+  /* NOTE: While `.ttc` & `.otc` files can be loaded, only a single "face" is supported,
+   * users will have to extract bold/italic etc manually for Blender to use them, see #44254. */
+  if (BLI_path_extension_check_n(path, ".ttf", ".pfb", ".otf", ".woff", ".woff2", nullptr)) {
     return FILE_TYPE_FTFONT;
   }
   if (BLI_path_extension_check(path, ".btx")) {
@@ -3131,7 +3146,7 @@ static int filelist_readjob_list_dir(FileListReadJob *job_params,
 
 #ifndef WIN32
       /* Set linux-style dot files hidden too. */
-      if (is_hidden_dot_filename(entry->relpath, entry)) {
+      if (BLI_path_has_hidden_component(entry->relpath)) {
         entry->attributes |= FILE_ATTR_HIDDEN;
       }
 #endif

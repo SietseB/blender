@@ -28,7 +28,7 @@
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
 #include "BKE_sound.h"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -754,6 +754,9 @@ static void screen_regions_poll(bContext *C, const wmWindow *win, bScreen *scree
       CTX_wm_region_set(C, region);
       if (region_poll(C, screen, area, region) == false) {
         region->flag |= RGN_FLAG_POLL_FAILED;
+      }
+      else if (region->type && region->type->on_poll_success) {
+        region->type->on_poll_success(C, region);
       }
 
       if (old_region_flag != region->flag) {

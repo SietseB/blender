@@ -470,6 +470,14 @@ IndexMask IndexMask::from_bools(const IndexMask &universe,
       universe, GrainSize(1024), memory, [bools](const int64_t index) { return bools[index]; });
 }
 
+IndexMask IndexMask::from_bools_inverse(const IndexMask &universe,
+                                        Span<bool> bools,
+                                        IndexMaskMemory &memory)
+{
+  return IndexMask::from_predicate(
+      universe, GrainSize(1024), memory, [bools](const int64_t index) { return !bools[index]; });
+}
+
 IndexMask IndexMask::from_bools(const IndexMask &universe,
                                 const VArray<bool> &bools,
                                 IndexMaskMemory &memory)
@@ -492,6 +500,24 @@ IndexMask IndexMask::from_union(const IndexMask &mask_a,
 {
   ExprBuilder builder;
   const Expr &expr = builder.merge({&mask_a, &mask_b});
+  return evaluate_expression(expr, memory);
+}
+
+IndexMask IndexMask::from_difference(const IndexMask &mask_a,
+                                     const IndexMask &mask_b,
+                                     IndexMaskMemory &memory)
+{
+  ExprBuilder builder;
+  const Expr &expr = builder.subtract({&mask_a}, {&mask_b});
+  return evaluate_expression(expr, memory);
+}
+
+IndexMask IndexMask::from_intersection(const IndexMask &mask_a,
+                                       const IndexMask &mask_b,
+                                       IndexMaskMemory &memory)
+{
+  ExprBuilder builder;
+  const Expr &expr = builder.intersect({&mask_a, &mask_b});
   return evaluate_expression(expr, memory);
 }
 

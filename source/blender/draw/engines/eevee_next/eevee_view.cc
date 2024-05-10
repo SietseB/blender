@@ -120,13 +120,12 @@ void ShadingView::render()
 
   /* TODO(fclem): Move it after the first prepass (and hiz update) once pipeline is stabilized. */
   inst_.lights.set_view(render_view_, extent_);
-  inst_.sphere_probes.set_view(render_view_);
 
   inst_.pipelines.background.render(render_view_);
 
   inst_.hiz_buffer.set_source(&inst_.render_buffers.depth_tx);
 
-  inst_.volume.draw_prepass(render_view_);
+  inst_.volume.draw_prepass(main_view_);
 
   /* TODO(Miguel Pozo): Deferred and forward prepass should happen before the GBuffer pass. */
   inst_.pipelines.deferred.render(main_view_,
@@ -140,11 +139,11 @@ void ShadingView::render()
 
   inst_.gbuffer.release();
 
-  inst_.volume.draw_compute(render_view_);
+  inst_.volume.draw_compute(main_view_);
 
   // inst_.lookdev.render_overlay(view_fb_);
 
-  inst_.pipelines.forward.render(render_view_, prepass_fb_, combined_fb_);
+  inst_.pipelines.forward.render(render_view_, prepass_fb_, combined_fb_, extent_);
 
   render_transparent_pass(rbufs);
 
@@ -176,7 +175,7 @@ void ShadingView::render_transparent_pass(RenderBuffers &rbufs)
     float4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
     GPU_framebuffer_bind(transparent_fb_);
     GPU_framebuffer_clear_color(transparent_fb_, clear_color);
-    inst_.pipelines.forward.render(render_view_, prepass_fb_, transparent_fb_);
+    inst_.pipelines.forward.render(render_view_, prepass_fb_, transparent_fb_, rbufs.extent_get());
   }
 }
 

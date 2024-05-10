@@ -26,8 +26,10 @@ static void sh_node_curve_vec_declare(NodeDeclarationBuilder &b)
       .max(1.0f)
       .default_value(1.0f)
       .subtype(PROP_FACTOR)
-      .no_muted_links();
-  b.add_input<decl::Vector>("Vector").min(-1.0f).max(1.0f);
+      .no_muted_links()
+      .description("Amount of influence the node exerts on the output vector");
+  b.add_input<decl::Vector>("Vector").min(-1.0f).max(1.0f).description(
+      "Vector which would be mapped to the curve");
   b.add_output<decl::Vector>("Vector");
 }
 
@@ -133,7 +135,7 @@ void register_node_type_sh_curve_vec()
   sh_fn_node_type_base(&ntype, SH_NODE_CURVE_VEC, "Vector Curves", NODE_CLASS_OP_VECTOR);
   ntype.declare = file_ns::sh_node_curve_vec_declare;
   ntype.initfunc = file_ns::node_shader_init_curve_vec;
-  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Large);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
   ntype.gpu_fn = file_ns::gpu_shader_curve_vec;
   ntype.build_multi_function = file_ns::sh_node_curve_vec_build_multi_function;
@@ -154,8 +156,11 @@ static void sh_node_curve_rgb_declare(NodeDeclarationBuilder &b)
       .max(1.0f)
       .default_value(1.0f)
       .subtype(PROP_FACTOR)
-      .no_muted_links();
-  b.add_input<decl::Color>("Color").default_value({1.0f, 1.0f, 1.0f, 1.0f});
+      .no_muted_links()
+      .description("Amount of influence the node exerts on the output color");
+  b.add_input<decl::Color>("Color")
+      .default_value({1.0f, 1.0f, 1.0f, 1.0f})
+      .description("Color input on which correction will be applied");
   b.add_output<decl::Color>("Color");
 }
 
@@ -290,7 +295,7 @@ void register_node_type_sh_curve_rgb()
   sh_fn_node_type_base(&ntype, SH_NODE_CURVE_RGB, "RGB Curves", NODE_CLASS_OP_COLOR);
   ntype.declare = file_ns::sh_node_curve_rgb_declare;
   ntype.initfunc = file_ns::node_shader_init_curve_rgb;
-  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Large);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
   ntype.gpu_fn = file_ns::gpu_shader_curve_rgb;
   ntype.build_multi_function = file_ns::sh_node_curve_rgb_build_multi_function;
@@ -418,7 +423,7 @@ void register_node_type_sh_curve_float()
   sh_fn_node_type_base(&ntype, SH_NODE_CURVE_FLOAT, "Float Curve", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_curve_float_declare;
   ntype.initfunc = file_ns::node_shader_init_curve_float;
-  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::LARGE);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Large);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
   ntype.gpu_fn = file_ns::gpu_shader_curve_float;
   ntype.build_multi_function = file_ns::sh_node_curve_float_build_multi_function;

@@ -67,21 +67,6 @@
 #include "sequencer_intern.hh"
 
 /* -------------------------------------------------------------------- */
-/** \name Structs & Enums
- * \{ */
-
-struct TransSeq {
-  int start, machine;
-  int startofs, endofs;
-  int anim_startofs, anim_endofs;
-  // int final_left, final_right; /* UNUSED. */
-  int len;
-  float content_start;
-};
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Public Context Checks
  * \{ */
 
@@ -636,17 +621,18 @@ static int sequencer_slip_exec(bContext *C, wmOperator *op)
 
 static void sequencer_slip_update_header(Scene *scene, ScrArea *area, SlipData *data, int offset)
 {
-  char msg[UI_MAX_DRAW_STR];
+  if (area == nullptr) {
+    return;
+  }
 
-  if (area) {
-    if (hasNumInput(&data->num_input)) {
-      char num_str[NUM_STR_REP_LEN];
-      outputNumInput(&data->num_input, num_str, &scene->unit);
-      SNPRINTF(msg, IFACE_("Slip offset: %s"), num_str);
-    }
-    else {
-      SNPRINTF(msg, IFACE_("Slip offset: %d"), offset);
-    }
+  char msg[UI_MAX_DRAW_STR];
+  if (hasNumInput(&data->num_input)) {
+    char num_str[NUM_STR_REP_LEN];
+    outputNumInput(&data->num_input, num_str, &scene->unit);
+    SNPRINTF(msg, IFACE_("Slip offset: %s"), num_str);
+  }
+  else {
+    SNPRINTF(msg, IFACE_("Slip offset: %d"), offset);
   }
 
   ED_area_status_text(area, msg);
@@ -1071,6 +1057,7 @@ static int sequencer_refresh_all_exec(bContext *C, wmOperator * /*op*/)
   Editing *ed = SEQ_editing_get(scene);
 
   SEQ_relations_free_imbuf(scene, &ed->seqbase, false);
+  blender::seq::media_presence_free(scene);
 
   WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
 
@@ -1337,7 +1324,7 @@ static const EnumPropertyItem prop_split_types[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-EnumPropertyItem prop_side_types[] = {
+const EnumPropertyItem prop_side_types[] = {
     {SEQ_SIDE_MOUSE, "MOUSE", 0, "Mouse Position", ""},
     {SEQ_SIDE_LEFT, "LEFT", 0, "Left", ""},
     {SEQ_SIDE_RIGHT, "RIGHT", 0, "Right", ""},
@@ -1682,7 +1669,7 @@ static int sequencer_delete_exec(bContext *C, wmOperator *op)
 
   SEQ_prefetch_stop(scene);
 
-  for (Sequence *seq : selected_strips_from_context(C)) {
+  for (Sequence *seq : ED_sequencer_selected_strips_from_context(C)) {
     SEQ_edit_flag_for_removal(scene, seqbasep, seq);
     if (delete_data) {
       sequencer_delete_strip_data(C, seq);
@@ -1912,6 +1899,12 @@ static int sequencer_separate_images_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static int sequencer_separate_images_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  return WM_operator_props_popup_confirm_ex(
+      C, op, event, IFACE_("Separate Sequence Images"), IFACE_("Separate"));
+}
+
 void SEQUENCER_OT_images_separate(wmOperatorType *ot)
 {
   /* Identifiers. */
@@ -1921,7 +1914,7 @@ void SEQUENCER_OT_images_separate(wmOperatorType *ot)
 
   /* Api callbacks. */
   ot->exec = sequencer_separate_images_exec;
-  ot->invoke = WM_operator_props_popup_confirm;
+  ot->invoke = sequencer_separate_images_invoke;
   ot->poll = sequencer_edit_poll;
 
   /* Flags. */
@@ -2617,7 +2610,7 @@ void SEQUENCER_OT_change_effect_input(wmOperatorType *ot)
 /** \name Change Effect Type Operator
  * \{ */
 
-EnumPropertyItem sequencer_prop_effect_types[] = {
+const EnumPropertyItem sequencer_prop_effect_types[] = {
     {SEQ_TYPE_CROSS, "CROSS", 0, "Crossfade", "Crossfade effect strip type"},
     {SEQ_TYPE_ADD, "ADD", 0, "Add", "Add effect strip type"},
     {SEQ_TYPE_SUB, "SUBTRACT", 0, "Subtract", "Subtract effect strip type"},
@@ -2986,7 +2979,7 @@ static int sequencer_export_subtitles_exec(bContext *C, wmOperator *op)
   Sequence *seq, *seq_next;
   Editing *ed = SEQ_editing_get(scene);
   ListBase text_seq = {nullptr};
-  int iter = 1; /* Sequence numbers in .srt files are 1-indexed. */
+  int iter = 1; /* Sequence numbers in `.srt` files are 1-indexed. */
   FILE *file;
   char filepath[FILE_MAX];
 

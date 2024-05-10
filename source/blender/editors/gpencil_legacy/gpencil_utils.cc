@@ -1428,7 +1428,7 @@ void ED_gpencil_add_defaults(bContext *C, Object *ob)
   Main *bmain = CTX_data_main(C);
   ToolSettings *ts = CTX_data_tool_settings(C);
 
-  BKE_paint_ensure(ts, (Paint **)&ts->gp_paint);
+  BKE_paint_ensure(bmain, ts, (Paint **)&ts->gp_paint);
   Paint *paint = &ts->gp_paint->paint;
   Brush *brush = BKE_paint_brush(paint);
   /* if not exist, create a new one */
@@ -3019,6 +3019,7 @@ void ED_gpencil_sbuffer_vertex_color_set(Depsgraph *depsgraph,
   if (gpd_eval != nullptr) {
     copy_v4_v4(gpd_eval->runtime.vert_color_fill, gpd->runtime.vert_color_fill);
     gpd_eval->runtime.matid = gpd->runtime.matid;
+    gpd_eval->runtime.fill_opacity_fac = gpd->runtime.fill_opacity_fac;
   }
 }
 

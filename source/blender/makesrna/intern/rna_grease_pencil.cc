@@ -237,6 +237,28 @@ static void rna_GreasePencil_active_layer_set(PointerRNA *ptr,
   WM_main_add_notifier(NC_GPENCIL | NA_EDITED, nullptr);
 }
 
+static PointerRNA rna_GreasePencil_active_group_get(PointerRNA *ptr)
+{
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+  if (grease_pencil->active_node->wrap().is_group()) {
+    return rna_pointer_inherit_refine(
+        ptr, &RNA_GreasePencilLayerGroup, static_cast<void *>(grease_pencil->active_node));
+  }
+  return rna_pointer_inherit_refine(ptr, nullptr, nullptr);
+}
+
+static void rna_GreasePencil_active_group_set(PointerRNA *ptr,
+                                              PointerRNA value,
+                                              ReportList * /*reports*/)
+{
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+  GreasePencilLayerTreeNode *node = static_cast<GreasePencilLayerTreeNode *>(value.data);
+  if (node->wrap().is_group()) {
+    grease_pencil->active_node = node;
+    WM_main_add_notifier(NC_GPENCIL | NA_EDITED, nullptr);
+  }
+}
+
 static std::optional<std::string> rna_GreasePencilLayerGroup_path(const PointerRNA *ptr)
 {
   GreasePencilLayerTreeGroup *group = static_cast<GreasePencilLayerTreeGroup *>(ptr->data);
@@ -409,12 +431,20 @@ static void rna_def_grease_pencil_layer(BlenderRNA *brna)
 
   /* Use Masks. */
   prop = RNA_def_property(srna, "use_masks", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_icon(prop, ICON_CLIPUV_HLT, -1);
   RNA_def_property_boolean_negative_sdna(
       prop, "GreasePencilLayerTreeNode", "flag", GP_LAYER_TREE_NODE_HIDE_MASKS);
   RNA_def_property_ui_text(
       prop,
       "Use Masks",
       "The visibility of drawings on this layer is affected by the layers in its masks list");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
+  prop = RNA_def_property(srna, "use_lights", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, "GreasePencilLayerTreeNode", "flag", GP_LAYER_TREE_NODE_USE_LIGHTS);
+  RNA_def_property_ui_text(
+      prop, "Use Lights", "Enable the use of lights on stroke and fill materials");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
 
   /* pass index for compositing and modifiers */
@@ -468,6 +498,13 @@ static void rna_def_grease_pencil_layer(BlenderRNA *brna)
       "ViewLayer",
       "Only include Layer in this View Layer render output (leave blank to include always)");
 
+  prop = RNA_def_property(srna, "use_viewlayer_masks", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_negative_sdna(
+      prop, "GreasePencilLayerTreeNode", "flag", GP_LAYER_TREE_NODE_DISABLE_MASKS_IN_VIEWLAYER);
+  RNA_def_property_ui_text(
+      prop, "Use Masks in Render", "Include the mask layers when rendering the view-layer");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
   prop = RNA_def_property(srna, "blend_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "blend_mode");
   RNA_def_property_enum_items(prop, rna_enum_layer_blend_modes_items);
@@ -485,7 +522,7 @@ static void rna_def_grease_pencil_layers_api(BlenderRNA *brna, PropertyRNA *cpro
   RNA_def_struct_sdna(srna, "GreasePencil");
   RNA_def_struct_ui_text(srna, "Grease Pencil Layers", "Collection of Grease Pencil layers");
 
-  prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
+  prop = RNA_def_property(srna, "active_layer", PROP_POINTER, PROP_NONE);
   RNA_def_property_struct_type(prop, "GreasePencilLayer");
   RNA_def_property_pointer_funcs(prop,
                                  "rna_GreasePencil_active_layer_get",
@@ -553,6 +590,28 @@ static void rna_def_grease_pencil_layer_group(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
 }
 
+static void rna_def_grease_pencil_layer_group_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  RNA_def_property_srna(cprop, "GreasePencilv3LayerGroup");
+  srna = RNA_def_struct(brna, "GreasePencilv3LayerGroup", nullptr);
+  RNA_def_struct_sdna(srna, "GreasePencil");
+  RNA_def_struct_ui_text(srna, "Grease Pencil Group", "Collection of Grease Pencil layers");
+
+  prop = RNA_def_property(srna, "active_group", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "GreasePencilLayerGroup");
+  RNA_def_property_pointer_funcs(prop,
+                                 "rna_GreasePencil_active_group_get",
+                                 "rna_GreasePencil_active_group_set",
+                                 nullptr,
+                                 nullptr);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Active Layer Group", "Active Grease Pencil layer");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
+}
+
 static void rna_def_grease_pencil_onion_skinning(StructRNA *srna)
 {
   PropertyRNA *prop;
@@ -599,6 +658,11 @@ static void rna_def_grease_pencil_onion_skinning(StructRNA *srna)
        ICON_KEYTYPE_JITTER_VEC,
        "Jitter",
        "A filler or baked keyframe for keying on ones, or some other purpose as needed"},
+      {BEZT_KEYTYPE_GENERATED,
+       "GENERATED",
+       ICON_KEYTYPE_GENERATED_VEC,
+       "Generated",
+       "A key generated automatically by a tool, not manually created"},
       {0, nullptr, 0, nullptr, nullptr},
   };
 
@@ -757,6 +821,7 @@ static void rna_def_grease_pencil_data(BlenderRNA *brna)
                                     nullptr, /* TODO */
                                     nullptr);
   RNA_def_property_ui_text(prop, "Layer Groups", "Grease Pencil layer groups");
+  rna_def_grease_pencil_layer_group_api(brna, prop);
 
   prop = RNA_def_property(srna, "use_autolock_layers", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", GREASE_PENCIL_AUTOLOCK_LAYERS);

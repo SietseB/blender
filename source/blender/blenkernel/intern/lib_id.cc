@@ -165,7 +165,7 @@ static bool lib_id_library_local_paths_callback(BPathForeachPathData *bpath_data
  */
 static void lib_id_library_local_paths(Main *bmain, Library *lib, ID *id)
 {
-  const char *bpath_user_data[2] = {BKE_main_blendfile_path(bmain), lib->filepath_abs};
+  const char *bpath_user_data[2] = {BKE_main_blendfile_path(bmain), lib->runtime.filepath_abs};
 
   BPathForeachPathData path_data{};
   path_data.bmain = bmain;
@@ -219,6 +219,12 @@ void BKE_lib_id_clear_library_data(Main *bmain, ID *id, const int flags)
 
   if (ID_IS_ASSET(id)) {
     if ((flags & LIB_ID_MAKELOCAL_ASSET_DATA_CLEAR) != 0) {
+      const IDTypeInfo *idtype_info = BKE_idtype_get_info_from_id(id);
+      if (idtype_info && idtype_info->asset_type_info &&
+          idtype_info->asset_type_info->on_clear_asset_fn)
+      {
+        idtype_info->asset_type_info->on_clear_asset_fn(id, id->asset_data);
+      }
       BKE_asset_metadata_free(&id->asset_data);
     }
     else {
@@ -259,7 +265,7 @@ void id_lib_extern(ID *id)
       id->tag &= ~LIB_TAG_INDIRECT;
       id->flag &= ~LIB_INDIRECT_WEAK_LINK;
       id->tag |= LIB_TAG_EXTERN;
-      id->lib->parent = nullptr;
+      id->lib->runtime.parent = nullptr;
     }
   }
 }
@@ -284,7 +290,7 @@ void id_us_ensure_real(ID *id)
         CLOG_ERROR(&LOG,
                    "ID user count error: %s (from '%s')",
                    id->name,
-                   id->lib ? id->lib->filepath_abs : "[Main]");
+                   id->lib ? id->lib->runtime.filepath_abs : "[Main]");
       }
       id->us = limit + 1;
       id->tag |= LIB_TAG_EXTRAUSER_SET;
@@ -339,7 +345,7 @@ void id_us_min(ID *id)
         CLOG_ERROR(&LOG,
                    "ID user decrement error: %s (from '%s'): %d <= %d",
                    id->name,
-                   id->lib ? id->lib->filepath_abs : "[Main]",
+                   id->lib ? id->lib->runtime.filepath_abs : "[Main]",
                    id->us,
                    limit);
       }
@@ -629,6 +635,7 @@ bool BKE_id_copy_is_allowed(const ID *id)
 ID *BKE_id_copy_in_lib(Main *bmain,
                        std::optional<Library *> owner_library,
                        const ID *id,
+                       const ID *new_owner_id,
                        ID **r_newid,
                        const int flag)
 {
@@ -662,7 +669,7 @@ ID *BKE_id_copy_in_lib(Main *bmain,
       return nullptr;
     }
 
-    BKE_libblock_copy_in_lib(bmain, owner_library, id, &newid, flag);
+    BKE_libblock_copy_in_lib(bmain, owner_library, id, new_owner_id, &newid, flag);
 
     if (idtype_info->copy_data != nullptr) {
       idtype_info->copy_data(bmain, owner_library, newid, id, flag);
@@ -688,7 +695,9 @@ ID *BKE_id_copy_in_lib(Main *bmain,
    * XXX TODO: is this behavior OK, or should we need a separate flag to control that? */
   if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
     BLI_assert(!owner_library || newid->lib == *owner_library);
-    if (!ID_IS_LINKED(newid)) {
+    /* Expanding local linked ID usages should never be needed with embedded IDs - this will be
+     * handled together with their owner ID copying code. */
+    if (!ID_IS_LINKED(newid) && (newid->flag & LIB_EMBEDDED_DATA) == 0) {
       lib_id_copy_ensure_local(bmain, id, newid, 0);
     }
   }
@@ -712,12 +721,12 @@ ID *BKE_id_copy_in_lib(Main *bmain,
 
 ID *BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
 {
-  return BKE_id_copy_in_lib(bmain, std::nullopt, id, r_newid, flag);
+  return BKE_id_copy_in_lib(bmain, std::nullopt, id, nullptr, r_newid, flag);
 }
 
 ID *BKE_id_copy(Main *bmain, const ID *id)
 {
-  return BKE_id_copy_in_lib(bmain, std::nullopt, id, nullptr, LIB_ID_COPY_DEFAULT);
+  return BKE_id_copy_in_lib(bmain, std::nullopt, id, nullptr, nullptr, LIB_ID_COPY_DEFAULT);
 }
 
 ID *BKE_id_copy_for_duplicate(Main *bmain,
@@ -1433,6 +1442,7 @@ void *BKE_id_new_nomain(const short type, const char *name)
 void BKE_libblock_copy_in_lib(Main *bmain,
                               std::optional<Library *> owner_library,
                               const ID *id,
+                              const ID *new_owner_id,
                               ID **r_newid,
                               const int orig_flag)
 {
@@ -1490,9 +1500,20 @@ void BKE_libblock_copy_in_lib(Main *bmain,
 
   new_id->flag = (new_id->flag & ~copy_idflag_mask) | (id->flag & copy_idflag_mask);
 
-  /* 'Private ID' data handling. */
+  /* Embedded ID data handling. */
   if (is_embedded_id && (orig_flag & LIB_ID_CREATE_NO_MAIN) == 0) {
     new_id->tag &= ~LIB_TAG_NO_MAIN;
+  }
+  /* NOTE: This also needs to run for ShapeKeys, which are not (yet) actual embedded IDs.
+   * NOTE: for now, keep existing owner ID (i.e. owner of the source embedded ID) if no new one
+   * is given. In some cases (e.g. depsgraph), this is important for later remapping to work
+   * properly.
+   */
+  if (new_owner_id) {
+    const IDTypeInfo *idtype = BKE_idtype_get_info_from_id(new_id);
+    BLI_assert(idtype->owner_pointer_get != nullptr);
+    ID **owner_id_pointer = idtype->owner_pointer_get(new_id, false);
+    *owner_id_pointer = const_cast<ID *>(new_owner_id);
   }
 
   /* We do not want any handling of user-count in code duplicating the data here, we do that all
@@ -1544,14 +1565,14 @@ void BKE_libblock_copy_in_lib(Main *bmain,
 
 void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int orig_flag)
 {
-  BKE_libblock_copy_in_lib(bmain, std::nullopt, id, r_newid, orig_flag);
+  BKE_libblock_copy_in_lib(bmain, std::nullopt, id, nullptr, r_newid, orig_flag);
 }
 
 void *BKE_libblock_copy(Main *bmain, const ID *id)
 {
   ID *idn;
 
-  BKE_libblock_copy_in_lib(bmain, std::nullopt, id, &idn, 0);
+  BKE_libblock_copy_in_lib(bmain, std::nullopt, id, nullptr, &idn, 0);
 
   return idn;
 }
@@ -2121,24 +2142,12 @@ void BKE_library_make_local(Main *bmain,
 #endif
 }
 
-void BKE_libblock_ensure_unique_name(Main *bmain, ID *id)
-{
-  ListBase *lb;
-
-  lb = which_libbase(bmain, GS(id->name));
-  if (lb == nullptr) {
-    return;
-  }
-
-  /* BKE_id_new_name_validate also takes care of sorting. */
-  if (!ID_IS_LINKED(id) && BKE_id_new_name_validate(bmain, lb, id, nullptr, false)) {
-    bmain->is_memfile_undo_written = false;
-  }
-}
-
 void BKE_libblock_rename(Main *bmain, ID *id, const char *name)
 {
   BLI_assert(!ID_IS_LINKED(id));
+  if (STREQ(id->name + 2, name)) {
+    return;
+  }
   BKE_main_namemap_remove_name(bmain, id, id->name + 2);
   ListBase *lb = which_libbase(bmain, GS(id->name));
   if (BKE_id_new_name_validate(bmain, lb, id, name, false)) {
@@ -2219,11 +2228,11 @@ bool BKE_id_can_be_asset(const ID *id)
          BKE_idtype_idcode_is_linkable(GS(id->name));
 }
 
-ID *BKE_id_owner_get(ID *id)
+ID *BKE_id_owner_get(ID *id, const bool debug_relationship_assert)
 {
   const IDTypeInfo *idtype = BKE_idtype_get_info_from_id(id);
   if (idtype->owner_pointer_get != nullptr) {
-    ID **owner_id_pointer = idtype->owner_pointer_get(id);
+    ID **owner_id_pointer = idtype->owner_pointer_get(id, debug_relationship_assert);
     if (owner_id_pointer != nullptr) {
       return *owner_id_pointer;
     }

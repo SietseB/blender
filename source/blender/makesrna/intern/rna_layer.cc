@@ -176,16 +176,16 @@ static PointerRNA rna_ViewLayer_objects_get(CollectionPropertyIterator *iter)
   return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, base->object);
 }
 
-static int rna_ViewLayer_objects_selected_skip(CollectionPropertyIterator *iter, void * /*data*/)
+static bool rna_ViewLayer_objects_selected_skip(CollectionPropertyIterator *iter, void * /*data*/)
 {
   ListBaseIterator *internal = &iter->internal.listbase;
   Base *base = (Base *)internal->link;
 
   if ((base->flag & BASE_SELECTED) != 0) {
-    return 0;
+    return false;
   }
 
-  return 1;
+  return true;
 };
 
 static PointerRNA rna_ViewLayer_depsgraph_get(PointerRNA *ptr)
@@ -386,7 +386,7 @@ void rna_LayerCollection_children_begin(CollectionPropertyIterator *iter, Pointe
   rna_iterator_listbase_begin(iter, &lc->layer_collections, nullptr);
 }
 
-static int rna_LayerCollection_children_lookupint(PointerRNA *ptr, int key, PointerRNA *r_ptr)
+static bool rna_LayerCollection_children_lookupint(PointerRNA *ptr, int key, PointerRNA *r_ptr)
 {
   Scene *scene = (Scene *)ptr->owner_id;
   LayerCollection *lc = (LayerCollection *)ptr->data;
@@ -402,9 +402,9 @@ static int rna_LayerCollection_children_lookupint(PointerRNA *ptr, int key, Poin
   return true;
 }
 
-static int rna_LayerCollection_children_lookupstring(PointerRNA *ptr,
-                                                     const char *key,
-                                                     PointerRNA *r_ptr)
+static bool rna_LayerCollection_children_lookupstring(PointerRNA *ptr,
+                                                      const char *key,
+                                                      PointerRNA *r_ptr)
 {
   Scene *scene = (Scene *)ptr->owner_id;
   LayerCollection *lc = (LayerCollection *)ptr->data;
@@ -658,6 +658,14 @@ void RNA_def_view_layer(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", VIEW_LAYER_RENDER);
   RNA_def_property_ui_text(prop, "Enabled", "Enable or disable rendering of this View Layer");
   RNA_def_property_update(prop, NC_SCENE | ND_LAYER, nullptr);
+
+  /* Cached flag indicating if any Collection in this ViewLayer has an Exporter set. */
+  prop = RNA_def_property(srna, "has_export_collections", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", VIEW_LAYER_HAS_EXPORT_COLLECTIONS);
+  RNA_def_property_ui_text(prop,
+                           "Has export collections",
+                           "At least one Collection in this View Layer has an exporter");
 
   prop = RNA_def_property(srna, "use_freestyle", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", VIEW_LAYER_FREESTYLE);

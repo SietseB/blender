@@ -1,10 +1,10 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.1.0 Release Candidate (b'64bfe491645f')\n"
+"Project-Id-Version: Blender 4.2.0 Alpha (b'9a3c7290a9c1')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-01-01 00:00+0000\n"
-"PO-Revision-Date: 2023-09-26 10:37+0000\n"
+"POT-Creation-Date: 2024-05-06 10:38+0000\n"
+"PO-Revision-Date: 2024-04-29 13:31+0000\n"
 "Last-Translator: Gilberto Rodrigues <gilbertorodrigues@outlook.com>\n"
 "Language-Team: Bulgarian <https://translate.blender.org/projects/blender-ui/ui/bg/>\n"
 "Language: bg\n"
@@ -70,6 +70,10 @@ msgstr "Нищо"
 
 msgid "Hold"
 msgstr "Задържане"
+
+
+msgid "New"
+msgstr "Нов"
 
 
 msgid "Empty"
@@ -508,6 +512,10 @@ msgid "World"
 msgstr "Свят"
 
 
+msgid "Layers"
+msgstr "Слоеве"
+
+
 msgid "Wire"
 msgstr "Мрежа"
 
@@ -546,14 +554,6 @@ msgstr "Мин"
 
 msgid "Max"
 msgstr "Макс"
-
-
-msgid "Layers"
-msgstr "Слоеве"
-
-
-msgid "AVI Raw"
-msgstr "AVI Суров"
 
 
 msgid "Movie"
@@ -792,10 +792,6 @@ msgid "Warp"
 msgstr "Изкр"
 
 
-msgid "New"
-msgstr "Нов"
-
-
 msgid "Randomize"
 msgstr "Произволно"
 
@@ -1006,6 +1002,10 @@ msgid "Report"
 msgstr "Докладвай"
 
 
+msgid "Handles"
+msgstr "Дръжки"
+
+
 msgid "Shrink/Fatten"
 msgstr "Смали/Удебели"
 
@@ -1039,10 +1039,6 @@ msgstr "По-малко"
 msgctxt "Operator"
 msgid "Spin"
 msgstr "Завъртане"
-
-
-msgid "Handles"
-msgstr "Дръжки"
 
 
 msgid "Item"
@@ -1832,12 +1828,12 @@ msgid "Layer:"
 msgstr "Слой"
 
 
-msgid "Stop this job"
-msgstr "Спри тази задача"
-
-
 msgid "%d items"
 msgstr "%d артикули"
+
+
+msgid "Stop this job"
+msgstr "Спри тази задача"
 
 
 msgid "OK"
@@ -1858,10 +1854,6 @@ msgstr "{} (String)"
 
 msgid "{} (Integer)"
 msgstr "{} (Integer)"
-
-
-msgid "OK?"
-msgstr "ОК?"
 
 
 msgid "English (English)"

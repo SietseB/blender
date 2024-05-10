@@ -110,6 +110,11 @@ const EnumPropertyItem rna_enum_beztriple_keyframe_type_items[] = {
      ICON_KEYTYPE_JITTER_VEC,
      "Jitter",
      "A filler or baked keyframe for keying on ones, or some other purpose as needed"},
+    {BEZT_KEYTYPE_GENERATED,
+     "GENERATED",
+     ICON_KEYTYPE_GENERATED_VEC,
+     "Generated",
+     "A key generated automatically by a tool, not manually created"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -1060,10 +1065,14 @@ static BezTriple *rna_FKeyframe_points_insert(
   using namespace blender::animrig;
   KeyframeSettings settings = get_keyframe_settings(false);
   settings.keyframe_type = eBezTriple_KeyframeType(keyframe_type);
-  int index = insert_vert_fcurve(fcu, {frame, value}, settings, eInsertKeyFlags(flag));
+  const SingleKeyingResult result = insert_vert_fcurve(
+      fcu, {frame, value}, settings, eInsertKeyFlags(flag));
 
-  if ((fcu->bezt) && (index >= 0)) {
+  if ((fcu->bezt) && (result == SingleKeyingResult::SUCCESS)) {
     rna_tag_animation_update(bmain, id);
+
+    bool replace;
+    const int index = BKE_fcurve_bezt_binarysearch_index(fcu->bezt, frame, fcu->totvert, &replace);
 
     return fcu->bezt + index;
   }

@@ -564,23 +564,24 @@ static Mesh *subdivide_edit_mesh(const Object *object,
                                  const BMEditMesh *em,
                                  const SubsurfModifierData *smd)
 {
+  using namespace blender;
   Mesh *me_from_em = BKE_mesh_from_bmesh_for_eval_nomain(
       em->bm, nullptr, static_cast<const Mesh *>(object->data));
   BKE_mesh_ensure_default_orig_index_customdata(me_from_em);
 
-  SubdivSettings settings = BKE_subsurf_modifier_settings_init(smd, false);
+  bke::subdiv::Settings settings = BKE_subsurf_modifier_settings_init(smd, false);
   if (settings.level == 1) {
     return me_from_em;
   }
 
-  SubdivToMeshSettings mesh_settings;
+  bke::subdiv::ToMeshSettings mesh_settings;
   mesh_settings.resolution = (1 << smd->levels) + 1;
   mesh_settings.use_optimal_display = (smd->flags & eSubsurfModifierFlag_ControlEdges);
 
-  Subdiv *subdiv = BKE_subdiv_new_from_mesh(&settings, me_from_em);
-  Mesh *result = BKE_subdiv_to_mesh(subdiv, &mesh_settings, me_from_em);
+  bke::subdiv::Subdiv *subdiv = bke::subdiv::new_from_mesh(&settings, me_from_em);
+  Mesh *result = bke::subdiv::subdiv_to_mesh(subdiv, &mesh_settings, me_from_em);
   BKE_id_free(nullptr, me_from_em);
-  BKE_subdiv_free(subdiv);
+  bke::subdiv::free(subdiv);
   return result;
 }
 
@@ -1158,7 +1159,7 @@ static void uvedit_pack_islands_multi(const Scene *scene,
     Object *obedit = objects[ob_index];
     BMesh *bm = nullptr;
     if (bmesh_override) {
-      /* Note: obedit is still required for aspect ratio and ID_RECALC_GEOMETRY. */
+      /* NOTE: obedit is still required for aspect ratio and ID_RECALC_GEOMETRY. */
       bm = bmesh_override[ob_index];
     }
     else {
@@ -1627,6 +1628,11 @@ static void uv_pack_islands_ui(bContext * /*C*/, wmOperator *op)
   uiItemS(layout);
 }
 
+static int uv_pack_islands_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  return WM_operator_props_popup_confirm_ex(C, op, event, IFACE_("Pack Islands"), IFACE_("Pack"));
+}
+
 void UV_OT_pack_islands(wmOperatorType *ot)
 {
   static const EnumPropertyItem pack_target[] = {
@@ -1662,7 +1668,7 @@ void UV_OT_pack_islands(wmOperatorType *ot)
 #ifdef USE_INTERACTIVE_PACK
   ot->invoke = WM_operator_props_popup_call;
 #else
-  ot->invoke = WM_operator_props_popup_confirm;
+  ot->invoke = uv_pack_islands_invoke;
 #endif
   ot->ui = uv_pack_islands_ui;
   ot->poll = ED_operator_uvedit;
@@ -2934,6 +2940,12 @@ static int smart_project_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static int smart_project_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  return WM_operator_props_popup_confirm_ex(
+      C, op, event, IFACE_("Smart UV Project"), IFACE_("Unwrap"));
+}
+
 void UV_OT_smart_project(wmOperatorType *ot)
 {
   PropertyRNA *prop;
@@ -2948,7 +2960,7 @@ void UV_OT_smart_project(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = smart_project_exec;
   ot->poll = ED_operator_uvmap;
-  ot->invoke = WM_operator_props_popup_confirm;
+  ot->invoke = smart_project_invoke;
 
   /* properties */
   prop = RNA_def_float_rotation(ot->srna,

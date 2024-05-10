@@ -30,6 +30,10 @@
 #include "ED_keyframes_edit.hh"
 #include "ED_markers.hh"
 
+#include "ANIM_animation.hh"
+
+using namespace blender;
+
 /* This file defines an API and set of callback-operators for
  * non-destructive editing of keyframe data.
  *
@@ -161,6 +165,32 @@ static short agrp_keyframes_loop(KeyframeEditData *ked,
 
   return 0;
 }
+
+#ifdef WITH_ANIM_BAKLAVA
+
+/* Loop over all keyframes in the Animation. */
+static short anim_keyframes_loop(KeyframeEditData *ked,
+                                 animrig::Animation &anim,
+                                 animrig::Binding *binding,
+                                 KeyframeEditFunc key_ok,
+                                 KeyframeEditFunc key_cb,
+                                 FcuEditFunc fcu_cb)
+{
+  if (!binding) {
+    /* Valid situation, and will not have any FCurves. */
+    return 0;
+  }
+
+  Span<FCurve *> fcurves = animrig::fcurves_for_animation(anim, binding->handle);
+  for (FCurve *fcurve : fcurves) {
+    if (ANIM_fcurve_keyframes_loop(ked, fcurve, key_ok, key_cb, fcu_cb)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+#endif
 
 /* This function is used to loop over the keyframe data in an Action */
 static short act_keyframes_loop(KeyframeEditData *ked,
@@ -385,9 +415,20 @@ short ANIM_animchannel_keyframes_loop(KeyframeEditData *ked,
      */
     case ALE_GROUP: /* action group */
       return agrp_keyframes_loop(ked, (bActionGroup *)ale->data, key_ok, key_cb, fcu_cb);
+    case ALE_ANIM: { /* Animation data-block. */
+#ifdef WITH_ANIM_BAKLAVA
+      /* This assumes that the ALE_ANIM channel is shown in the dopesheet context, underneath the
+       * data-block that owns `ale->adt`. So that means that the loop is limited to the keys that
+       * belong to that binding. */
+      animrig::Animation &anim = static_cast<Animation *>(ale->key_data)->wrap();
+      animrig::Binding *binding = anim.binding_for_handle(ale->adt->binding_handle);
+      return anim_keyframes_loop(ked, anim, binding, key_ok, key_cb, fcu_cb);
+#else
+      return 0;
+#endif
+    }
     case ALE_ACT: /* action */
       return act_keyframes_loop(ked, (bAction *)ale->key_data, key_ok, key_cb, fcu_cb);
-
     case ALE_OB: /* object */
       return ob_keyframes_loop(ked, ads, (Object *)ale->key_data, key_ok, key_cb, fcu_cb);
     case ALE_SCE: /* scene */
@@ -423,9 +464,12 @@ short ANIM_animchanneldata_keyframes_loop(KeyframeEditData *ked,
      */
     case ALE_GROUP: /* action group */
       return agrp_keyframes_loop(ked, (bActionGroup *)data, key_ok, key_cb, fcu_cb);
+    case ALE_ANIM:
+      /* This function is only used in nlaedit_apply_scale_exec(). Since the NLA has no support for
+       * Animation data-blocks in strips, there is no need to implement this here. */
+      return 0;
     case ALE_ACT: /* action */
       return act_keyframes_loop(ked, (bAction *)data, key_ok, key_cb, fcu_cb);
-
     case ALE_OB: /* object */
       return ob_keyframes_loop(ked, ads, (Object *)data, key_ok, key_cb, fcu_cb);
     case ALE_SCE: /* scene */
@@ -1371,7 +1415,7 @@ KeyframeEditFunc ANIM_editkeyframes_ipo(short mode)
 static short set_keytype_keyframe(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    BEZKEYTYPE(bezt) = BEZT_KEYTYPE_KEYFRAME;
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_KEYFRAME;
   }
   return 0;
 }
@@ -1379,7 +1423,7 @@ static short set_keytype_keyframe(KeyframeEditData * /*ked*/, BezTriple *bezt)
 static short set_keytype_breakdown(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    BEZKEYTYPE(bezt) = BEZT_KEYTYPE_BREAKDOWN;
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_BREAKDOWN;
   }
   return 0;
 }
@@ -1387,7 +1431,7 @@ static short set_keytype_breakdown(KeyframeEditData * /*ked*/, BezTriple *bezt)
 static short set_keytype_extreme(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    BEZKEYTYPE(bezt) = BEZT_KEYTYPE_EXTREME;
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_EXTREME;
   }
   return 0;
 }
@@ -1395,7 +1439,7 @@ static short set_keytype_extreme(KeyframeEditData * /*ked*/, BezTriple *bezt)
 static short set_keytype_jitter(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    BEZKEYTYPE(bezt) = BEZT_KEYTYPE_JITTER;
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_JITTER;
   }
   return 0;
 }
@@ -1403,30 +1447,43 @@ static short set_keytype_jitter(KeyframeEditData * /*ked*/, BezTriple *bezt)
 static short set_keytype_moving_hold(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    BEZKEYTYPE(bezt) = BEZT_KEYTYPE_MOVEHOLD;
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_MOVEHOLD;
   }
   return 0;
 }
 
-KeyframeEditFunc ANIM_editkeyframes_keytype(short mode)
+static short set_keytype_generated(KeyframeEditData * /*ked*/, BezTriple *bezt)
 {
-  switch (mode) {
-    case BEZT_KEYTYPE_BREAKDOWN: /* breakdown */
+  if (bezt->f2 & SELECT) {
+    BEZKEYTYPE_LVALUE(bezt) = BEZT_KEYTYPE_GENERATED;
+  }
+  return 0;
+}
+
+KeyframeEditFunc ANIM_editkeyframes_keytype(const eBezTriple_KeyframeType keyframe_type)
+{
+  switch (keyframe_type) {
+    case BEZT_KEYTYPE_BREAKDOWN:
       return set_keytype_breakdown;
 
-    case BEZT_KEYTYPE_EXTREME: /* extreme keyframe */
+    case BEZT_KEYTYPE_EXTREME:
       return set_keytype_extreme;
 
-    case BEZT_KEYTYPE_JITTER: /* jitter keyframe */
+    case BEZT_KEYTYPE_JITTER:
       return set_keytype_jitter;
 
-    case BEZT_KEYTYPE_MOVEHOLD: /* moving hold */
+    case BEZT_KEYTYPE_MOVEHOLD:
       return set_keytype_moving_hold;
 
-    case BEZT_KEYTYPE_KEYFRAME: /* proper keyframe */
-    default:
+    case BEZT_KEYTYPE_KEYFRAME:
       return set_keytype_keyframe;
+
+    case BEZT_KEYTYPE_GENERATED:
+      return set_keytype_generated;
   }
+
+  BLI_assert_unreachable();
+  return nullptr;
 }
 
 /* ------- */

@@ -76,7 +76,7 @@ class VIEW3D_MT_brush_gpencil_context_menu(Menu):
             settings = tool_settings.gpencil_paint
         if context.mode == 'SCULPT_GPENCIL':
             settings = tool_settings.gpencil_sculpt_paint
-        elif context.mode == 'WEIGHT_GPENCIL':
+        elif context.mode == 'WEIGHT_GPENCIL' or context.mode == 'WEIGHT_GREASE_PENCIL':
             settings = tool_settings.gpencil_weight_paint
         elif context.mode == 'VERTEX_GPENCIL':
             settings = tool_settings.gpencil_vertex_paint
@@ -624,8 +624,11 @@ class VIEW3D_PT_slots_paint_canvas(SelectPaintSlotHelper, View3DPanel, Panel):
             if mat and mat.texture_paint_images and mat.texture_paint_slots:
                 label = mat.texture_paint_slots[mat.paint_active_slot].name
         elif paint.canvas_source == 'COLOR_ATTRIBUTE':
-            label = (me.color_attributes.active_color.name if me.color_attributes.active_color
-                     else iface_("Color Attribute"))
+            active_color = me.color_attributes.active_color
+            label = (
+                active_color.name if active_color else
+                iface_("Color Attribute")
+            )
         elif paint.canvas_image:
             label = paint.canvas_image.name
 
@@ -640,8 +643,9 @@ class VIEW3D_PT_slots_color_attributes(Panel):
 
     def draw_header(self, context):
         me = context.object.data
+        active_color = me.color_attributes.active_color
         self.bl_label = (
-            iface_("%s") % (me.color_attributes.active_color.name) if me.color_attributes.active_color else
+            active_color.name if active_color else
             iface_("Color Attributes")
         )
 
@@ -682,7 +686,7 @@ class VIEW3D_PT_slots_vertex_groups(Panel):
         ob = context.object
         groups = ob.vertex_groups
         self.bl_label = (
-            iface_("%s") % (groups.active.name) if groups and groups.active else
+            groups.active.name if groups and groups.active else
             iface_("Vertex Groups")
         )
 
@@ -1477,8 +1481,10 @@ class VIEW3D_PT_tools_particlemode_options(View3DPanel, Panel):
         if pe.type == 'PARTICLES':
             if ob.particle_systems:
                 if len(ob.particle_systems) > 1:
-                    layout.template_list("UI_UL_list", "particle_systems", ob, "particle_systems",
-                                         ob.particle_systems, "active_index", rows=2, maxrows=3)
+                    layout.template_list(
+                        "UI_UL_list", "particle_systems", ob, "particle_systems",
+                        ob.particle_systems, "active_index", rows=2, maxrows=3,
+                    )
 
                 ptcache = ob.particle_systems.active.point_cache
         else:
@@ -1487,8 +1493,10 @@ class VIEW3D_PT_tools_particlemode_options(View3DPanel, Panel):
                     ptcache = md.point_cache
 
         if ptcache and len(ptcache.point_caches) > 1:
-            layout.template_list("UI_UL_list", "particles_point_caches", ptcache, "point_caches",
-                                 ptcache.point_caches, "active_index", rows=2, maxrows=3)
+            layout.template_list(
+                "UI_UL_list", "particles_point_caches", ptcache, "point_caches",
+                ptcache.point_caches, "active_index", rows=2, maxrows=3,
+            )
 
         if not pe.is_editable:
             layout.label(text="Point cache must be baked")
@@ -2106,6 +2114,9 @@ class GreasePencilWeightPanel:
     @classmethod
     def poll(cls, context):
         if context.space_data.type in {'VIEW_3D', 'PROPERTIES'}:
+            if context.object and context.object.type == 'GREASEPENCIL' and context.mode == 'WEIGHT_GREASE_PENCIL':
+                return True
+
             if context.gpencil_data is None:
                 return False
 
@@ -2142,7 +2153,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, Grea
         col = row.column()
         col.menu("VIEW3D_MT_brush_gpencil_context_menu", icon='DOWNARROW_HLT', text="")
 
-        if context.mode == 'WEIGHT_GPENCIL':
+        if context.mode in {'WEIGHT_GPENCIL', 'WEIGHT_GREASE_PENCIL'}:
             brush = tool_settings.gpencil_weight_paint.brush
             if brush is not None:
                 col.prop(brush, "use_custom_icon", toggle=True, icon='FILE_IMAGE', text="")
@@ -2170,10 +2181,17 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_settings(Panel, View3DPanel, Gr
         settings = tool_settings.gpencil_weight_paint
         brush = settings.brush
 
-        from bl_ui.properties_paint_common import (
-            brush_basic_gpencil_weight_settings,
-        )
-        brush_basic_gpencil_weight_settings(layout, context, brush)
+        if context.mode == 'WEIGHT_GPENCIL':
+            from bl_ui.properties_paint_common import (
+                brush_basic_gpencil_weight_settings,
+            )
+            brush_basic_gpencil_weight_settings(layout, context, brush)
+        else:
+            # Grease Pencil v3
+            from bl_ui.properties_paint_common import (
+                brush_basic_grease_pencil_weight_settings,
+            )
+            brush_basic_grease_pencil_weight_settings(layout, context, brush)
 
 
 class VIEW3D_PT_tools_grease_pencil_brush_weight_falloff(GreasePencilBrushFalloff, Panel, View3DPaintPanel):

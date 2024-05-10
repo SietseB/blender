@@ -42,6 +42,8 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
+#include "ANIM_fcurve.hh"
+
 #include "graph_intern.hh"
 
 /* -------------------------------------------------------------------- */
@@ -338,6 +340,12 @@ static int graph_slider_modal(bContext *C, wmOperator *op, const wmEvent *event)
       }
       break;
     }
+
+    case EVT_TABKEY:
+      /* Switch between acting on different properties. If this is not handled
+       * by the caller, it's explicitly gobbled up here to avoid it being passed
+       * through via the 'default' case. */
+      break;
 
     /* When the mouse is moved, the percentage and the keyframes update. */
     case MOUSEMOVE: {
@@ -1024,6 +1032,7 @@ static int ease_modal(bContext *C, wmOperator *op, const wmEvent *event)
         ED_slider_unit_set(gso->slider, "%");
         gso->factor_prop = RNA_struct_find_property(op->ptr, "factor");
       }
+      ED_slider_property_label_set(gso->slider, RNA_property_ui_name(gso->factor_prop));
       ease_modal_update(C, op);
       break;
     }
@@ -1049,6 +1058,7 @@ static int ease_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   ED_slider_allow_overshoot_set(gso->slider, false, false);
   ED_slider_factor_bounds_set(gso->slider, -1, 1);
   ED_slider_factor_set(gso->slider, 0.0f);
+  ED_slider_property_label_set(gso->slider, RNA_property_ui_name(gso->factor_prop));
 
   return invoke_result;
 }
@@ -1828,7 +1838,8 @@ static void gaussian_smooth_allocate_operator_data(tGraphSliderOp *gso,
                                (filter_width * 2 + 1);
       float *samples = static_cast<float *>(
           MEM_callocN(sizeof(float) * sample_count, "Smooth FCurve Op Samples"));
-      sample_fcurve_segment(fcu, left_bezt.vec[1][0] - filter_width, 1, samples, sample_count);
+      blender::animrig::sample_fcurve_segment(
+          fcu, left_bezt.vec[1][0] - filter_width, 1, samples, sample_count);
       segment_link->samples = samples;
       BLI_addtail(&segment_links, segment_link);
     }
@@ -1930,7 +1941,8 @@ static void gaussian_smooth_graph_keys(bAnimContext *ac,
                                (filter_width * 2 + 1);
       float *samples = static_cast<float *>(
           MEM_callocN(sizeof(float) * sample_count, "Smooth FCurve Op Samples"));
-      sample_fcurve_segment(fcu, left_bezt.vec[1][0] - filter_width, 1, samples, sample_count);
+      blender::animrig::sample_fcurve_segment(
+          fcu, left_bezt.vec[1][0] - filter_width, 1, samples, sample_count);
       smooth_fcurve_segment(fcu, segment, samples, factor, filter_width, kernel);
       MEM_freeN(samples);
     }
@@ -2069,7 +2081,7 @@ static void btw_smooth_allocate_operator_data(tGraphSliderOp *gso,
           &right_bezt, &left_bezt, filter_order, samples_per_frame);
       float *samples = static_cast<float *>(
           MEM_callocN(sizeof(float) * sample_count, "Btw Smooth FCurve Op Samples"));
-      sample_fcurve_segment(
+      blender::animrig::sample_fcurve_segment(
           fcu, left_bezt.vec[1][0] - filter_order, samples_per_frame, samples, sample_count);
       segment_link->samples = samples;
       segment_link->sample_count = sample_count;
@@ -2198,7 +2210,7 @@ static void btw_smooth_graph_keys(bAnimContext *ac,
           &right_bezt, &left_bezt, filter_order, samples_per_frame);
       float *samples = static_cast<float *>(
           MEM_callocN(sizeof(float) * sample_count, "Smooth FCurve Op Samples"));
-      sample_fcurve_segment(
+      blender::animrig::sample_fcurve_segment(
           fcu, left_bezt.vec[1][0] - filter_order, samples_per_frame, samples, sample_count);
       butterworth_smooth_fcurve_segment(
           fcu, segment, samples, sample_count, factor, blend_in_out, samples_per_frame, bw_coeff);

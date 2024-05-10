@@ -22,9 +22,6 @@
 /* File name of the default fixed-pitch font. */
 #define BLF_DEFAULT_MONOSPACED_FONT "DejaVuSansMono.woff2"
 
-/* enable this only if needed (unused circa 2016) */
-#define BLF_BLUR_ENABLE 0
-
 struct ColorManagedDisplay;
 struct ListBase;
 struct ResultBLF;
@@ -93,7 +90,7 @@ bool BLF_has_glyph(int fontid, unsigned int unicode) ATTR_WARN_UNUSED_RESULT;
 /**
  * Attach a file with metrics information from memory.
  */
-void BLF_metrics_attach(int fontid, unsigned char *mem, int mem_size) ATTR_NONNULL(2);
+void BLF_metrics_attach(int fontid, const unsigned char *mem, int mem_size) ATTR_NONNULL(2);
 
 void BLF_aspect(int fontid, float x, float y, float z);
 void BLF_position(int fontid, float x, float y, float z);
@@ -117,21 +114,6 @@ void BLF_color4fv(int fontid, const float rgba[4]);
 void BLF_color3f(int fontid, float r, float g, float b);
 void BLF_color3fv_alpha(int fontid, const float rgb[3], float alpha);
 /* Also available: `UI_FontThemeColor(fontid, colorid)`. */
-
-/**
- * Set a 4x4 matrix to be multiplied before draw the text.
- * Remember that you need call `BLF_enable(BLF_MATRIX)`
- * to enable this.
- *
- * The order of the matrix is column major (following the GPU module):
- * \code{.unparsed}
- *  | m[0]  m[4]  m[8]  m[12] |
- *  | m[1]  m[5]  m[9]  m[13] |
- *  | m[2]  m[6]  m[10] m[14] |
- *  | m[3]  m[7]  m[11] m[15] |
- * \endcode
- */
-void BLF_matrix(int fontid, const float m[16]);
 
 /**
  * Batch draw-calls together as long as
@@ -185,6 +167,12 @@ bool BLF_str_offset_to_glyph_bounds(int fontid,
                                     rcti *glyph_bounds) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(2, 4);
 
 /**
+ * Return left edge of text cursor (caret), given a character offset and cursor width.
+ */
+int BLF_str_offset_to_cursor(
+    int fontid, const char *str, size_t str_len, size_t str_offset, float cursor_width);
+
+/**
  * Get the string byte offset that fits within a given width.
  */
 size_t BLF_width_to_strlen(int fontid,
@@ -208,7 +196,7 @@ size_t BLF_width_to_rstrlen(int fontid,
 void BLF_boundbox(int fontid,
                   const char *str,
                   size_t str_len,
-                  rcti *box,
+                  rcti *r_box,
                   ResultBLF *r_info = nullptr) ATTR_NONNULL(2);
 
 /**
@@ -253,10 +241,6 @@ void BLF_wordwrap(int fontid, int wrap_width);
 blender::Vector<blender::StringRef> BLF_string_wrap(int fontid,
                                                     blender::StringRef str,
                                                     const int max_pixel_width);
-
-#if BLF_BLUR_ENABLE
-void BLF_blur(int fontid, int size);
-#endif
 
 void BLF_enable(int fontid, int option);
 void BLF_disable(int fontid, int option);
@@ -355,7 +339,7 @@ enum {
   BLF_CLIPPING = 1 << 1,
   BLF_SHADOW = 1 << 2,
   // BLF_FLAG_UNUSED_3 = 1 << 3, /* dirty */
-  BLF_MATRIX = 1 << 4,
+  // BLF_MATRIX = 1 << 4,
   BLF_ASPECT = 1 << 5,
   BLF_WORD_WRAP = 1 << 6,
   /** No anti-aliasing. */

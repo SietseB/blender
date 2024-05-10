@@ -233,7 +233,8 @@ static void test_eevee_shadow_tag_update()
 
   {
     ShadowTileMap tilemap(0 * SHADOW_TILEDATA_PER_TILEMAP);
-    tilemap.sync_cubeface(float4x4::identity(), 0.01f, 1.0f, 0.01f, 0.0f, Z_NEG, 0.0f);
+    tilemap.sync_cubeface(
+        LIGHT_OMNI_SPHERE, float4x4::identity(), 0.01f, 1.0f, 0.01f, 0.0f, Z_NEG, 0.0f);
     tilemaps_data.append(tilemap);
   }
   {
@@ -1208,7 +1209,7 @@ static void test_eevee_shadow_tilemap_amend()
   tilemap_data.fill(0);
 
   auto pixel_get = [&](int x, int y, int tilemap_index) -> uint32_t & {
-    /* Note: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
+    /* NOTE: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
     return tilemap_data[y * SHADOW_TILEMAP_RES * SHADOW_TILEMAP_PER_ROW + x +
                         tilemap_index * SHADOW_TILEMAP_RES];
   };
@@ -1280,7 +1281,7 @@ static void test_eevee_shadow_tilemap_amend()
       std::string result = "";
       for (auto y : IndexRange(SHADOW_TILEMAP_RES)) {
         for (auto x : IndexRange(SHADOW_TILEMAP_RES)) {
-          /* Note: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
+          /* NOTE: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
           int tile_ofs = y * SHADOW_TILEMAP_RES * SHADOW_TILEMAP_PER_ROW + x +
                          tilemap_index * SHADOW_TILEMAP_RES;
           ShadowSamplingTile tile = shadow_sampling_tile_unpack(pixels[tile_ofs]);
@@ -1301,7 +1302,7 @@ static void test_eevee_shadow_tilemap_amend()
       std::string result = "";
       for (auto y : IndexRange(SHADOW_TILEMAP_RES)) {
         for (auto x : IndexRange(SHADOW_TILEMAP_RES)) {
-          /* Note: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
+          /* NOTE: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
           int tile_ofs = y * SHADOW_TILEMAP_RES * SHADOW_TILEMAP_PER_ROW + x +
                          tilemap_index * SHADOW_TILEMAP_RES;
           ShadowSamplingTile tile = shadow_sampling_tile_unpack(pixels[tile_ofs]);
@@ -1322,7 +1323,7 @@ static void test_eevee_shadow_tilemap_amend()
       std::string result = "";
       for (auto y : IndexRange(SHADOW_TILEMAP_RES)) {
         for (auto x : IndexRange(SHADOW_TILEMAP_RES)) {
-          /* Note: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
+          /* NOTE: assumes that tilemap_index is < SHADOW_TILEMAP_PER_ROW. */
           int tile_ofs = y * SHADOW_TILEMAP_RES * SHADOW_TILEMAP_PER_ROW + x +
                          tilemap_index * SHADOW_TILEMAP_RES;
           ShadowSamplingTile tile = shadow_sampling_tile_unpack(pixels[tile_ofs]);
@@ -1541,7 +1542,8 @@ static void test_eevee_shadow_page_mask_ex(int max_view_per_tilemap)
 
   {
     ShadowTileMap tilemap(0);
-    tilemap.sync_cubeface(float4x4::identity(), 0.01f, 1.0f, 0.01f, 0.0f, Z_NEG, 0.0f);
+    tilemap.sync_cubeface(
+        LIGHT_OMNI_SPHERE, float4x4::identity(), 0.01f, 1.0f, 0.01f, 0.0f, Z_NEG, 0.0f);
     tilemaps_data.append(tilemap);
   }
 

@@ -24,7 +24,7 @@
 #include "BKE_context.hh"
 #include "BKE_main.hh"
 #include "BKE_report.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
@@ -100,11 +100,6 @@ void wm_gizmogroup_free(bContext *C, wmGizmoGroup *gzgroup)
     BPY_DECREF_RNA_INVALIDATE(gzgroup->py_instance);
   }
 #endif
-
-  if (gzgroup->reports && (gzgroup->reports->flag & RPT_FREE)) {
-    BKE_reports_free(gzgroup->reports);
-    MEM_freeN(gzgroup->reports);
-  }
 
   if (gzgroup->customdata_free) {
     gzgroup->customdata_free(gzgroup->customdata);

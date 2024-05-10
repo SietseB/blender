@@ -103,7 +103,8 @@ struct ShadowTileMap : public ShadowTileMapData {
                          float lod_bias_,
                          eShadowProjectionType projection_type_);
 
-  void sync_cubeface(const float4x4 &object_mat,
+  void sync_cubeface(eLightType light_type_,
+                     const float4x4 &object_mat,
                      float near,
                      float far,
                      float side,
@@ -252,14 +253,14 @@ class ShadowModule {
   StorageArrayBuffer<uint, SHADOW_RENDER_MAP_SIZE, true> src_coord_buf_ = {"src_coord_buf"};
   /** Same as dst_coord_buf_ but is not compact. More like a linear texture. */
   StorageArrayBuffer<uint, SHADOW_RENDER_MAP_SIZE, true> render_map_buf_ = {"render_map_buf"};
-  /** View to viewport index mapping. */
-  StorageArrayBuffer<uint, SHADOW_VIEW_MAX, true> viewport_index_buf_ = {"viewport_index_buf"};
+  /** View to viewport index mapping and other render-only related data. */
+  ShadowRenderViewBuf render_view_buf_ = {"render_view_buf"};
 
   int3 dispatch_depth_scan_size_;
-  float pixel_world_radius_;
   int2 usage_tag_fb_resolution_;
   int usage_tag_fb_lod_ = 5;
   int max_view_per_tilemap_ = 1;
+  int2 input_depth_extent_;
 
   /* Statistics that are read back to CPU after a few frame (to avoid stall). */
   SwapChain<ShadowStatisticsBuf, 5> statistics_buf_;
@@ -285,7 +286,7 @@ class ShadowModule {
   int3 scan_dispatch_size_;
   int rendering_tilemap_;
   int rendering_lod_;
-  bool do_full_update = true;
+  bool do_full_update_ = true;
 
   /** \} */
 
@@ -349,8 +350,9 @@ class ShadowModule {
   /* Update all shadow regions visible inside the view.
    * If called multiple time for the same view, it will only do the depth buffer scanning
    * to check any new opaque surfaces.
+   * Expect the HiZ buffer to be up to date.
    * Needs to be called after `LightModule::set_view();`. */
-  void set_view(View &view, GPUTexture *depth_tx = nullptr);
+  void set_view(View &view, int2 extent);
 
   void debug_end_sync();
   void debug_draw(View &view, GPUFrameBuffer *view_fb);
@@ -369,6 +371,12 @@ class ShadowModule {
   float get_global_lod_bias()
   {
     return lod_bias_;
+  }
+
+  /* Set all shadows to update. To be called before `end_sync`. */
+  void reset()
+  {
+    do_full_update_ = true;
   }
 
  private:
@@ -406,13 +414,8 @@ class ShadowPunctual : public NonCopyable, NonMovable {
   float max_distance_, light_radius_;
   /** Number of tile-maps needed to cover the light angular extents. */
   int tilemaps_needed_;
-  /** Scaling factor to the light shape for shadow ray casting. */
-  float softness_factor_;
-  /**
-   * `radius * softness_factor` (Bypasses LightModule radius modifications
-   * to avoid unnecessary padding in the shadow projection).
-   */
-  float shadow_radius_;
+  /** Shadow LOD bias calculated based on global and light shadow resolution scale. */
+  float lod_bias_;
 
  public:
   ShadowPunctual(ShadowModule &module) : shadows_(module){};
@@ -432,8 +435,7 @@ class ShadowPunctual : public NonCopyable, NonMovable {
             float cone_aperture,
             float light_shape_radius,
             float max_distance,
-            float softness_factor,
-            float shadow_radius);
+            float shadow_resolution_scale);
 
   /**
    * Release the tile-maps that will not be used in the current frame.
@@ -443,7 +445,7 @@ class ShadowPunctual : public NonCopyable, NonMovable {
   /**
    * Allocate shadow tile-maps and setup views for rendering.
    */
-  void end_sync(Light &light, float lod_bias);
+  void end_sync(Light &light);
 
  private:
   /**
@@ -451,12 +453,8 @@ class ShadowPunctual : public NonCopyable, NonMovable {
    * Make sure that the projection encompass all possible rays that can start in the projection
    * quadrant.
    */
-  void compute_projection_boundaries(float light_radius,
-                                     float shadow_radius,
-                                     float max_lit_distance,
-                                     float &near,
-                                     float &far,
-                                     float &side);
+  void compute_projection_boundaries(
+      float max_lit_distance, float &near, float &far, float &side, float &back_shift);
 };
 
 class ShadowDirectional : public NonCopyable, NonMovable {
@@ -472,8 +470,8 @@ class ShadowDirectional : public NonCopyable, NonMovable {
   IndexRange levels_range;
   /** Angle of the shadowed light shape. Might be scaled compared to the shading disk. */
   float disk_shape_angle_;
-  /** Maximum distance a shadow map ray can be travel. */
-  float trace_distance_;
+  /** Shadow LOD bias calculated based on global and light shadow resolution scale. */
+  float lod_bias_;
 
  public:
   ShadowDirectional(ShadowModule &module) : shadows_(module){};
@@ -491,23 +489,23 @@ class ShadowDirectional : public NonCopyable, NonMovable {
   void sync(const float4x4 &object_mat,
             float min_resolution,
             float shadow_disk_angle,
-            float trace_distance);
+            float shadow_resolution_scale);
 
   /**
    * Release the tile-maps that will not be used in the current frame.
    */
-  void release_excess_tilemaps(const Camera &camera, float lod_bias);
+  void release_excess_tilemaps(const Camera &camera);
 
   /**
    * Allocate shadow tile-maps and setup views for rendering.
    */
-  void end_sync(Light &light, const Camera &camera, float lod_bias);
+  void end_sync(Light &light, const Camera &camera);
 
   /* Return coverage of the whole tile-map in world unit. */
   static float coverage_get(int lvl)
   {
     /* This function should be kept in sync with shadow_directional_level(). */
-    /* \note: If we would to introduce a global scaling option it would be here. */
+    /* \note If we would to introduce a global scaling option it would be here. */
     return exp2(lvl);
   }
 
@@ -519,10 +517,10 @@ class ShadowDirectional : public NonCopyable, NonMovable {
 
  private:
   IndexRange clipmap_level_range(const Camera &camera);
-  IndexRange cascade_level_range(const Camera &camera, float lod_bias);
+  IndexRange cascade_level_range(const Camera &camera);
 
   void cascade_tilemaps_distribution(Light &light, const Camera &camera);
-  void clipmap_tilemaps_distribution(Light &light, const Camera &camera, float lod_bias);
+  void clipmap_tilemaps_distribution(Light &light, const Camera &camera);
 
   void cascade_tilemaps_distribution_near_far_points(const Camera &camera,
                                                      float3 &near_point,

@@ -379,7 +379,8 @@ static int preferences_extension_repo_add_invoke(bContext *C, wmOperator *op, co
     RNA_property_string_set(op->ptr, prop_name, name_default);
   }
 
-  return WM_operator_props_popup_confirm(C, op, event);
+  return WM_operator_props_popup_confirm_ex(
+      C, op, event, IFACE_("Add New Extension Repository"), IFACE_("Create"));
 }
 
 static void preferences_extension_repo_add_ui(bContext * /*C*/, wmOperator *op)
@@ -706,7 +707,7 @@ static int preferences_extension_repo_upgrade_exec(bContext *C, wmOperator * /*o
 
 static void PREFERENCES_OT_extension_repo_upgrade(wmOperatorType *ot)
 {
-  ot->name = "Update Repository";
+  ot->name = "Install Available Updates for Repository";
   ot->idname = "PREFERENCES_OT_extension_repo_upgrade";
   ot->description = "Update any outdated extensions for the active extension repository";
 
@@ -776,46 +777,68 @@ static bool associate_blend_poll(bContext *C)
     return false;
   }
   return true;
-#else
-  CTX_wm_operator_poll_msg_set(C, "Windows-only operator");
+#elif defined(__APPLE__)
+  CTX_wm_operator_poll_msg_set(C, "Windows & Linux only operator");
   return false;
+#else
+  UNUSED_VARS(C);
+  return true;
 #endif
 }
 
+#if !defined(__APPLE__)
+static bool assosiate_blend(bool do_register, bool all_users, char **error_msg)
+{
+  const bool result = WM_platform_assosiate_set(do_register, all_users, error_msg);
+#  ifdef WIN32
+  if ((result == false) &&
+      /* For some reason the message box isn't shown in this case. */
+      (all_users == false))
+  {
+    const char *msg = do_register ? "Unable to register file association" :
+                                    "Unable to unregister file association";
+    MessageBox(0, msg, "Blender", MB_OK | MB_ICONERROR);
+  }
+#  endif /* !WIN32 */
+  return result;
+}
+#endif
+
 static int associate_blend_exec(bContext * /*C*/, wmOperator *op)
 {
-#ifdef WIN32
+#ifdef __APPLE__
+  UNUSED_VARS(op);
+  BLI_assert_unreachable();
+  return OPERATOR_CANCELLED;
+#else
+
+#  ifdef WIN32
   if (BLI_windows_is_store_install()) {
     BKE_report(
         op->reports, RPT_ERROR, "Registration not possible from Microsoft Store installations");
     return OPERATOR_CANCELLED;
   }
+#  endif
 
   const bool all_users = (U.uiflag & USER_REGISTER_ALL_USERS);
+  char *error_msg = nullptr;
 
   WM_cursor_wait(true);
+  const bool success = assosiate_blend(true, all_users, &error_msg);
+  WM_cursor_wait(false);
 
-  if (all_users && BLI_windows_execute_self("--register-allusers", true, true, true)) {
-    BKE_report(op->reports, RPT_INFO, "File association registered");
-    WM_cursor_wait(false);
-    return OPERATOR_FINISHED;
-  }
-  else if (!all_users && BLI_windows_register_blend_extension(false)) {
-    BKE_report(op->reports, RPT_INFO, "File association registered");
-    WM_cursor_wait(false);
-    return OPERATOR_FINISHED;
-  }
-  else {
-    BKE_report(op->reports, RPT_ERROR, "Unable to register file association");
-    WM_cursor_wait(false);
-    MessageBox(0, "Unable to register file association", "Blender", MB_OK | MB_ICONERROR);
+  if (!success) {
+    BKE_report(
+        op->reports, RPT_ERROR, error_msg ? error_msg : "Unable to register file association");
+    if (error_msg) {
+      MEM_freeN(error_msg);
+    }
     return OPERATOR_CANCELLED;
   }
-#else
-  UNUSED_VARS(op);
-  BLI_assert_unreachable();
-  return OPERATOR_CANCELLED;
-#endif
+  BLI_assert(error_msg == nullptr);
+  BKE_report(op->reports, RPT_INFO, "File association registered");
+  return OPERATOR_FINISHED;
+#endif /* !__APPLE__ */
 }
 
 static void PREFERENCES_OT_associate_blend(wmOperatorType *ot)
@@ -832,38 +855,38 @@ static void PREFERENCES_OT_associate_blend(wmOperatorType *ot)
 
 static int unassociate_blend_exec(bContext * /*C*/, wmOperator *op)
 {
-#ifdef WIN32
+#ifdef __APPLE__
+  UNUSED_VARS(op);
+  BLI_assert_unreachable();
+  return OPERATOR_CANCELLED;
+#else
+#  ifdef WIN32
   if (BLI_windows_is_store_install()) {
     BKE_report(
         op->reports, RPT_ERROR, "Unregistration not possible from Microsoft Store installations");
     return OPERATOR_CANCELLED;
   }
+#  endif
 
   const bool all_users = (U.uiflag & USER_REGISTER_ALL_USERS);
+  char *error_msg = nullptr;
 
   WM_cursor_wait(true);
+  bool success = assosiate_blend(false, all_users, &error_msg);
+  WM_cursor_wait(false);
 
-  if (all_users && BLI_windows_execute_self("--unregister-allusers", true, true, true)) {
-    BKE_report(op->reports, RPT_INFO, "File association unregistered");
-    WM_cursor_wait(false);
-    return OPERATOR_FINISHED;
-  }
-  else if (!all_users && BLI_windows_unregister_blend_extension(false)) {
-    BKE_report(op->reports, RPT_INFO, "File association unregistered");
-    WM_cursor_wait(false);
-    return OPERATOR_FINISHED;
-  }
-  else {
-    BKE_report(op->reports, RPT_ERROR, "Unable to unregister file association");
-    WM_cursor_wait(false);
-    MessageBox(0, "Unable to unregister file association", "Blender", MB_OK | MB_ICONERROR);
+  if (!success) {
+    BKE_report(
+        op->reports, RPT_ERROR, error_msg ? error_msg : "Unable to unregister file association");
+    if (error_msg) {
+      MEM_freeN(error_msg);
+    }
     return OPERATOR_CANCELLED;
   }
-#else
-  UNUSED_VARS(op);
-  BLI_assert_unreachable();
-  return OPERATOR_CANCELLED;
-#endif
+  BLI_assert(error_msg == nullptr);
+  BKE_report(op->reports, RPT_INFO, "File association unregistered");
+  return OPERATOR_FINISHED;
+#endif /* !__APPLE__ */
 }
 
 static void PREFERENCES_OT_unassociate_blend(wmOperatorType *ot)
@@ -915,7 +938,7 @@ static bool drop_extension_url_poll(bContext * /*C*/, wmDrag *drag, const wmEven
   /* Check the URL has a `.zip` suffix OR has a known repository as a prefix.
    * This is needed to support redirects which don't contain an extension. */
   if (!(cstr_ext && STRCASEEQ(cstr_ext, ".zip")) &&
-      !(BKE_preferences_extension_repo_find_by_remote_path_prefix(&U, cstr, true)))
+      !BKE_preferences_extension_repo_find_by_remote_path_prefix(&U, cstr, true))
   {
     return false;
   }

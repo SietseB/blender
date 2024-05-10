@@ -2376,6 +2376,11 @@ Array<TransDataEdgeSlideVert> transform_mesh_edge_slide_data_create(const TransD
     int td_index_1 = BM_elem_index_get(e->v1);
     int td_index_2 = BM_elem_index_get(e->v2);
 
+    /* This can occur when the mesh has symmetry enabled but is not symmetrical. See #120811. */
+    if (ELEM(-1, td_index_1, td_index_2)) {
+      continue;
+    }
+
     int slot_1 = int(td_connected[td_index_1][0] != -1);
     int slot_2 = int(td_connected[td_index_2][0] != -1);
 
@@ -2426,7 +2431,7 @@ Array<TransDataEdgeSlideVert> transform_mesh_edge_slide_data_create(const TransD
        * Find the best direction to slide among the ones already computed.
        *
        * \param curr_side_other: previous state of the #SlideTempDataMesh where the faces are
-                                 linked to the previous edge.
+       * linked to the previous edge.
        * \param l_src: the source corner in the edge to slide.
        * \param l_dst: the current destination corner.
        */
@@ -2506,15 +2511,21 @@ Array<TransDataEdgeSlideVert> transform_mesh_edge_slide_data_create(const TransD
     } prev = {}, curr = {}, next = {}, next_next = {}, tmp = {};
 
     next.i = td_connected[i_curr][0] != i_prev ? td_connected[i_curr][0] : td_connected[i_curr][1];
-    next.sv = &r_sv[next.i];
-    next.v = static_cast<BMVert *>(next.sv->td->extra);
-    next.vert_is_edge_pair = mesh_vert_is_inner(next.v);
+    if (next.i != -1) {
+      next.sv = &r_sv[next.i];
+      next.v = static_cast<BMVert *>(next.sv->td->extra);
+      next.vert_is_edge_pair = mesh_vert_is_inner(next.v);
+    }
 
     curr.i = i_curr;
-    curr.sv = &r_sv[curr.i];
-    curr.v = static_cast<BMVert *>(curr.sv->td->extra);
-    curr.vert_is_edge_pair = mesh_vert_is_inner(curr.v);
-    curr.e = BM_edge_exists(curr.v, next.v);
+    if (curr.i != -1) {
+      curr.sv = &r_sv[curr.i];
+      curr.v = static_cast<BMVert *>(curr.sv->td->extra);
+      curr.vert_is_edge_pair = mesh_vert_is_inner(curr.v);
+      if (next.i != -1) {
+        curr.e = BM_edge_exists(curr.v, next.v);
+      }
+    }
 
     /* Do not compute `prev` for now. Let the loop calculate `curr` twice. */
     prev.i = -1;

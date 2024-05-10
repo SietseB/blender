@@ -49,6 +49,15 @@ class COLLECTION_PT_collection_flags(CollectionButtonsPanel, Panel):
         col.prop(vlc, "indirect_only", toggle=False)
 
 
+class COLLECTION_PT_exporters(CollectionButtonsPanel, Panel):
+    bl_label = "Exporters"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.template_collection_exporters()
+
+
 class COLLECTION_MT_context_menu_instance_offset(Menu):
     bl_label = "Instance Offset"
 
@@ -114,6 +123,7 @@ classes = (
     COLLECTION_PT_instancing,
     COLLECTION_PT_lineart_collection,
     COLLECTION_PT_collection_custom_props,
+    COLLECTION_PT_exporters,
 )
 
 if __name__ == "__main__":  # only for live edit.

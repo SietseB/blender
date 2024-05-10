@@ -84,6 +84,7 @@ enum PropertyUnit {
   PROP_UNIT_CAMERA = (10 << 16),       /* mm */
   PROP_UNIT_POWER = (11 << 16),        /* W */
   PROP_UNIT_TEMPERATURE = (12 << 16),  /* C */
+  PROP_UNIT_WAVELENGTH = (13 << 16),   /* `nm` (independent of scene). */
 };
 ENUM_OPERATORS(PropertyUnit, PROP_UNIT_TEMPERATURE)
 
@@ -180,6 +181,9 @@ enum PropertySubType {
 
   /* temperature */
   PROP_TEMPERATURE = 43 | PROP_UNIT_TEMPERATURE,
+
+  /* wavelength */
+  PROP_WAVELENGTH = 44 | PROP_UNIT_WAVELENGTH,
 };
 
 /* Make sure enums are updated with these */
@@ -388,7 +392,7 @@ ENUM_OPERATORS(ParameterFlag, PARM_PYFUNC_OPTIONAL)
 
 struct CollectionPropertyIterator;
 struct Link;
-using IteratorSkipFunc = int (*)(CollectionPropertyIterator *iter, void *data);
+using IteratorSkipFunc = bool (*)(CollectionPropertyIterator *iter, void *data);
 
 struct ListBaseIterator {
   Link *link;
@@ -439,7 +443,7 @@ struct CollectionPropertyIterator {
 
   /* external */
   PointerRNA ptr;
-  int valid;
+  bool valid;
 };
 
 struct CollectionVector {
@@ -541,6 +545,8 @@ struct StringPropertySearchVisitParams {
   std::string text;
   /** Additional information to display. */
   std::optional<std::string> info;
+  /* Optional icon instead of #ICON_NONE. */
+  std::optional<int> icon_id;
 };
 
 enum eStringPropertySearchFlag {
@@ -610,7 +616,7 @@ struct ParameterIterator {
   int size, offset;
 
   PropertyRNA *parm;
-  int valid;
+  bool valid;
 };
 
 /** Mainly to avoid confusing casts. */

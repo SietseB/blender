@@ -186,7 +186,8 @@ class LayerViewItem : public AbstractTreeViewItem {
   std::optional<bool> should_be_active() const override
   {
     if (this->grease_pencil_.has_active_layer()) {
-      return reinterpret_cast<GreasePencilLayer *>(&layer_) == this->grease_pencil_.active_layer;
+      return reinterpret_cast<GreasePencilLayer *>(&layer_) ==
+             reinterpret_cast<GreasePencilLayer *>(this->grease_pencil_.get_active_layer());
     }
     return {};
   }
@@ -197,7 +198,7 @@ class LayerViewItem : public AbstractTreeViewItem {
         &grease_pencil_.id, &RNA_GreasePencilv3Layers, nullptr);
     PointerRNA value_ptr = RNA_pointer_create(&grease_pencil_.id, &RNA_GreasePencilLayer, &layer_);
 
-    PropertyRNA *prop = RNA_struct_find_property(&grease_pencil_ptr, "active");
+    PropertyRNA *prop = RNA_struct_find_property(&grease_pencil_ptr, "active_layer");
 
     RNA_property_pointer_set(&grease_pencil_ptr, prop, value_ptr, nullptr);
     RNA_property_update(&C, &grease_pencil_ptr, prop);
@@ -258,10 +259,7 @@ class LayerViewItem : public AbstractTreeViewItem {
 
     sub = uiLayoutRow(&row, true);
     uiLayoutSetActive(sub, layer_.parent_group().use_masks());
-    const int icon_mask = (layer_.base.flag & GP_LAYER_TREE_NODE_HIDE_MASKS) == 0 ?
-                              ICON_CLIPUV_DEHLT :
-                              ICON_CLIPUV_HLT;
-    uiItemR(sub, &layer_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, nullptr, icon_mask);
+    uiItemR(sub, &layer_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, nullptr, ICON_NONE);
 
     sub = uiLayoutRow(&row, true);
     uiLayoutSetActive(sub, layer_.parent_group().use_onion_skinning());
@@ -282,7 +280,6 @@ class LayerGroupViewItem : public AbstractTreeViewItem {
   LayerGroupViewItem(GreasePencil &grease_pencil, LayerGroup &group)
       : grease_pencil_(grease_pencil), group_(group)
   {
-    this->disable_activatable();
     this->label_ = group_.name();
   }
 
@@ -294,6 +291,30 @@ class LayerGroupViewItem : public AbstractTreeViewItem {
     uiLayoutSetPropDecorate(sub, false);
 
     build_layer_group_buttons(*sub);
+  }
+
+  std::optional<bool> should_be_active() const override
+  {
+    if (this->grease_pencil_.active_node->wrap().is_group()) {
+      return reinterpret_cast<LayerGroup *>(&group_) ==
+             reinterpret_cast<LayerGroup *>(&this->grease_pencil_.active_node->wrap().as_group());
+    }
+    return {};
+  }
+
+  void on_activate(bContext &C) override
+  {
+    PointerRNA grease_pencil_ptr = RNA_pointer_create(
+        &grease_pencil_.id, &RNA_GreasePencilv3LayerGroup, nullptr);
+    PointerRNA value_ptr = RNA_pointer_create(
+        &grease_pencil_.id, &RNA_GreasePencilLayerGroup, &group_);
+
+    PropertyRNA *prop = RNA_struct_find_property(&grease_pencil_ptr, "active_group");
+
+    RNA_property_pointer_set(&grease_pencil_ptr, prop, value_ptr, nullptr);
+    RNA_property_update(&C, &grease_pencil_ptr, prop);
+
+    ED_undo_push(&C, "Active Grease Pencil Group");
   }
 
   bool supports_renaming() const override

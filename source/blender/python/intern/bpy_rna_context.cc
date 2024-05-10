@@ -16,7 +16,7 @@
 #include "BKE_context.hh"
 #include "BKE_main.hh"
 #include "BKE_screen.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -658,7 +658,7 @@ static PyObject *bpy_context_temp_override(PyObject *self, PyObject *args, PyObj
                                                               pyrna_struct_as_ptr_or_null_parse,
                                                               &params.region);
     Py_DECREF(kwds_parse);
-    if (parse_result == -1) {
+    if (!parse_result) {
       Py_DECREF(kwds);
       return nullptr;
     }

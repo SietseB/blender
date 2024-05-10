@@ -39,7 +39,7 @@
 #include "BKE_screen.hh"
 #include "BKE_sound.h"
 #include "BKE_wm_runtime.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "RE_engine.h"
 
@@ -69,7 +69,7 @@ struct bContext {
     bScreen *screen;
     ScrArea *area;
     ARegion *region;
-    ARegion *menu;
+    ARegion *region_popup;
     wmGizmoGroup *gizmo_group;
     const bContextStore *store;
 
@@ -186,7 +186,7 @@ const PointerRNA *CTX_store_ptr_lookup(const bContextStore *store,
 {
   for (auto entry = store->entries.rbegin(); entry != store->entries.rend(); ++entry) {
     if (entry->name == name) {
-      if (!type || (type && RNA_struct_is_a(entry->ptr.type, type))) {
+      if (!type || RNA_struct_is_a(entry->ptr.type, type)) {
         return &entry->ptr;
       }
     }
@@ -546,7 +546,7 @@ ListBase CTX_data_dir_get_ex(const bContext *C,
   memset(&lb, 0, sizeof(lb));
 
   if (use_rna) {
-    char name[256], *nameptr;
+    char name_buf[256], *name;
     int namelen;
 
     PropertyRNA *iterprop;
@@ -555,12 +555,10 @@ ListBase CTX_data_dir_get_ex(const bContext *C,
     iterprop = RNA_struct_iterator_property(ctx_ptr.type);
 
     RNA_PROP_BEGIN (&ctx_ptr, itemptr, iterprop) {
-      nameptr = RNA_struct_name_get_alloc(&itemptr, name, sizeof(name), &namelen);
+      name = RNA_struct_name_get_alloc(&itemptr, name_buf, sizeof(name_buf), &namelen);
       data_dir_add(&lb, name, use_all);
-      if (nameptr) {
-        if (name != nameptr) {
-          MEM_freeN(nameptr);
-        }
+      if (name != name_buf) {
+        MEM_freeN(name);
       }
     }
     RNA_PROP_END;
@@ -729,9 +727,9 @@ void *CTX_wm_region_data(const bContext *C)
   return (region) ? region->regiondata : nullptr;
 }
 
-ARegion *CTX_wm_menu(const bContext *C)
+ARegion *CTX_wm_region_popup(const bContext *C)
 {
-  return C->wm.menu;
+  return C->wm.region_popup;
 }
 
 wmGizmoGroup *CTX_wm_gizmo_group(const bContext *C)
@@ -997,9 +995,10 @@ void CTX_wm_region_set(bContext *C, ARegion *region)
 #endif
 }
 
-void CTX_wm_menu_set(bContext *C, ARegion *menu)
+void CTX_wm_region_popup_set(bContext *C, ARegion *region_popup)
 {
-  C->wm.menu = menu;
+  BLI_assert(region_popup == nullptr || region_popup->regiontype == RGN_TYPE_TEMPORARY);
+  C->wm.region_popup = region_popup;
 }
 
 void CTX_wm_gizmo_group_set(bContext *C, wmGizmoGroup *gzgroup)
@@ -1185,25 +1184,37 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
         return CTX_MODE_PARTICLE;
       }
       if (object_mode & OB_MODE_PAINT_GPENCIL_LEGACY) {
-        return CTX_MODE_PAINT_GPENCIL_LEGACY;
+        if (ob->type == OB_GPENCIL_LEGACY) {
+          return CTX_MODE_PAINT_GPENCIL_LEGACY;
+        }
+        if (ob->type == OB_GREASE_PENCIL) {
+          return CTX_MODE_PAINT_GREASE_PENCIL;
+        }
       }
       if (object_mode & OB_MODE_EDIT_GPENCIL_LEGACY) {
         return CTX_MODE_EDIT_GPENCIL_LEGACY;
       }
       if (object_mode & OB_MODE_SCULPT_GPENCIL_LEGACY) {
-        return CTX_MODE_SCULPT_GPENCIL_LEGACY;
+        if (ob->type == OB_GPENCIL_LEGACY) {
+          return CTX_MODE_SCULPT_GPENCIL_LEGACY;
+        }
+        if (ob->type == OB_GREASE_PENCIL) {
+          return CTX_MODE_SCULPT_GREASE_PENCIL;
+        }
       }
       if (object_mode & OB_MODE_WEIGHT_GPENCIL_LEGACY) {
-        return CTX_MODE_WEIGHT_GPENCIL_LEGACY;
+        if (ob->type == OB_GPENCIL_LEGACY) {
+          return CTX_MODE_WEIGHT_GPENCIL_LEGACY;
+        }
+        if (ob->type == OB_GREASE_PENCIL) {
+          return CTX_MODE_WEIGHT_GREASE_PENCIL;
+        }
       }
       if (object_mode & OB_MODE_VERTEX_GPENCIL_LEGACY) {
         return CTX_MODE_VERTEX_GPENCIL_LEGACY;
       }
       if (object_mode & OB_MODE_SCULPT_CURVES) {
         return CTX_MODE_SCULPT_CURVES;
-      }
-      if (object_mode & OB_MODE_PAINT_GREASE_PENCIL) {
-        return CTX_MODE_PAINT_GREASE_PENCIL;
       }
     }
   }
@@ -1248,6 +1259,8 @@ static const char *data_mode_strings[] = {
     "greasepencil_vertex",
     "curves_sculpt",
     "grease_pencil_paint",
+    "grease_pencil_sculpt",
+    "grease_pencil_weight",
     nullptr,
 };
 BLI_STATIC_ASSERT(ARRAY_SIZE(data_mode_strings) == CTX_MODE_NUM + 1,

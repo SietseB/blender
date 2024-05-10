@@ -194,25 +194,19 @@ static void mesh_copy_data(Main *bmain,
 
   mesh_dst->mselect = (MSelect *)MEM_dupallocN(mesh_dst->mselect);
 
-  /* TODO: Do we want to add flag to prevent this? */
   if (mesh_src->key && (flag & LIB_ID_COPY_SHAPEKEY)) {
-    BKE_id_copy_in_lib(bmain, owner_library, &mesh_src->key->id, (ID **)&mesh_dst->key, flag);
-    /* XXX This is not nice, we need to make BKE_id_copy_ex fully re-entrant... */
-    mesh_dst->key->from = &mesh_dst->id;
+    BKE_id_copy_in_lib(bmain,
+                       owner_library,
+                       &mesh_src->key->id,
+                       &mesh_dst->id,
+                       reinterpret_cast<ID **>(&mesh_dst->key),
+                       flag);
   }
 }
 
 void BKE_mesh_free_editmesh(Mesh *mesh)
 {
-  if (mesh->runtime->edit_mesh == nullptr) {
-    return;
-  }
-
-  if (mesh->runtime->edit_mesh->is_shallow_copy == false) {
-    BKE_editmesh_free_data(mesh->runtime->edit_mesh);
-  }
-  MEM_freeN(mesh->runtime->edit_mesh);
-  mesh->runtime->edit_mesh = nullptr;
+  mesh->runtime->edit_mesh.reset();
 }
 
 static void mesh_free_data(ID *id)
@@ -341,17 +335,17 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
 
   /* Deprecated pointers to custom data layers are read here for backward compatibility
    * with files where these were owning pointers rather than a view into custom data. */
-  BLO_read_data_address(reader, &mesh->mvert);
-  BLO_read_data_address(reader, &mesh->medge);
-  BLO_read_data_address(reader, &mesh->mface);
-  BLO_read_data_address(reader, &mesh->mtface);
-  BLO_read_data_address(reader, &mesh->dvert);
-  BLO_read_data_address(reader, &mesh->tface);
-  BLO_read_data_address(reader, &mesh->mcol);
+  BLO_read_struct_array(reader, MVert, mesh->verts_num, &mesh->mvert);
+  BLO_read_struct_array(reader, MEdge, mesh->edges_num, &mesh->medge);
+  BLO_read_struct_array(reader, MFace, mesh->totface_legacy, &mesh->mface);
+  BLO_read_struct_array(reader, MTFace, mesh->totface_legacy, &mesh->mtface);
+  BLO_read_struct_array(reader, MDeformVert, mesh->verts_num, &mesh->dvert);
+  BLO_read_struct_array(reader, TFace, mesh->totface_legacy, &mesh->tface);
+  BLO_read_struct_array(reader, MCol, mesh->totface_legacy, &mesh->mcol);
 
-  BLO_read_data_address(reader, &mesh->mselect);
+  BLO_read_struct_array(reader, MSelect, mesh->totselect, &mesh->mselect);
 
-  BLO_read_list(reader, &mesh->vertex_group_names);
+  BLO_read_struct_list(reader, bDeformGroup, &mesh->vertex_group_names);
 
   CustomData_blend_read(reader, &mesh->vert_data, mesh->verts_num);
   CustomData_blend_read(reader, &mesh->edge_data, mesh->edges_num);
@@ -363,8 +357,8 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
      * Don't read them again if they were read as part of #CustomData. */
     BKE_defvert_blend_read(reader, mesh->verts_num, mesh->dvert);
   }
-  BLO_read_data_address(reader, &mesh->active_color_attribute);
-  BLO_read_data_address(reader, &mesh->default_color_attribute);
+  BLO_read_string(reader, &mesh->active_color_attribute);
+  BLO_read_string(reader, &mesh->default_color_attribute);
 
   mesh->texspace_flag &= ~ME_TEXSPACE_FLAG_AUTO_EVALUATED;
 
@@ -848,15 +842,6 @@ Mesh *BKE_mesh_new_nomain_from_template(const Mesh *me_src,
       me_src, verts_num, edges_num, 0, faces_num, corners_num, CD_MASK_EVERYTHING);
 }
 
-void BKE_mesh_eval_delete(Mesh *mesh_eval)
-{
-  /* Evaluated mesh may point to edit mesh, but never owns it. */
-  mesh_eval->runtime->edit_mesh = nullptr;
-  mesh_free_data(&mesh_eval->id);
-  BKE_libblock_free_data(&mesh_eval->id, false);
-  MEM_freeN(mesh_eval);
-}
-
 Mesh *BKE_mesh_copy_for_eval(const Mesh *source)
 {
   return reinterpret_cast<Mesh *>(
@@ -1155,8 +1140,7 @@ void BKE_mesh_material_remap(Mesh *mesh, const uint *remap, uint remap_len)
   } \
   ((void)0)
 
-  if (mesh->runtime->edit_mesh) {
-    BMEditMesh *em = mesh->runtime->edit_mesh;
+  if (BMEditMesh *em = mesh->runtime->edit_mesh.get()) {
     BMIter iter;
     BMFace *efa;
 
@@ -1394,7 +1378,7 @@ void BKE_mesh_mselect_validate(Mesh *mesh)
   mesh->mselect = mselect_dst;
 }
 
-int BKE_mesh_mselect_find(Mesh *mesh, int index, int type)
+int BKE_mesh_mselect_find(const Mesh *mesh, int index, int type)
 {
   BLI_assert(ELEM(type, ME_VSEL, ME_ESEL, ME_FSEL));
 
@@ -1407,7 +1391,7 @@ int BKE_mesh_mselect_find(Mesh *mesh, int index, int type)
   return -1;
 }
 
-int BKE_mesh_mselect_active_get(Mesh *mesh, int type)
+int BKE_mesh_mselect_active_get(const Mesh *mesh, int type)
 {
   BLI_assert(ELEM(type, ME_VSEL, ME_ESEL, ME_FSEL));
 
@@ -1462,7 +1446,6 @@ void BKE_mesh_eval_geometry(Depsgraph *depsgraph, Mesh *mesh)
    * evaluated mesh, and we don't know what parts of the mesh did change. So we simply delete the
    * evaluated mesh and let objects to re-create it with updated settings. */
   if (mesh->runtime->mesh_eval != nullptr) {
-    mesh->runtime->mesh_eval->runtime->edit_mesh = nullptr;
     BKE_id_free(nullptr, mesh->runtime->mesh_eval);
     mesh->runtime->mesh_eval = nullptr;
   }

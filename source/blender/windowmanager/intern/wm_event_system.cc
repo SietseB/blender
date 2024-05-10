@@ -44,7 +44,7 @@
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
 #include "BKE_undo_system.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "BKE_sound.h"
 
@@ -784,7 +784,7 @@ static eHandlerActionFlag wm_handler_ui_call(bContext *C,
 {
   ScrArea *area = CTX_wm_area(C);
   ARegion *region = CTX_wm_region(C);
-  ARegion *menu = CTX_wm_menu(C);
+  ARegion *region_popup = CTX_wm_region_popup(C);
   static bool do_wheel_ui = true;
   const bool is_wheel = ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE, MOUSEPAN);
 
@@ -820,8 +820,8 @@ static eHandlerActionFlag wm_handler_ui_call(bContext *C,
   if (handler->context.region) {
     CTX_wm_region_set(C, handler->context.region);
   }
-  if (handler->context.menu) {
-    CTX_wm_menu_set(C, handler->context.menu);
+  if (handler->context.region_popup) {
+    CTX_wm_region_popup_set(C, handler->context.region_popup);
   }
 
   int retval = handler->handle_fn(C, event, handler->user_data);
@@ -830,13 +830,13 @@ static eHandlerActionFlag wm_handler_ui_call(bContext *C,
   if ((retval != WM_UI_HANDLER_BREAK) || always_pass) {
     CTX_wm_area_set(C, area);
     CTX_wm_region_set(C, region);
-    CTX_wm_menu_set(C, menu);
+    CTX_wm_region_popup_set(C, region_popup);
   }
   else {
     /* This special cases is for areas and regions that get removed. */
     CTX_wm_area_set(C, nullptr);
     CTX_wm_region_set(C, nullptr);
-    CTX_wm_menu_set(C, nullptr);
+    CTX_wm_region_popup_set(C, nullptr);
   }
 
   if (retval == WM_UI_HANDLER_BREAK) {
@@ -2188,9 +2188,9 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
       wmEventHandler_UI *handler = (wmEventHandler_UI *)handler_base;
 
       if (handler->remove_fn) {
-        ScrArea *area = CTX_wm_area(C);
-        ARegion *region = CTX_wm_region(C);
-        ARegion *menu = CTX_wm_menu(C);
+        ScrArea *area_prev = CTX_wm_area(C);
+        ARegion *region_prev = CTX_wm_region(C);
+        ARegion *region_popup_prev = CTX_wm_region_popup(C);
 
         if (handler->context.area) {
           CTX_wm_area_set(C, handler->context.area);
@@ -2198,15 +2198,15 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
         if (handler->context.region) {
           CTX_wm_region_set(C, handler->context.region);
         }
-        if (handler->context.menu) {
-          CTX_wm_menu_set(C, handler->context.menu);
+        if (handler->context.region_popup) {
+          CTX_wm_region_popup_set(C, handler->context.region_popup);
         }
 
         handler->remove_fn(C, handler->user_data);
 
-        CTX_wm_area_set(C, area);
-        CTX_wm_region_set(C, region);
-        CTX_wm_menu_set(C, menu);
+        CTX_wm_area_set(C, area_prev);
+        CTX_wm_region_set(C, region_prev);
+        CTX_wm_region_popup_set(C, region_popup_prev);
       }
     }
 
@@ -4779,12 +4779,12 @@ wmEventHandler_UI *WM_event_add_ui_handler(const bContext *C,
   if (C) {
     handler->context.area = CTX_wm_area(C);
     handler->context.region = CTX_wm_region(C);
-    handler->context.menu = CTX_wm_menu(C);
+    handler->context.region_popup = CTX_wm_region_popup(C);
   }
   else {
     handler->context.area = nullptr;
     handler->context.region = nullptr;
-    handler->context.menu = nullptr;
+    handler->context.region_popup = nullptr;
   }
 
   BLI_assert((flag & WM_HANDLER_DO_FREE) == 0);
@@ -5632,6 +5632,23 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
         event.flag |= WM_EVENT_SCROLL_INVERT;
       }
 
+#if !defined(WIN32) && !defined(__APPLE__)
+      /* Ensure "auto" is used when supported. */
+      char trackpad_scroll_direction = U.trackpad_scroll_direction;
+      if ((WM_capabilities_flag() & WM_CAPABILITY_TRACKPAD_PHYSICAL_DIRECTION) == 0) {
+        switch (eUserpref_TrackpadScrollDir(trackpad_scroll_direction)) {
+          case USER_TRACKPAD_SCROLL_DIR_TRADITIONAL: {
+            event.flag &= ~WM_EVENT_SCROLL_INVERT;
+            break;
+          }
+          case USER_TRACKPAD_SCROLL_DIR_NATURAL: {
+            event.flag |= WM_EVENT_SCROLL_INVERT;
+            break;
+          }
+        }
+      }
+#endif
+
       wm_event_add_trackpad(win, &event, delta[0], delta[1]);
       break;
     }
@@ -5872,15 +5889,28 @@ void wm_event_add_ghostevent(wmWindowManager *wm,
       const GHOST_TEventWheelData *wheelData = static_cast<const GHOST_TEventWheelData *>(
           customdata);
 
+      int click_step;
       if (wheelData->z > 0) {
         event.type = WHEELUPMOUSE;
+        click_step = wheelData->z;
       }
       else {
         event.type = WHEELDOWNMOUSE;
+        click_step = -wheelData->z;
       }
+      BLI_assert(click_step != 0);
 
+      /* Avoid generating a large number of events.
+       * In practice this values is typically 1, sometimes 2-3, even 32 is very high
+       * although this could happen if the system freezes. */
+      click_step = std::min(click_step, 32);
+
+      /* TODO: support a wheel event that includes the number of steps
+       * instead of generating multiple events. */
       event.val = KM_PRESS;
-      wm_event_add(win, &event);
+      for (int i = 0; i < click_step; i++) {
+        wm_event_add(win, &event);
+      }
 
       break;
     }
@@ -6375,32 +6405,16 @@ bool WM_window_modal_keymap_status_draw(bContext *C, wmWindow *win, uiLayout *la
       continue;
     }
 
-    bool show_text = true;
-
-    {
-      /* WARNING: O(n^2). */
-      wmKeyMapItem *kmi = nullptr;
-      for (kmi = static_cast<wmKeyMapItem *>(keymap->items.first); kmi; kmi = kmi->next) {
-        if (kmi->propvalue == items[i].value) {
-          break;
-        }
-      }
-      if (kmi != nullptr) {
-        if (kmi->val == KM_RELEASE) {
-          /* Assume release events just disable something which was toggled on. */
-          continue;
-        }
-        if (uiTemplateEventFromKeymapItem(row, items[i].name, kmi, false)) {
-          show_text = false;
-        }
-      }
+    const int num_items_used = uiTemplateStatusBarModalItem(row, keymap, items + i);
+    if (num_items_used > 0) {
+      /* Skip items in case consecutive items were merged. */
+      i += num_items_used - 1;
     }
-    if (show_text) {
-      if (std::optional<std::string> str = WM_modalkeymap_operator_items_to_string(
-              op->type, items[i].value, true))
-      {
-        uiItemL(row, fmt::format("{}: {}", *str, items[i].name).c_str(), ICON_NONE);
-      }
+    else if (std::optional<std::string> str = WM_modalkeymap_operator_items_to_string(
+                 op->type, items[i].value, true))
+    {
+      /*  Show text instead */
+      uiItemL(row, fmt::format("{}: {}", *str, items[i].name).c_str(), ICON_NONE);
     }
   }
   return true;

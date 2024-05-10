@@ -213,7 +213,7 @@ bool BLI_is_file(const char *path) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 /**
  * \return true on success (i.e. given path now exists on FS), false otherwise.
  */
-bool BLI_dir_create_recursive(const char *dir) ATTR_NONNULL();
+bool BLI_dir_create_recursive(const char *dirname) ATTR_NONNULL();
 /**
  * Returns the number of free bytes on the volume containing the specified path.
  *
@@ -248,12 +248,12 @@ bool BLI_change_working_dir(const char *dir);
  * \{ */
 
 /**
- * Scans the contents of the directory named `dir`, and allocates and fills in an
+ * Scans the contents of the directory named `dirname`, and allocates and fills in an
  * array of entries describing them in `r_filelist`.
  *
  * \return The length of `r_filelist` array.
  */
-unsigned int BLI_filelist_dir_contents(const char *dir, struct direntry **r_filelist);
+unsigned int BLI_filelist_dir_contents(const char *dirname, struct direntry **r_filelist);
 /**
  * Deep-duplicate of a single direntry.
  */
@@ -380,7 +380,8 @@ bool BLI_file_older(const char *file1, const char *file2) ATTR_WARN_UNUSED_RESUL
  *
  * \return the lines in a linked list (an empty list when file reading fails).
  */
-struct LinkNode *BLI_file_read_as_lines(const char *file) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+struct LinkNode *BLI_file_read_as_lines(const char *filepath) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL();
 
 /**
  * Read the contents of `fp`, returning the result as a buffer or null when it can't be read.

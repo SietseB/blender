@@ -943,6 +943,7 @@ static const PaintMode brush_select_paint_modes[] = {
     PaintMode::SculptGPencil,
     PaintMode::WeightGPencil,
     PaintMode::SculptCurves,
+    PaintMode::SculptGreasePencil,
 };
 
 static int brush_select_exec(bContext *C, wmOperator *op)
@@ -1008,6 +1009,10 @@ static void PAINT_OT_brush_select(wmOperatorType *ot)
   for (int i = 0; i < ARRAY_SIZE(brush_select_paint_modes); i++) {
     const PaintMode paint_mode = brush_select_paint_modes[i];
     const char *prop_id = BKE_paint_get_tool_prop_id_from_paintmode(paint_mode);
+    /* Prevent a duplicate `gpencil_sculpt_tool` property. */
+    if (RNA_struct_type_find_property_no_base(ot->srna, prop_id)) {
+      continue;
+    }
     prop = RNA_def_enum(
         ot->srna, prop_id, BKE_paint_get_tool_enum_from_paintmode(paint_mode), 0, prop_id, "");
     RNA_def_property_translation_context(
@@ -1512,7 +1517,9 @@ void ED_operatortypes_paint()
   WM_operatortype_append(PAINT_OT_weight_sample_group);
 
   /* uv */
-  WM_operatortype_append(SCULPT_OT_uv_sculpt_stroke);
+  WM_operatortype_append(SCULPT_OT_uv_sculpt_grab);
+  WM_operatortype_append(SCULPT_OT_uv_sculpt_relax);
+  WM_operatortype_append(SCULPT_OT_uv_sculpt_pinch);
 
   /* vertex selection */
   WM_operatortype_append(PAINT_OT_vert_select_all);
@@ -1552,6 +1559,7 @@ void ED_operatortypes_paint()
   WM_operatortype_append(hide::PAINT_OT_hide_show);
   WM_operatortype_append(hide::PAINT_OT_hide_show_lasso_gesture);
   WM_operatortype_append(hide::PAINT_OT_hide_show_line_gesture);
+  WM_operatortype_append(hide::PAINT_OT_hide_show_polyline_gesture);
   WM_operatortype_append(hide::PAINT_OT_visibility_invert);
 
   /* paint masking */

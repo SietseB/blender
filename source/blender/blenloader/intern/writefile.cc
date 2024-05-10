@@ -100,6 +100,7 @@
 
 #include "MEM_guardedalloc.h" /* MEM_freeN */
 
+#include "BKE_asset.hh"
 #include "BKE_blender_version.h"
 #include "BKE_bpath.hh"
 #include "BKE_global.hh" /* For #Global `G`. */
@@ -114,7 +115,7 @@
 #include "BKE_node.hh"
 #include "BKE_packedFile.h"
 #include "BKE_report.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "BLO_blend_defs.hh"
 #include "BLO_blend_validate.hh"
@@ -621,9 +622,9 @@ static void mywrite_id_begin(WriteData *wd, ID *id)
     MemFileChunk *prev_memchunk = curr_memchunk != nullptr ?
                                       static_cast<MemFileChunk *>(curr_memchunk->prev) :
                                       nullptr;
-    if ((curr_memchunk == nullptr || curr_memchunk->id_session_uid != id->session_uid ||
-         (prev_memchunk != nullptr &&
-          (prev_memchunk->id_session_uid == curr_memchunk->id_session_uid))))
+    if (curr_memchunk == nullptr || curr_memchunk->id_session_uid != id->session_uid ||
+        (prev_memchunk != nullptr &&
+         (prev_memchunk->id_session_uid == curr_memchunk->id_session_uid)))
     {
       if (MemFileChunk *ref = wd->mem.id_session_uid_mapping.lookup_default(id->session_uid,
                                                                             nullptr))
@@ -934,6 +935,12 @@ static void write_userdef(BlendWriter *writer, const UserDef *userdef)
   LISTBASE_FOREACH (const bUserExtensionRepo *, repo_ref, &userdef->extension_repos) {
     BLO_write_struct(writer, bUserExtensionRepo, repo_ref);
   }
+  LISTBASE_FOREACH (
+      const bUserAssetShelfSettings *, shelf_settings, &userdef->asset_shelves_settings)
+  {
+    BLO_write_struct(writer, bUserAssetShelfSettings, shelf_settings);
+    BKE_asset_catalog_path_list_blend_write(writer, shelf_settings->enabled_catalog_paths);
+  }
 
   LISTBASE_FOREACH (const uiStyle *, style, &userdef->uistyles) {
     BLO_write_struct(writer, uiStyle, style);
@@ -1008,7 +1015,7 @@ static void write_libraries(WriteData *wd, Main *main)
                          "Data-block '%s' from lib '%s' is not linkable, but is flagged as "
                          "directly linked",
                          id->name,
-                         main->curlib->filepath_abs);
+                         main->curlib->runtime.filepath_abs);
             }
             writestruct(wd, ID_LINK_PLACEHOLDER, ID, 1, id);
           }
@@ -1783,9 +1790,19 @@ int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name)
   return struct_id;
 }
 
+void BLO_write_char_array(BlendWriter *writer, uint num, const char *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(char) * size_t(num), data_ptr);
+}
+
 void BLO_write_int8_array(BlendWriter *writer, uint num, const int8_t *data_ptr)
 {
   BLO_write_raw(writer, sizeof(int8_t) * size_t(num), data_ptr);
+}
+
+void BLO_write_uint8_array(BlendWriter *writer, uint num, const uint8_t *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(uint8_t) * size_t(num), data_ptr);
 }
 
 void BLO_write_int32_array(BlendWriter *writer, uint num, const int32_t *data_ptr)

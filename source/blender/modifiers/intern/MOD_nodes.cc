@@ -59,7 +59,7 @@
 #include "BKE_object.hh"
 #include "BKE_pointcloud.hh"
 #include "BKE_screen.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "BLO_read_write.hh"
 
@@ -1719,7 +1719,7 @@ static void modifyGeometry(ModifierData *md,
     nmd_orig->runtime->eval_log = std::move(eval_log);
   }
 
-  if (DEG_is_active(ctx->depsgraph)) {
+  if (DEG_is_active(ctx->depsgraph) && !(ctx->flag & MOD_APPLY_TO_BASE_MESH)) {
     add_data_block_items_writeback(*ctx, *nmd, *nmd_orig, simulation_params, bake_params);
   }
 
@@ -2384,27 +2384,27 @@ static void blend_write(BlendWriter *writer, const ID * /*id_owner*/, const Modi
 static void blend_read(BlendDataReader *reader, ModifierData *md)
 {
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
-  BLO_read_data_address(reader, &nmd->bake_directory);
+  BLO_read_string(reader, &nmd->bake_directory);
   if (nmd->node_group == nullptr) {
     nmd->settings.properties = nullptr;
   }
   else {
-    BLO_read_data_address(reader, &nmd->settings.properties);
+    BLO_read_struct(reader, IDProperty, &nmd->settings.properties);
     IDP_BlendDataRead(reader, &nmd->settings.properties);
   }
 
-  BLO_read_data_address(reader, &nmd->bakes);
+  BLO_read_struct_array(reader, NodesModifierBake, nmd->bakes_num, &nmd->bakes);
   for (NodesModifierBake &bake : MutableSpan(nmd->bakes, nmd->bakes_num)) {
-    BLO_read_data_address(reader, &bake.directory);
+    BLO_read_string(reader, &bake.directory);
 
-    BLO_read_data_address(reader, &bake.data_blocks);
+    BLO_read_struct_array(reader, NodesModifierDataBlock, bake.data_blocks_num, &bake.data_blocks);
     for (NodesModifierDataBlock &data_block : MutableSpan(bake.data_blocks, bake.data_blocks_num))
     {
-      BLO_read_data_address(reader, &data_block.id_name);
-      BLO_read_data_address(reader, &data_block.lib_name);
+      BLO_read_string(reader, &data_block.id_name);
+      BLO_read_string(reader, &data_block.lib_name);
     }
   }
-  BLO_read_data_address(reader, &nmd->panels);
+  BLO_read_struct_array(reader, NodesModifierPanel, nmd->panels_num, &nmd->panels);
 
   nmd->runtime = MEM_new<NodesModifierRuntime>(__func__);
   nmd->runtime->cache = std::make_shared<bake::ModifierCache>();

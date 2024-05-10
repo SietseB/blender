@@ -46,12 +46,8 @@ void SCULPT_pbvh_clear(Object *ob)
 {
   using namespace blender;
   SculptSession *ss = ob->sculpt;
-
   /* Clear out any existing DM and PBVH. */
-  if (ss->pbvh) {
-    bke::pbvh::free(ss->pbvh);
-    ss->pbvh = nullptr;
-  }
+  bke::pbvh::free(ss->pbvh);
 
   BKE_object_free_derived_caches(ob);
 
@@ -210,7 +206,7 @@ void disable_with_undo(Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *
     const bool use_undo = G.background ? (ED_undo_stack_get() != nullptr) : true;
     if (use_undo) {
       undo::push_begin_ex(ob, "Dynamic topology disable");
-      undo::push_node(ob, nullptr, undo::Type::DyntopoEnd);
+      undo::push_node(*ob, nullptr, undo::Type::DyntopoEnd);
     }
     SCULPT_dynamic_topology_disable_ex(bmain, depsgraph, scene, ob, nullptr);
     if (use_undo) {
@@ -230,7 +226,7 @@ static void sculpt_dynamic_topology_enable_with_undo(Main *bmain, Depsgraph *dep
     }
     enable_ex(bmain, depsgraph, ob);
     if (use_undo) {
-      undo::push_node(ob, nullptr, undo::Type::DyntopoBegin);
+      undo::push_node(*ob, nullptr, undo::Type::DyntopoBegin);
       undo::push_end(ob);
     }
   }

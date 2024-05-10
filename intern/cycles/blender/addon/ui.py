@@ -21,7 +21,7 @@ class CyclesPresetPanel(PresetPanel, Panel):
     preset_operator = "script.execute_preset"
 
     @staticmethod
-    def post_cb(context):
+    def post_cb(context, _filepath):
         # Modify an arbitrary built-in scene property to force a depsgraph
         # update, because add-on properties don't. (see #62325)
         render = context.scene.render
@@ -241,6 +241,7 @@ class CYCLES_RENDER_PT_sampling_viewport_denoise(CyclesButtonsPanel, Panel):
         effective_preview_denoiser = get_effective_preview_denoiser(context, has_oidn_gpu)
         if effective_preview_denoiser == 'OPENIMAGEDENOISE':
             col.prop(cscene, "preview_denoising_prefilter", text="Prefilter")
+            col.prop(cscene, "preview_denoising_quality", text="Quality")
 
         col.prop(cscene, "preview_denoising_start_sample", text="Start Sample")
 
@@ -307,6 +308,7 @@ class CYCLES_RENDER_PT_sampling_render_denoise(CyclesButtonsPanel, Panel):
         col.prop(cscene, "denoising_input_passes", text="Passes")
         if cscene.denoiser == 'OPENIMAGEDENOISE':
             col.prop(cscene, "denoising_prefilter", text="Prefilter")
+            col.prop(cscene, "denoising_quality", text="Quality")
 
         if cscene.denoiser == 'OPENIMAGEDENOISE':
             row = col.row()
@@ -2090,8 +2092,8 @@ class CYCLES_RENDER_PT_bake_influence(CyclesButtonsPanel, Panel):
 
             sub = col.column(align=True)
             sub.prop(cbk, "normal_r", text="Swizzle R")
-            sub.prop(cbk, "normal_g", text="G")
-            sub.prop(cbk, "normal_b", text="B")
+            sub.prop(cbk, "normal_g", text="G", text_ctxt=i18n_contexts.color)
+            sub.prop(cbk, "normal_b", text="B", text_ctxt=i18n_contexts.color)
 
         elif cscene.bake_type == 'COMBINED':
 

@@ -12,6 +12,7 @@
 
 #include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector_types.hh"
+#include "BLI_task.hh"
 #include "BLI_virtual_array.hh"
 
 #include "DNA_scene_types.h"
@@ -278,14 +279,14 @@ struct MeshExtract {
 /* `draw_cache_extract_mesh_render_data.cc` */
 
 /**
- * \param is_mode_active: When true, use the modifiers from the edit-data,
+ * \param edit_mode_active: When true, use the modifiers from the edit-data,
  * otherwise don't use modifiers as they are not from this object.
  */
 MeshRenderData *mesh_render_data_create(Object *object,
                                         Mesh *mesh,
                                         bool is_editmode,
                                         bool is_paint_mode,
-                                        bool is_mode_active,
+                                        bool edit_mode_active,
                                         const float4x4 &object_to_world,
                                         bool do_final,
                                         bool do_uvedit,
@@ -320,9 +321,7 @@ struct EditLoopData {
 
 void *mesh_extract_buffer_get(const MeshExtract *extractor, MeshBufferList *mbuflist);
 eMRIterType mesh_extract_iter_type(const MeshExtract *ext);
-const MeshExtract *mesh_extract_override_get(const MeshExtract *extractor,
-                                             bool do_hq_normals,
-                                             bool do_single_mat);
+const MeshExtract *mesh_extract_override_get(const MeshExtract *extractor, bool do_hq_normals);
 void mesh_render_data_face_flag(const MeshRenderData &mr,
                                 const BMFace *efa,
                                 BMUVOffsets offsets,
@@ -336,14 +335,34 @@ void mesh_render_data_loop_edge_flag(const MeshRenderData &mr,
                                      BMUVOffsets offsets,
                                      EditLoopData *eattr);
 
-template<typename GPUType>
-void extract_vert_normals(const MeshRenderData &mr, MutableSpan<GPUType> normals);
+template<typename GPUType> void convert_normals(Span<float3> src, MutableSpan<GPUType> dst);
+
+template<typename T>
+void extract_mesh_loose_edge_data(const Span<T> vert_data,
+                                  const Span<int2> edges,
+                                  const Span<int> loose_edge_indices,
+                                  MutableSpan<T> gpu_data)
+{
+  threading::parallel_for(loose_edge_indices.index_range(), 4096, [&](const IndexRange range) {
+    for (const int i : range) {
+      const int2 edge = edges[loose_edge_indices[i]];
+      gpu_data[i * 2 + 0] = vert_data[edge[0]];
+      gpu_data[i * 2 + 1] = vert_data[edge[1]];
+    }
+  });
+}
+
+void extract_lines(const MeshRenderData &mr,
+                   gpu::IndexBuf *lines,
+                   gpu::IndexBuf *lines_loose,
+                   bool &no_loose_wire);
+void extract_lines_subdiv(const DRWSubdivCache &subdiv_cache,
+                          const MeshRenderData &mr,
+                          gpu::IndexBuf *lines,
+                          gpu::IndexBuf *lines_loose,
+                          bool &no_loose_wire);
 
 extern const MeshExtract extract_tris;
-extern const MeshExtract extract_tris_single_mat;
-extern const MeshExtract extract_lines;
-extern const MeshExtract extract_lines_with_lines_loose;
-extern const MeshExtract extract_lines_loose_only;
 extern const MeshExtract extract_points;
 extern const MeshExtract extract_fdots;
 extern const MeshExtract extract_lines_paint_mask;

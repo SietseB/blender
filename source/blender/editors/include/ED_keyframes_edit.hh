@@ -13,6 +13,8 @@
 
 #include "ED_anim_api.hh" /* for enum eAnimFilter_Flags */
 
+#include "DNA_curve_types.h"
+
 struct BezTriple;
 struct ButterworthCoefficients;
 struct FCurve;
@@ -355,7 +357,7 @@ KeyframeEditFunc ANIM_editkeyframes_handles(short mode);
  * Set the interpolation type of the selected BezTriples in each F-Curve to the specified one.
  */
 KeyframeEditFunc ANIM_editkeyframes_ipo(short mode);
-KeyframeEditFunc ANIM_editkeyframes_keytype(short mode);
+KeyframeEditFunc ANIM_editkeyframes_keytype(eBezTriple_KeyframeType keyframe_type);
 KeyframeEditFunc ANIM_editkeyframes_easing(short mode);
 
 /** \} */
@@ -509,24 +511,6 @@ void blend_to_default_fcurve(PointerRNA *id_ptr, FCurve *fcu, float factor);
  * Use a weighted moving-means method to reduce intensity of fluctuations.
  */
 void smooth_fcurve(FCurve *fcu);
-void bake_fcurve_segments(FCurve *fcu);
-/**
- * \param sample_rate: indicates how many samples per frame should be generated.
- */
-void sample_fcurve_segment(
-    FCurve *fcu, float start_frame, float sample_rate, float *r_samples, int sample_count);
-
-enum class BakeCurveRemove {
-  REMOVE_NONE = 0,
-  REMOVE_IN_RANGE = 1,
-  REMOVE_OUT_RANGE = 2,
-  REMOVE_ALL = 3,
-};
-/** Creates keyframes in the given range at the given step interval.
- * \param range: start and end frame to bake. Is inclusive on both ends.
- * \param remove_existing: choice which keys to remove in relation to the given range.
- */
-void bake_fcurve(FCurve *fcu, blender::int2 range, float step, BakeCurveRemove remove_existing);
 
 /* ----------- */
 

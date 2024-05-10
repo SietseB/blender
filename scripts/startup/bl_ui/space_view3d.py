@@ -12,6 +12,8 @@ from bl_ui.properties_paint_common import (
     UnifiedPaintPanel,
     brush_basic_texpaint_settings,
     brush_basic_gpencil_weight_settings,
+    brush_basic_grease_pencil_weight_settings,
+    BrushAssetShelf,
 )
 from bl_ui.properties_grease_pencil_common import (
     AnnotationDataPanel,
@@ -120,7 +122,15 @@ class VIEW3D_HT_tool_header(Header):
                     if tool in {'SMOOTH', 'RANDOMIZE'}:
                         layout.popover("VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover")
                     layout.popover("VIEW3D_PT_tools_grease_pencil_sculpt_appearance")
-        elif tool_mode == 'WEIGHT_GPENCIL':
+        elif tool_mode == 'SCULPT_GREASE_PENCIL':
+            if is_valid_context:
+                brush = context.tool_settings.gpencil_sculpt_paint.brush
+                if brush:
+                    tool = brush.gpencil_sculpt_tool
+                    if tool in {'SMOOTH', 'RANDOMIZE'}:
+                        layout.popover("VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover")
+                    layout.popover("VIEW3D_PT_tools_grease_pencil_sculpt_appearance")
+        elif tool_mode == 'WEIGHT_GPENCIL' or tool_mode == 'WEIGHT_GREASE_PENCIL':
             if is_valid_context:
                 layout.popover("VIEW3D_PT_tools_grease_pencil_weight_appearance")
         elif tool_mode == 'VERTEX_GPENCIL':
@@ -418,6 +428,64 @@ class _draw_tool_settings_context_mode:
         return True
 
     @staticmethod
+    def SCULPT_GREASE_PENCIL(context, layout, tool):
+        if (tool is None) or (not tool.has_datablock):
+            return False
+
+        paint = context.tool_settings.gpencil_sculpt_paint
+        layout.template_ID_preview(paint, "brush", rows=3, cols=8, hide_buttons=True)
+
+        brush = paint.brush
+        if brush is None:
+            return False
+
+        tool_settings = context.tool_settings
+        capabilities = brush.sculpt_capabilities
+
+        ups = tool_settings.unified_paint_settings
+
+        size = "size"
+        size_owner = ups if ups.use_unified_size else brush
+        if size_owner.use_locked_size == 'SCENE':
+            size = "unprojected_radius"
+
+        UnifiedPaintPanel.prop_unified(
+            layout,
+            context,
+            brush,
+            size,
+            pressure_name="use_pressure_size",
+            unified_name="use_unified_size",
+            text="Radius",
+            slider=True,
+            header=True,
+        )
+
+        # strength, use_strength_pressure
+        pressure_name = "use_pressure_strength" if capabilities.has_strength_pressure else None
+        UnifiedPaintPanel.prop_unified(
+            layout,
+            context,
+            brush,
+            "strength",
+            pressure_name=pressure_name,
+            unified_name="use_unified_strength",
+            text="Strength",
+            header=True,
+        )
+
+        # direction
+        if brush.gpencil_sculpt_tool in {'THICKNESS', 'STRENGTH', 'PINCH', 'TWIST'}:
+            layout.row().prop(brush, "direction", expand=True, text="")
+
+        # Brush falloff
+        layout.popover("VIEW3D_PT_tools_brush_falloff")
+
+        # Active layer only switch
+        layout.prop(brush.gpencil_settings, "use_active_layer_only")
+        return True
+
+    @staticmethod
     def WEIGHT_GPENCIL(context, layout, tool):
         if (tool is None) or (not tool.has_datablock):
             return False
@@ -425,11 +493,30 @@ class _draw_tool_settings_context_mode:
         tool_settings = context.tool_settings
         paint = tool_settings.gpencil_weight_paint
         brush = paint.brush
-        
+
         layout.template_ID_preview(paint, "brush", rows=3, cols=8, hide_buttons=True)
-        
+
         brush_basic_gpencil_weight_settings(layout, context, brush, compact=True)
-        
+
+        layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")
+        layout.popover("VIEW3D_PT_tools_grease_pencil_brush_weight_falloff", text="Falloff")
+
+        return True
+
+    @staticmethod
+    def WEIGHT_GREASE_PENCIL(context, layout, tool):
+        if (tool is None) or (not tool.has_datablock):
+            return False
+
+        paint = context.tool_settings.gpencil_weight_paint
+        layout.template_ID_preview(paint, "brush", rows=3, cols=8, hide_buttons=True)
+
+        brush = paint.brush
+        if brush is None:
+            return False
+
+        brush_basic_grease_pencil_weight_settings(layout, context, brush, compact=True)
+
         layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")
         layout.popover("VIEW3D_PT_tools_grease_pencil_brush_weight_falloff", text="Falloff")
 
@@ -610,7 +697,8 @@ class _draw_tool_settings_context_mode:
             brush_basic__draw_color_selector(context, layout, brush, brush.gpencil_settings, None)
 
         if grease_pencil_tool == 'TINT':
-            UnifiedPaintPanel.prop_unified_color(row, context, brush, "color", text="")
+            row.separator(factor=0.4)
+            row.prop_with_popover(brush, "color", text="", panel="TOPBAR_PT_gpencil_vertexcolor")
 
         from bl_ui.properties_paint_common import (
             brush_basic__draw_color_selector,
@@ -663,7 +751,7 @@ class VIEW3D_HT_header(Header):
         else:
             if (object_mode not in {
                     'SCULPT', 'SCULPT_CURVES', 'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT',
-                    'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL', 'VERTEX_GPENCIL', 'PAINT_GREASE_PENCIL',
+                    'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL', 'VERTEX_GPENCIL',
             }) or has_pose_mode:
                 show_snap = True
             else:
@@ -700,7 +788,13 @@ class VIEW3D_HT_header(Header):
             )
 
         # Proportional editing
-        if object_mode in {'EDIT', 'PARTICLE_EDIT', 'SCULPT_GPENCIL', 'EDIT_GPENCIL', 'OBJECT'}:
+        if object_mode in {
+            'EDIT',
+            'PARTICLE_EDIT',
+            'SCULPT_GPENCIL',
+            'EDIT_GPENCIL',
+            'OBJECT',
+        } and context.mode != 'EDIT_ARMATURE':
             row = layout.row(align=True)
             kw = {}
             if object_mode == 'OBJECT':
@@ -808,15 +902,17 @@ class VIEW3D_HT_header(Header):
                     depress=(tool_settings.gpencil_selectmode_edit == 'STROKE'),
                 ).mode = 'STROKE'
 
-            if object_mode == 'PAINT_GREASE_PENCIL':
+            if object_mode == 'PAINT_GPENCIL':
                 row = layout.row(align=True)
+                sub.prop(tool_settings, "use_gpencil_draw_onback", text="", icon='MOD_OPACITY')
+                sub.separator(factor=0.4)
                 row.prop(tool_settings, "use_gpencil_draw_additive", text="", icon='FREEZE')
 
-            if object_mode in {'PAINT_GREASE_PENCIL', 'EDIT', 'WEIGHT_PAINT'}:
+            if object_mode in {'PAINT_GPENCIL', 'EDIT', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL'}:
                 row = layout.row(align=True)
                 row.prop(tool_settings, "use_grease_pencil_multi_frame_editing", text="")
 
-                if object_mode in {'EDIT', 'WEIGHT_PAINT'}:
+                if object_mode in {'EDIT', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL'}:
                     sub = row.row(align=True)
                     sub.enabled = tool_settings.use_grease_pencil_multi_frame_editing
                     sub.popover(
@@ -893,15 +989,44 @@ class VIEW3D_HT_header(Header):
                     text="Multiframe",
                 )
 
+        # Grease Pencil
+        if obj and obj.type == 'GREASEPENCIL':
+            if object_mode == 'PAINT_GREASE_PENCIL':
+                row = layout.row()
+                sub = row.row(align=True)
+                sub.prop(tool_settings, "use_gpencil_draw_onback", text="", icon='MOD_OPACITY')
+                sub.separator(factor=0.4)
+                sub.prop(tool_settings, "use_gpencil_automerge_strokes", text="")
+                sub.separator(factor=0.4)
+                sub.prop(tool_settings, "use_gpencil_weight_data_add", text="", icon='WPAINT_HLT')
+                sub.separator(factor=0.4)
+                sub.prop(tool_settings, "use_gpencil_draw_additive", text="", icon='FREEZE')
+
+            # Select mode for Editing
+            if object_mode == 'EDIT':
+                row = layout.row(align=True)
+                row.prop_enum(tool_settings, "gpencil_selectmode_edit", text="", value='POINT')
+                row.prop_enum(tool_settings, "gpencil_selectmode_edit", text="", value='STROKE')
+
+                subrow = row.row(align=True)
+                subrow.prop_enum(tool_settings, "gpencil_selectmode_edit", text="", value='SEGMENT')
+
+            # Select mode for Sculpt
+            if object_mode == 'SCULPT_GPENCIL':
+                row = layout.row(align=True)
+                row.prop(tool_settings, "use_gpencil_select_mask_point", text="")
+                row.prop(tool_settings, "use_gpencil_select_mask_stroke", text="")
+                row.prop(tool_settings, "use_gpencil_select_mask_segment", text="")
+
         overlay = view.overlay
 
         VIEW3D_MT_editor_menus.draw_collapsible(context, layout)
 
         layout.separator_spacer()
 
-        if object_mode in {'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'PAINT_GREASE_PENCIL'}:
+        if object_mode in {'PAINT_GPENCIL', 'SCULPT_GPENCIL'}:
             # Grease pencil
-            if object_mode in {'PAINT_GPENCIL', 'PAINT_GREASE_PENCIL'}:
+            if object_mode == 'PAINT_GPENCIL':
                 sub = layout.row(align=True)
                 sub.prop_with_popover(
                     tool_settings,
@@ -910,7 +1035,7 @@ class VIEW3D_HT_header(Header):
                     panel="VIEW3D_PT_gpencil_origin",
                 )
 
-            if object_mode in {'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'PAINT_GREASE_PENCIL'}:
+            if object_mode in {'PAINT_GPENCIL', 'SCULPT_GPENCIL'}:
                 sub = layout.row(align=True)
                 sub.active = tool_settings.gpencil_stroke_placement_view3d != 'SURFACE'
                 sub.prop_with_popover(
@@ -923,7 +1048,8 @@ class VIEW3D_HT_header(Header):
             if object_mode == 'PAINT_GPENCIL':
                 # FIXME: this is bad practice!
                 # Tool options are to be displayed in the top-bar.
-                if context.workspace.tools.from_space_view3d_mode(object_mode).idname == "builtin_brush.Draw":
+                tool = context.workspace.tools.from_space_view3d_mode(object_mode)
+                if tool and tool.idname == "builtin_brush.Draw":
                     settings = tool_settings.gpencil_sculpt.guide
                     row = layout.row(align=True)
                     row.prop(settings, "use_guide", text="", icon='GRID')
@@ -1069,31 +1195,35 @@ class VIEW3D_HT_header(Header):
 
     @staticmethod
     def _sculpt_automasking_icon(sculpt):
-        automask_enabled = (sculpt.use_automasking_topology or
-                            sculpt.use_automasking_face_sets or
-                            sculpt.use_automasking_boundary_edges or
-                            sculpt.use_automasking_boundary_face_sets or
-                            sculpt.use_automasking_cavity or
-                            sculpt.use_automasking_cavity_inverted or
-                            sculpt.use_automasking_start_normal or
-                            sculpt.use_automasking_view_normal)
+        automask_enabled = (
+            sculpt.use_automasking_topology or
+            sculpt.use_automasking_face_sets or
+            sculpt.use_automasking_boundary_edges or
+            sculpt.use_automasking_boundary_face_sets or
+            sculpt.use_automasking_cavity or
+            sculpt.use_automasking_cavity_inverted or
+            sculpt.use_automasking_start_normal or
+            sculpt.use_automasking_view_normal
+        )
 
-        return "CLIPUV_DEHLT" if automask_enabled else "CLIPUV_HLT"
+        return 'CLIPUV_DEHLT' if automask_enabled else 'CLIPUV_HLT'
 
     @staticmethod
     def _gpencil_sculpt_automasking_icon(gpencil_sculpt):
-        automask_enabled = (gpencil_sculpt.use_automasking_stroke or
-                            gpencil_sculpt.use_automasking_layer_stroke or
-                            gpencil_sculpt.use_automasking_material_stroke or
-                            gpencil_sculpt.use_automasking_material_active or
-                            gpencil_sculpt.use_automasking_layer_active)
+        automask_enabled = (
+            gpencil_sculpt.use_automasking_stroke or
+            gpencil_sculpt.use_automasking_layer_stroke or
+            gpencil_sculpt.use_automasking_material_stroke or
+            gpencil_sculpt.use_automasking_material_active or
+            gpencil_sculpt.use_automasking_layer_active
+        )
 
-        return "CLIPUV_DEHLT" if automask_enabled else "CLIPUV_HLT"
+        return 'CLIPUV_DEHLT' if automask_enabled else 'CLIPUV_HLT'
 
     @staticmethod
     def _texture_mask_icon(ipaint):
         mask_enabled = ipaint.use_stencil_layer or ipaint.use_cavity
-        return "CLIPUV_DEHLT" if mask_enabled else "CLIPUV_HLT"
+        return 'CLIPUV_DEHLT' if mask_enabled else 'CLIPUV_HLT'
 
 
 class VIEW3D_MT_editor_menus(Menu):
@@ -1104,8 +1234,13 @@ class VIEW3D_MT_editor_menus(Menu):
         obj = context.active_object
         mode_string = context.mode
         edit_object = context.edit_object
-        gp_edit = obj and obj.mode in {
-            'EDIT_GPENCIL', 'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL', 'VERTEX_GPENCIL',
+        gp_edit = obj and obj.type == 'GPENCIL' and obj.mode in {
+            'EDIT_GPENCIL',
+            'PAINT_GPENCIL',
+            'SCULPT_GPENCIL',
+            'SCULPT_GREASE_PENCIL',
+            'WEIGHT_GPENCIL',
+            'VERTEX_GPENCIL',
         }
         tool_settings = context.tool_settings
 
@@ -1113,27 +1248,24 @@ class VIEW3D_MT_editor_menus(Menu):
 
         # Select Menu
         if gp_edit:
-            if mode_string not in {'PAINT_GPENCIL', 'WEIGHT_GPENCIL'}:
-                if (
-                        mode_string == 'SCULPT_GPENCIL' and
-                        (tool_settings.use_gpencil_select_mask_point or
-                         tool_settings.use_gpencil_select_mask_stroke or
-                         tool_settings.use_gpencil_select_mask_segment)
-                ):
-                    layout.menu("VIEW3D_MT_select_edit_gpencil")
-                elif mode_string == 'EDIT_GPENCIL':
-                    layout.menu("VIEW3D_MT_select_edit_gpencil")
-                elif mode_string == 'VERTEX_GPENCIL':
-                    layout.menu("VIEW3D_MT_select_edit_gpencil")
+            use_gpencil_masking = (tool_settings.use_gpencil_select_mask_point or
+                                   tool_settings.use_gpencil_select_mask_stroke or
+                                   tool_settings.use_gpencil_select_mask_segment)
+            if mode_string in {
+                'EDIT_GPENCIL',
+                'VERTEX_GPENCIL'} or (
+                mode_string in {
+                    'SCULPT_GPENCIL',
+                    'SCULPT_GREASE_PENCIL'} and use_gpencil_masking):
+                layout.menu("VIEW3D_MT_select_edit_gpencil")
         elif mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX', 'PAINT_TEXTURE'}:
-            if obj.type == 'MESH':
-                mesh = obj.data
-                if mesh.use_paint_mask:
-                    layout.menu("VIEW3D_MT_select_paint_mask")
-                elif mesh.use_paint_mask_vertex and mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
-                    layout.menu("VIEW3D_MT_select_paint_mask_vertex")
-        elif mode_string not in {'SCULPT', 'SCULPT_CURVES', 'PAINT_GREASE_PENCIL'}:
-            layout.menu("VIEW3D_MT_select_%s" % mode_string.lower())
+            mesh = obj.data
+            if mesh.use_paint_mask:
+                layout.menu("VIEW3D_MT_select_paint_mask")
+            elif mesh.use_paint_mask_vertex and mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
+                layout.menu("VIEW3D_MT_select_paint_mask_vertex")
+        elif mode_string not in {'SCULPT', 'SCULPT_CURVES', 'PAINT_GREASE_PENCIL', 'SCULPT_GREASE_PENCIL'}:
+            layout.menu("VIEW3D_MT_select_" + mode_string.lower())
 
         if gp_edit:
             pass
@@ -1143,6 +1275,8 @@ class VIEW3D_MT_editor_menus(Menu):
             layout.menu("VIEW3D_MT_mesh_add", text="Add", text_ctxt=i18n_contexts.operator_default)
         elif mode_string == 'EDIT_CURVE':
             layout.menu("VIEW3D_MT_curve_add", text="Add", text_ctxt=i18n_contexts.operator_default)
+        elif mode_string == 'EDIT_CURVES':
+            layout.menu("VIEW3D_MT_edit_curves_add", text="Add", text_ctxt=i18n_contexts.operator_default)
         elif mode_string == 'EDIT_SURFACE':
             layout.menu("VIEW3D_MT_surface_add", text="Add", text_ctxt=i18n_contexts.operator_default)
         elif mode_string == 'EDIT_METABALL':
@@ -1163,7 +1297,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_paint_gpencil")
 
         elif edit_object:
-            layout.menu("VIEW3D_MT_edit_%s" % edit_object.type.lower())
+            layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
 
             if mode_string == 'EDIT_MESH':
                 layout.menu("VIEW3D_MT_edit_mesh_vertices")
@@ -1175,14 +1309,16 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_edit_curve_ctrlpoints")
                 layout.menu("VIEW3D_MT_edit_curve_segments")
             elif mode_string in {'EDIT_CURVES', 'EDIT_POINT_CLOUD'}:
+                layout.menu("VIEW3D_MT_edit_curves_control_points")
+                layout.menu("VIEW3D_MT_edit_curves_segments")
                 layout.template_node_operator_asset_root_items()
             elif mode_string == 'EDIT_GREASE_PENCIL':
-                layout.menu("VIEW3D_MT_edit_greasepencil_stroke")
                 layout.menu("VIEW3D_MT_edit_greasepencil_point")
+                layout.menu("VIEW3D_MT_edit_greasepencil_stroke")
 
         elif obj:
-            if mode_string not in {'PAINT_TEXTURE', 'SCULPT_CURVES'}:
-                layout.menu("VIEW3D_MT_%s" % mode_string.lower())
+            if mode_string not in {'PAINT_TEXTURE', 'SCULPT_CURVES', 'SCULPT_GREASE_PENCIL'}:
+                layout.menu("VIEW3D_MT_" + mode_string.lower())
             if mode_string == 'SCULPT':
                 layout.menu("VIEW3D_MT_mask")
                 layout.menu("VIEW3D_MT_face_sets")
@@ -1212,9 +1348,9 @@ class ShowHideMenu:
     def draw(self, _context):
         layout = self.layout
 
-        layout.operator("%s.reveal" % self._operator_name)
-        layout.operator("%s.hide" % self._operator_name, text="Hide Selected").unselected = False
-        layout.operator("%s.hide" % self._operator_name, text="Hide Unselected").unselected = True
+        layout.operator("{:s}.reveal".format(self._operator_name))
+        layout.operator("{:s}.hide".format(self._operator_name), text="Hide Selected").unselected = False
+        layout.operator("{:s}.hide".format(self._operator_name), text="Hide Unselected").unselected = True
 
 
 # Standard transforms which apply to all cases (mix-in class, not used directly).
@@ -1342,7 +1478,7 @@ class VIEW3D_MT_mirror(Menu):
         for (space_name, space_id) in (("Global", 'GLOBAL'), ("Local", 'LOCAL')):
             for axis_index, axis_name in enumerate("XYZ"):
                 props = layout.operator("transform.mirror",
-                                        text="%s %s" % (axis_name, iface_(space_name)),
+                                        text="{:s} {:s}".format(axis_name, iface_(space_name)),
                                         translate=False)
                 props.constraint_axis[axis_index] = True
                 props.orient_type = space_id
@@ -2429,8 +2565,10 @@ class VIEW3D_MT_surface_add(Menu):
         layout.operator("surface.primitive_nurbs_surface_curve_add", text="Nurbs Curve", icon='SURFACE_NCURVE')
         layout.operator("surface.primitive_nurbs_surface_circle_add", text="Nurbs Circle", icon='SURFACE_NCIRCLE')
         layout.operator("surface.primitive_nurbs_surface_surface_add", text="Nurbs Surface", icon='SURFACE_NSURFACE')
-        layout.operator("surface.primitive_nurbs_surface_cylinder_add",
-                        text="Nurbs Cylinder", icon='SURFACE_NCYLINDER')
+        layout.operator(
+            "surface.primitive_nurbs_surface_cylinder_add",
+            text="Nurbs Cylinder", icon='SURFACE_NCYLINDER',
+        )
         layout.operator("surface.primitive_nurbs_surface_sphere_add", text="Nurbs Sphere", icon='SURFACE_NSPHERE')
         layout.operator("surface.primitive_nurbs_surface_torus_add", text="Nurbs Torus", icon='SURFACE_NTORUS')
 
@@ -2559,9 +2697,11 @@ class VIEW3D_MT_volume_add(Menu):
     def draw(self, _context):
         layout = self.layout
         layout.operator("object.volume_import", text="Import OpenVDB...", icon='OUTLINER_DATA_VOLUME')
-        layout.operator("object.volume_add", text="Empty",
-                        text_ctxt=i18n_contexts.id_volume,
-                        icon='OUTLINER_DATA_VOLUME')
+        layout.operator(
+            "object.volume_add", text="Empty",
+            text_ctxt=i18n_contexts.id_volume,
+            icon='OUTLINER_DATA_VOLUME',
+        )
 
 
 class VIEW3D_MT_grease_pencil_add(Menu):
@@ -2634,9 +2774,11 @@ class VIEW3D_MT_add(Menu):
 
         layout.separator()
 
-        layout.operator_menu_enum("object.empty_add", "type", text="Empty",
-                                  text_ctxt=i18n_contexts.id_id,
-                                  icon='OUTLINER_OB_EMPTY')
+        layout.operator_menu_enum(
+            "object.empty_add", "type", text="Empty",
+            text_ctxt=i18n_contexts.id_id,
+            icon='OUTLINER_OB_EMPTY',
+        )
         layout.menu("VIEW3D_MT_image_add", text="Image", icon='OUTLINER_OB_IMAGE')
 
         layout.separator()
@@ -2755,7 +2897,8 @@ class VIEW3D_MT_object(Menu):
         layout.menu("VIEW3D_MT_object_liboverride", icon='LIBRARY_DATA_OVERRIDE')
         layout.menu("VIEW3D_MT_object_relations")
         layout.menu("VIEW3D_MT_object_parent")
-        layout.menu("VIEW3D_MT_object_constraints")
+        layout.menu("VIEW3D_MT_object_modifiers", icon='MODIFIER')
+        layout.menu("VIEW3D_MT_object_constraints", icon='CONSTRAINT')
         layout.menu("VIEW3D_MT_object_track")
         layout.menu("VIEW3D_MT_make_links")
 
@@ -2763,7 +2906,7 @@ class VIEW3D_MT_object(Menu):
 
         layout.operator("object.shade_smooth")
         if ob and ob.type == 'MESH':
-            layout.operator("object.shade_smooth_by_angle")
+            layout.operator("object.shade_auto_smooth")
         layout.operator("object.shade_flat")
 
         layout.separator()
@@ -3011,7 +3154,7 @@ class VIEW3D_MT_object_context_menu(Menu):
             if obj.type in {'MESH', 'CURVE', 'SURFACE'}:
                 layout.operator("object.shade_smooth")
                 if obj.type == 'MESH':
-                    layout.operator("object.shade_smooth_by_angle")
+                    layout.operator("object.shade_auto_smooth")
                 layout.operator("object.shade_flat")
 
                 layout.separator()
@@ -3222,6 +3365,28 @@ class VIEW3D_MT_object_constraints(Menu):
         layout.separator()
 
         layout.operator("object.constraints_clear")
+
+
+class VIEW3D_MT_object_modifiers(Menu):
+    bl_label = "Modifiers"
+
+    def draw(self, _context):
+        active_object = bpy.context.active_object
+        supported_types = {'MESH', 'CURVE', 'CURVES', 'SURFACE', 'FONT', 'VOLUME', 'GREASEPENCIL'}
+
+        layout = self.layout
+
+        if active_object:
+            if active_object.type in supported_types:
+                layout.menu("OBJECT_MT_modifier_add", text="Add Modifier")
+            elif active_object.type == 'GPENCIL':
+                layout.operator("object.gpencil_modifier_add", text="Add Modifier")
+
+        layout.operator("object.modifiers_copy_to_selected", text="Copy Modifiers to Selected Objects")
+
+        layout.separator()
+
+        layout.operator("object.modifiers_clear")
 
 
 class VIEW3D_MT_object_quick_effects(Menu):
@@ -3471,6 +3636,19 @@ class VIEW3D_MT_gpencil_vertex_group(Menu):
             layout.operator("gpencil.vertex_group_deselect", text="Deselect")
 
 
+class VIEW3D_MT_greasepencil_vertex_group(Menu):
+    bl_label = "Vertex Groups"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator_context = 'EXEC_AREA'
+        ob = context.active_object
+
+        layout.operator("object.vertex_group_add", text="Add New Group")
+        ob = context.active_object
+
+
 class VIEW3D_MT_paint_weight_lock(Menu):
     bl_label = "Vertex Group Locks"
 
@@ -3562,10 +3740,8 @@ class VIEW3D_MT_paint_weight(Menu):
 
         layout.menu("VIEW3D_MT_paint_weight_lock", text="Locks")
 
-    def draw(self, context):
-        obj = context.active_object
-        if obj.type == 'MESH':
-            self.draw_generic(self.layout, is_editmode=False)
+    def draw(self, _context):
+        self.draw_generic(self.layout, is_editmode=False)
 
 
 class VIEW3D_MT_sculpt(Menu):
@@ -3601,6 +3777,12 @@ class VIEW3D_MT_sculpt(Menu):
         props = layout.operator("paint.hide_show_line_gesture", text="Line Show")
         props.action = 'SHOW'
 
+        props = layout.operator("paint.hide_show_polyline_gesture", text="Polyline Hide")
+        props.action = 'HIDE'
+
+        props = layout.operator("paint.hide_show_polyline_gesture", text="Polyline Show")
+        props.action = 'SHOW'
+
         layout.separator()
 
         props = layout.operator("sculpt.face_set_change_visibility", text="Toggle Visibility")
@@ -3623,6 +3805,9 @@ class VIEW3D_MT_sculpt(Menu):
         props.trim_mode = 'DIFFERENCE'
 
         props = layout.operator("sculpt.trim_lasso_gesture", text="Lasso Trim")
+        props.trim_mode = 'DIFFERENCE'
+
+        props = layout.operator("sculpt.trim_line_gesture", text="Line Trim")
         props.trim_mode = 'DIFFERENCE'
 
         props = layout.operator("sculpt.trim_box_gesture", text="Box Add")
@@ -5849,6 +6034,10 @@ class VIEW3D_MT_edit_greasepencil(Menu):
 
         layout.separator()
 
+        layout.operator("grease_pencil.extrude_move", text="Extrude")
+
+        layout.separator()
+
         layout.operator("grease_pencil.copy", text="Copy", icon='COPYDOWN')
         layout.operator("grease_pencil.paste", text="Paste", icon='PASTEDOWN')
 
@@ -5881,6 +6070,7 @@ class VIEW3D_MT_edit_greasepencil_stroke(Menu):
 
         layout.separator()
 
+        layout.operator("grease_pencil.cyclical_set", text="Close").type = 'CLOSE'
         layout.operator("grease_pencil.cyclical_set", text="Toggle Cyclic").type = 'TOGGLE'
         layout.operator_menu_enum("grease_pencil.caps_set", text="Set Caps", property="type")
         layout.operator("grease_pencil.stroke_switch_direction")
@@ -5898,6 +6088,20 @@ class VIEW3D_MT_edit_greasepencil_point(Menu):
         layout = self.layout
         layout.operator("grease_pencil.stroke_smooth", text="Smooth")
 
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_greasepencil_vertex_group")
+
+
+class VIEW3D_MT_edit_curves_add(Menu):
+    bl_label = "Add"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("curves.add_bezier", text="Bezier", icon='CURVE_BEZCURVE')
+        layout.operator("curves.add_circle", text="Circle", icon='CURVE_BEZCIRCLE')
+
 
 class VIEW3D_MT_edit_curves(Menu):
     bl_label = "Curves"
@@ -5911,7 +6115,28 @@ class VIEW3D_MT_edit_curves(Menu):
         layout.separator()
         layout.operator("curves.attribute_set")
         layout.operator("curves.delete")
+        layout.operator("curves.cyclic_toggle")
+        layout.operator_menu_enum("curves.curve_type_set", "type")
         layout.template_node_operator_asset_menu_items(catalog_path=self.bl_label)
+
+
+class VIEW3D_MT_edit_curves_control_points(Menu):
+    bl_label = "Control Points"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator_menu_enum("curves.handle_type_set", "type")
+
+
+class VIEW3D_MT_edit_curves_segments(Menu):
+    bl_label = "Segments"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("curves.subdivide")
+        layout.operator("curves.switch_direction")
 
 
 class VIEW3D_MT_edit_pointcloud(Menu):
@@ -6165,7 +6390,7 @@ class VIEW3D_MT_sculpt_face_sets_edit_pie(Menu):
         pie.operator("paint.visibility_invert", text="Invert Visible")
 
         props = pie.operator("paint.hide_show_all", text="Show All")
-        props.action = "SHOW"
+        props.action = 'SHOW'
 
 
 class VIEW3D_MT_wpaint_vgroup_lock_pie(Menu):
@@ -6817,16 +7042,8 @@ class VIEW3D_PT_shading_compositor(Panel):
 
     def draw(self, context):
         shading = context.space_data.shading
-
-        import gpu
-        is_supported = (gpu.capabilities.compute_shader_support_get()
-                        and gpu.capabilities.shader_image_load_store_support_get())
-
         row = self.layout.row()
-        row.active = is_supported
         row.prop(shading, "use_compositor", expand=True)
-        if shading.use_compositor != 'DISABLED' and not is_supported:
-            self.layout.label(text="Compositor not supported on this platform", icon='ERROR')
 
 
 class VIEW3D_PT_gizmo_display(Panel):
@@ -7858,6 +8075,7 @@ class VIEW3D_PT_overlay_grease_pencil_options(Panel):
         layout.label(text={
             'PAINT_GREASE_PENCIL': iface_("Draw Grease Pencil"),
             'EDIT_GREASE_PENCIL': iface_("Edit Grease Pencil"),
+            'WEIGHT_GREASE_PENCIL': iface_("Weight Grease Pencil"),
             'OBJECT': iface_("Grease Pencil"),
         }[context.mode], translate=False)
 
@@ -8248,10 +8466,6 @@ class VIEW3D_MT_greasepencil_edit_context_menu(Menu):
             col = row.column(align=True)
             col.label(text="Point", icon='GP_SELECT_POINTS')
 
-            # Copy/paste
-            col.operator("grease_pencil.copy", text="Copy", icon="COPYDOWN")
-            col.operator("grease_pencil.paste", text="Paste", icon="PASTEDOWN")
-
             col.separator()
 
             # Main Strokes Operators
@@ -8275,7 +8489,14 @@ class VIEW3D_MT_greasepencil_edit_context_menu(Menu):
 
             col.separator()
 
+            # Copy/paste
+            col.operator("grease_pencil.copy", text="Copy", icon='COPYDOWN')
+            col.operator("grease_pencil.paste", text="Paste", icon='PASTEDOWN')
             col.operator("grease_pencil.duplicate_move", text="Duplicate")
+
+            col.separator()
+
+            col.operator("grease_pencil.extrude_move", text="Extrude")
 
             col.separator()
 
@@ -8289,10 +8510,6 @@ class VIEW3D_MT_greasepencil_edit_context_menu(Menu):
         if is_stroke_mode:
             col = row.column(align=True)
             col.label(text="Stroke", icon='GP_SELECT_STROKES')
-
-            # Copy/paste
-            col.operator("grease_pencil.copy", text="Copy", icon="COPYDOWN")
-            col.operator("grease_pencil.paste", text="Paste", icon="PASTEDOWN")
 
             col.separator()
 
@@ -8320,7 +8537,14 @@ class VIEW3D_MT_greasepencil_edit_context_menu(Menu):
 
             col.separator()
 
+            # Copy/paste
+            col.operator("grease_pencil.copy", text="Copy", icon='COPYDOWN')
+            col.operator("grease_pencil.paste", text="Paste", icon='PASTEDOWN')
             col.operator("grease_pencil.duplicate_move", text="Duplicate")
+
+            col.separator()
+
+            col.operator("grease_pencil.extrude_move", text="Extrude")
 
             col.separator()
 
@@ -8412,7 +8636,11 @@ class VIEW3D_PT_gpencil_weight_context_menu(Panel):
             gradient_tool = True
         
         # Weight settings
-        brush_basic_gpencil_weight_settings(layout, context, brush, gradient_tool=gradient_tool)
+        if context.mode == 'WEIGHT_GPENCIL':
+            brush_basic_gpencil_weight_settings(layout, context, brush, gradient_tool=gradient_tool)
+        else:
+            # Grease Pencil v3
+            brush_basic_grease_pencil_weight_settings(layout, context, brush)
 
         # Layers
         draw_gpencil_layer_active(context, layout)
@@ -8867,24 +9095,11 @@ class VIEW3D_PT_viewport_debug(Panel):
         layout.prop(overlay, "use_debug_freeze_view_culling")
 
 
-class VIEW3D_AST_sculpt_brushes(bpy.types.AssetShelf):
+class VIEW3D_AST_sculpt_brushes(BrushAssetShelf, bpy.types.AssetShelf):
     # Experimental: Asset shelf for sculpt brushes, only shows up if both the
     # "Asset Shelf" and the "Extended Asset Browser" experimental features are
     # enabled.
-
     bl_space_type = 'VIEW_3D'
-
-    @classmethod
-    def poll(cls, context):
-        prefs = context.preferences
-        if not prefs.experimental.use_extended_asset_browser:
-            return False
-
-        return context.mode == 'SCULPT'
-
-    @classmethod
-    def asset_poll(cls, asset):
-        return asset.id_type == 'BRUSH'
 
 
 classes = (
@@ -8960,6 +9175,7 @@ classes = (
     VIEW3D_MT_object_track,
     VIEW3D_MT_object_collection,
     VIEW3D_MT_object_constraints,
+    VIEW3D_MT_object_modifiers,
     VIEW3D_MT_object_quick_effects,
     VIEW3D_MT_object_showhide,
     VIEW3D_MT_object_cleanup,
@@ -8970,6 +9186,7 @@ classes = (
     VIEW3D_MT_hook,
     VIEW3D_MT_vertex_group,
     VIEW3D_MT_gpencil_vertex_group,
+    VIEW3D_MT_greasepencil_vertex_group,
     VIEW3D_MT_paint_weight,
     VIEW3D_MT_paint_weight_lock,
     VIEW3D_MT_sculpt,
@@ -9064,6 +9281,9 @@ classes = (
     VIEW3D_MT_edit_armature_delete,
     VIEW3D_MT_edit_gpencil_transform,
     VIEW3D_MT_edit_curves,
+    VIEW3D_MT_edit_curves_add,
+    VIEW3D_MT_edit_curves_segments,
+    VIEW3D_MT_edit_curves_control_points,
     VIEW3D_MT_edit_pointcloud,
     VIEW3D_MT_object_mode_pie,
     VIEW3D_MT_view_pie,

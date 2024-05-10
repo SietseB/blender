@@ -103,12 +103,14 @@ static void shapekey_foreach_id(ID *id, LibraryForeachIDData *data)
   }
 }
 
-static ID **shapekey_owner_pointer_get(ID *id)
+static ID **shapekey_owner_pointer_get(ID *id, const bool debug_relationship_assert)
 {
   Key *key = (Key *)id;
 
-  BLI_assert(key->from != nullptr);
-  BLI_assert(BKE_key_from_id(key->from) == key);
+  if (debug_relationship_assert) {
+    BLI_assert(key->from != nullptr);
+    BLI_assert(BKE_key_from_id(key->from) == key);
+  }
 
   return &key->from;
 }
@@ -172,9 +174,9 @@ static void switch_endian_keyblock(Key *key, KeyBlock *kb)
 static void shapekey_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Key *key = (Key *)id;
-  BLO_read_list(reader, &(key->block));
+  BLO_read_struct_list(reader, KeyBlock, &(key->block));
 
-  BLO_read_data_address(reader, &key->refkey);
+  BLO_read_struct(reader, KeyBlock, &key->refkey);
 
   LISTBASE_FOREACH (KeyBlock *, kb, &key->block) {
     BLO_read_data_address(reader, &kb->data);
@@ -1285,7 +1287,7 @@ static float *get_weights_array(Object *ob, char *vgroup, WeightsArrayCache *cac
     totvert = mesh->verts_num;
 
     if (mesh->runtime->edit_mesh && mesh->runtime->edit_mesh->bm->totvert == totvert) {
-      em = mesh->runtime->edit_mesh;
+      em = mesh->runtime->edit_mesh.get();
     }
   }
   else if (ob->type == OB_LATTICE) {

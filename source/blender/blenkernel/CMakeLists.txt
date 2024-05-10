@@ -17,6 +17,7 @@ set(INC
   ../makesrna
   ../modifiers
   ../nodes
+  ../nodes/geometry/include
   ../render
   ../sequencer
   ../shader_fx
@@ -525,7 +526,7 @@ set(SRC
   BKE_volume_render.hh
   BKE_volume_to_mesh.hh
   BKE_wm_runtime.hh
-  BKE_workspace.h
+  BKE_workspace.hh
   BKE_world.h
   BKE_writemovie.hh
 
@@ -849,6 +850,7 @@ if(WITH_GTESTS)
     intern/layer_test.cc
     intern/lib_id_remapper_test.cc
     intern/lib_id_test.cc
+    intern/lib_query_test.cc
     intern/lib_remap_test.cc
     intern/main_test.cc
     intern/nla_test.cc

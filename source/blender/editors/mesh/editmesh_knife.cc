@@ -591,7 +591,7 @@ static void knifetool_draw_angle(const KnifeTool_OpData *kcd,
     float axis[3];
     float arc_angle;
 
-    Object *ob = kcd->objects[kcd->curr.ob_index];
+    Object *ob = kcd->objects[kcd->bvh.ob_index];
     const float inverse_average_scale = 1 / (ob->object_to_world().ptr()[0][0] +
                                              ob->object_to_world().ptr()[1][1] +
                                              ob->object_to_world().ptr()[2][2]);
@@ -1102,25 +1102,29 @@ static void knife_update_header(bContext *C, wmOperator *op, KnifeTool_OpData *k
     return WM_modalkeymap_operator_items_to_string(op->type, id, true).value_or("");
   };
 
-  const std::string header = fmt::format(
-      IFACE_("{}: confirm, {}: cancel, {}: undo, "
-             "{}: start/define cut, {}: close cut, {}: new cut, "
-             "{}: midpoint snap ({}), {}: ignore snap ({}), "
-             "{}: angle constraint {:.2f}({:.2f}) ({}{}{}{}), {}: cut through ({}), "
-             "{}: panning, {}{}{}: orientation lock ({}), "
-             "{}: distance/angle measurements ({}), "
-             "{}: x-ray ({})"),
-      get_modal_key_str(KNF_MODAL_CONFIRM),
-      get_modal_key_str(KNF_MODAL_CANCEL),
-      get_modal_key_str(KNF_MODAL_UNDO),
-      get_modal_key_str(KNF_MODAL_ADD_CUT),
-      get_modal_key_str(KNF_MODAL_ADD_CUT_CLOSED),
-      get_modal_key_str(KNF_MODAL_NEW_CUT),
-      get_modal_key_str(KNF_MODAL_MIDPOINT_ON),
-      WM_bool_as_string(kcd->snap_midpoints),
-      get_modal_key_str(KNF_MODAL_IGNORE_SNAP_ON),
-      WM_bool_as_string(kcd->ignore_edge_snapping),
-      get_modal_key_str(KNF_MODAL_ANGLE_SNAP_TOGGLE),
+  WorkspaceStatus status(C);
+  status.opmodal(IFACE_("Cut"), op->type, KNF_MODAL_ADD_CUT);
+  status.opmodal(IFACE_("Close"), op->type, KNF_MODAL_ADD_CUT_CLOSED);
+  status.opmodal(IFACE_("Stop"), op->type, KNF_MODAL_NEW_CUT);
+  status.opmodal(IFACE_("Confirm"), op->type, KNF_MODAL_CONFIRM);
+  status.opmodal(IFACE_("Cancel"), op->type, KNF_MODAL_CANCEL);
+  status.opmodal(IFACE_("Undo"), op->type, KNF_MODAL_UNDO);
+  status.opmodal(IFACE_("Pan View"), op->type, KNF_MODAL_PANNING);
+  status.opmodal(IFACE_("Midpoint Snap"), op->type, KNF_MODAL_MIDPOINT_ON, kcd->snap_midpoints);
+  status.opmodal(
+      IFACE_("Ignore Snap"), op->type, KNF_MODAL_IGNORE_SNAP_ON, kcd->ignore_edge_snapping);
+  status.opmodal(IFACE_("Cut Through"), op->type, KNF_MODAL_CUT_THROUGH_TOGGLE, kcd->cut_through);
+  status.opmodal({}, op->type, KNF_MODAL_X_AXIS, kcd->constrain_axis == 1);
+  status.opmodal({}, op->type, KNF_MODAL_Y_AXIS, kcd->constrain_axis == 2);
+  status.opmodal({}, op->type, KNF_MODAL_Z_AXIS, kcd->constrain_axis == 3);
+  status.item(IFACE_("Axis"), ICON_NONE);
+  status.opmodal(
+      IFACE_("Measure"), op->type, KNF_MODAL_SHOW_DISTANCE_ANGLE_TOGGLE, kcd->show_dist_angle);
+  status.opmodal(IFACE_("X-Ray"), op->type, KNF_MODAL_DEPTH_TEST_TOGGLE, !kcd->depth_test);
+
+  const std::string angle = fmt::format(
+      "{}: {:.2f}({:.2f}) ({}{}{}{})",
+      IFACE_("Angle Constraint"),
       (kcd->angle >= 0.0f) ? RAD2DEGF(kcd->angle) : 360.0f + RAD2DEGF(kcd->angle),
       (kcd->angle_snapping_increment > KNIFE_MIN_ANGLE_SNAPPING_INCREMENT &&
        kcd->angle_snapping_increment <= KNIFE_MAX_ANGLE_SNAPPING_INCREMENT) ?
@@ -1133,20 +1137,9 @@ static void knife_update_header(bContext *C, wmOperator *op, KnifeTool_OpData *k
       (kcd->angle_snapping_mode == KNF_CONSTRAIN_ANGLE_MODE_RELATIVE) ?
           get_modal_key_str(KNF_MODAL_CYCLE_ANGLE_SNAP_EDGE) :
           "",
-      (kcd->angle_snapping_mode == KNF_CONSTRAIN_ANGLE_MODE_RELATIVE) ? ": cycle edge" : "", /**/
-      get_modal_key_str(KNF_MODAL_CUT_THROUGH_TOGGLE),
-      WM_bool_as_string(kcd->cut_through),
-      get_modal_key_str(KNF_MODAL_PANNING),
-      get_modal_key_str(KNF_MODAL_X_AXIS),
-      get_modal_key_str(KNF_MODAL_Y_AXIS),
-      get_modal_key_str(KNF_MODAL_Z_AXIS),
-      (kcd->axis_constrained ? kcd->axis_string : WM_bool_as_string(kcd->axis_constrained)),
-      get_modal_key_str(KNF_MODAL_SHOW_DISTANCE_ANGLE_TOGGLE),
-      WM_bool_as_string(kcd->show_dist_angle),
-      get_modal_key_str(KNF_MODAL_DEPTH_TEST_TOGGLE),
-      WM_bool_as_string(!kcd->depth_test));
+      (kcd->angle_snapping_mode == KNF_CONSTRAIN_ANGLE_MODE_RELATIVE) ? ": cycle edge" : "");
 
-  ED_workspace_status_text(C, header.c_str());
+  status.opmodal(angle, op->type, KNF_MODAL_ANGLE_SNAP_TOGGLE);
 }
 
 /** \} */
@@ -1515,7 +1508,7 @@ static bool knife_verts_edge_in_face(KnifeVert *v1, KnifeVert *v2, BMFace *f)
 static void knife_recalc_ortho(KnifeTool_OpData *kcd)
 {
   kcd->is_ortho = ED_view3d_clip_range_get(
-      kcd->vc.depsgraph, kcd->vc.v3d, kcd->vc.rv3d, &kcd->clipsta, &kcd->clipend, true);
+      kcd->vc.depsgraph, kcd->vc.v3d, kcd->vc.rv3d, true, &kcd->clipsta, &kcd->clipend);
 }
 
 /** \} */
@@ -3263,22 +3256,17 @@ static void knife_interp_v3_v3v3(const KnifeTool_OpData *kcd,
                                  float r_co[3],
                                  const float v1[3],
                                  const float v2[3],
-                                 float lambda_ss)
+                                 const float lambda_ss)
 {
-  if (kcd->is_ortho) {
-    interp_v3_v3v3(r_co, v1, v2, lambda_ss);
+  float lambda = lambda_ss;
+  if (!kcd->is_ortho) {
+    /* Adjust the lambda according to the perspective. */
+    float w1 = mul_project_m4_v3_zfac(kcd->vc.rv3d->persmat, v1);
+    float w2 = mul_project_m4_v3_zfac(kcd->vc.rv3d->persmat, v2);
+    lambda = (lambda_ss * w1) / (w2 + (lambda_ss * (w1 - w2)));
   }
-  else {
-    /* Transform into screen-space, interp, then transform back. */
-    float v1_ss[3], v2_ss[3];
 
-    mul_v3_project_m4_v3(v1_ss, (float(*)[4])kcd->vc.rv3d->persmat, v1);
-    mul_v3_project_m4_v3(v2_ss, (float(*)[4])kcd->vc.rv3d->persmat, v2);
-
-    interp_v3_v3v3(r_co, v1_ss, v2_ss, lambda_ss);
-
-    mul_project_m4_v3((float(*)[4])kcd->vc.rv3d->persinv, r_co);
-  }
+  interp_v3_v3v3(r_co, v1, v2, lambda);
 }
 
 /* p is closest point on edge to the mouse cursor. */

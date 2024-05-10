@@ -59,61 +59,48 @@ void Light::sync(ShadowModule &shadows, const Object *ob, float threshold)
   this->color = float3(&la->r) * la->energy;
 
   float3 scale;
-  this->object_mat = ob->object_to_world();
-  this->object_mat.view<3, 3>() = normalize_and_get_size(this->object_mat.view<3, 3>(), scale);
+  float4x4 object_to_world = ob->object_to_world();
+  object_to_world.view<3, 3>() = normalize_and_get_size(object_to_world.view<3, 3>(), scale);
 
   /* Make sure we have consistent handedness (in case of negatively scaled Z axis). */
-  float3 back = cross(float3(this->_right), float3(this->_up));
-  if (dot(back, float3(this->_back)) < 0.0f) {
-    negate_v3(this->_up);
+  float3 back = cross(float3(object_to_world.x_axis()), float3(object_to_world.y_axis()));
+  if (dot(back, float3(object_to_world.z_axis())) < 0.0f) {
+    negate_v3(object_to_world.y_axis());
   }
+
+  this->object_to_world = object_to_world;
 
   shape_parameters_set(la, scale, threshold);
 
+  const bool diffuse_visibility = (ob->visibility_flag & OB_HIDE_DIFFUSE) == 0;
+  const bool glossy_visibility = (ob->visibility_flag & OB_HIDE_GLOSSY) == 0;
+  const bool transmission_visibility = (ob->visibility_flag & OB_HIDE_TRANSMISSION) == 0;
+  const bool volume_visibility = (ob->visibility_flag & OB_HIDE_VOLUME_SCATTER) == 0;
+
   float shape_power = shape_radiance_get();
   float point_power = point_radiance_get();
-  this->power[LIGHT_DIFFUSE] = la->diff_fac * shape_power;
-  this->power[LIGHT_TRANSMIT] = la->diff_fac * point_power;
-  this->power[LIGHT_SPECULAR] = la->spec_fac * shape_power;
-  this->power[LIGHT_VOLUME] = la->volume_fac * point_power;
+  this->power[LIGHT_DIFFUSE] = la->diff_fac * shape_power * diffuse_visibility;
+  this->power[LIGHT_SPECULAR] = la->spec_fac * shape_power * glossy_visibility;
+  this->power[LIGHT_TRANSMISSION] = la->transmission_fac * shape_power * transmission_visibility;
+  this->power[LIGHT_VOLUME] = la->volume_fac * point_power * volume_visibility;
 
   this->pcf_radius = la->shadow_filter_radius;
-
-  /* TODO(fclem): Cleanup: Move that block to `ShadowPunctual::end_sync()` and
-   * `ShadowDirectional::end_sync()`. */
-  float resolution_scale = clamp(la->shadow_resolution_scale, 0.0f, 2.0f);
-  this->lod_bias = (resolution_scale < 1.0) ? -log2(resolution_scale) : -(resolution_scale - 1.0f);
-  this->lod_bias += shadows.get_global_lod_bias();
 
   if (la->mode & LA_SHADOW) {
     shadow_ensure(shadows);
     if (is_sun_light(this->type)) {
-      this->directional->sync(this->object_mat,
-                              1.0f,
-                              la->sun_angle * la->shadow_softness_factor,
-                              la->shadow_trace_distance);
+      this->directional->sync(object_to_world, 1.0f, la->sun_angle, la->shadow_resolution_scale);
     }
     else {
       /* Reuse shape radius as near clip plane. */
       /* This assumes `shape_parameters_set` has already set `radius_squared`. */
       float radius = math::sqrt(this->local.radius_squared);
-      float shadow_radius = la->shadow_softness_factor * radius;
-      if (ELEM(la->type, LA_LOCAL, LA_SPOT)) {
-        /* `shape_parameters_set` can increase the radius of point and spot lights to ensure a
-         * minimum radius/energy ratio.
-         * But we don't want to take that into account for computing the shadow-map projection,
-         * since non-zero radius introduces padding (required for soft-shadows tracing), reducing
-         * the effective resolution of shadow-maps.
-         * So we use the original light radius instead. */
-        shadow_radius = la->shadow_softness_factor * la->radius;
-      }
       this->punctual->sync(this->type,
-                           this->object_mat,
+                           object_to_world,
                            la->spotsize,
                            radius,
                            this->local.influence_radius_max,
-                           la->shadow_softness_factor,
-                           shadow_radius);
+                           la->shadow_resolution_scale);
     }
   }
   else {
@@ -288,7 +275,9 @@ float Light::point_radiance_get()
 void Light::debug_draw()
 {
 #ifndef NDEBUG
-  drw_debug_sphere(float3(_position), local.influence_radius_max, float4(0.8f, 0.3f, 0.0f, 1.0f));
+  drw_debug_sphere(transform_location(this->object_to_world),
+                   local.influence_radius_max,
+                   float4(0.8f, 0.3f, 0.0f, 1.0f));
 #endif
 }
 

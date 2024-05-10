@@ -7,10 +7,10 @@ add_subdirectory(realtime_compositor)
 if(WITH_COMPOSITOR_CPU)
   set(INC
     .
+    algorithms
     intern
     nodes
     operations
-    algorithms
     realtime_compositor
     ../blenkernel
     ../blentranslation
@@ -84,9 +84,6 @@ if(WITH_COMPOSITOR_CPU)
     intern/COM_WorkScheduler.h
     intern/COM_compositor.cc
     intern/COM_profile.cc
-
-    operations/COM_QualityStepHelper.cc
-    operations/COM_QualityStepHelper.h
 
     # Internal nodes
     nodes/COM_SocketProxyNode.cc
@@ -482,8 +479,6 @@ if(WITH_COMPOSITOR_CPU)
     # Distort operation
     operations/COM_DisplaceOperation.cc
     operations/COM_DisplaceOperation.h
-    operations/COM_DisplaceSimpleOperation.cc
-    operations/COM_DisplaceSimpleOperation.h
     operations/COM_FlipOperation.cc
     operations/COM_FlipOperation.h
     operations/COM_MapUVOperation.cc

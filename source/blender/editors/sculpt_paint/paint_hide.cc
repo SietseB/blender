@@ -62,7 +62,7 @@ void sync_all_from_faces(Object &object)
 
   SCULPT_topology_islands_invalidate(&ss);
 
-  switch (BKE_pbvh_type(ss.pbvh)) {
+  switch (BKE_pbvh_type(*ss.pbvh)) {
     case PBVH_FACES: {
       /* We may have adjusted the ".hide_poly" attribute, now make the hide status attributes for
        * vertices and edges consistent. */
@@ -132,9 +132,9 @@ void mesh_show_all(Object &object, const Span<PBVHNode *> nodes)
     const VArraySpan hide_vert(attribute);
     threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
       for (PBVHNode *node : nodes.slice(range)) {
-        const Span<int> verts = BKE_pbvh_node_get_vert_indices(node);
+        const Span<int> verts = bke::pbvh::node_verts(*node);
         if (std::any_of(verts.begin(), verts.end(), [&](const int i) { return hide_vert[i]; })) {
-          undo::push_node(&object, node, undo::Type::HideVert);
+          undo::push_node(object, node, undo::Type::HideVert);
           BKE_pbvh_node_mark_rebuild_draw(node);
         }
       }
@@ -157,13 +157,13 @@ void grids_show_all(Depsgraph &depsgraph, Object &object, const Span<PBVHNode *>
   if (!grid_hidden.is_empty()) {
     threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
       for (PBVHNode *node : nodes.slice(range)) {
-        const Span<int> grids = BKE_pbvh_node_get_grid_indices(*node);
+        const Span<int> grids = bke::pbvh::node_grid_indices(*node);
         if (std::any_of(grids.begin(), grids.end(), [&](const int i) {
               return bits::any_bit_set(grid_hidden[i]);
             }))
         {
           any_changed = true;
-          undo::push_node(&object, node, undo::Type::HideVert);
+          undo::push_node(object, node, undo::Type::HideVert);
           BKE_pbvh_node_mark_rebuild_draw(node);
         }
       }
@@ -176,7 +176,7 @@ void grids_show_all(Depsgraph &depsgraph, Object &object, const Span<PBVHNode *>
     BKE_pbvh_node_fully_hidden_set(node, false);
   }
   BKE_subdiv_ccg_grid_hidden_free(subdiv_ccg);
-  BKE_pbvh_sync_visibility_from_verts(&pbvh, &mesh);
+  BKE_pbvh_sync_visibility_from_verts(pbvh, &mesh);
   multires_mark_as_modified(&depsgraph, &object, MULTIRES_HIDDEN_MODIFIED);
 }
 
@@ -211,17 +211,17 @@ static void vert_hide_update(Object &object,
   threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
     Vector<bool> &new_hide = all_new_hide.local();
     for (PBVHNode *node : nodes.slice(range)) {
-      const Span<int> verts = BKE_pbvh_node_get_unique_vert_indices(node);
+      const Span<int> verts = bke::pbvh::node_unique_verts(*node);
 
       new_hide.reinitialize(verts.size());
       array_utils::gather(hide_vert.span.as_span(), verts, new_hide.as_mutable_span());
       calc_hide(verts, new_hide);
-      if (!array_utils::indexed_data_equal<bool>(hide_vert.span, verts, new_hide)) {
+      if (array_utils::indexed_data_equal<bool>(hide_vert.span, verts, new_hide)) {
         continue;
       }
 
       any_changed = true;
-      undo::push_node(&object, node, undo::Type::HideVert);
+      undo::push_node(object, node, undo::Type::HideVert);
       array_utils::scatter(new_hide.as_span(), verts, hide_vert.span);
 
       BKE_pbvh_node_mark_update_visibility(node);
@@ -248,7 +248,7 @@ static void grid_hide_update(Depsgraph &depsgraph,
   bool any_changed = false;
   threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
     for (PBVHNode *node : nodes.slice(range)) {
-      const Span<int> grids = BKE_pbvh_node_get_grid_indices(*node);
+      const Span<int> grids = bke::pbvh::node_grid_indices(*node);
       BitGroupVector<> new_hide(grids.size(), grid_hidden.group_size());
       for (const int i : grids.index_range()) {
         new_hide[i].copy_from(grid_hidden[grids[i]].as_span());
@@ -266,7 +266,7 @@ static void grid_hide_update(Depsgraph &depsgraph,
       }
 
       any_changed = true;
-      undo::push_node(&object, node, undo::Type::HideVert);
+      undo::push_node(object, node, undo::Type::HideVert);
 
       for (const int i : grids.index_range()) {
         grid_hidden[grids[i]].copy_from(new_hide[i].as_span());
@@ -279,7 +279,7 @@ static void grid_hide_update(Depsgraph &depsgraph,
 
   if (any_changed) {
     multires_mark_as_modified(&depsgraph, &object, MULTIRES_HIDDEN_MODIFIED);
-    BKE_pbvh_sync_visibility_from_verts(&pbvh, &mesh);
+    BKE_pbvh_sync_visibility_from_verts(pbvh, &mesh);
   }
 }
 
@@ -327,7 +327,7 @@ static void partialvis_update_bmesh_nodes(Object *ob,
     bool any_changed = false;
     bool any_visible = false;
 
-    undo::push_node(ob, node, undo::Type::HideVert);
+    undo::push_node(*ob, node, undo::Type::HideVert);
 
     partialvis_update_bmesh_verts(
         BKE_pbvh_bmesh_node_unique_verts(node), action, vert_test_fn, &any_changed, &any_visible);
@@ -420,9 +420,9 @@ static int hide_show_all_exec(bContext *C, wmOperator *op)
       break;
   }
 
-  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(pbvh, {});
+  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(*pbvh, {});
 
-  switch (BKE_pbvh_type(pbvh)) {
+  switch (BKE_pbvh_type(*pbvh)) {
     case PBVH_FACES:
       partialvis_all_update_mesh(*ob, action, nodes);
       break;
@@ -479,7 +479,7 @@ static void partialvis_masked_update_grids(Depsgraph &depsgraph,
   SubdivCCG &subdiv_ccg = *object.sculpt->subdiv_ccg;
 
   const bool value = action_to_hide(action);
-  const CCGKey key = *BKE_pbvh_get_grid_key(&pbvh);
+  const CCGKey key = *BKE_pbvh_get_grid_key(pbvh);
   const Span<CCGElem *> grids = subdiv_ccg.grids;
   if (!key.has_mask) {
     grid_hide_update(depsgraph,
@@ -508,7 +508,7 @@ static void partialvis_masked_update_bmesh(Object *ob,
                                            const VisAction action,
                                            const Span<PBVHNode *> nodes)
 {
-  BMesh *bm = BKE_pbvh_get_bmesh(pbvh);
+  BMesh *bm = BKE_pbvh_get_bmesh(*pbvh);
   const int mask_offset = CustomData_get_offset_named(&bm->vdata, CD_PROP_FLOAT, ".sculpt_mask");
   const auto mask_test_fn = [&](const BMVert *v) {
     const float vmask = BM_ELEM_CD_GET_FLOAT(v, mask_offset);
@@ -538,9 +538,9 @@ static int hide_show_masked_exec(bContext *C, wmOperator *op)
       break;
   }
 
-  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(pbvh, {});
+  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(*pbvh, {});
 
-  switch (BKE_pbvh_type(pbvh)) {
+  switch (BKE_pbvh_type(*pbvh)) {
     case PBVH_FACES:
       partialvis_masked_update_mesh(*ob, action, nodes);
       break;
@@ -610,23 +610,26 @@ void PAINT_OT_hide_show_all(wmOperatorType *ot)
 static void invert_visibility_mesh(Object &object, const Span<PBVHNode *> nodes)
 {
   Mesh &mesh = *static_cast<Mesh *>(object.data);
+  const Span<int> tri_faces = mesh.corner_tri_faces();
   bke::MutableAttributeAccessor attributes = mesh.attributes_for_write();
-  bke::SpanAttributeWriter<bool> hide_vert = attributes.lookup_or_add_for_write_span<bool>(
-      ".hide_vert", bke::AttrDomain::Point);
+  bke::SpanAttributeWriter<bool> hide_poly = attributes.lookup_or_add_for_write_span<bool>(
+      ".hide_poly", bke::AttrDomain::Face);
 
+  threading::EnumerableThreadSpecific<Vector<int>> all_index_data;
   threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
+    Vector<int> &faces = all_index_data.local();
     for (PBVHNode *node : nodes.slice(range)) {
-      undo::push_node(&object, node, undo::Type::HideVert);
-      for (const int vert : BKE_pbvh_node_get_unique_vert_indices(node)) {
-        hide_vert.span[vert] = !hide_vert.span[vert];
+      undo::push_node(object, node, undo::Type::HideFace);
+      bke::pbvh::node_face_indices_calc_mesh(tri_faces, *node, faces);
+      for (const int face : faces) {
+        hide_poly.span[face] = !hide_poly.span[face];
       }
       BKE_pbvh_node_mark_update_visibility(node);
-      bke::pbvh::node_update_visibility_mesh(hide_vert.span, *node);
     }
   });
 
-  hide_vert.finish();
-  bke::mesh_hide_vert_flush(mesh);
+  hide_poly.finish();
+  bke::mesh_hide_face_flush(mesh);
 }
 
 static void invert_visibility_grids(Depsgraph &depsgraph,
@@ -640,8 +643,8 @@ static void invert_visibility_grids(Depsgraph &depsgraph,
 
   threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
     for (PBVHNode *node : nodes.slice(range)) {
-      undo::push_node(&object, node, undo::Type::HideVert);
-      for (const int i : BKE_pbvh_node_get_grid_indices(*node)) {
+      undo::push_node(object, node, undo::Type::HideVert);
+      for (const int i : bke::pbvh::node_grid_indices(*node)) {
         bits::invert(grid_hidden[i]);
       }
       BKE_pbvh_node_mark_update_visibility(node);
@@ -650,14 +653,14 @@ static void invert_visibility_grids(Depsgraph &depsgraph,
   });
 
   multires_mark_as_modified(&depsgraph, &object, MULTIRES_HIDDEN_MODIFIED);
-  BKE_pbvh_sync_visibility_from_verts(&pbvh, &mesh);
+  BKE_pbvh_sync_visibility_from_verts(pbvh, &mesh);
 }
 
 static void invert_visibility_bmesh(Object &object, const Span<PBVHNode *> nodes)
 {
   threading::parallel_for(nodes.index_range(), 1, [&](const IndexRange range) {
     for (PBVHNode *node : nodes.slice(range)) {
-      undo::push_node(&object, node, undo::Type::HideVert);
+      undo::push_node(object, node, undo::Type::HideVert);
       bool fully_hidden = true;
       for (BMVert *vert : BKE_pbvh_bmesh_node_unique_verts(node)) {
         BM_elem_flag_toggle(vert, BM_ELEM_HIDDEN);
@@ -682,9 +685,9 @@ static int visibility_invert_exec(bContext *C, wmOperator *op)
   PBVH *pbvh = BKE_sculpt_object_pbvh_ensure(&depsgraph, &object);
   BLI_assert(BKE_object_sculpt_pbvh_get(&object) == pbvh);
 
-  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(pbvh, {});
+  Vector<PBVHNode *> nodes = bke::pbvh::search_gather(*pbvh, {});
   undo::push_begin(&object, op);
-  switch (BKE_pbvh_type(pbvh)) {
+  switch (BKE_pbvh_type(*pbvh)) {
     case PBVH_FACES:
       invert_visibility_mesh(object, nodes);
       break;
@@ -736,7 +739,7 @@ static void partialvis_gesture_update_mesh(gesture::GestureData &gesture_data)
   const VisAction action = operation->action;
   const Span<PBVHNode *> nodes = gesture_data.nodes;
 
-  PBVH *pbvh = object->sculpt->pbvh;
+  PBVH &pbvh = *object->sculpt->pbvh;
   Mesh *mesh = static_cast<Mesh *>(object->data);
   bke::MutableAttributeAccessor attributes = mesh->attributes_for_write();
   if (action == VisAction::Show && !attributes.contains(".hide_vert")) {
@@ -764,7 +767,7 @@ static void partialvis_gesture_update_grids(Depsgraph &depsgraph,
   const VisAction action = operation->action;
   const Span<PBVHNode *> nodes = gesture_data.nodes;
 
-  PBVH *pbvh = object->sculpt->pbvh;
+  PBVH &pbvh = *object->sculpt->pbvh;
   SubdivCCG *subdiv_ccg = object->sculpt->subdiv_ccg;
 
   const bool value = action_to_hide(action);
@@ -809,7 +812,7 @@ static void hide_show_apply_for_symmetry_pass(bContext &C, gesture::GestureData 
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(&C);
 
-  switch (BKE_pbvh_type(gesture_data.ss->pbvh)) {
+  switch (BKE_pbvh_type(*gesture_data.ss->pbvh)) {
     case PBVH_FACES:
       partialvis_gesture_update_mesh(gesture_data);
       break;
@@ -869,6 +872,17 @@ static int hide_show_gesture_lasso_exec(bContext *C, wmOperator *op)
 static int hide_show_gesture_line_exec(bContext *C, wmOperator *op)
 {
   std::unique_ptr<gesture::GestureData> gesture_data = gesture::init_from_line(C, op);
+  if (!gesture_data) {
+    return OPERATOR_CANCELLED;
+  }
+  hide_show_init_properties(*C, *gesture_data, *op);
+  gesture::apply(*C, *gesture_data, *op);
+  return OPERATOR_FINISHED;
+}
+
+static int hide_show_gesture_polyline_exec(bContext *C, wmOperator *op)
+{
+  std::unique_ptr<gesture::GestureData> gesture_data = gesture::init_from_polyline(C, op);
   if (!gesture_data) {
     return OPERATOR_CANCELLED;
   }
@@ -959,6 +973,26 @@ void PAINT_OT_hide_show_line_gesture(wmOperatorType *ot)
   hide_show_operator_properties(ot);
   hide_show_operator_gesture_properties(ot);
   gesture::operator_properties(ot, gesture::ShapeType::Line);
+}
+
+void PAINT_OT_hide_show_polyline_gesture(wmOperatorType *ot)
+{
+  ot->name = "Hide/Show Polyline";
+  ot->idname = "PAINT_OT_hide_show_polyline_gesture";
+  ot->description = "Hide/show some vertices";
+
+  ot->invoke = WM_gesture_polyline_invoke;
+  ot->modal = WM_gesture_polyline_modal;
+  ot->exec = hide_show_gesture_polyline_exec;
+  /* Sculpt-only for now. */
+  ot->poll = SCULPT_mode_poll_view3d;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_DEPENDS_ON_CURSOR;
+
+  WM_operator_properties_gesture_polyline(ot);
+  hide_show_operator_properties(ot);
+  hide_show_operator_gesture_properties(ot);
+  gesture::operator_properties(ot, gesture::ShapeType::Lasso);
 }
 
 /** \} */

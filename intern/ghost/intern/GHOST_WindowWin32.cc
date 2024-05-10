@@ -44,7 +44,7 @@
 const wchar_t *GHOST_WindowWin32::s_windowClassName = L"GHOST_WindowClass";
 const int GHOST_WindowWin32::s_maxTitleLength = 128;
 
-/* force NVidia Optimus to used dedicated graphics */
+/* force NVidia OPTIMUS to used dedicated graphics */
 extern "C" {
 __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
@@ -220,9 +220,6 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
     DeleteObject(bb.hRgnBlur);
   }
 #endif
-
-  /* Force an initial paint of the window. */
-  ::UpdateWindow(m_hWnd);
 
   /* Initialize WINTAB. */
   if (system->getTabletAPI() != GHOST_kTabletWinPointer) {

@@ -98,18 +98,19 @@ void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Scene *scene, Object *ob)
         }
         if (mmd->cache_data) {
           BKE_shrinkwrap_free_tree(mmd->cache_data);
-          MEM_SAFE_FREE(mmd->cache_data);
+          MEM_delete(mmd->cache_data);
+          mmd->cache_data = nullptr;
         }
         Object *ob_target = DEG_get_evaluated_object(depsgraph, ob);
         Mesh *target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target);
-        mmd->cache_data = static_cast<ShrinkwrapTreeData *>(
-            MEM_callocN(sizeof(ShrinkwrapTreeData), __func__));
+        mmd->cache_data = MEM_new<ShrinkwrapTreeData>(__func__);
         if (BKE_shrinkwrap_init_tree(
                 mmd->cache_data, target, mmd->shrink_type, mmd->shrink_mode, false))
         {
         }
         else {
-          MEM_SAFE_FREE(mmd->cache_data);
+          MEM_delete(mmd->cache_data);
+          mmd->cache_data = nullptr;
         }
         break;
       }
@@ -139,7 +140,8 @@ void BKE_gpencil_cache_data_clear(Object *ob)
         ShrinkwrapGpencilModifierData *mmd = (ShrinkwrapGpencilModifierData *)md;
         if ((mmd) && (mmd->cache_data)) {
           BKE_shrinkwrap_free_tree(mmd->cache_data);
-          MEM_SAFE_FREE(mmd->cache_data);
+          MEM_delete(mmd->cache_data);
+          mmd->cache_data = nullptr;
         }
         break;
       }
@@ -1034,7 +1036,7 @@ void BKE_gpencil_modifier_blend_write(BlendWriter *writer, ListBase *modbase)
 
 void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb, Object *ob)
 {
-  BLO_read_list(reader, lb);
+  BLO_read_struct_list(reader, GpencilModifierData, lb);
 
   LISTBASE_FOREACH (GpencilModifierData *, md, lb) {
     md->error = nullptr;
@@ -1061,7 +1063,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     else if (md->type == eGpencilModifierType_Hook) {
       HookGpencilModifierData *hmd = (HookGpencilModifierData *)md;
 
-      BLO_read_data_address(reader, &hmd->curfalloff);
+      BLO_read_struct(reader, CurveMapping, &hmd->curfalloff);
       if (hmd->curfalloff) {
         BKE_curvemapping_blend_read(reader, hmd->curfalloff);
         BKE_curvemapping_init(hmd->curfalloff);
@@ -1070,7 +1072,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     else if (md->type == eGpencilModifierType_Noise) {
       NoiseGpencilModifierData *gpmd = (NoiseGpencilModifierData *)md;
 
-      BLO_read_data_address(reader, &gpmd->curve_intensity);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
         /* Initialize the curve. Maybe this could be moved to modifier logic. */
@@ -1080,7 +1082,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     else if (md->type == eGpencilModifierType_Thick) {
       ThickGpencilModifierData *gpmd = (ThickGpencilModifierData *)md;
 
-      BLO_read_data_address(reader, &gpmd->curve_thickness);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_thickness);
       if (gpmd->curve_thickness) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_thickness);
         BKE_curvemapping_init(gpmd->curve_thickness);
@@ -1088,8 +1090,8 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     }
     else if (md->type == eGpencilModifierType_Tint) {
       TintGpencilModifierData *gpmd = (TintGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->colorband);
-      BLO_read_data_address(reader, &gpmd->curve_intensity);
+      BLO_read_struct(reader, ColorBand, &gpmd->colorband);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
         BKE_curvemapping_init(gpmd->curve_intensity);
@@ -1097,7 +1099,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     }
     else if (md->type == eGpencilModifierType_Smooth) {
       SmoothGpencilModifierData *gpmd = (SmoothGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->curve_intensity);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
         BKE_curvemapping_init(gpmd->curve_intensity);
@@ -1105,7 +1107,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     }
     else if (md->type == eGpencilModifierType_Color) {
       ColorGpencilModifierData *gpmd = (ColorGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->curve_intensity);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
         BKE_curvemapping_init(gpmd->curve_intensity);
@@ -1113,7 +1115,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     }
     else if (md->type == eGpencilModifierType_Opacity) {
       OpacityGpencilModifierData *gpmd = (OpacityGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->curve_intensity);
+      BLO_read_struct(reader, CurveMapping, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
         BKE_curvemapping_init(gpmd->curve_intensity);
@@ -1121,14 +1123,16 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb,
     }
     else if (md->type == eGpencilModifierType_Dash) {
       DashGpencilModifierData *gpmd = (DashGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->segments);
+      BLO_read_struct_array(
+          reader, DashGpencilModifierSegment, gpmd->segments_len, &gpmd->segments);
       for (int i = 0; i < gpmd->segments_len; i++) {
         gpmd->segments[i].dmd = gpmd;
       }
     }
     else if (md->type == eGpencilModifierType_Time) {
       TimeGpencilModifierData *gpmd = (TimeGpencilModifierData *)md;
-      BLO_read_data_address(reader, &gpmd->segments);
+      BLO_read_struct_array(
+          reader, TimeGpencilModifierSegment, gpmd->segments_len, &gpmd->segments);
       for (int i = 0; i < gpmd->segments_len; i++) {
         gpmd->segments[i].gpmd = gpmd;
       }

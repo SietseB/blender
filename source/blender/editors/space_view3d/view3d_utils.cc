@@ -49,6 +49,7 @@
 #include "ED_view3d.hh"
 
 #include "ANIM_keyframing.hh"
+#include "ANIM_keyingsets.hh"
 
 #include "UI_resources.hh"
 
@@ -113,9 +114,9 @@ void ED_view3d_dist_range_get(const View3D *v3d, float r_dist_range[2])
 bool ED_view3d_clip_range_get(const Depsgraph *depsgraph,
                               const View3D *v3d,
                               const RegionView3D *rv3d,
-                              float *r_clipsta,
-                              float *r_clipend,
-                              const bool use_ortho_factor)
+                              const bool use_ortho_factor,
+                              float *r_clip_start,
+                              float *r_clip_end)
 {
   CameraParams params;
 
@@ -128,11 +129,11 @@ bool ED_view3d_clip_range_get(const Depsgraph *depsgraph,
     params.clip_end *= fac;
   }
 
-  if (r_clipsta) {
-    *r_clipsta = params.clip_start;
+  if (r_clip_start) {
+    *r_clip_start = params.clip_start;
   }
-  if (r_clipend) {
-    *r_clipend = params.clip_end;
+  if (r_clip_end) {
+    *r_clip_end = params.clip_end;
   }
 
   return params.is_ortho;
@@ -637,7 +638,8 @@ bool ED_view3d_camera_lock_sync(const Depsgraph *depsgraph, View3D *v3d, RegionV
 bool ED_view3d_camera_autokey(
     const Scene *scene, ID *id_key, bContext *C, const bool do_rotate, const bool do_translate)
 {
-  if (blender::animrig::autokeyframe_cfra_can_key(scene, id_key)) {
+  using namespace blender::animrig;
+  if (autokeyframe_cfra_can_key(scene, id_key)) {
     const float cfra = float(scene->r.cfra);
     blender::Vector<PointerRNA> sources;
     /* add data-source override for the camera object */
@@ -650,11 +652,11 @@ bool ED_view3d_camera_autokey(
      */
     if (do_rotate) {
       KeyingSet *ks = ANIM_get_keyingset_for_autokeying(scene, ANIM_KS_ROTATION_ID);
-      ANIM_apply_keyingset(C, &sources, ks, MODIFYKEY_MODE_INSERT, cfra);
+      ANIM_apply_keyingset(C, &sources, ks, ModifyKeyMode::INSERT, cfra);
     }
     if (do_translate) {
       KeyingSet *ks = ANIM_get_keyingset_for_autokeying(scene, ANIM_KS_LOCATION_ID);
-      ANIM_apply_keyingset(C, &sources, ks, MODIFYKEY_MODE_INSERT, cfra);
+      ANIM_apply_keyingset(C, &sources, ks, ModifyKeyMode::INSERT, cfra);
     }
 
     return true;
@@ -983,9 +985,9 @@ void ED_view3d_quadview_update(ScrArea *area, ARegion *region, bool do_clip)
   /* ensure locked regions have an axis, locked user views don't make much sense */
   if (viewlock & RV3D_LOCK_ROTATION) {
     int index_qsplit = 0;
-    LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
-      if (region->alignment == RGN_ALIGN_QSPLIT) {
-        rv3d = static_cast<RegionView3D *>(region->regiondata);
+    LISTBASE_FOREACH (ARegion *, region_iter, &area->regionbase) {
+      if (region_iter->alignment == RGN_ALIGN_QSPLIT) {
+        rv3d = static_cast<RegionView3D *>(region_iter->regiondata);
         if (rv3d->viewlock) {
           if (!RV3D_VIEW_IS_AXIS(rv3d->view) || (rv3d->view_axis_roll != RV3D_VIEW_AXIS_ROLL_0)) {
             rv3d->view = ED_view3d_lock_view_from_index(index_qsplit);

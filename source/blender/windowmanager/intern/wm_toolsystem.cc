@@ -32,7 +32,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_paint.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "RNA_access.hh"
 #include "RNA_enum_types.hh"
@@ -187,7 +187,7 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
         LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
           if (workspace == WM_window_get_active_workspace(win)) {
             Scene *scene = WM_window_get_active_scene(win);
-            BKE_paint_ensure_from_paintmode(scene, paint_mode);
+            BKE_paint_ensure_from_paintmode(bmain, scene, paint_mode);
             Paint *paint = BKE_paint_get_active_from_paintmode(scene, paint_mode);
             Brush *brush = BKE_paint_toolslots_brush_get(paint, slot_index);
             if (brush == nullptr) {
@@ -733,8 +733,10 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
         case CTX_MODE_PAINT_GREASE_PENCIL:
           return "builtin_brush.Draw";
         case CTX_MODE_SCULPT_GPENCIL_LEGACY:
+        case CTX_MODE_SCULPT_GREASE_PENCIL:
           return "builtin_brush.Push";
         case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
+        case CTX_MODE_WEIGHT_GREASE_PENCIL:
           return "builtin_brush.Weight";
         case CTX_MODE_VERTEX_GPENCIL_LEGACY:
           return "builtin_brush.Draw";

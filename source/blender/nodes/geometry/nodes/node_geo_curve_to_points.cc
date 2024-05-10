@@ -46,7 +46,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>("Points").propagate_all();
   b.add_output<decl::Vector>("Tangent").field_on_all();
   b.add_output<decl::Vector>("Normal").field_on_all();
-  b.add_output<decl::Vector>("Rotation").field_on_all();
+  b.add_output<decl::Rotation>("Rotation").field_on_all();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -76,12 +76,12 @@ static void node_update(bNodeTree *ntree, bNode *node)
 
 static void fill_rotation_attribute(const Span<float3> tangents,
                                     const Span<float3> normals,
-                                    MutableSpan<float3> rotations)
+                                    MutableSpan<math::Quaternion> rotations)
 {
   threading::parallel_for(IndexRange(rotations.size()), 512, [&](IndexRange range) {
     for (const int i : range) {
-      rotations[i] = float3(
-          math::to_euler(math::from_orthonormal_axes<float4x4>(normals[i], tangents[i])));
+      rotations[i] = math::to_quaternion(
+          math::from_orthonormal_axes<float4x4>(normals[i], tangents[i]));
     }
   });
 }
@@ -121,8 +121,9 @@ static PointCloud *pointcloud_from_curves(bke::CurvesGeometry curves,
     MutableAttributeAccessor attributes = curves.attributes_for_write();
     const VArraySpan tangents = *attributes.lookup<float3>(tangent_id, AttrDomain::Point);
     const VArraySpan normals = *attributes.lookup<float3>(normal_id, AttrDomain::Point);
-    SpanAttributeWriter<float3> rotations = attributes.lookup_or_add_for_write_only_span<float3>(
-        rotation_id, AttrDomain::Point);
+    SpanAttributeWriter<math::Quaternion> rotations =
+        attributes.lookup_or_add_for_write_only_span<math::Quaternion>(rotation_id,
+                                                                       AttrDomain::Point);
     fill_rotation_attribute(tangents, normals, rotations.span);
     rotations.finish();
   }
@@ -235,7 +236,7 @@ static void grease_pencil_to_points(GeometrySet &geometry_set,
       const GreasePencil &grease_pencil = *geometry.get_grease_pencil();
       Vector<PointCloud *> pointcloud_by_layer(grease_pencil.layers().size(), nullptr);
       for (const int layer_index : grease_pencil.layers().index_range()) {
-        const Drawing *drawing = get_eval_grease_pencil_layer_drawing(grease_pencil, layer_index);
+        const Drawing *drawing = grease_pencil.get_eval_drawing(*grease_pencil.layer(layer_index));
         if (drawing == nullptr) {
           continue;
         }

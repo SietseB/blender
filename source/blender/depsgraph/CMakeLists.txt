@@ -4,6 +4,7 @@
 
 set(INC
   PUBLIC .
+  ../animrig
   ../blenkernel
   ../bmesh
   ../draw

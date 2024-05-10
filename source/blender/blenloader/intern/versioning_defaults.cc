@@ -35,6 +35,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_sequence_types.h"
 #include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
@@ -58,7 +59,7 @@
 #include "BKE_node_tree_update.hh"
 #include "BKE_paint.hh"
 #include "BKE_screen.hh"
-#include "BKE_workspace.h"
+#include "BKE_workspace.hh"
 
 #include "BLO_readfile.hh"
 
@@ -173,6 +174,7 @@ static void blo_update_defaults_screen(bScreen *screen,
                                     SEQ_TIMELINE_SHOW_STRIP_COLOR_TAG |
                                     SEQ_TIMELINE_SHOW_STRIP_RETIMING | SEQ_TIMELINE_ALL_WAVEFORMS;
       seq->preview_overlay.flag |= SEQ_PREVIEW_SHOW_OUTLINE_SELECTED;
+      seq->cache_overlay.flag = SEQ_CACHE_SHOW | SEQ_CACHE_SHOW_FINAL_OUT;
     }
     else if (area->spacetype == SPACE_TEXT) {
       /* Show syntax and line numbers in Script workspace text editor. */
@@ -334,7 +336,7 @@ void BLO_update_defaults_workspace(WorkSpace *workspace, const char *app_templat
 
 static void blo_update_defaults_scene(Main *bmain, Scene *scene)
 {
-  STRNCPY(scene->r.engine, RE_engine_id_BLENDER_EEVEE);
+  STRNCPY(scene->r.engine, RE_engine_id_BLENDER_EEVEE_NEXT);
 
   scene->r.cfra = 1.0f;
 
@@ -353,6 +355,11 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
   /* Disable Z pass by default. */
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     view_layer->passflag &= ~SCE_PASS_Z;
+  }
+
+  /* Display missing media by default. */
+  if (scene->ed) {
+    scene->ed->show_missing_media_flag |= SEQ_EDIT_SHOW_MISSING_MEDIA;
   }
 
   /* New EEVEE defaults. */
@@ -554,9 +561,9 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       }
 
       /* Ensure new Paint modes. */
-      BKE_paint_ensure_from_paintmode(scene, PaintMode::VertexGPencil);
-      BKE_paint_ensure_from_paintmode(scene, PaintMode::SculptGPencil);
-      BKE_paint_ensure_from_paintmode(scene, PaintMode::WeightGPencil);
+      BKE_paint_ensure_from_paintmode(bmain, scene, PaintMode::VertexGPencil);
+      BKE_paint_ensure_from_paintmode(bmain, scene, PaintMode::SculptGPencil);
+      BKE_paint_ensure_from_paintmode(bmain, scene, PaintMode::WeightGPencil);
 
       /* Enable cursor. */
       if (ts->gp_paint) {
@@ -586,9 +593,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
         if (layout->screen) {
           bScreen *screen = layout->screen;
           if (!STREQ(screen->id.name + 2, workspace->id.name + 2)) {
-            BKE_main_namemap_remove_name(bmain, &screen->id, screen->id.name + 2);
-            BLI_strncpy(screen->id.name + 2, workspace->id.name + 2, sizeof(screen->id.name) - 2);
-            BKE_libblock_ensure_unique_name(bmain, &screen->id);
+            BKE_libblock_rename(bmain, &screen->id, workspace->id.name + 2);
           }
         }
 

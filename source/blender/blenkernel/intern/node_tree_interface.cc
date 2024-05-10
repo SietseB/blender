@@ -276,7 +276,7 @@ static void socket_data_copy_ptr(bNodeTreeInterfaceSocket &dst,
 /** \name Write Socket Data to Blend File
  * \{ */
 
-/* Note: no default implementation, every used type must write at least the base struct. */
+/* NOTE: no default implementation, every used type must write at least the base struct. */
 
 inline void socket_data_write_impl(BlendWriter *writer, bNodeSocketValueFloat &data)
 {
@@ -575,12 +575,12 @@ static void item_read_data(BlendDataReader *reader, bNodeTreeInterfaceItem &item
   switch (item.item_type) {
     case NODE_INTERFACE_SOCKET: {
       bNodeTreeInterfaceSocket &socket = reinterpret_cast<bNodeTreeInterfaceSocket &>(item);
-      BLO_read_data_address(reader, &socket.name);
-      BLO_read_data_address(reader, &socket.description);
-      BLO_read_data_address(reader, &socket.socket_type);
-      BLO_read_data_address(reader, &socket.default_attribute_name);
-      BLO_read_data_address(reader, &socket.identifier);
-      BLO_read_data_address(reader, &socket.properties);
+      BLO_read_string(reader, &socket.name);
+      BLO_read_string(reader, &socket.description);
+      BLO_read_string(reader, &socket.socket_type);
+      BLO_read_string(reader, &socket.default_attribute_name);
+      BLO_read_string(reader, &socket.identifier);
+      BLO_read_struct(reader, IDProperty, &socket.properties);
       IDP_BlendDataRead(reader, &socket.properties);
 
       socket_types::socket_data_read_data(reader, socket);
@@ -588,11 +588,11 @@ static void item_read_data(BlendDataReader *reader, bNodeTreeInterfaceItem &item
     }
     case NODE_INTERFACE_PANEL: {
       bNodeTreeInterfacePanel &panel = reinterpret_cast<bNodeTreeInterfacePanel &>(item);
-      BLO_read_data_address(reader, &panel.name);
-      BLO_read_data_address(reader, &panel.description);
+      BLO_read_string(reader, &panel.name);
+      BLO_read_string(reader, &panel.description);
       BLO_read_pointer_array(reader, reinterpret_cast<void **>(&panel.items_array));
       for (const int i : blender::IndexRange(panel.items_num)) {
-        BLO_read_data_address(reader, &panel.items_array[i]);
+        BLO_read_struct(reader, NodeEnumItem, &panel.items_array[i]);
         item_read_data(reader, *panel.items_array[i]);
       }
       break;
@@ -1373,6 +1373,9 @@ bool bNodeTreeInterface::move_item_to_parent(bNodeTreeInterfaceItem &item,
                                              bNodeTreeInterfacePanel *new_parent,
                                              int new_position)
 {
+  if (new_parent == nullptr) {
+    new_parent = &this->root_panel;
+  }
   bNodeTreeInterfacePanel *parent = this->find_item_parent(item, true);
   if (parent == nullptr) {
     return false;
@@ -1390,7 +1393,7 @@ bool bNodeTreeInterface::move_item_to_parent(bNodeTreeInterfaceItem &item,
     }
   }
   else {
-    /* Note: only remove and reinsert when parents different, otherwise removing the item can
+    /* NOTE: only remove and reinsert when parents different, otherwise removing the item can
      * change the desired target position! */
     if (parent->remove_item(item, false)) {
       new_parent->insert_item(item, new_position);

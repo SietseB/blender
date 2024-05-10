@@ -86,6 +86,7 @@
 #include "ED_anim_api.hh"
 #include "ED_asset.hh"
 #include "ED_gpencil_legacy.hh"
+#include "ED_grease_pencil.hh"
 #include "ED_keyframes_edit.hh"
 #include "ED_keyframing.hh"
 #include "ED_node.hh"
@@ -211,7 +212,6 @@ void WM_init(bContext *C, int argc, const char **argv)
   BKE_addon_pref_type_init();
   BKE_keyconfig_pref_type_init();
 
-  wm_operatortype_init();
   wm_operatortypes_register();
 
   WM_paneltype_init(); /* Lookup table only. */
@@ -312,7 +312,7 @@ void WM_init(bContext *C, int argc, const char **argv)
     GPU_render_end();
   }
 
-  BKE_subdiv_init();
+  blender::bke::subdiv::init();
 
   ED_spacemacros_init();
 
@@ -585,6 +585,7 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   BKE_mask_clipboard_free();
   BKE_vfont_clipboard_free();
   ED_node_clipboard_free();
+  ed::greasepencil::clipboard_free();
   UV_clipboard_free();
   wm_clipboard_free();
 
@@ -592,7 +593,7 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   COM_deinitialize();
 #endif
 
-  BKE_subdiv_exit();
+  bke::subdiv::exit();
 
   if (gpu_is_init) {
     BKE_image_free_unused_gpu_textures();

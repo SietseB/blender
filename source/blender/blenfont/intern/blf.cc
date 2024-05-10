@@ -214,7 +214,7 @@ int BLF_load_unique(const char *filepath)
   return i;
 }
 
-void BLF_metrics_attach(int fontid, uchar *mem, int mem_size)
+void BLF_metrics_attach(const int fontid, const uchar *mem, const int mem_size)
 {
   FontBLF *font = blf_get(fontid);
 
@@ -346,15 +346,6 @@ void BLF_aspect(int fontid, float x, float y, float z)
   }
 }
 
-void BLF_matrix(int fontid, const float m[16])
-{
-  FontBLF *font = blf_get(fontid);
-
-  if (font) {
-    memcpy(font->m, m, sizeof(font->m));
-  }
-}
-
 void BLF_position(int fontid, float x, float y, float z)
 {
   FontBLF *font = blf_get(fontid);
@@ -418,17 +409,6 @@ void BLF_size(int fontid, float size)
     blf_font_size(font, size);
   }
 }
-
-#if BLF_BLUR_ENABLE
-void BLF_blur(int fontid, int size)
-{
-  FontBLF *font = blf_get(fontid);
-
-  if (font) {
-    font->blur = size;
-  }
-}
-#endif
 
 void BLF_color4ubv(int fontid, const uchar rgba[4])
 {
@@ -539,15 +519,11 @@ static void blf_draw_gpu__start(const FontBLF *font)
    * in BLF_position (old ui_rasterpos_safe).
    */
 
-  if ((font->flags & (BLF_ROTATION | BLF_MATRIX | BLF_ASPECT)) == 0) {
+  if ((font->flags & (BLF_ROTATION | BLF_ASPECT)) == 0) {
     return; /* glyphs will be translated individually and batched. */
   }
 
   GPU_matrix_push();
-
-  if (font->flags & BLF_MATRIX) {
-    GPU_matrix_mul(font->m);
-  }
 
   GPU_matrix_translate_3f(font->pos[0], font->pos[1], font->pos[2]);
 
@@ -562,7 +538,7 @@ static void blf_draw_gpu__start(const FontBLF *font)
 
 static void blf_draw_gpu__end(const FontBLF *font)
 {
-  if ((font->flags & (BLF_ROTATION | BLF_MATRIX | BLF_ASPECT)) != 0) {
+  if ((font->flags & (BLF_ROTATION | BLF_ASPECT)) != 0) {
     GPU_matrix_pop();
   }
 }
@@ -650,6 +626,16 @@ bool BLF_str_offset_to_glyph_bounds(int fontid,
     return true;
   }
   return false;
+}
+
+int BLF_str_offset_to_cursor(
+    int fontid, const char *str, size_t str_len, size_t str_offset, float cursor_width)
+{
+  FontBLF *font = blf_get(fontid);
+  if (font) {
+    return blf_str_offset_to_cursor(font, str, str_len, str_offset, cursor_width);
+  }
+  return 0;
 }
 
 size_t BLF_width_to_strlen(

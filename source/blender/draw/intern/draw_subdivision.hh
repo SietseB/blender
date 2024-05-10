@@ -17,7 +17,9 @@ class VertBuf;
 struct GPUVertFormat;
 struct Mesh;
 struct Object;
+namespace blender::bke::subdiv {
 struct Subdiv;
+}
 struct ToolSettings;
 
 namespace blender::draw {
@@ -103,7 +105,7 @@ struct DRWSubdivLooseGeom {
 struct DRWSubdivCache {
   const Mesh *mesh;
   BMesh *bm;
-  Subdiv *subdiv;
+  bke::subdiv::Subdiv *subdiv;
   bool optimal_display;
   bool hide_unmapped_edges;
   bool use_custom_loop_normals;
@@ -201,7 +203,7 @@ void DRW_create_subdivision(Object *ob,
                             MeshBufferCache *mbc,
                             bool is_editmode,
                             bool is_paint_mode,
-                            bool is_mode_active,
+                            bool edit_mode_active,
                             const float4x4 &object_to_world,
                             bool do_final,
                             bool do_uvedit,
@@ -211,7 +213,7 @@ void DRW_create_subdivision(Object *ob,
 
 void DRW_subdivide_loose_geom(DRWSubdivCache *subdiv_cache, MeshBufferCache *cache);
 
-void DRW_subdiv_cache_free(Subdiv *subdiv);
+void DRW_subdiv_cache_free(bke::subdiv::Subdiv *subdiv);
 
 void draw_subdiv_init_origindex_buffer(gpu::VertBuf *buffer,
                                        int32_t *vert_origindex,
@@ -275,6 +277,7 @@ void draw_subdiv_build_lines_buffer(const DRWSubdivCache &cache, gpu::IndexBuf *
 void draw_subdiv_build_lines_loose_buffer(const DRWSubdivCache &cache,
                                           gpu::IndexBuf *lines_indices,
                                           gpu::VertBuf *lines_flags,
+                                          uint edge_loose_offset,
                                           uint num_loose_edges);
 
 void draw_subdiv_build_fdots_buffers(const DRWSubdivCache &cache,

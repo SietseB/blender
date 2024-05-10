@@ -7,6 +7,7 @@ from bpy.types import (
     Menu,
     Operator,
     OperatorFileListElement,
+    Panel,
     WindowManager,
 )
 from bpy.props import (
@@ -18,6 +19,7 @@ from bpy.app.translations import (
     pgettext_rpt as rpt_,
     pgettext_data as data_,
 )
+from bl_ui.utils import PresetPanel
 
 
 # For preset popover menu
@@ -26,6 +28,25 @@ WindowManager.preset_name = StringProperty(
     description="Name for new preset",
     default=data_("New Preset"),
 )
+
+
+def _call_preset_cb(fn, context, filepath):
+    # Allow "None" so the caller doesn't have to assign a variable and check it.
+    if fn is None:
+        return
+
+    # Support a `filepath` argument, optional for backwards compatibility.
+    fn_arg_count = getattr(getattr(fn, "__code__", None), "co_argcount", None)
+    if fn_arg_count == 2:
+        args = (context, filepath)
+    else:
+        print("Deprecated since Blender 4.2, a filepath argument should be included in:", fn)
+        args = (context, )
+
+    try:
+        fn(*args)
+    except BaseException as ex:
+        print("Internal error running", fn, str(ex))
 
 
 class AddPresetBase:
@@ -116,7 +137,7 @@ class AddPresetBase:
             if hasattr(self, "add"):
                 self.add(context, filepath)
             else:
-                print("Writing Preset: %r" % filepath)
+                print("Writing Preset: {!r}".format(filepath))
 
                 if is_xml:
                     import rna_xml
@@ -129,12 +150,16 @@ class AddPresetBase:
                                 if sub_value_attr == "rna_type":
                                     continue
                                 sub_value = getattr(value, sub_value_attr)
-                                rna_recursive_attr_expand(sub_value, "%s.%s" % (rna_path_step, sub_value_attr), level)
+                                rna_recursive_attr_expand(
+                                    sub_value,
+                                    "{:s}.{:s}".format(rna_path_step, sub_value_attr),
+                                    level,
+                                )
                         elif type(value).__name__ == "bpy_prop_collection_idprop":  # could use nicer method
-                            file_preset.write("%s.clear()\n" % rna_path_step)
+                            file_preset.write("{:s}.clear()\n".format(rna_path_step))
                             for sub_value in value:
-                                file_preset.write("item_sub_%d = %s.add()\n" % (level, rna_path_step))
-                                rna_recursive_attr_expand(sub_value, "item_sub_%d" % level, level + 1)
+                                file_preset.write("item_sub_{:d} = {:s}.add()\n".format(level, rna_path_step))
+                                rna_recursive_attr_expand(sub_value, "item_sub_{:d}".format(level), level + 1)
                         else:
                             # convert thin wrapped sequences
                             # to simple lists to repr()
@@ -143,7 +168,7 @@ class AddPresetBase:
                             except BaseException:
                                 pass
 
-                            file_preset.write("%s = %r\n" % (rna_path_step, value))
+                            file_preset.write("{:s} = {!r}\n".format(rna_path_step, value))
 
                     file_preset = open(filepath, "w", encoding="utf-8")
                     file_preset.write("import bpy\n")
@@ -151,7 +176,7 @@ class AddPresetBase:
                     if hasattr(self, "preset_defines"):
                         for rna_path in self.preset_defines:
                             exec(rna_path)
-                            file_preset.write("%s\n" % rna_path)
+                            file_preset.write("{:s}\n".format(rna_path))
                         file_preset.write("\n")
 
                     for rna_path in self.preset_values:
@@ -186,7 +211,7 @@ class AddPresetBase:
                 else:
                     os.remove(filepath)
             except BaseException as ex:
-                self.report({'ERROR'}, rpt_("Unable to remove preset: %r") % ex)
+                self.report({'ERROR'}, rpt_("Unable to remove preset: {!r}").format(ex))
                 import traceback
                 traceback.print_exc()
                 return {'CANCELLED'}
@@ -236,11 +261,10 @@ class ExecutePreset(Operator):
         ext = splitext(filepath)[1].lower()
 
         if ext not in {".py", ".xml"}:
-            self.report({'ERROR'}, rpt_("Unknown file type: %r") % ext)
+            self.report({'ERROR'}, rpt_("Unknown file type: {!r}").format(ext))
             return {'CANCELLED'}
 
-        if hasattr(preset_class, "reset_cb"):
-            preset_class.reset_cb(context)
+        _call_preset_cb(getattr(preset_class, "reset_cb", None), context, filepath)
 
         if ext == ".py":
             try:
@@ -252,8 +276,7 @@ class ExecutePreset(Operator):
             import rna_xml
             rna_xml.xml_file_run(context, filepath, preset_class.preset_xml_map)
 
-        if hasattr(preset_class, "post_cb"):
-            preset_class.post_cb(context)
+        _call_preset_cb(getattr(preset_class, "post_cb", None), context, filepath)
 
         return {'FINISHED'}
 
@@ -522,8 +545,7 @@ class AddPresetEEVEERaytracing(AddPresetBase, Operator):
     preset_values = [
         "eevee.ray_tracing_method",
         "options.resolution_scale",
-        "options.sample_clamp",
-        "options.screen_trace_max_roughness",
+        "options.trace_max_roughness",
         "options.screen_trace_quality",
         "options.screen_trace_thickness",
         "options.use_denoise",
@@ -587,6 +609,11 @@ class RemovePresetInterfaceTheme(AddPresetBase, Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event, title="Remove Custom Theme", confirm_text="Delete")
 
+    def post_cb(self, context):
+        # Without this, the name & colors are kept after removing the theme.
+        # Even though the theme is removed from the list, it's seems like a bug to keep it displayed after removal.
+        bpy.ops.preferences.reset_default_theme()
+
 
 class SavePresetInterfaceTheme(AddPresetBase, Operator):
     """Save a custom theme in the preset list"""
@@ -625,10 +652,12 @@ class SavePresetInterfaceTheme(AddPresetBase, Operator):
         try:
             rna_xml.xml_file_write(context, filepath, preset_menu_class.preset_xml_map)
         except BaseException as ex:
-            self.report({'ERROR'}, "Unable to overwrite preset: %s" % str(ex))
+            self.report({'ERROR'}, "Unable to overwrite preset: {:s}".format(str(ex)))
             import traceback
             traceback.print_exc()
             return {'CANCELLED'}
+
+        context.preferences.themes[0].filepath = filepath
 
         return {'FINISHED'}
 
@@ -719,7 +748,7 @@ class AddPresetOperator(AddPresetBase, Operator):
         for prop_id, prop in operator_rna.properties.items():
             if not prop.is_skip_preset:
                 if prop_id not in properties_blacklist:
-                    ret.append("op.%s" % prop_id)
+                    ret.append("op.{:s}".format(prop_id))
 
         return ret
 
@@ -727,7 +756,7 @@ class AddPresetOperator(AddPresetBase, Operator):
     def operator_path(operator):
         import os
         prefix, suffix = operator.split("_OT_", 1)
-        return os.path.join("operator", "%s.%s" % (prefix.lower(), suffix))
+        return os.path.join("operator", "{:s}.{:s}".format(prefix.lower(), suffix))
 
 
 class WM_MT_operator_presets(Menu):
@@ -748,6 +777,24 @@ class WM_MT_operator_presets(Menu):
         return AddPresetOperator.operator_path(self.operator)
 
     preset_operator = "script.execute_preset"
+
+
+class WM_PT_operator_presets(PresetPanel, Panel):
+    bl_label = "Operator Presets"
+    preset_add_operator = "wm.operator_preset_add"
+    preset_operator = "script.execute_preset"
+
+    @property
+    def preset_subdir(self):
+        return AddPresetOperator.operator_path(self.operator)
+
+    @property
+    def preset_add_operator_properties(self):
+        return {"operator": self.operator}
+
+    def draw(self, context):
+        self.operator = context.active_operator.bl_idname
+        PresetPanel.draw(self, context)
 
 
 class WM_OT_operator_presets_cleanup(Operator):
@@ -921,5 +968,6 @@ classes = (
     AddPresetEEVEERaytracing,
     ExecutePreset,
     WM_MT_operator_presets,
+    WM_PT_operator_presets,
     WM_OT_operator_presets_cleanup,
 )

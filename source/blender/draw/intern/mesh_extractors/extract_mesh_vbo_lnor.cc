@@ -33,7 +33,7 @@ template<> inline short4 convert_normal(const float3 &src)
 }
 
 template<typename GPUType>
-static void extract_normals(const Span<float3> src, MutableSpan<GPUType> dst)
+static void convert_normals_impl(const Span<float3> src, MutableSpan<GPUType> dst)
 {
   threading::parallel_for(src.index_range(), 2048, [&](const IndexRange range) {
     for (const int i : range) {
@@ -42,22 +42,21 @@ static void extract_normals(const Span<float3> src, MutableSpan<GPUType> dst)
   });
 }
 
-template<typename GPUType>
-static void extract_vert_normals_impl(const MeshRenderData &mr, MutableSpan<GPUType> normals)
+template<> void convert_normals(const Span<float3> src, MutableSpan<GPUPackedNormal> normals)
 {
-  Array<GPUType> vert_normals_converted(mr.vert_normals.size());
-  extract_normals(mr.vert_normals, vert_normals_converted.as_mutable_span());
-  array_utils::gather(vert_normals_converted.as_span(), mr.corner_verts, normals);
+  convert_normals_impl(src, normals);
+}
+template<> void convert_normals(const Span<float3> src, MutableSpan<short4> normals)
+{
+  convert_normals_impl(src, normals);
 }
 
-template<>
-void extract_vert_normals(const MeshRenderData &mr, MutableSpan<GPUPackedNormal> normals)
+template<typename GPUType>
+static void extract_vert_normals(const MeshRenderData &mr, MutableSpan<GPUType> normals)
 {
-  extract_vert_normals_impl(mr, normals);
-}
-template<> void extract_vert_normals(const MeshRenderData &mr, MutableSpan<short4> normals)
-{
-  extract_vert_normals_impl(mr, normals);
+  Array<GPUType> vert_normals_converted(mr.vert_normals.size());
+  convert_normals(mr.vert_normals, vert_normals_converted.as_mutable_span());
+  array_utils::gather(vert_normals_converted.as_span(), mr.corner_verts, normals);
 }
 
 template<typename GPUType>
@@ -82,7 +81,7 @@ static void extract_normals_mesh(const MeshRenderData &mr, MutableSpan<GPUType> 
     extract_vert_normals(mr, normals);
   }
   else if (!mr.corner_normals.is_empty()) {
-    extract_normals(mr.corner_normals, normals);
+    convert_normals(mr.corner_normals, normals);
   }
   else if (mr.sharp_faces.is_empty()) {
     extract_vert_normals(mr, normals);
@@ -111,18 +110,36 @@ static void extract_normals_mesh(const MeshRenderData &mr, MutableSpan<GPUType> 
 template<typename GPUType>
 static void extract_paint_overlay_flags(const MeshRenderData &mr, MutableSpan<GPUType> normals)
 {
-  if (mr.select_poly.is_empty() && mr.hide_poly.is_empty() && (!mr.edit_bmesh || !mr.v_origindex))
-  {
+  const bool use_face_select = (mr.mesh->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+  Span<bool> selection;
+  if (mr.mesh->editflag & ME_EDIT_PAINT_FACE_SEL) {
+    selection = mr.select_poly;
+  }
+  else if (mr.mesh->editflag & ME_EDIT_PAINT_VERT_SEL) {
+    selection = mr.select_vert;
+  }
+  if (selection.is_empty() && mr.hide_poly.is_empty() && (!mr.edit_bmesh || !mr.v_origindex)) {
     return;
   }
   const OffsetIndices faces = mr.faces;
   threading::parallel_for(faces.index_range(), 1024, [&](const IndexRange range) {
-    if (!mr.select_poly.is_empty()) {
-      const Span<bool> select_poly = mr.select_poly;
-      for (const int face : range) {
-        if (select_poly[face]) {
+    if (!selection.is_empty()) {
+      if (use_face_select) {
+        for (const int face : range) {
+          if (selection[face]) {
+            for (const int corner : faces[face]) {
+              normals[corner].w = 1;
+            }
+          }
+        }
+      }
+      else {
+        const Span<int> corner_verts = mr.corner_verts;
+        for (const int face : range) {
           for (const int corner : faces[face]) {
-            normals[corner].w = 1;
+            if (selection[corner_verts[corner]]) {
+              normals[corner].w = 1;
+            }
           }
         }
       }

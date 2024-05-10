@@ -62,7 +62,10 @@
 #include "BKE_scene.hh"
 #include "BKE_tracking.h"
 
+#include "IMB_imbuf_enums.h"
+
 #include "SEQ_iterator.hh"
+#include "SEQ_sequencer.hh"
 
 #include "ANIM_armature_iter.hh"
 #include "ANIM_bone_collections.hh"
@@ -243,6 +246,23 @@ static void version_bonegroups_to_bonecollections(Main *bmain)
      * groups will not be updated any more, but this way the data at least survives an accidental
      * save with Blender 4.0. */
   }
+}
+
+/**
+ * Change animation/drivers from "collections[..." to "collections_all[..." so
+ * they remain stable when the bone collection hierarchy structure changes.
+ */
+static void version_bonecollection_anim(FCurve *fcurve)
+{
+  const blender::StringRef rna_path(fcurve->rna_path);
+  constexpr char const *rna_path_prefix = "collections[";
+  if (!rna_path.startswith(rna_path_prefix)) {
+    return;
+  }
+
+  const std::string path_remainder(rna_path.drop_known_prefix(rna_path_prefix));
+  MEM_freeN(fcurve->rna_path);
+  fcurve->rna_path = BLI_sprintfN("collections_all[%s", path_remainder.c_str());
 }
 
 static void version_principled_bsdf_update_animdata(ID *owner_id, bNodeTree *ntree)
@@ -493,6 +513,33 @@ void do_versions_after_linking_400(FileData *fd, Main *bmain)
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 23)) {
     version_nla_tweakmode_incomplete(bmain);
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 15)) {
+    /* Change drivers and animation on "armature.collections" to
+     * ".collections_all", so that they are drawn correctly in the tree view,
+     * and keep working when the collection is moved around in the hierarchy. */
+    LISTBASE_FOREACH (bArmature *, arm, &bmain->armatures) {
+      AnimData *adt = BKE_animdata_from_id(&arm->id);
+      if (!adt) {
+        continue;
+      }
+
+      LISTBASE_FOREACH (FCurve *, fcurve, &adt->drivers) {
+        version_bonecollection_anim(fcurve);
+      }
+      if (adt->action) {
+        LISTBASE_FOREACH (FCurve *, fcurve, &adt->action->curves) {
+          version_bonecollection_anim(fcurve);
+        }
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 23)) {
+    /* Shift animation data to accommodate the new Roughness input. */
+    version_node_socket_index_animdata(
+        bmain, NTREE_SHADER, SH_NODE_SUBSURFACE_SCATTERING, 4, 1, 5);
   }
 
   /**
@@ -752,14 +799,44 @@ static void version_principled_bsdf_sheen(bNodeTree *ntree)
   };
 
   version_update_node_input(ntree, check_node, "Sheen Tint", update_input, update_input_link);
+}
 
+/* Convert EEVEE-Legacy refraction depth to EEVEE-Next thickness tree. */
+static void version_refraction_depth_to_thickness_value(bNodeTree *ntree, float thickness)
+{
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (check_node(node)) {
-      bNodeSocket *input = nodeAddStaticSocket(
-          ntree, node, SOCK_IN, SOCK_FLOAT, PROP_FACTOR, "Sheen Roughness", "Sheen Roughness");
-      *version_cycles_node_socket_float_value(input) = 0.5f;
+    if (node->type != SH_NODE_OUTPUT_MATERIAL) {
+      continue;
     }
+
+    bNodeSocket *thickness_socket = nodeFindSocket(node, SOCK_IN, "Thickness");
+    if (thickness_socket == nullptr) {
+      continue;
+    }
+
+    bool has_link = false;
+    LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
+      if (link->tosock == thickness_socket) {
+        /* Something is already plugged in. Don't modify anything. */
+        has_link = true;
+      }
+    }
+
+    if (has_link) {
+      continue;
+    }
+    bNode *value_node = nodeAddStaticNode(nullptr, ntree, SH_NODE_VALUE);
+    value_node->parent = node->parent;
+    value_node->locx = node->locx;
+    value_node->locy = node->locy - 160.0f;
+    bNodeSocket *socket_value = nodeFindSocket(value_node, SOCK_OUT, "Value");
+
+    *version_cycles_node_socket_float_value(socket_value) = thickness;
+
+    nodeAddLink(ntree, value_node, socket_value, node, thickness_socket);
   }
+
+  version_socket_update_is_used(ntree);
 }
 
 static void versioning_update_noise_texture_node(bNodeTree *ntree)
@@ -1022,9 +1099,7 @@ static void versioning_replace_musgrave_texture_node(bNodeTree *ntree)
     }
     else {
       if (*detail < 1.0f) {
-        if ((noise_type != SHD_NOISE_RIDGED_MULTIFRACTAL) &&
-            (noise_type != SHD_NOISE_HETERO_TERRAIN))
-        {
+        if (!ELEM(noise_type, SHD_NOISE_RIDGED_MULTIFRACTAL, SHD_NOISE_HETERO_TERRAIN)) {
           /* Add Multiply Math node behind Fac output. */
 
           bNode *mul_node = nodeAddStaticNode(nullptr, ntree, SH_NODE_MATH);
@@ -1926,13 +2001,6 @@ static void versioning_nodes_dynamic_sockets_2(bNodeTree &ntree)
 static void versioning_grease_pencil_stroke_radii_scaling(GreasePencil *grease_pencil)
 {
   using namespace blender;
-  /* Previously, Grease Pencil used a radius convention where 1 `px` = 0.001 units. This `px` was
-   * the brush size which would be stored in the stroke thickness and then scaled by the point
-   * pressure factor. Finally, the render engine would divide this thickness value by 2000 (we're
-   * going from a thickness to a radius, hence the factor of two) to convert back into blender
-   * units.
-   * Store the radius now directly in blender units. This makes it consistent with how hair curves
-   * handle the radius. */
   for (GreasePencilDrawingBase *base : grease_pencil->drawings()) {
     if (base->type != GP_DRAWING) {
       continue;
@@ -1941,7 +2009,7 @@ static void versioning_grease_pencil_stroke_radii_scaling(GreasePencil *grease_p
     MutableSpan<float> radii = drawing.radii_for_write();
     threading::parallel_for(radii.index_range(), 8192, [&](const IndexRange range) {
       for (const int i : range) {
-        radii[i] /= 2000.0f;
+        radii[i] *= bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
       }
     });
   }
@@ -2011,6 +2079,43 @@ static bool seq_hue_correct_set_wrapping(Sequence *seq, void * /*user_data*/)
   return true;
 }
 
+static void versioning_update_timecode(short int *tc)
+{
+  /* 2 = IMB_TC_FREE_RUN, 4 = IMB_TC_INTERPOLATED_REC_DATE_FREE_RUN. */
+  if (ELEM(*tc, 2, 4)) {
+    *tc = IMB_TC_RECORD_RUN;
+  }
+}
+
+static bool seq_proxies_timecode_update(Sequence *seq, void * /*user_data*/)
+{
+  if (seq->strip == nullptr || seq->strip->proxy == nullptr) {
+    return true;
+  }
+  StripProxy *proxy = seq->strip->proxy;
+  versioning_update_timecode(&proxy->tc);
+  return true;
+}
+
+static bool seq_text_data_update(Sequence *seq, void * /*user_data*/)
+{
+  if (seq->type != SEQ_TYPE_TEXT || seq->effectdata == nullptr) {
+    return true;
+  }
+
+  TextVars *data = static_cast<TextVars *>(seq->effectdata);
+  if (data->shadow_angle == 0.0f) {
+    data->shadow_angle = DEG2RADF(65.0f);
+    data->shadow_offset = 0.04f;
+    data->shadow_blur = 0.0f;
+  }
+  if (data->outline_width == 0.0f) {
+    data->outline_color[3] = 0.7f;
+    data->outline_width = 0.05f;
+  }
+  return true;
+}
+
 static void versioning_node_hue_correct_set_wrappng(bNodeTree *ntree)
 {
   if (ntree->type == NTREE_COMPOSIT) {
@@ -2019,6 +2124,34 @@ static void versioning_node_hue_correct_set_wrappng(bNodeTree *ntree)
       if (node->type == CMP_NODE_HUECORRECT) {
         CurveMapping *cumap = (CurveMapping *)node->storage;
         cumap->flag |= CUMA_USE_WRAPPING;
+      }
+    }
+  }
+}
+
+static void add_image_editor_asset_shelf(Main &bmain)
+{
+  LISTBASE_FOREACH (bScreen *, screen, &bmain.screens) {
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+        if (sl->spacetype != SPACE_IMAGE) {
+          continue;
+        }
+
+        ListBase *regionbase = (sl == area->spacedata.first) ? &area->regionbase : &sl->regionbase;
+
+        if (ARegion *new_shelf_region = do_versions_add_region_if_not_found(
+                regionbase, RGN_TYPE_ASSET_SHELF, __func__, RGN_TYPE_TOOL_HEADER))
+        {
+          new_shelf_region->regiondata = MEM_cnew<RegionAssetShelf>(__func__);
+          new_shelf_region->alignment = RGN_ALIGN_BOTTOM;
+          new_shelf_region->flag |= RGN_FLAG_HIDDEN;
+        }
+        if (ARegion *new_shelf_header = do_versions_add_region_if_not_found(
+                regionbase, RGN_TYPE_ASSET_SHELF_HEADER, __func__, RGN_TYPE_ASSET_SHELF))
+        {
+          new_shelf_header->alignment = RGN_ALIGN_BOTTOM | RGN_ALIGN_HIDE_WITH_PREV;
+        }
       }
     }
   }
@@ -2114,7 +2247,6 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
     if (!DNA_struct_member_exists(fd->filesdna, "LightProbe", "int", "grid_bake_samples")) {
       LISTBASE_FOREACH (LightProbe *, lightprobe, &bmain->lightprobes) {
         lightprobe->grid_bake_samples = 2048;
-        lightprobe->surfel_density = 1.0f;
         lightprobe->grid_normal_bias = 0.3f;
         lightprobe->grid_view_bias = 0.0f;
         lightprobe->grid_facing_bias = 0.5f;
@@ -2483,20 +2615,11 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    if (!DNA_struct_member_exists(fd->filesdna, "SceneEEVEE", "float", "shadow_normal_bias")) {
+    if (!DNA_struct_member_exists(fd->filesdna, "SceneEEVEE", "int", "shadow_step_count")) {
       SceneEEVEE default_scene_eevee = *DNA_struct_default_get(SceneEEVEE);
       LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
         scene->eevee.shadow_ray_count = default_scene_eevee.shadow_ray_count;
         scene->eevee.shadow_step_count = default_scene_eevee.shadow_step_count;
-        scene->eevee.shadow_normal_bias = default_scene_eevee.shadow_normal_bias;
-      }
-    }
-
-    if (!DNA_struct_member_exists(fd->filesdna, "Light", "float", "shadow_softness_factor")) {
-      Light default_light = blender::dna::shallow_copy(*DNA_struct_default_get(Light));
-      LISTBASE_FOREACH (Light *, light, &bmain->lights) {
-        light->shadow_softness_factor = default_light.shadow_softness_factor;
-        light->shadow_trace_distance = default_light.shadow_trace_distance;
       }
     }
   }
@@ -2651,24 +2774,23 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
     /* Unify Material::blend_shadow and Cycles.use_transparent_shadows into the
      * Material::blend_flag. */
     Scene *scene = static_cast<Scene *>(bmain->scenes.first);
-    bool is_cycles = scene && STREQ(scene->r.engine, RE_engine_id_CYCLES);
-    if (is_cycles) {
-      LISTBASE_FOREACH (Material *, material, &bmain->materials) {
-        bool transparent_shadows = true;
-        if (IDProperty *cmat = version_cycles_properties_from_ID(&material->id)) {
-          transparent_shadows = version_cycles_property_boolean(
-              cmat, "use_transparent_shadow", true);
-        }
-        SET_FLAG_FROM_TEST(material->blend_flag, transparent_shadows, MA_BL_TRANSPARENT_SHADOW);
+    bool is_eevee = scene && (STREQ(scene->r.engine, RE_engine_id_BLENDER_EEVEE) ||
+                              STREQ(scene->r.engine, RE_engine_id_BLENDER_EEVEE_NEXT));
+    LISTBASE_FOREACH (Material *, material, &bmain->materials) {
+      bool transparent_shadows = true;
+      if (is_eevee) {
+        transparent_shadows = material->blend_shadow != MA_BS_SOLID;
       }
-    }
-    else {
-      LISTBASE_FOREACH (Material *, material, &bmain->materials) {
-        bool transparent_shadow = material->blend_shadow != MA_BS_SOLID;
-        SET_FLAG_FROM_TEST(material->blend_flag, transparent_shadow, MA_BL_TRANSPARENT_SHADOW);
+      else if (IDProperty *cmat = version_cycles_properties_from_ID(&material->id)) {
+        transparent_shadows = version_cycles_property_boolean(
+            cmat, "use_transparent_shadow", true);
       }
+      SET_FLAG_FROM_TEST(material->blend_flag, transparent_shadows, MA_BL_TRANSPARENT_SHADOW);
     }
+  }
 
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 5)) {
+    /** NOTE: This versioning code didn't update the subversion number. */
     FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
       if (ntree->type == NTREE_COMPOSIT) {
         versioning_replace_splitviewer(ntree);
@@ -2799,8 +2921,7 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
                                                           RAYTRACE_EEVEE_DENOISE_BILATERAL;
         scene->eevee.ray_tracing_options.screen_trace_quality = 0.25f;
         scene->eevee.ray_tracing_options.screen_trace_thickness = 0.2f;
-        scene->eevee.ray_tracing_options.screen_trace_max_roughness = 0.5f;
-        scene->eevee.ray_tracing_options.sample_clamp = 10.0f;
+        scene->eevee.ray_tracing_options.trace_max_roughness = 0.5f;
         scene->eevee.ray_tracing_options.resolution_scale = 2;
       }
     }
@@ -2895,9 +3016,6 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
                                    1;
       input_sample_values[2] = ts->curves_sculpt != nullptr ?
                                    ts->curves_sculpt->paint.num_input_samples_deprecated :
-                                   1;
-      input_sample_values[3] = ts->uvsculpt != nullptr ?
-                                   ts->uvsculpt->paint.num_input_samples_deprecated :
                                    1;
 
       input_sample_values[4] = ts->gp_paint != nullptr ?
@@ -3072,7 +3190,7 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 8)) {
     LISTBASE_FOREACH (Light *, light, &bmain->lights) {
-      light->shadow_filter_radius = 3.0f;
+      light->shadow_filter_radius = 1.0f;
     }
   }
 
@@ -3112,6 +3230,244 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
       if (scene->ed != nullptr) {
         SEQ_for_each_callback(&scene->ed->seqbase, seq_hue_correct_set_wrapping, nullptr);
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 14)) {
+    LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+      if (bMotionPath *mpath = ob->mpath) {
+        mpath->color_post[0] = 0.1f;
+        mpath->color_post[1] = 1.0f;
+        mpath->color_post[2] = 0.1f;
+      }
+      if (!ob->pose) {
+        continue;
+      }
+      LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
+        if (bMotionPath *mpath = pchan->mpath) {
+          mpath->color_post[0] = 0.1f;
+          mpath->color_post[1] = 1.0f;
+          mpath->color_post[2] = 0.1f;
+        }
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 18)) {
+    if (!DNA_struct_member_exists(fd->filesdna, "Light", "float", "transmission_fac")) {
+      LISTBASE_FOREACH (Light *, light, &bmain->lights) {
+        /* Refracted light was not supported in legacy EEVEE. Set it to zero for compatibility with
+         * older files. */
+        light->transmission_fac = 0.0f;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 19)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      /* Keep legacy EEVEE old behavior. */
+      scene->eevee.flag |= SCE_EEVEE_VOLUME_CUSTOM_RANGE;
+    }
+
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      scene->eevee.clamp_surface_indirect = 10.0f;
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 20)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      SequencerToolSettings *sequencer_tool_settings = SEQ_tool_settings_ensure(scene);
+      sequencer_tool_settings->snap_mode |= SEQ_SNAP_TO_MARKERS;
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 21)) {
+    add_image_editor_asset_shelf(*bmain);
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 22)) {
+    /* Display missing media in sequencer by default. */
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      if (scene->ed != nullptr) {
+        scene->ed->show_missing_media_flag |= SEQ_EDIT_SHOW_MISSING_MEDIA;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 23)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      ToolSettings *ts = scene->toolsettings;
+      if (!ts->uvsculpt.strength_curve) {
+        ts->uvsculpt.size = 50;
+        ts->uvsculpt.strength = 1.0f;
+        ts->uvsculpt.curve_preset = BRUSH_CURVE_SMOOTH;
+        ts->uvsculpt.strength_curve = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 24)) {
+    if (!DNA_struct_member_exists(fd->filesdna, "Material", "char", "thickness_mode")) {
+      LISTBASE_FOREACH (Material *, material, &bmain->materials) {
+        if (material->blend_flag & MA_BL_TRANSLUCENCY) {
+          /* EEVEE Legacy used thickness from shadow map when translucency was on. */
+          material->blend_flag |= MA_BL_THICKNESS_FROM_SHADOW;
+        }
+        if ((material->blend_flag & MA_BL_SS_REFRACTION) && material->use_nodes &&
+            material->nodetree)
+        {
+          /* EEVEE Legacy used slab assumption. */
+          material->thickness_mode = MA_THICKNESS_SLAB;
+          version_refraction_depth_to_thickness_value(material->nodetree, material->refract_depth);
+        }
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 25)) {
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      if (ntree->type != NTREE_COMPOSIT) {
+        continue;
+      }
+      LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+        if (node->type != CMP_NODE_BLUR) {
+          continue;
+        }
+
+        NodeBlurData &blur_data = *static_cast<NodeBlurData *>(node->storage);
+
+        if (blur_data.filtertype != R_FILTER_FAST_GAUSS) {
+          continue;
+        }
+
+        /* The size of the Fast Gaussian mode of blur decreased by the following factor to match
+         * other blur sizes. So increase it back. */
+        const float size_factor = 3.0f / 2.0f;
+        blur_data.sizex *= size_factor;
+        blur_data.sizey *= size_factor;
+        blur_data.percentx *= size_factor;
+        blur_data.percenty *= size_factor;
+      }
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 26)) {
+    if (!DNA_struct_member_exists(fd->filesdna, "SceneEEVEE", "float", "shadow_resolution_scale"))
+    {
+      SceneEEVEE default_scene_eevee = *DNA_struct_default_get(SceneEEVEE);
+      LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+        scene->eevee.shadow_resolution_scale = default_scene_eevee.shadow_resolution_scale;
+        scene->eevee.clamp_world = 10.0f;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 27)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      if (scene->ed != nullptr) {
+        scene->ed->cache_flag &= ~(SEQ_CACHE_UNUSED_5 | SEQ_CACHE_UNUSED_6 | SEQ_CACHE_UNUSED_7 |
+                                   SEQ_CACHE_UNUSED_8 | SEQ_CACHE_UNUSED_9);
+      }
+    }
+    LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+      LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+        LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+          if (sl->spacetype == SPACE_SEQ) {
+            SpaceSeq *sseq = (SpaceSeq *)sl;
+            sseq->cache_overlay.flag |= SEQ_CACHE_SHOW_FINAL_OUT;
+          }
+        }
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 28)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      if (scene->ed != nullptr) {
+        SEQ_for_each_callback(&scene->ed->seqbase, seq_proxies_timecode_update, nullptr);
+      }
+    }
+
+    LISTBASE_FOREACH (MovieClip *, clip, &bmain->movieclips) {
+      MovieClipProxy proxy = clip->proxy;
+      versioning_update_timecode(&proxy.tc);
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 29)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      if (scene->ed) {
+        SEQ_for_each_callback(&scene->ed->seqbase, seq_text_data_update, nullptr);
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 30)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      if (scene->nodetree) {
+        scene->nodetree->flag &= ~NTREE_UNUSED_2;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 31)) {
+    LISTBASE_FOREACH (LightProbe *, lightprobe, &bmain->lightprobes) {
+      /* Guess a somewhat correct density given the resolution. But very low resolution need
+       * a decent enough density to work. */
+      lightprobe->grid_surfel_density = max_ii(20,
+                                               2 * max_iii(lightprobe->grid_resolution_x,
+                                                           lightprobe->grid_resolution_y,
+                                                           lightprobe->grid_resolution_z));
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 31)) {
+    /* Mark old EEVEE world volumes for showing conversion operator. */
+    LISTBASE_FOREACH (World *, world, &bmain->worlds) {
+      if (world->nodetree) {
+        /* NOTE: duplicated from `ntreeShaderOutputNode` with small adjustments so it can be called
+         * during versioning. */
+        bNode *output_node = nullptr;
+
+        LISTBASE_FOREACH (bNode *, node, &world->nodetree->nodes) {
+          if (node->type != SH_NODE_OUTPUT_WORLD) {
+            continue;
+          }
+
+          if (node->custom1 == SHD_OUTPUT_ALL) {
+            if (output_node == nullptr) {
+              output_node = node;
+            }
+            else if (output_node->custom1 == SHD_OUTPUT_ALL) {
+              if ((node->flag & NODE_DO_OUTPUT) && !(output_node->flag & NODE_DO_OUTPUT)) {
+                output_node = node;
+              }
+            }
+          }
+          else if (node->custom1 == SHD_OUTPUT_EEVEE) {
+            if (output_node == nullptr) {
+              output_node = node;
+            }
+            else if ((node->flag & NODE_DO_OUTPUT) && !(output_node->flag & NODE_DO_OUTPUT)) {
+              output_node = node;
+            }
+          }
+        }
+        /* End duplication. */
+
+        if (output_node) {
+          bNodeSocket *volume_input_socket = static_cast<bNodeSocket *>(
+              BLI_findlink(&output_node->inputs, 1));
+          if (volume_input_socket) {
+            LISTBASE_FOREACH (bNodeLink *, node_link, &world->nodetree->links) {
+              if (node_link->tonode == output_node && node_link->tosock == volume_input_socket) {
+                world->flag |= WO_USE_EEVEE_FINITE_VOLUME;
+              }
+            }
+          }
+        }
       }
     }
   }

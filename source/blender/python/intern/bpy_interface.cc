@@ -329,6 +329,7 @@ static void pystatus_exit_on_error(const PyStatus &status)
 void BPY_python_start(bContext *C, int argc, const char **argv)
 {
 #ifndef WITH_PYTHON_MODULE
+  BLI_assert_msg(Py_IsInitialized() == 0, "Python has already been initialized");
 
   /* #PyPreConfig (early-configuration). */
   {
@@ -384,7 +385,12 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
     PyStatus status;
     bool has_python_executable = false;
 
-    PyConfig_InitPythonConfig(&config);
+    if (py_use_system_env) {
+      PyConfig_InitPythonConfig(&config);
+    }
+    else {
+      PyConfig_InitIsolatedConfig(&config);
+    }
 
     /* Suppress error messages when calculating the module search path.
      * While harmless, it's noisy. */
@@ -552,6 +558,10 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
 
 void BPY_python_end(const bool do_python_exit)
 {
+#ifndef WITH_PYTHON_MODULE
+  BLI_assert_msg(Py_IsInitialized() != 0, "Python must be initialized");
+#endif
+
   PyGILState_STATE gilstate;
 
   /* Finalizing, no need to grab the state, except when we are a module. */
@@ -612,6 +622,8 @@ void BPY_python_end(const bool do_python_exit)
 
 void BPY_python_reset(bContext *C)
 {
+  BLI_assert_msg(Py_IsInitialized() != 0, "Python must be initialized");
+
   /* Unrelated security stuff. */
   G.f &= ~(G_FLAG_SCRIPT_AUTOEXEC_FAIL | G_FLAG_SCRIPT_AUTOEXEC_FAIL_QUIET);
   G.autoexec_fail[0] = '\0';

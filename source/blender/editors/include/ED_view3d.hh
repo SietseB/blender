@@ -178,8 +178,10 @@ void ED_view3d_lastview_store(RegionView3D *rv3d);
 
 /* Depth buffer */
 enum eV3DDepthOverrideMode {
+  /** Redraw viewport without overlays. */
+  V3D_DEPTH_NO_OVERLAYS = 0,
   /** Redraw viewport without Grease Pencil and Annotations. */
-  V3D_DEPTH_NO_GPENCIL = 0,
+  V3D_DEPTH_NO_GPENCIL,
   /** Redraw viewport with Grease Pencil and Annotations only. */
   V3D_DEPTH_GPENCIL_ONLY,
   /** Redraw viewport with active object only. */
@@ -346,7 +348,8 @@ V3DSnapCursorState *ED_view3d_cursor_snap_state_create();
 void ED_view3d_cursor_snap_state_free(V3DSnapCursorState *state);
 void ED_view3d_cursor_snap_state_prevpoint_set(V3DSnapCursorState *state,
                                                const float prev_point[3]);
-void ED_view3d_cursor_snap_data_update(V3DSnapCursorState *state, const bContext *C, int x, int y);
+void ED_view3d_cursor_snap_data_update(
+    V3DSnapCursorState *state, const bContext *C, const ARegion *region, int x, int y);
 V3DSnapCursorData *ED_view3d_cursor_snap_data_get();
 SnapObjectContext *ED_view3d_cursor_snap_context_ensure(Scene *scene);
 void ED_view3d_cursor_snap_draw_util(RegionView3D *rv3d,
@@ -733,17 +736,17 @@ void ED_view3d_dist_range_get(const View3D *v3d, float r_dist_range[2]);
 bool ED_view3d_clip_range_get(const Depsgraph *depsgraph,
                               const View3D *v3d,
                               const RegionView3D *rv3d,
-                              float *r_clipsta,
-                              float *r_clipend,
-                              bool use_ortho_factor);
+                              bool use_ortho_factor,
+                              float *r_clip_start,
+                              float *r_clip_end);
 bool ED_view3d_viewplane_get(Depsgraph *depsgraph,
                              const View3D *v3d,
                              const RegionView3D *rv3d,
-                             int winxi,
-                             int winyi,
+                             int winx,
+                             int winy,
                              rctf *r_viewplane,
-                             float *r_clipsta,
-                             float *r_clipend,
+                             float *r_clip_start,
+                             float *r_clip_end,
                              float *r_pixsize);
 
 /**
@@ -767,7 +770,7 @@ void ED_view3d_calc_camera_border_size(const Scene *scene,
 bool ED_view3d_calc_render_border(
     const Scene *scene, Depsgraph *depsgraph, View3D *v3d, ARegion *region, rcti *rect);
 
-void ED_view3d_clipping_calc_from_boundbox(float clip[4][4], const BoundBox *clipbb, bool is_flip);
+void ED_view3d_clipping_calc_from_boundbox(float clip[4][4], const BoundBox *bb, bool is_flip);
 void ED_view3d_clipping_calc(
     BoundBox *bb, float planes[4][4], const ARegion *region, const Object *ob, const rcti *rect);
 /**
@@ -1045,20 +1048,20 @@ void ED_view3d_update_viewmat(Depsgraph *depsgraph,
                               const rcti *rect,
                               bool offscreen);
 bool ED_view3d_quat_from_axis_view(char view, char view_axis_roll, float r_quat[4]);
-bool ED_view3d_quat_to_axis_view(const float viewquat[4],
+bool ED_view3d_quat_to_axis_view(const float quat[4],
                                  float epsilon,
                                  char *r_view,
-                                 char *r_view_axis_rotation);
+                                 char *r_view_axis_roll);
 /**
- * A version of #ED_view3d_quat_to_axis_view that updates `viewquat`
+ * A version of #ED_view3d_quat_to_axis_view that updates `quat`
  * if it's within `epsilon` to an axis-view.
  *
  * \note Include the special case function since most callers need to perform these operations.
  */
-bool ED_view3d_quat_to_axis_view_and_reset_quat(float viewquat[4],
+bool ED_view3d_quat_to_axis_view_and_reset_quat(float quat[4],
                                                 float epsilon,
                                                 char *r_view,
-                                                char *r_view_axis_rotation);
+                                                char *r_view_axis_roll);
 
 char ED_view3d_lock_view_from_index(int index);
 char ED_view3d_axis_view_opposite(char view);

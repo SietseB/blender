@@ -19,8 +19,14 @@ namespace blender::nodes::node_shader_normal_map_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Float>("Strength").default_value(1.0f).min(0.0f).max(10.0f);
-  b.add_input<decl::Color>("Color").default_value({0.5f, 0.5f, 1.0f, 1.0f});
+  b.add_input<decl::Float>("Strength")
+      .default_value(1.0f)
+      .min(0.0f)
+      .max(10.0f)
+      .description("Strength of the normal mapping effect");
+  b.add_input<decl::Color>("Color")
+      .default_value({0.5f, 0.5f, 1.0f, 1.0f})
+      .description("Color that encodes the normal map in the specified space");
   b.add_output<decl::Vector>("Normal");
 }
 
@@ -166,7 +172,7 @@ void register_node_type_sh_normal_map()
   sh_node_type_base(&ntype, SH_NODE_NORMAL_MAP, "Normal Map", NODE_CLASS_OP_VECTOR);
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_normal_map;
-  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::MIDDLE);
+  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Middle);
   ntype.initfunc = file_ns::node_shader_init_normal_map;
   node_type_storage(
       &ntype, "NodeShaderNormalMap", node_free_standard_storage, node_copy_standard_storage);

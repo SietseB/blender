@@ -318,8 +318,8 @@ static void rna_BoneCollections_active_index_range(
 {
   bArmature *arm = (bArmature *)ptr->data;
 
-  // TODO: Figure out what this function actually is used for, as we may want to protect the first
-  // collection (i.e. the default collection that should remain first).
+  /* TODO: Figure out what this function actually is used for, as we may want to protect the first
+   * collection (i.e. the default collection that should remain first). */
   *min = 0;
   *max = max_ii(0, arm->collection_array_num - 1);
 }
@@ -1060,7 +1060,7 @@ static void rna_Armature_bones_next(CollectionPropertyIterator *iter)
 }
 
 /* not essential, but much faster than the default lookup function */
-static int rna_Armature_bones_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
+static bool rna_Armature_bones_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
 {
   bArmature *arm = (bArmature *)ptr->data;
   Bone *bone = BKE_armature_find_bone_name(arm, key);

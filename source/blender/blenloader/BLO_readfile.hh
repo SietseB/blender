@@ -294,16 +294,6 @@ LinkNode * /*BLODataBlockInfo*/ BLO_blendhandle_get_datablock_info(BlendHandle *
                                                                    bool use_assets_only,
                                                                    int *r_tot_info_items);
 /**
- * Gets the previews of all the data-blocks in a file of a certain type
- * (e.g. all the scene previews in a file).
- *
- * \param bh: The blendhandle to access.
- * \param ofblocktype: The type of names to get.
- * \param r_tot_prev: The length of the returned list.
- * \return A BLI_linklist of #PreviewImage. The #PreviewImage links should be freed with malloc.
- */
-LinkNode *BLO_blendhandle_get_previews(BlendHandle *bh, int ofblocktype, int *r_tot_prev);
-/**
  * Get the PreviewImage of a single data block in a file.
  * (e.g. all the scene previews in a file).
  *
@@ -329,7 +319,7 @@ LinkNode *BLO_blendhandle_get_linkable_groups(BlendHandle *bh);
  *
  * \param bh: The handle to close.
  */
-void BLO_blendhandle_close(BlendHandle *bh);
+void BLO_blendhandle_close(BlendHandle *bh) ATTR_NONNULL(1);
 
 /**
  * Mark the given Main (and the 'root' local one in case of lib-split Mains) as invalid, and

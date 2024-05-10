@@ -320,7 +320,9 @@ void paint_curve_mask_cache_update(CurveMaskCache *curve_mask_cache,
 
 /* `sculpt_uv.cc` */
 
-void SCULPT_OT_uv_sculpt_stroke(wmOperatorType *ot);
+void SCULPT_OT_uv_sculpt_grab(wmOperatorType *ot);
+void SCULPT_OT_uv_sculpt_relax(wmOperatorType *ot);
+void SCULPT_OT_uv_sculpt_pinch(wmOperatorType *ot);
 
 /* paint_utils.cc */
 
@@ -472,6 +474,7 @@ void PAINT_OT_hide_show_all(wmOperatorType *ot);
 void PAINT_OT_hide_show(wmOperatorType *ot);
 void PAINT_OT_hide_show_lasso_gesture(wmOperatorType *ot);
 void PAINT_OT_hide_show_line_gesture(wmOperatorType *ot);
+void PAINT_OT_hide_show_polyline_gesture(wmOperatorType *ot);
 
 void PAINT_OT_visibility_invert(wmOperatorType *ot);
 }  // namespace blender::ed::sculpt_paint::hide
@@ -553,7 +556,8 @@ void get_brush_alpha_data(const Scene *scene,
 
 void init_stroke(Depsgraph *depsgraph, Object *ob);
 void init_session_data(const ToolSettings *ts, Object *ob);
-void init_session(Depsgraph *depsgraph, Scene *scene, Object *ob, eObjectMode object_mode);
+void init_session(
+    Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *ob, eObjectMode object_mode);
 
 Vector<PBVHNode *> pbvh_gather_generic(Object *ob, VPaint *wp, Brush *brush);
 

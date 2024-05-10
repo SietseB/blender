@@ -34,6 +34,7 @@
 #define CULLING_TILE_GROUP_SIZE 256
 
 /* Reflection Probes. */
+/* When changed update parallel sum loop in `eevee_reflection_probe_remap_comp.glsl`. */
 #define SPHERE_PROBE_REMAP_GROUP_SIZE 32
 #define SPHERE_PROBE_GROUP_SIZE 16
 #define SPHERE_PROBE_SELECT_GROUP_SIZE 64
@@ -54,6 +55,9 @@
  * Limited by the UBO size limit `(16384 bytes / sizeof(SphereProbeData))`.
  */
 #define SPHERE_PROBE_MAX 128
+
+/** NOTE: Runtime format only. */
+#define VOLUME_PROBE_FORMAT GPU_RGBA16F
 
 /**
  * Limited by the performance impact it can cause.
@@ -136,9 +140,6 @@
 #define SUBSURFACE_GROUP_SIZE RAYTRACE_GROUP_SIZE
 #define SUBSURFACE_RADIANCE_FORMAT GPU_R11F_G11F_B10F
 #define SUBSURFACE_OBJECT_ID_FORMAT GPU_R16UI
-
-/* Minimum visibility size. */
-#define LIGHTPROBE_FILTER_VIS_GROUP_SIZE 16
 
 /* Film. */
 #define FILM_GROUP_SIZE 16
@@ -248,7 +249,7 @@
 /* Only during shadow rendering. */
 #define SHADOW_RENDER_MAP_BUF_SLOT 3
 #define SHADOW_PAGE_INFO_SLOT 4
-#define SHADOW_VIEWPORT_INDEX_BUF_SLOT 5
+#define SHADOW_RENDER_VIEW_BUF_SLOT 5
 
 /* Only during pre-pass. */
 #define VELOCITY_OBJ_PREV_BUF_SLOT 0

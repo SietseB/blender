@@ -284,7 +284,7 @@ def resolve_ncase(path):
         dirpath = _os.path.dirname(path)
 
         suffix = path[:0]  # "" but ensure byte/str match
-        if not filename:  # dir ends with a slash?
+        if not filename:  # Check if the directory ends with a slash.
             if len(dirpath) < len(path):
                 suffix = path[:len(path) - len(dirpath)]
 
@@ -390,7 +390,7 @@ def module_names(path, *, recursive=False, package=""):
                 if recursive:
                     for mod_name, mod_path in module_names(directory, recursive=True):
                         modules.append((
-                            "%s.%s" % (pacakge_prefix + filename, mod_name),
+                            "{:s}.{:s}".format(pacakge_prefix + filename, mod_name),
                             mod_path,
                         ))
 

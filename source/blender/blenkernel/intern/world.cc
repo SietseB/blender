@@ -97,16 +97,16 @@ static void world_copy_data(Main *bmain,
 
   if (wrld_src->nodetree) {
     if (is_localized) {
-      wrld_dst->nodetree = ntreeLocalize(wrld_src->nodetree);
+      wrld_dst->nodetree = ntreeLocalize(wrld_src->nodetree, &wrld_dst->id);
     }
     else {
       BKE_id_copy_in_lib(bmain,
                          owner_library,
-                         (ID *)wrld_src->nodetree,
-                         (ID **)&wrld_dst->nodetree,
+                         &wrld_src->nodetree->id,
+                         &wrld_dst->id,
+                         reinterpret_cast<ID **>(&wrld_dst->nodetree),
                          flag_private_id_data);
     }
-    wrld_dst->nodetree->owner_id = &wrld_dst->id;
   }
 
   BLI_listbase_clear(&wrld_dst->gpumaterial);
@@ -175,11 +175,11 @@ static void world_blend_read_data(BlendDataReader *reader, ID *id)
 {
   World *wrld = (World *)id;
 
-  BLO_read_data_address(reader, &wrld->preview);
+  BLO_read_struct(reader, PreviewImage, &wrld->preview);
   BKE_previewimg_blend_read(reader, wrld->preview);
   BLI_listbase_clear(&wrld->gpumaterial);
 
-  BLO_read_data_address(reader, &wrld->lightgroup);
+  BLO_read_struct(reader, LightgroupMembership, &wrld->lightgroup);
 }
 
 IDTypeInfo IDType_ID_WO = {

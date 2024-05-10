@@ -122,9 +122,11 @@ class USERPREF_MT_save_load(Menu):
         if app_template:
             display_name = bpy.path.display_name(iface_(app_template))
             layout.operator("wm.read_factory_userpref", text="Load Factory Blender Preferences")
-            props = layout.operator("wm.read_factory_userpref",
-                                    text=iface_("Load Factory %s Preferences") % display_name,
-                                    translate=False)
+            props = layout.operator(
+                "wm.read_factory_userpref",
+                text=iface_("Load Factory {:s} Preferences").format(display_name),
+                translate=False,
+            )
             props.use_factory_startup_app_template_only = True
             del display_name
         else:
@@ -260,7 +262,7 @@ class USERPREF_PT_interface_translation(InterfacePanel, CenterAlignMixIn, Panel)
 
         layout.prop(view, "language")
 
-        col = layout.column(heading="Translate")
+        col = layout.column(heading="Translate", heading_ctxt=i18n_contexts.editor_preferences)
         col.active = (bpy.app.translations.locale != "en_US")
         col.prop(view, "use_translate_tooltips", text="Tooltips")
         col.prop(view, "use_translate_interface", text="Interface")
@@ -667,15 +669,37 @@ class USERPREF_PT_system_os_settings(SystemPanel, CenterAlignMixIn, Panel):
 
     @classmethod
     def poll(cls, _context):
-        # Only for Windows so far
-        import sys
-        return sys.platform[:3] == "win"
+        # macOS isn't supported.
+        from sys import platform
+        if platform == "darwin":
+            return False
+        return True
+
+    @staticmethod
+    def _draw_associate_supported_or_label(context, layout):
+        from sys import platform
+        if platform[:3] == "win":
+            if context.preferences.system.is_microsoft_store_install:
+                layout.label(text="Microsoft Store installation")
+                layout.label(text="Use Windows 'Default Apps' to associate with blend files")
+                return False
+        else:
+            # Linux.
+            if bpy.utils.resource_path('SYSTEM'):
+                layout.label(text="System Installation")
+                layout.label(text="File association is handled by the package manager")
+                return False
+
+            import os
+            if os.environ.get("SNAP"):
+                layout.label(text="Snap Package Installation")
+                layout.label(text="File association is handled by the package manager")
+                return False
+
+        return True
 
     def draw_centered(self, context, layout):
-        if context.preferences.system.is_microsoft_store_install:
-            layout.label(text="Microsoft Store installation")
-            layout.label(text="Use Windows 'Default Apps' to associate with blend files")
-        else:
+        if self._draw_associate_supported_or_label(context, layout):
             layout.label(text="Open blend files with this Blender version")
             split = layout.split(factor=0.5)
             split.alignment = 'LEFT'
@@ -860,21 +884,37 @@ class USERPREF_MT_interface_theme_presets(Menu):
     draw = Menu.draw_preset
 
     @staticmethod
-    def reset_cb(context):
+    def reset_cb(_context, _filepath):
         bpy.ops.preferences.reset_default_theme()
+
+    @staticmethod
+    def post_cb(context, filepath):
+        context.preferences.themes[0].filepath = filepath
 
 
 class USERPREF_PT_theme(ThemePanel, Panel):
     bl_label = "Themes"
     bl_options = {'HIDE_HEADER'}
 
-    def draw(self, _context):
+    def draw(self, context):
+        import os
+
         layout = self.layout
 
         split = layout.split(factor=0.6)
 
         row = split.row(align=True)
-        row.menu("USERPREF_MT_interface_theme_presets", text=USERPREF_MT_interface_theme_presets.bl_label)
+
+        # Unlike most presets (which use the classes bl_label),
+        # themes store the path, use this when set.
+        if filepath := context.preferences.themes[0].filepath:
+            preset_label = bpy.path.display_name(os.path.basename(filepath))
+        else:
+            preset_label = USERPREF_MT_interface_theme_presets.bl_label
+
+        row.menu("USERPREF_MT_interface_theme_presets", text=preset_label)
+        del filepath, preset_label
+
         row.operator("wm.interface_theme_preset_add", text="", icon='ADD')
         row.operator("wm.interface_theme_preset_remove", text="", icon='REMOVE')
         row.operator("wm.interface_theme_preset_save", text="", icon='FILE_TICK')
@@ -1138,7 +1178,7 @@ class USERPREF_PT_theme_bone_color_sets(ThemePanel, CenterAlignMixIn, Panel):
         layout.use_property_split = True
 
         for i, ui in enumerate(theme.bone_color_sets, 1):
-            layout.label(text=iface_("Color Set %d") % i, translate=False)
+            layout.label(text=iface_("Color Set {:d}").format(i), translate=False)
 
             flow = layout.grid_flow(row_major=False, columns=0, even_columns=True, even_rows=False, align=True)
 
@@ -1164,7 +1204,7 @@ class USERPREF_PT_theme_collection_colors(ThemePanel, CenterAlignMixIn, Panel):
 
         flow = layout.grid_flow(row_major=False, columns=2, even_columns=True, even_rows=False, align=False)
         for i, ui in enumerate(theme.collection_color, 1):
-            flow.prop(ui, "color", text=iface_("Color %d") % i, translate=False)
+            flow.prop(ui, "color", text=iface_("Color {:d}").format(i), translate=False)
 
 
 class USERPREF_PT_theme_strip_colors(ThemePanel, CenterAlignMixIn, Panel):
@@ -1183,7 +1223,7 @@ class USERPREF_PT_theme_strip_colors(ThemePanel, CenterAlignMixIn, Panel):
 
         flow = layout.grid_flow(row_major=False, columns=2, even_columns=True, even_rows=False, align=False)
         for i, ui in enumerate(theme.strip_color, 1):
-            flow.prop(ui, "color", text=iface_("Color %d") % i, translate=False)
+            flow.prop(ui, "color", text=iface_("Color {:d}").format(i), translate=False)
 
 
 # Base class for dynamically defined theme-space panels.
@@ -1772,6 +1812,13 @@ class USERPREF_PT_input_touchpad(InputPanel, CenterAlignMixIn, Panel):
         col = layout.column()
         col.prop(inputs, "use_multitouch_gestures")
 
+        from _bpy import _wm_capabilities
+        capabilities = _wm_capabilities()
+        if not capabilities['TRACKPAD_PHYSICAL_DIRECTION']:
+            row = col.row()
+            row.active = inputs.use_multitouch_gestures
+            row.prop(inputs, "touchpad_scroll_direction", text="Scroll Direction")
+
 
 class USERPREF_PT_input_tablet(InputPanel, CenterAlignMixIn, Panel):
     bl_label = "Tablet"
@@ -1796,9 +1843,7 @@ class USERPREF_PT_input_ndof(InputPanel, CenterAlignMixIn, Panel):
 
     @classmethod
     def poll(cls, context):
-        prefs = context.preferences
-        inputs = prefs.inputs
-        return inputs.use_ndof
+        return bpy.app.build_options.input_ndof
 
     def draw_centered(self, context, layout):
         prefs = context.preferences
@@ -2053,8 +2098,6 @@ class USERPREF_PT_extensions_repos(Panel):
         paths = context.preferences.filepaths
         active_repo_index = paths.active_extension_repo
 
-        layout.label(text="Repositories")
-
         row = layout.row()
 
         row.template_list(
@@ -2090,7 +2133,7 @@ class USERPREF_PT_extensions_repos(Panel):
             split = row.split(factor=0.936)
             if active_repo.remote_path == "":
                 split.alert = True
-            split.prop(active_repo, "remote_path", text="URL")
+            split.prop(active_repo, "remote_path", text="", icon='URL', placeholder="Repository URL")
             split = row.split()
 
         layout_header, layout_panel = layout.panel("advanced", default_closed=True)
@@ -2110,11 +2153,10 @@ class USERPREF_PT_extensions_repos(Panel):
                 # valid UTF-8 which will raise a Python exception when passed in as text.
                 row.prop(active_repo, "directory", text="")
 
+            layout_panel.prop(active_repo, "use_cache")
             layout_panel.separator()
 
-            row = layout_panel.row()
-            row.prop(active_repo, "use_cache")
-            row.prop(active_repo, "module")
+            layout_panel.prop(active_repo, "module")
 
 
 # -----------------------------------------------------------------------------
@@ -2342,7 +2384,7 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
 
             sub = row.row()
             sub.active = is_enabled
-            sub.label(text="%s: %s" % (iface_(bl_info["category"]), iface_(bl_info["name"])))
+            sub.label(text="{:s}: {:s}".format(iface_(bl_info["category"]), iface_(bl_info["name"])))
 
             if bl_info["warning"]:
                 sub.label(icon='ERROR')
@@ -2399,9 +2441,9 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
                         ).url = bl_info["tracker_url"]
                     elif not user_addon:
                         addon_info = (
-                            "Name: %s %s\n"
-                            "Author: %s\n"
-                        ) % (bl_info["name"], str(bl_info["version"]), bl_info["author"])
+                            "Name: {:s} {:s}\n"
+                            "Author: {:s}\n"
+                        ).format(bl_info["name"], str(bl_info["version"]), bl_info["author"])
                         props = sub.operator(
                             "wm.url_open_preset", text="Report a Bug", icon='URL',
                         )
@@ -2481,7 +2523,7 @@ class StudioLightPanelMixin:
             layout.label(text=self.get_error_message())
 
     def get_error_message(self):
-        return rpt_("No custom %s configured") % self.bl_label
+        return rpt_("No custom {:s} configured").format(self.bl_label)
 
     def draw_studio_light(self, layout, studio_light):
         box = layout.box()
@@ -2676,10 +2718,10 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
                 ({"property": "use_experimental_compositors"}, ("blender/blender/issues/88150", "#88150")),
                 ({"property": "use_grease_pencil_version3"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
                 ({"property": "use_grease_pencil_version3_convert_on_load"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
-                ({"property": "use_new_matrix_socket"}, ("blender/blender/issues/116067", "Matrix Socket")),
                 ({"property": "enable_overlay_next"}, ("blender/blender/issues/102179", "#102179")),
                 ({"property": "use_extension_repos"}, ("/blender/blender/issues/117286", "#117286")),
                 ({"property": "use_extension_utils"}, ("/blender/blender/issues/117286", "#117286")),
+                ({"property": "use_animation_baklava"}, ("/blender/blender/issues/120406", "#120406")),
             ),
         )
 

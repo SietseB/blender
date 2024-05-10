@@ -190,7 +190,8 @@ class LazyFunctionForSwitchNode : public LazyFunction {
                                    float3,
                                    ColorGeometry4f,
                                    std::string,
-                                   math::Quaternion>([&](auto type_tag) {
+                                   math::Quaternion,
+                                   float4x4>([&](auto type_tag) {
       using T = typename decltype(type_tag)::type;
       if constexpr (std::is_void_v<T>) {
         BLI_assert_unreachable();
@@ -222,9 +223,6 @@ static void node_rna(StructRNA *srna)
         *r_free = true;
         return enum_items_filter(rna_enum_node_socket_data_type_items,
                                  [](const EnumPropertyItem &item) -> bool {
-                                   if (item.value == SOCK_MATRIX) {
-                                     return U.experimental.use_new_matrix_socket;
-                                   }
                                    return ELEM(item.value,
                                                SOCK_FLOAT,
                                                SOCK_INT,

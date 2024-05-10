@@ -364,6 +364,12 @@ ccl_device_inline
   float pdf = _surface_shader_bsdf_eval_mis(
       kg, sd, wo, NULL, bsdf_eval, 0.0f, 0.0f, light_shader_flags);
 
+  /* If the light does not use MIS, then it is only sampled via NEE, so the probability of hitting
+   * the light using BSDF sampling is zero. */
+  if (!(light_shader_flags & SHADER_USE_MIS)) {
+    pdf = 0.0f;
+  }
+
 #if defined(__PATH_GUIDING__) && PATH_GUIDING_LEVEL >= 4
   if (pdf > 0.0f && state->guiding.use_surface_guiding) {
     const float guiding_sampling_prob = state->guiding.surface_guiding_sampling_prob;
@@ -947,7 +953,7 @@ ccl_device Spectrum surface_shader_transparency(KernelGlobals kg, ccl_private co
   if (sd->flag & SD_HAS_ONLY_VOLUME) {
     return one_spectrum();
   }
-  else if (sd->flag & SD_TRANSPARENT) {
+  else if (sd->flag & (SD_TRANSPARENT | SD_RAY_PORTAL)) {
     return sd->closure_transparent_extinction;
   }
   else {
@@ -1168,6 +1174,7 @@ ccl_device void surface_shader_eval(KernelGlobals kg,
 
   sd->num_closure = 0;
   sd->num_closure_left = max_closures;
+  sd->closure_transparent_extinction = zero_spectrum();
 
 #ifdef __OSL__
   if (kernel_data.kernel_features & KERNEL_FEATURE_OSL) {
