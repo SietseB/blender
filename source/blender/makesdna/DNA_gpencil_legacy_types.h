@@ -824,12 +824,12 @@ typedef struct bGPdata_Runtime {
   int arrow_start_style;
   int arrow_end_style;
 
-  /* Ondine render runtimes */
+  /* Ondine render runtimes. */
   float render_zdepth;
 
   /** Morph targets flag. */
   short morph_target_flag;
-  char _pad2[6];
+  char _pad2[2];
 
   /** Number of control-points for stroke. */
   int tot_cp_points;

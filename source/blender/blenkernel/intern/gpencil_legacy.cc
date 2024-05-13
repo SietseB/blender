@@ -250,7 +250,7 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
     BLO_read_struct_list(reader, bGPDlayer_Mask, &gpl->mask_layers);
 
     /* Relink morphs. */
-    BLO_read_list(reader, &gpl->morphs);
+    BLO_read_struct_list(reader, bGPDlmorph, &gpl->morphs);
 
     LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       /* Relink strokes (and their points). */
@@ -281,7 +281,7 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
         }
 
         /* Relink morph data. */
-        BLO_read_list(reader, &gps->morphs);
+        BLO_read_struct_list(reader, bGPDsmorph, &gps->morphs);
         LISTBASE_FOREACH (bGPDsmorph *, gpsm, &gps->morphs) {
           BLO_read_data_address(reader, &gpsm->point_deltas);
         }
@@ -290,7 +290,7 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
   }
 
   /* Relink morph targets. */
-  BLO_read_list(reader, &gpd->morph_targets);
+  BLO_read_struct_list(reader, bGPDmorph_target, &gpd->morph_targets);
 }
 
 static void greasepencil_blend_read_data(BlendDataReader *reader, ID *id)
