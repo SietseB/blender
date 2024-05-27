@@ -332,7 +332,19 @@ class CommandBufferLog : public VKCommandBufferInterface {
   {
     UNUSED_VARS(attachment_count, p_attachments, rect_count, p_rects);
     EXPECT_TRUE(is_recording_);
-    GTEST_FAIL() << __func__ << " not implemented!";
+    std::stringstream ss;
+    ss << "clear_attachments(";
+    for (const VkClearAttachment &attachment :
+         Span<VkClearAttachment>(p_attachments, attachment_count))
+    {
+      ss << " - attachment(" << to_string(attachment, 1) << ")" << std::endl;
+    }
+    for (const VkClearRect &rect : Span<VkClearRect>(p_rects, rect_count)) {
+      ss << " - rect(" << to_string(rect, 1) << ")" << std::endl;
+    }
+    ss << ")";
+
+    log_.append(ss.str());
   }
 
   void pipeline_barrier(VkPipelineStageFlags src_stage_mask,
@@ -395,6 +407,9 @@ class CommandBufferLog : public VKCommandBufferInterface {
     ss << "end_rendering()";
     log_.append(ss.str());
   }
+
+  void begin_debug_utils_label(const VkDebugUtilsLabelEXT * /*vk_debug_utils_label*/) override {}
+  void end_debug_utils_label() override {}
 };
 
 /**

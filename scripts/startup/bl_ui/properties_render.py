@@ -574,8 +574,6 @@ class RENDER_PT_eevee_next_raytracing(RenderButtonsPanel, Panel):
 
         col.prop(options, "resolution_scale")
         col.prop(options, "trace_max_roughness", text="Max Roughness")
-        # TODO Move it to raytracing options
-        col.prop(props, "horizon_bias", text="Bias")
 
 
 class RENDER_PT_eevee_next_screen_trace(RenderButtonsPanel, Panel):
@@ -605,8 +603,8 @@ class RENDER_PT_eevee_next_screen_trace(RenderButtonsPanel, Panel):
         col.prop(props, "screen_trace_thickness", text="Thickness")
 
 
-class RENDER_PT_eevee_next_horizon_scan(RenderButtonsPanel, Panel):
-    bl_label = "Horizon Scan"
+class RENDER_PT_eevee_next_gi_approximation(RenderButtonsPanel, Panel):
+    bl_label = "Fast GI Approximation"
     bl_options = {'DEFAULT_CLOSED'}
     bl_parent_id = "RENDER_PT_eevee_next_raytracing"
     COMPAT_ENGINES = {'BLENDER_EEVEE_NEXT'}
@@ -624,10 +622,15 @@ class RENDER_PT_eevee_next_horizon_scan(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        col = layout.column(align=True)
+        col.prop(props, "fast_gi_ray_count", text="Rays")
+        col.prop(props, "fast_gi_step_count", text="Steps")
+
         col = layout.column()
         col.prop(props, "horizon_quality", text="Precision")
         col.prop(props, "horizon_thickness", text="Thickness")
         col.prop(props, "horizon_resolution", text="Resolution")
+        col.prop(props, "horizon_bias", text="Bias")
 
 
 class RENDER_PT_eevee_next_denoise(RenderButtonsPanel, Panel):
@@ -702,14 +705,7 @@ class RENDER_PT_eevee_next_clamping(RenderButtonsPanel, Panel):
         return (context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        scene = context.scene
-        props = scene.eevee
-
-        col = layout.column()
-        col.prop(props, "clamp_world", text="World")
+        pass
 
 
 class RENDER_PT_eevee_next_clamping_surface(RenderButtonsPanel, Panel):
@@ -782,9 +778,6 @@ class RENDER_PT_eevee_next_sampling_shadows(RenderButtonsPanel, Panel):
         col.prop(props, "shadow_ray_count", text="Rays")
         col.prop(props, "shadow_step_count", text="Steps")
 
-        col = layout.column()
-        col.prop(props, "shadow_resolution_scale", text="Resolution")
-
         col = layout.column(align=False, heading="Volume Shadows")
         row = col.row(align=True)
         sub = row.row(align=True)
@@ -792,6 +785,9 @@ class RENDER_PT_eevee_next_sampling_shadows(RenderButtonsPanel, Panel):
         sub = sub.row(align=True)
         sub.active = props.use_volumetric_shadows
         sub.prop(props, "volumetric_shadow_samples", text="Steps")
+
+        col = layout.column()
+        col.prop(props, "shadow_resolution_scale", text="Resolution")
 
 
 class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
@@ -877,7 +873,7 @@ class RENDER_PT_eevee_next_sampling_viewport(RenderButtonsPanel, Panel):
         col = layout.column()
         col.prop(props, "taa_samples", text="Samples")
         col.prop(props, "use_taa_reprojection", text="Temporal Reprojection")
-        col.prop(props, "use_shadow_jittered_viewport", text="Jittered Shadows")
+        col.prop(props, "use_shadow_jitter_viewport", text="Jittered Shadows")
 
         # Add SSS sample count here.
 
@@ -1092,6 +1088,29 @@ class RENDER_PT_eevee_performance(RenderButtonsPanel, Panel):
         layout.use_property_decorate = False  # No animation.
 
         layout.prop(rd, "use_high_quality_normals")
+
+
+class CompositorPerformanceButtonsPanel:
+    bl_label = "Compositor"
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        rd = scene.render
+
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        col = layout.column()
+        row = col.row()
+        row.prop(rd, "compositor_device", text="Device", expand=True)
+        col.prop(rd, "compositor_precision", text="Precision")
+
+
+class RENDER_PT_eevee_performance_compositor(RenderButtonsPanel, CompositorPerformanceButtonsPanel, Panel):
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_parent_id = "RENDER_PT_eevee_performance"
+    COMPAT_ENGINES = {'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
 
 
 class RENDER_PT_eevee_performance_memory(RenderButtonsPanel, Panel):
@@ -1362,12 +1381,8 @@ classes = (
     RENDER_PT_eevee_next_raytracing_presets,
     RENDER_PT_eevee_next_raytracing,
     RENDER_PT_eevee_next_screen_trace,
-    RENDER_PT_eevee_next_horizon_scan,
+    RENDER_PT_eevee_next_gi_approximation,
     RENDER_PT_eevee_next_denoise,
-    RENDER_PT_simplify,
-    RENDER_PT_simplify_viewport,
-    RENDER_PT_simplify_render,
-    RENDER_PT_simplify_greasepencil,
     RENDER_PT_eevee_motion_blur,
     RENDER_PT_eevee_volumetric,
     RENDER_PT_eevee_volumetric_lighting,
@@ -1378,6 +1393,10 @@ classes = (
     RENDER_PT_eevee_shadows,
     RENDER_PT_eevee_indirect_lighting,
     RENDER_PT_eevee_indirect_lighting_display,
+    RENDER_PT_simplify,
+    RENDER_PT_simplify_viewport,
+    RENDER_PT_simplify_render,
+    RENDER_PT_simplify_greasepencil,
     RENDER_PT_eevee_depth_of_field,
     RENDER_PT_eevee_next_depth_of_field,
     RENDER_PT_eevee_next_motion_blur,
@@ -1387,6 +1406,7 @@ classes = (
     RENDER_PT_eevee_performance,
     RENDER_PT_eevee_performance_memory,
     RENDER_PT_eevee_performance_viewport,
+    RENDER_PT_eevee_performance_compositor,
 
 
     RENDER_PT_gpencil,

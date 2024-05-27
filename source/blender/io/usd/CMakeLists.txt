@@ -89,6 +89,7 @@ set(INC_SYS
 set(SRC
   intern/usd_armature_utils.cc
   intern/usd_asset_utils.cc
+  intern/usd_attribute_utils.cc
   intern/usd_blend_shape_utils.cc
   intern/usd_capi_export.cc
   intern/usd_capi_import.cc
@@ -116,6 +117,7 @@ set(SRC
   intern/usd_reader_mesh.cc
   intern/usd_reader_nurbs.cc
   intern/usd_reader_pointinstancer.cc
+  intern/usd_reader_points.cc
   intern/usd_reader_prim.cc
   intern/usd_reader_shape.cc
   intern/usd_reader_skeleton.cc
@@ -131,6 +133,7 @@ set(SRC
 
   intern/usd_armature_utils.hh
   intern/usd_asset_utils.hh
+  intern/usd_attribute_utils.hh
   intern/usd_blend_shape_utils.hh
   intern/usd_exporter_context.hh
   intern/usd_hash_types.hh
@@ -158,6 +161,7 @@ set(SRC
   intern/usd_reader_mesh.hh
   intern/usd_reader_nurbs.hh
   intern/usd_reader_pointinstancer.hh
+  intern/usd_reader_points.hh
   intern/usd_reader_prim.hh
   intern/usd_reader_shape.hh
   intern/usd_reader_skeleton.hh

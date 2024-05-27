@@ -47,6 +47,7 @@ struct World;
 struct bContext;
 struct bNode;
 struct bNodeExecContext;
+struct bNodeTreeExec;
 struct bNodeExecData;
 struct bNodeInstanceHash;
 struct bNodeLink;
@@ -56,6 +57,27 @@ struct bNodeTree;
 struct bNodeTreeExec;
 struct bNodeTreeType;
 struct uiLayout;
+
+namespace blender {
+class CPPType;
+namespace nodes {
+class DNode;
+class NodeMultiFunctionBuilder;
+class GeoNodeExecParams;
+class NodeDeclaration;
+class NodeDeclarationBuilder;
+class GatherAddNodeSearchParams;
+class GatherLinkSearchOpParams;
+struct NodeExtraInfoParams;
+}  // namespace nodes
+namespace realtime_compositor {
+class Context;
+class NodeOperation;
+class ShaderNode;
+}  // namespace realtime_compositor
+}  // namespace blender
+
+namespace blender::bke {
 
 /* -------------------------------------------------------------------- */
 /** \name Node Type Definitions
@@ -87,25 +109,6 @@ struct bNodeSocketTemplate {
 /* Use `void *` for callbacks that require C++. This is rather ugly, but works well for now. This
  * would not be necessary if we would use bNodeSocketType and bNodeType only in C++ code.
  * However, achieving this requires quite a few changes currently. */
-namespace blender {
-class CPPType;
-namespace nodes {
-class DNode;
-class NodeMultiFunctionBuilder;
-class GeoNodeExecParams;
-class NodeDeclaration;
-class NodeDeclarationBuilder;
-class GatherAddNodeSearchParams;
-class GatherLinkSearchOpParams;
-struct NodeExtraInfoParams;
-}  // namespace nodes
-namespace realtime_compositor {
-class Context;
-class NodeOperation;
-class ShaderNode;
-}  // namespace realtime_compositor
-}  // namespace blender
-
 using NodeMultiFunctionBuildFunction = void (*)(blender::nodes::NodeMultiFunctionBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using NodeDeclareFunction = void (*)(blender::nodes::NodeDeclarationBuilder &builder);
@@ -410,9 +413,8 @@ enum class NodeGroupColorTag {
   Vector = 13,
 };
 
-struct bNodeTreeExec;
-
 using bNodeClassCallback = void (*)(void *calldata, int nclass, const char *name);
+
 struct bNodeTreeType {
   int type;        /* type identifier */
   char idname[64]; /* identifier name */
@@ -426,7 +428,7 @@ struct bNodeTreeType {
 
   /* callbacks */
   /* Iteration over all node classes. */
-  void (*foreach_nodeclass)(Scene *scene, void *calldata, bNodeClassCallback func);
+  void (*foreach_nodeclass)(void *calldata, bNodeClassCallback func);
   /* Check visibility in the node editor */
   bool (*poll)(const bContext *C, bNodeTreeType *ntreetype);
   /* Select a node tree from the context */
@@ -466,11 +468,12 @@ GHashIterator *ntreeTypeGetIterator();
 /* Helper macros for iterating over tree types. */
 #define NODE_TREE_TYPES_BEGIN(ntype) \
   { \
-    GHashIterator *__node_tree_type_iter__ = ntreeTypeGetIterator(); \
+    GHashIterator *__node_tree_type_iter__ = blender::bke::ntreeTypeGetIterator(); \
     for (; !BLI_ghashIterator_done(__node_tree_type_iter__); \
          BLI_ghashIterator_step(__node_tree_type_iter__)) \
     { \
-      bNodeTreeType *ntype = (bNodeTreeType *)BLI_ghashIterator_getValue(__node_tree_type_iter__);
+      blender::bke::bNodeTreeType *ntype = (blender::bke::bNodeTreeType *) \
+          BLI_ghashIterator_getValue(__node_tree_type_iter__);
 
 #define NODE_TREE_TYPES_END \
   } \
@@ -562,10 +565,11 @@ GHashIterator *nodeTypeGetIterator();
 /* Helper macros for iterating over node types. */
 #define NODE_TYPES_BEGIN(ntype) \
   { \
-    GHashIterator *__node_type_iter__ = nodeTypeGetIterator(); \
+    GHashIterator *__node_type_iter__ = blender::bke::nodeTypeGetIterator(); \
     for (; !BLI_ghashIterator_done(__node_type_iter__); \
          BLI_ghashIterator_step(__node_type_iter__)) { \
-      bNodeType *ntype = (bNodeType *)BLI_ghashIterator_getValue(__node_type_iter__);
+      blender::bke::bNodeType *ntype = (blender::bke::bNodeType *)BLI_ghashIterator_getValue( \
+          __node_type_iter__);
 
 #define NODE_TYPES_END \
   } \
@@ -587,12 +591,12 @@ const char *nodeStaticSocketLabel(int type, int subtype);
 /* Helper macros for iterating over node types. */
 #define NODE_SOCKET_TYPES_BEGIN(stype) \
   { \
-    GHashIterator *__node_socket_type_iter__ = nodeSocketTypeGetIterator(); \
+    GHashIterator *__node_socket_type_iter__ = blender::bke::nodeSocketTypeGetIterator(); \
     for (; !BLI_ghashIterator_done(__node_socket_type_iter__); \
          BLI_ghashIterator_step(__node_socket_type_iter__)) \
     { \
-      bNodeSocketType *stype = (bNodeSocketType *)BLI_ghashIterator_getValue( \
-          __node_socket_type_iter__);
+      blender::bke::bNodeSocketType *stype = (blender::bke::bNodeSocketType *) \
+          BLI_ghashIterator_getValue(__node_socket_type_iter__);
 
 #define NODE_SOCKET_TYPES_END \
   } \
@@ -600,7 +604,10 @@ const char *nodeStaticSocketLabel(int type, int subtype);
   } \
   ((void)0)
 
-bNodeSocket *nodeFindSocket(const bNode *node, eNodeSocketInOut in_out, const char *identifier);
+bNodeSocket *nodeFindSocket(bNode *node, eNodeSocketInOut in_out, StringRef identifier);
+const bNodeSocket *nodeFindSocket(const bNode *node,
+                                  eNodeSocketInOut in_out,
+                                  StringRef identifier);
 bNodeSocket *nodeAddSocket(bNodeTree *ntree,
                            bNode *node,
                            eNodeSocketInOut in_out,
@@ -822,12 +829,12 @@ bool BKE_node_tree_iter_step(NodeTreeIterStore *ntreeiter, bNodeTree **r_nodetre
 
 #define FOREACH_NODETREE_BEGIN(bmain, _nodetree, _id) \
   { \
-    NodeTreeIterStore _nstore; \
+    blender::bke::NodeTreeIterStore _nstore; \
     bNodeTree *_nodetree; \
     ID *_id; \
     /* avoid compiler warning about unused variables */ \
-    BKE_node_tree_iter_init(&_nstore, bmain); \
-    while (BKE_node_tree_iter_step(&_nstore, &_nodetree, &_id) == true) { \
+    blender::bke::BKE_node_tree_iter_init(&_nstore, bmain); \
+    while (blender::bke::BKE_node_tree_iter_step(&_nstore, &_nodetree, &_id) == true) { \
       if (_nodetree) {
 
 #define FOREACH_NODETREE_END \
@@ -1323,6 +1330,7 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, int layer_index
 #define GEO_NODE_TOOL_VIEWPORT_TRANSFORM 2132
 #define GEO_NODE_TOOL_MOUSE_POSITION 2133
 #define GEO_NODE_SAMPLE_GRID_INDEX 2134
+#define GEO_NODE_TOOL_ACTIVE_ELEMENT 2135
 
 /** \} */
 
@@ -1376,8 +1384,6 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, int layer_index
 
 void BKE_node_system_init();
 void BKE_node_system_exit();
-
-namespace blender::bke {
 
 bNodeTree *ntreeAddTreeEmbedded(Main *bmain, ID *owner_id, const char *name, const char *idname);
 
@@ -1633,8 +1639,6 @@ void node_preview_free(bNodePreview *preview);
 void node_preview_init_tree(bNodeTree *ntree, int xsize, int ysize);
 
 void node_preview_remove_unused(bNodeTree *ntree);
-
-void node_preview_clear(bNodePreview *preview);
 
 void node_preview_merge_tree(bNodeTree *to_ntree, bNodeTree *from_ntree, bool remove_old);
 

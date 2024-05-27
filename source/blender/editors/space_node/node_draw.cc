@@ -161,7 +161,7 @@ static bNodeTree *node_tree_from_ID(ID *id)
     if (GS(id->name) == ID_NT) {
       return (bNodeTree *)id;
     }
-    return ntreeFromID(id);
+    return blender::bke::ntreeFromID(id);
   }
 
   return nullptr;
@@ -1129,7 +1129,7 @@ static void node_draw_mute_line(const bContext &C,
   GPU_blend(GPU_BLEND_ALPHA);
 
   for (const bNodeLink &link : node.internal_links()) {
-    if (!nodeLinkIsHidden(&link)) {
+    if (!bke::nodeLinkIsHidden(&link)) {
       node_draw_link_bezier(C, v2d, snode, link, TH_WIRE_INNER, TH_WIRE_INNER, TH_WIRE, false);
     }
   }
@@ -1615,6 +1615,9 @@ static void create_inspection_string_for_default_socket_value(const bNodeSocket 
   if (socket.is_multi_input()) {
     return;
   }
+  if (socket.owner_node().is_reroute()) {
+    return;
+  }
   const Span<const bNodeSocket *> connected_sockets = socket.directly_linked_sockets();
   if (!connected_sockets.is_empty() && !connected_sockets[0]->owner_node().is_dangling_reroute()) {
     return;
@@ -1903,17 +1906,21 @@ static std::string node_socket_get_tooltip(const SpaceNode *snode,
   }
 
   if (inspection_strings.is_empty()) {
+    const bool is_extend = StringRef(socket.idname) == "NodeSocketVirtual";
     const bNode &node = socket.owner_node();
     if (node.is_reroute()) {
       char reroute_name[MAX_NAME];
       bke::nodeLabel(&ntree, &node, reroute_name, sizeof(reroute_name));
       output << reroute_name;
     }
+    else if (is_extend) {
+      output << TIP_("Connect a link to create a new socket");
+    }
     else {
       output << bke::nodeSocketLabel(&socket);
     }
 
-    if (ntree.type == NTREE_GEOMETRY) {
+    if (ntree.type == NTREE_GEOMETRY && !is_extend) {
       output << ".\n\n";
       output << TIP_(
           "Unknown socket value. Either the socket was not used or its value was not logged "
@@ -2744,7 +2751,7 @@ static bNodeInstanceKey current_node_instance_key(const SpaceNode &snode, const 
   /* Assume that the currently editing tree is the last in the path. */
   BLI_assert(snode.edittree == path->nodetree);
 
-  return BKE_node_instance_key(path->parent_key, snode.edittree, &node);
+  return bke::BKE_node_instance_key(path->parent_key, snode.edittree, &node);
 }
 
 static std::optional<std::chrono::nanoseconds> compositor_accumulate_frame_node_execution_time(
@@ -2981,6 +2988,41 @@ static void node_get_compositor_extra_info(TreeDrawContext &tree_draw_ctx,
   }
 }
 
+static void node_get_invalid_links_extra_info(const SpaceNode &snode,
+                                              const bNode &node,
+                                              Vector<NodeExtraInfoRow> &rows)
+{
+  const bNodeTree &tree = *snode.edittree;
+  const Span<bke::NodeLinkError> link_errors = tree.runtime->link_errors_by_target_node.lookup(
+      node.identifier);
+  if (link_errors.is_empty()) {
+    return;
+  }
+  NodeExtraInfoRow row;
+  row.text = IFACE_("Invalid Link");
+
+  row.tooltip_fn = [](bContext *C, void *arg, const char * /*tip*/) {
+    const bNodeTree &tree = *CTX_wm_space_node(C)->edittree;
+    const bNode &node = *static_cast<const bNode *>(arg);
+    const Span<bke::NodeLinkError> link_errors = tree.runtime->link_errors_by_target_node.lookup(
+        node.identifier);
+    std::stringstream ss;
+    Set<StringRef> already_added_errors;
+    for (const int i : link_errors.index_range()) {
+      const StringRefNull tooltip = link_errors[i].tooltip;
+      if (already_added_errors.add_as(tooltip)) {
+        ss << "\u2022 " << tooltip << "\n";
+      }
+    }
+    ss << "\n";
+    ss << "Any invalid links are highlighted";
+    return ss.str();
+  };
+  row.tooltip_fn_arg = const_cast<bNode *>(&node);
+  row.icon = ICON_ERROR;
+  rows.append(std::move(row));
+}
+
 static Vector<NodeExtraInfoRow> node_get_extra_info(const bContext &C,
                                                     TreeDrawContext &tree_draw_ctx,
                                                     const SpaceNode &snode,
@@ -3000,6 +3042,8 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const bContext &C,
     row.tooltip = TIP_(node.typeinfo->deprecation_notice);
     rows.append(std::move(row));
   }
+
+  node_get_invalid_links_extra_info(snode, node, rows);
 
   if (snode.edittree->type == NTREE_COMPOSIT) {
     node_get_compositor_extra_info(tree_draw_ctx, snode, node, rows);
@@ -3101,7 +3145,13 @@ static void node_draw_extra_info_row(const bNode &node,
                              nullptr,
                              0,
                              0,
-                             "");
+                             extra_info_row.tooltip);
+
+  if (extra_info_row.tooltip_fn != nullptr) {
+    /* Don't pass tooltip free function because it's already used on the uiBut above. */
+    UI_but_func_tooltip_set(
+        but_text, extra_info_row.tooltip_fn, extra_info_row.tooltip_fn_arg, nullptr);
+  }
 
   if (node.flag & NODE_MUTED) {
     UI_but_flag_enable(but_text, UI_BUT_INACTIVE);
@@ -3258,7 +3308,7 @@ static void node_draw_basis(const bContext &C,
     bool drawn_with_previews = false;
 
     if (show_preview) {
-      bNodeInstanceHash *previews_compo = static_cast<bNodeInstanceHash *>(
+      bke::bNodeInstanceHash *previews_compo = static_cast<bke::bNodeInstanceHash *>(
           CTX_data_pointer_get(&C, "node_previews").data);
       NestedTreePreviews *previews_shader = tree_draw_ctx.nested_group_infos;
 
@@ -3270,7 +3320,7 @@ static void node_draw_basis(const bContext &C,
       }
       else if (previews_compo) {
         bNodePreview *preview_compositor = static_cast<bNodePreview *>(
-            BKE_node_instance_hash_lookup(previews_compo, key));
+            bke::BKE_node_instance_hash_lookup(previews_compo, key));
         if (preview_compositor) {
           node_draw_extra_info_panel(
               C, tree_draw_ctx, snode, node, preview_compositor->ibuf, block);
@@ -4370,7 +4420,7 @@ static void node_draw_nodetree(const bContext &C,
       continue;
     }
 
-    const bNodeInstanceKey key = BKE_node_instance_key(parent_key, &ntree, nodes[i]);
+    const bNodeInstanceKey key = bke::BKE_node_instance_key(parent_key, &ntree, nodes[i]);
     node_draw(C, tree_draw_ctx, region, snode, ntree, *nodes[i], *blocks[i], key);
   }
 
@@ -4379,14 +4429,14 @@ static void node_draw_nodetree(const bContext &C,
   nodelink_batch_start(snode);
 
   for (const bNodeLink *link : ntree.all_links()) {
-    if (!nodeLinkIsHidden(link) && !bke::nodeLinkIsSelected(link)) {
+    if (!bke::nodeLinkIsHidden(link) && !bke::nodeLinkIsSelected(link)) {
       node_draw_link(C, region.v2d, snode, *link, false);
     }
   }
 
   /* Draw selected node links after the unselected ones, so they are shown on top. */
   for (const bNodeLink *link : ntree.all_links()) {
-    if (!nodeLinkIsHidden(link) && bke::nodeLinkIsSelected(link)) {
+    if (!bke::nodeLinkIsHidden(link) && bke::nodeLinkIsSelected(link)) {
       node_draw_link(C, region.v2d, snode, *link, true);
     }
   }
@@ -4400,7 +4450,7 @@ static void node_draw_nodetree(const bContext &C,
       continue;
     }
 
-    const bNodeInstanceKey key = BKE_node_instance_key(parent_key, &ntree, nodes[i]);
+    const bNodeInstanceKey key = bke::BKE_node_instance_key(parent_key, &ntree, nodes[i]);
     node_draw(C, tree_draw_ctx, region, snode, ntree, *nodes[i], *blocks[i], key);
   }
 }
@@ -4456,9 +4506,7 @@ static bool realtime_compositor_is_in_use(const bContext &context)
     return false;
   }
 
-  if (U.experimental.use_full_frame_compositor &&
-      scene->nodetree->execution_mode == NTREE_EXECUTION_MODE_GPU)
-  {
+  if (scene->r.compositor_device == SCE_COMPOSITOR_DEVICE_GPU) {
     return true;
   }
 
@@ -4655,7 +4703,7 @@ void node_draw_space(const bContext &C, ARegion &region)
   else {
 
     /* Backdrop. */
-    draw_nodespace_back_pix(C, region, snode, NODE_INSTANCE_KEY_NONE);
+    draw_nodespace_back_pix(C, region, snode, bke::NODE_INSTANCE_KEY_NONE);
   }
 
   ED_region_draw_cb_draw(&C, &region, REGION_DRAW_POST_VIEW);

@@ -1517,7 +1517,7 @@ void ui_icon_ensure_deferred(const bContext *C, const int icon_id, const bool bi
       if (prv) {
         const int size = big ? ICON_SIZE_PREVIEW : ICON_SIZE_ICON;
 
-        if (id || (prv->tag & PRV_TAG_DEFFERED) != 0) {
+        if (id || prv->runtime->deferred_loading_data) {
           ui_id_preview_image_render_size(C, nullptr, id, prv, size, use_jobs);
         }
       }
@@ -2519,8 +2519,6 @@ int UI_icon_from_idcode(const int idcode)
   switch ((ID_Type)idcode) {
     case ID_AC:
       return ICON_ACTION;
-    case ID_AN:
-      return ICON_ACTION; /* TODO: give Animation its own icon. */
     case ID_AR:
       return ICON_ARMATURE_DATA;
     case ID_BR:

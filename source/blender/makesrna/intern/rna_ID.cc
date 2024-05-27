@@ -34,7 +34,6 @@
  */
 const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_AC, "ACTION", ICON_ACTION, "Action", ""},
-    {ID_AN, "ANIMATION", ICON_ACTION, "Animation", ""}, /* TODO: give Animation its own icon. */
     {ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
     {ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
     {ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
@@ -123,9 +122,6 @@ static const EnumPropertyItem rna_enum_override_library_property_operation_items
 const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
     /* Datablocks */
     {FILTER_ID_AC, "filter_action", ICON_ACTION, "Actions", "Show Action data-blocks"},
-#ifdef WITH_ANIM_BAKLAVA
-    {FILTER_ID_AN, "filter_animation", ICON_ACTION, "Animations", "Show Animation data-blocks"},
-#endif
     {FILTER_ID_AR,
      "filter_armature",
      ICON_ARMATURE_DATA,
@@ -290,7 +286,7 @@ void rna_ID_name_set(PointerRNA *ptr, const char *value)
 {
   ID *id = (ID *)ptr->data;
   BLI_assert(BKE_id_is_in_global_main(id));
-  BLI_assert(!ID_IS_LINKED(id));
+  BLI_assert(ID_IS_EDITABLE(id));
 
   BKE_libblock_rename(G_MAIN, id, value);
 
@@ -309,7 +305,7 @@ static int rna_ID_name_editable(const PointerRNA *ptr, const char **r_info)
   /* NOTE: For the time being, allow rename of local liboverrides from the RNA API.
    *       While this is not allowed from the UI, this should work with modern liboverride code,
    *       and could be useful in some cases. */
-  if (ID_IS_LINKED(id)) {
+  if (!ID_IS_EDITABLE(id)) {
     if (r_info) {
       *r_info = N_("Linked data-blocks cannot be renamed");
     }
@@ -378,11 +374,6 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == &RNA_Action) {
     return ID_AC;
   }
-#  ifdef WITH_ANIM_BAKLAVA
-  if (base_type == &RNA_Animation) {
-    return ID_AN;
-  }
-#  endif
   if (base_type == &RNA_Armature) {
     return ID_AR;
   }
@@ -505,11 +496,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
   switch ((ID_Type)idcode) {
     case ID_AC:
       return &RNA_Action;
-    case ID_AN:
-#  ifdef WITH_ANIM_BAKLAVA
-      return &RNA_Animation;
-#  endif
-      break;
     case ID_AR:
       return &RNA_Armature;
     case ID_BR:
@@ -638,6 +624,12 @@ bool rna_ID_is_runtime_get(PointerRNA *ptr)
   }
 
   return (id->tag & LIB_TAG_RUNTIME) != 0;
+}
+
+bool rna_ID_is_editable_get(PointerRNA *ptr)
+{
+  ID *id = (ID *)ptr->data;
+  return ID_IS_EDITABLE(id);
 }
 
 void rna_ID_fake_user_set(PointerRNA *ptr, bool value)
@@ -1069,8 +1061,7 @@ static void rna_ID_update_tag(ID *id, Main *bmain, ReportList *reports, int flag
         allow_flag = OB_RECALC_ALL | PSYS_RECALC;
         break;
 #  endif
-      case ID_AC: /* Fall-through. */
-      case ID_AN:
+      case ID_AC:
         allow_flag = ID_RECALC_ANIMATION;
         break;
       default:
@@ -1110,10 +1101,16 @@ static void rna_ID_user_remap(ID *id, Main *bmain, ID *new_id)
   }
 }
 
-static ID *rna_ID_make_local(ID *self, Main *bmain, bool /*clear_proxy*/, bool clear_liboverride)
+static ID *rna_ID_make_local(
+    ID *self, Main *bmain, bool /*clear_proxy*/, bool clear_liboverride, bool clear_asset_data)
 {
   if (ID_IS_LINKED(self)) {
-    BKE_lib_id_make_local(bmain, self, 0);
+    int flags = 0;
+    if (clear_asset_data) {
+      flags |= LIB_ID_MAKELOCAL_ASSET_DATA_CLEAR;
+    }
+
+    BKE_lib_id_make_local(bmain, self, flags);
   }
   else if (ID_IS_OVERRIDE_LIBRARY_REAL(self)) {
     BKE_lib_override_library_make_local(bmain, self);
@@ -2302,6 +2299,14 @@ static void rna_def_ID(BlenderRNA *brna)
                            "file. Note that e.g. evaluated IDs are always runtime, so this value "
                            "is only editable for data-blocks in Main data-base");
 
+  prop = RNA_def_property(srna, "is_editable", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_ID_is_editable_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop,
+                           "Editable",
+                           "This data-block is editable in the user interface. Linked datablocks "
+                           "are not editable, except if they were loaded as editable assets");
+
   prop = RNA_def_property(srna, "tag", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "tag", LIB_TAG_DOIT);
   RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
@@ -2459,6 +2464,13 @@ static void rna_def_ID(BlenderRNA *brna)
                          false,
                          "",
                          "Remove potential library override data from the newly made local data");
+  RNA_def_boolean(
+      func,
+      "clear_asset_data",
+      true,
+      "",
+      "Remove potential asset metadata so the newly local data-block is not treated as asset "
+      "data-block and won't show up in asset libraries");
   parm = RNA_def_pointer(func, "id", "ID", "", "This ID, or the new ID if it was copied");
   RNA_def_function_return(func, parm);
 
@@ -2554,6 +2566,14 @@ static void rna_def_library(BlenderRNA *brna)
                            "True if this library contains library overrides that are linked in "
                            "current blendfile, and that had to be recursively resynced on load "
                            "(it is recommended to open and re-save that library blendfile then)");
+
+  prop = RNA_def_property(srna, "is_editable", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "runtime.tag", LIBRARY_ASSET_EDITABLE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop,
+                           "Editable",
+                           "Datablocks in this library are editable despite being linked. Used by "
+                           "brush assets and their dependencies");
 
   func = RNA_def_function(srna, "reload", "rna_Library_reload");
   RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_CONTEXT);

@@ -1309,14 +1309,14 @@ static PointerRNA rna_View3DShading_selected_studio_light_get(PointerRNA *ptr)
   View3DShading *shading = (View3DShading *)ptr->data;
   StudioLight *sl;
   if (shading->type == OB_SOLID && shading->light == V3D_LIGHTING_MATCAP) {
-    sl = BKE_studiolight_find(shading->matcap, STUDIOLIGHT_FLAG_ALL);
+    sl = BKE_studiolight_find(shading->matcap, STUDIOLIGHT_TYPE_MATCAP);
   }
   else if (shading->type == OB_SOLID && shading->light == V3D_LIGHTING_STUDIO) {
-    sl = BKE_studiolight_find(shading->studio_light, STUDIOLIGHT_FLAG_ALL);
+    sl = BKE_studiolight_find(shading->studio_light, STUDIOLIGHT_TYPE_STUDIO);
   }
   else {
     /* OB_MATERIAL and OB_RENDER */
-    sl = BKE_studiolight_find(shading->lookdev_light, STUDIOLIGHT_FLAG_ALL);
+    sl = BKE_studiolight_find(shading->lookdev_light, STUDIOLIGHT_TYPE_WORLD);
   }
   return rna_pointer_inherit_refine(ptr, &RNA_StudioLight, sl);
 }
@@ -2657,7 +2657,7 @@ static void rna_SpaceNodeEditor_tree_type_set(PointerRNA *ptr, int value)
   SpaceNode *snode = (SpaceNode *)ptr->data;
   ED_node_set_tree_type(snode, rna_node_tree_type_from_enum(value));
 }
-static bool rna_SpaceNodeEditor_tree_type_poll(void *Cv, bNodeTreeType *type)
+static bool rna_SpaceNodeEditor_tree_type_poll(void *Cv, blender::bke::bNodeTreeType *type)
 {
   bContext *C = (bContext *)Cv;
   if (type->poll) {
@@ -3505,11 +3505,7 @@ static const EnumPropertyItem dt_uv_items[] = {
 static IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[] = {
     /* Categories */
     {FILTER_ID_SCE, "category_scene", ICON_SCENE_DATA, "Scenes", "Show scenes"},
-    {FILTER_ID_AC | FILTER_ID_AN,
-     "category_animation",
-     ICON_ANIM_DATA,
-     "Animations",
-     "Show animation data"},
+    {FILTER_ID_AC, "category_animation", ICON_ANIM_DATA, "Animations", "Show animation data"},
     {FILTER_ID_OB | FILTER_ID_GR,
      "category_object",
      ICON_OUTLINER_COLLECTION,

@@ -9,6 +9,7 @@
 #include "BKE_curves.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_material.h"
+#include "BKE_paint.hh"
 #include "BKE_scene.hh"
 
 #include "BLI_color.hh"
@@ -154,7 +155,7 @@ struct PaintOperationExecutor {
   BrushGpencilSettings *settings_;
   std::optional<ColorGeometry4f> vertex_color_;
   std::optional<ColorGeometry4f> fill_color_;
-  float hardness_;
+  float softness_;
 
   bke::greasepencil::Drawing *drawing_;
 
@@ -181,8 +182,7 @@ struct PaintOperationExecutor {
                         std::make_optional(color_base) :
                         std::nullopt;
     }
-    /* TODO: UI setting. */
-    hardness_ = 1.0f;
+    softness_ = 0.0f;
 
     BLI_assert(grease_pencil->has_active_layer());
     drawing_ = grease_pencil->get_editable_drawing_at(*grease_pencil->get_active_layer(),
@@ -300,13 +300,13 @@ struct PaintOperationExecutor {
           return {"curve_type",
                   "material_index",
                   "cyclic",
-                  "hardness",
+                  "softness",
                   "start_cap",
                   "end_cap",
                   "fill_color"};
         }
         else {
-          return {"curve_type", "material_index", "cyclic", "hardness", "start_cap", "end_cap"};
+          return {"curve_type", "material_index", "cyclic", "softness", "start_cap", "end_cap"};
         }
       default:
         return {};
@@ -320,14 +320,18 @@ struct PaintOperationExecutor {
                             const int material_index)
   {
     const float2 start_coords = start_sample.mouse_position;
-    ViewContext vc = ED_view3d_viewcontext_init(const_cast<bContext *>(&C),
-                                                CTX_data_depsgraph_pointer(&C));
+    const RegionView3D *rv3d = CTX_wm_region_view3d(&C);
+    const ARegion *region = CTX_wm_region(&C);
+
+    const float3 start_location = self.placement_.project(start_coords);
     const float start_radius = ed::greasepencil::radius_from_input_sample(
-        start_sample.pressure,
-        self.placement_.project(start_sample.mouse_position),
-        vc,
-        brush_,
+        rv3d,
+        region,
         scene_,
+        brush_,
+        start_sample.pressure,
+        start_location,
+        self.placement_.to_world_space(),
         settings_);
     const float start_opacity = ed::greasepencil::opacity_from_input_sample(
         start_sample.pressure, brush_, scene_, settings_);
@@ -347,7 +351,7 @@ struct PaintOperationExecutor {
     const IndexRange curve_points = curves.points_by_curve()[active_curve];
     const int last_active_point = curve_points.last();
 
-    curves.positions_for_write()[last_active_point] = self.placement_.project(start_coords);
+    curves.positions_for_write()[last_active_point] = start_location;
     drawing_->radii_for_write()[last_active_point] = start_radius;
     drawing_->opacities_for_write()[last_active_point] = start_opacity;
     if (vertex_color_) {
@@ -362,13 +366,11 @@ struct PaintOperationExecutor {
         "material_index", bke::AttrDomain::Curve);
     bke::SpanAttributeWriter<bool> cyclic = attributes.lookup_or_add_for_write_span<bool>(
         "cyclic", bke::AttrDomain::Curve);
-    bke::SpanAttributeWriter<float> hardnesses = attributes.lookup_or_add_for_write_span<float>(
-        "hardness",
-        bke::AttrDomain::Curve,
-        bke::AttributeInitVArray(VArray<float>::ForSingle(1.0f, curves.curves_num())));
+    bke::SpanAttributeWriter<float> softness = attributes.lookup_or_add_for_write_span<float>(
+        "softness", bke::AttrDomain::Curve);
     cyclic.span[active_curve] = false;
     materials.span[active_curve] = material_index;
-    hardnesses.span[active_curve] = hardness_;
+    softness.span[active_curve] = softness_;
 
     /* Only set the attribute if the type is not the default or if it already exists. */
     if (settings_->caps_type != GP_STROKE_CAP_TYPE_ROUND || attributes.contains("start_cap")) {
@@ -387,7 +389,7 @@ struct PaintOperationExecutor {
 
     cyclic.finish();
     materials.finish();
-    hardnesses.finish();
+    softness.finish();
 
     curves.curve_types_for_write()[active_curve] = CURVE_TYPE_POLY;
     curves.update_curve_types();
@@ -493,14 +495,18 @@ struct PaintOperationExecutor {
                                 const InputSample &extension_sample)
   {
     const float2 coords = extension_sample.mouse_position;
-    ViewContext vc = ED_view3d_viewcontext_init(const_cast<bContext *>(&C),
-                                                CTX_data_depsgraph_pointer(&C));
+    const RegionView3D *rv3d = CTX_wm_region_view3d(&C);
+    const ARegion *region = CTX_wm_region(&C);
+
+    const float3 position = self.placement_.project(coords);
     const float radius = ed::greasepencil::radius_from_input_sample(
-        extension_sample.pressure,
-        self.placement_.project(extension_sample.mouse_position),
-        vc,
-        brush_,
+        rv3d,
+        region,
         scene_,
+        brush_,
+        extension_sample.pressure,
+        position,
+        self.placement_.to_world_space(),
         settings_);
     const float opacity = ed::greasepencil::opacity_from_input_sample(
         extension_sample.pressure, brush_, scene_, settings_);
@@ -526,7 +532,7 @@ struct PaintOperationExecutor {
     if (math::distance(coords, prev_coords) < POINT_OVERRIDE_THRESHOLD_PX) {
       /* Don't move the first point of the stroke. */
       if (!is_first_sample) {
-        curves.positions_for_write()[last_active_point] = self.placement_.project(coords);
+        curves.positions_for_write()[last_active_point] = position;
       }
       drawing_->radii_for_write()[last_active_point] = math::max(radius, prev_radius);
       drawing_->opacities_for_write()[last_active_point] = math::max(opacity, prev_opacity);
@@ -626,7 +632,7 @@ void PaintOperation::on_stroke_begin(const bContext &C, const InputSample &start
 
   const bke::greasepencil::Layer &layer = *grease_pencil->get_active_layer();
   /* Initialize helper class for projecting screen space coordinates. */
-  placement_ = ed::greasepencil::DrawingPlacement(*scene, *region, *view3d, *eval_object, layer);
+  placement_ = ed::greasepencil::DrawingPlacement(*scene, *region, *view3d, *eval_object, &layer);
   if (placement_.use_project_to_surface()) {
     placement_.cache_viewport_depths(CTX_data_depsgraph_pointer(&C), region, view3d);
   }
@@ -853,12 +859,9 @@ void PaintOperation::on_stroke_done(const bContext &C)
   /* Grease Pencil should have an active layer. */
   BLI_assert(grease_pencil.has_active_layer());
   bke::greasepencil::Layer &active_layer = *grease_pencil.get_active_layer();
-  const int drawing_index = active_layer.drawing_index_at(scene->r.cfra);
-
   /* Drawing should exist. */
-  BLI_assert(drawing_index >= 0);
-  bke::greasepencil::Drawing &drawing =
-      reinterpret_cast<GreasePencilDrawing *>(grease_pencil.drawing(drawing_index))->wrap();
+  bke::greasepencil::Drawing &drawing = *grease_pencil.get_editable_drawing_at(active_layer,
+                                                                               scene->r.cfra);
 
   const float simplifiy_threshold_px = 0.5f;
   this->simplify_stroke(C, drawing, simplifiy_threshold_px);

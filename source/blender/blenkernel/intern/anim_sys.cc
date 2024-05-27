@@ -327,7 +327,7 @@ void BKE_keyingsets_blend_read_data(BlendDataReader *reader, ListBase *list)
 /* ***************************************** */
 /* Evaluation Data-Setting Backend */
 
-static bool is_fcurve_evaluatable(FCurve *fcu)
+static bool is_fcurve_evaluatable(const FCurve *fcu)
 {
   if (fcu->flag & (FCURVE_MUTED | FCURVE_DISABLED)) {
     return false;
@@ -2615,7 +2615,7 @@ static void nlasnapshot_from_action(PointerRNA *ptr,
   const float modified_evaltime = evaluate_time_fmodifiers(
       &storage, modifiers, nullptr, 0.0f, evaltime);
 
-  LISTBASE_FOREACH (FCurve *, fcu, &action->curves) {
+  LISTBASE_FOREACH (const FCurve *, fcu, &action->curves) {
     if (!is_fcurve_evaluatable(fcu)) {
       continue;
     }
@@ -3087,7 +3087,7 @@ static void nla_eval_domain_action(PointerRNA *ptr,
     return;
   }
 
-  LISTBASE_FOREACH (FCurve *, fcu, &act->curves) {
+  LISTBASE_FOREACH (const FCurve *, fcu, &act->curves) {
     /* check if this curve should be skipped */
     if (!is_fcurve_evaluatable(fcu)) {
       continue;
@@ -3927,24 +3927,21 @@ void BKE_animsys_evaluate_animdata(ID *id,
    */
   /* TODO: need to double check that this all works correctly */
   if (recalc & ADT_RECALC_ANIM) {
-    if (adt->animation && adt->binding_handle) {
-      /* Animation data-blocks take precedence over the old Action + NLA system. */
-      blender::animrig::evaluate_and_apply_animation(id_ptr,
-                                                     adt->animation->wrap(),
-                                                     adt->binding_handle,
-                                                     *anim_eval_context,
-                                                     flush_to_original);
+    /* evaluate NLA data */
+    if ((adt->nla_tracks.first) && !(adt->flag & ADT_NLA_EVAL_OFF)) {
+      /* evaluate NLA-stack
+       * - active action is evaluated as part of the NLA stack as the last item
+       */
+      animsys_calculate_nla(&id_ptr, adt, anim_eval_context, flush_to_original);
     }
-    else {
-      /* evaluate NLA data */
-      if ((adt->nla_tracks.first) && !(adt->flag & ADT_NLA_EVAL_OFF)) {
-        /* evaluate NLA-stack
-         * - active action is evaluated as part of the NLA stack as the last item
-         */
-        animsys_calculate_nla(&id_ptr, adt, anim_eval_context, flush_to_original);
+    /* evaluate Active Action only */
+    else if (adt->action) {
+      blender::animrig::Action &action = adt->action->wrap();
+      if (action.is_action_layered()) {
+        blender::animrig::evaluate_and_apply_animation(
+            id_ptr, action, adt->binding_handle, *anim_eval_context, flush_to_original);
       }
-      /* evaluate Active Action only */
-      else if (adt->action) {
+      else {
         animsys_evaluate_action(&id_ptr, adt->action, anim_eval_context, flush_to_original);
       }
     }

@@ -462,7 +462,7 @@ uint64_t BKE_library_id_can_use_filter_id(const ID *owner_id,
   /* Casting to non const.
    * TODO(jbakker): We should introduce a ntree_id_has_tree function as we are actually not
    * interested in the result. */
-  if (ntreeFromID(const_cast<ID *>(owner_id))) {
+  if (blender::bke::ntreeFromID(const_cast<ID *>(owner_id))) {
     return FILTER_ID_ALL;
   }
 
@@ -753,7 +753,8 @@ static bool lib_query_unused_ids_tag_recurse(ID *id, UnusedIDsData &data)
     return false;
   }
 
-  if (ELEM(GS(id->name), ID_WM, ID_WS, ID_SCE, ID_SCR, ID_LI)) {
+  const IDTypeInfo *id_type = BKE_idtype_get_info_from_id(id);
+  if (id_type->flags & IDTYPE_FLAGS_NEVER_UNUSED) {
     /* Some 'root' ID types are never unused (even though they may not have actual users), unless
      * their actual user-count is set to 0. */
     id_relations->tags |= MAINIDRELATIONS_ENTRY_TAGS_PROCESSED;

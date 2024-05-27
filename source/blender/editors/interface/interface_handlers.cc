@@ -3114,8 +3114,9 @@ static void ui_textedit_set_cursor_pos(uiBut *but, uiHandleButtonData *data, con
   }
   /* mouse inside the widget, mouse coords mapped in widget space */
   else {
-    but->pos = but->ofs + BLF_str_offset_from_cursor_position(
-                              fstyle.uifont_id, str + but->ofs, INT_MAX, int(x - startx));
+    but->pos = but->ofs +
+               BLF_str_offset_from_cursor_position(
+                   fstyle.uifont_id, str + but->ofs, strlen(str + but->ofs), int(x - startx));
   }
 
   ui_but_text_password_hide(password_str, but, true);
@@ -4048,6 +4049,8 @@ static void ui_do_but_textedit(
 
   if (changed || (retval == WM_UI_HANDLER_BREAK)) {
     ED_region_tag_redraw(data->region);
+    /* In case of popup regions, tag for popup refreshing too (contents may have changed). */
+    ED_region_tag_refresh_ui(data->region);
   }
 }
 
@@ -4336,7 +4339,8 @@ static void ui_block_open_begin(bContext *C, uiBut *but, uiHandleButtonData *dat
   }
 
   if (func || handlefunc) {
-    data->menu = ui_popup_block_create(C, data->region, but, func, handlefunc, arg, nullptr);
+    data->menu = ui_popup_block_create(
+        C, data->region, but, func, handlefunc, arg, nullptr, false);
     if (but->block->handle) {
       data->menu->popup = but->block->handle->popup;
     }
@@ -10120,7 +10124,7 @@ static void ui_menu_scroll_apply_offset_y(ARegion *region, uiBlock *block, float
   /* remember scroll offset for refreshes */
   block->handle->scrolloffset += dy;
   /* Apply popup scroll delta to layout panels too. */
-  UI_layout_panel_popup_scroll_apply(block->panel, dy);
+  ui_layout_panel_popup_scroll_apply(block->panel, dy);
 
   /* apply scroll offset */
   LISTBASE_FOREACH (uiBut *, bt, &block->buttons) {
@@ -11425,7 +11429,7 @@ static int ui_handle_menus_recursive(bContext *C,
           C, event, submenu, level + 1, is_parent_inside || inside, is_menu, false);
     }
   }
-  else if (event->val == KM_PRESS && event->type == LEFTMOUSE) {
+  else if (!but && event->val == KM_PRESS && event->type == LEFTMOUSE) {
     LISTBASE_FOREACH (uiBlock *, block, &menu->region->uiblocks) {
       if (block->panel) {
         int mx = event->xy[0];
@@ -11434,11 +11438,16 @@ static int ui_handle_menus_recursive(bContext *C,
         if (!IN_RANGE(float(mx), block->rect.xmin, block->rect.xmax)) {
           break;
         }
-        LayoutPanelHeader *header = UI_layout_panel_header_under_mouse(*block->panel, my);
+        LayoutPanelHeader *header = ui_layout_panel_header_under_mouse(*block->panel, my);
         if (header) {
           ED_region_tag_redraw(menu->region);
           ED_region_tag_refresh_ui(menu->region);
-          UI_panel_drag_collapse_handler_add(C, !UI_layout_panel_toggle_open(C, header));
+          ARegion *prev_region_popup = CTX_wm_region_popup(C);
+          /* Set the current context popup region so the handler context can access to it. */
+          CTX_wm_region_popup_set(C, menu->region);
+          ui_panel_drag_collapse_handler_add(C, !ui_layout_panel_toggle_open(C, header));
+          /* Restore previous popup region. */
+          CTX_wm_region_popup_set(C, prev_region_popup);
           retval = WM_UI_HANDLER_BREAK;
         }
       }
@@ -11503,6 +11512,8 @@ static int ui_handle_menus_recursive(bContext *C,
   if (!menu->retvalue) {
     ui_handle_viewlist_items_hover(event, menu->region);
   }
+  /* Handle mouse clicks on overlapping view item button. */
+  ui_handle_view_item_event(C, event, but, menu->region);
 
   if (do_towards_reinit) {
     ui_mouse_motion_towards_reinit(menu, event->xy);

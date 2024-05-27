@@ -792,7 +792,7 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
 {
   bool ok = false;
 
-  if (ELEM(nullptr, ob, ob->data) || ID_IS_LINKED(ob) || ID_IS_OVERRIDE_LIBRARY(ob) ||
+  if (ELEM(nullptr, ob, ob->data) || !ID_IS_EDITABLE(ob) || ID_IS_OVERRIDE_LIBRARY(ob) ||
       ID_IS_OVERRIDE_LIBRARY(ob->data))
   {
     return false;
@@ -972,7 +972,7 @@ static bool editmode_toggle_poll(bContext *C)
   Object *ob = CTX_data_active_object(C);
 
   /* Covers liboverrides too. */
-  if (ELEM(nullptr, ob, ob->data) || ID_IS_LINKED(ob->data) || ID_IS_OVERRIDE_LIBRARY(ob) ||
+  if (ELEM(nullptr, ob, ob->data) || !ID_IS_EDITABLE(ob->data) || ID_IS_OVERRIDE_LIBRARY(ob) ||
       ID_IS_OVERRIDE_LIBRARY(ob->data))
   {
     return false;
@@ -1520,9 +1520,9 @@ static int object_clear_paths_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string object_clear_paths_description(bContext * /*C*/,
-                                                  wmOperatorType * /*ot*/,
-                                                  PointerRNA *ptr)
+static std::string object_clear_paths_get_description(bContext * /*C*/,
+                                                      wmOperatorType * /*ot*/,
+                                                      PointerRNA *ptr)
 {
   const bool only_selected = RNA_boolean_get(ptr, "only_selected");
   if (only_selected) {
@@ -1540,7 +1540,7 @@ void OBJECT_OT_paths_clear(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = object_clear_paths_exec;
   ot->poll = ED_operator_object_active_editable;
-  ot->get_description = object_clear_paths_description;
+  ot->get_description = object_clear_paths_get_description;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -2129,7 +2129,7 @@ static int move_to_collection_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ID_IS_LINKED(collection) || ID_IS_OVERRIDE_LIBRARY(collection)) {
+  if (!ID_IS_EDITABLE(collection) || ID_IS_OVERRIDE_LIBRARY(collection)) {
     BKE_report(
         op->reports, RPT_ERROR, "Cannot add objects to a library override or linked collection");
     return OPERATOR_CANCELLED;

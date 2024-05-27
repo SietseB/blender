@@ -372,6 +372,7 @@ float ambient_occlusion_eval(vec3 normal,
                     max_distance,
                     uniform_buf.ao.thickness,
                     uniform_buf.ao.angle_bias,
+                    2,
                     10,
                     inverted != 0.0);
 
@@ -633,7 +634,7 @@ vec3 displacement_bump()
 void fragment_displacement()
 {
 #ifdef MAT_DISPLACEMENT_BUMP
-  g_data.N = displacement_bump();
+  g_data.N = g_data.Ni = displacement_bump();
 #endif
 }
 

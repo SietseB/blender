@@ -100,7 +100,7 @@ gpu::MTLTexture::~MTLTexture()
 {
   /* Unbind if bound. */
   if (is_bound_) {
-    MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+    MTLContext *ctx = MTLContext::get();
     if (ctx != nullptr) {
       ctx->state_manager->texture_unbind(this);
     }
@@ -375,7 +375,7 @@ void gpu::MTLTexture::blit(gpu::MTLTexture *dst,
 
   GPUShader *shader = fullscreen_blit_sh_get();
   BLI_assert(shader != nullptr);
-  BLI_assert(GPU_context_active_get());
+  BLI_assert(MTLContext::get());
 
   /* Fetch restore framebuffer and blit target framebuffer from destination texture. */
   GPUFrameBuffer *restore_fb = GPU_framebuffer_active_get();
@@ -491,7 +491,7 @@ void gpu::MTLTexture::update_sub(
     int mip, int offset[3], int extent[3], eGPUDataFormat type, const void *data)
 {
   /* Fetch active context. */
-  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  MTLContext *ctx = MTLContext::get();
   BLI_assert(ctx);
 
   /* Do not update texture view. */
@@ -541,21 +541,27 @@ void gpu::MTLTexture::update_sub(
                                     extent[0] :
                                     ctx->pipeline_state.unpack_row_length);
 
-    /* Ensure calculated total size isn't larger than remaining image data size */
-    switch (this->dimensions_count()) {
-      case 1:
-        totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1);
-        break;
-      case 2:
-        totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1) * (size_t)extent[1];
-        break;
-      case 3:
-        totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1) * (size_t)extent[1] *
-                    (size_t)extent[2];
-        break;
-      default:
-        BLI_assert(false);
-        break;
+    /* Ensure calculated total size isn't larger than remaining image data size. */
+    if (is_compressed) {
+      /* Calculate size requirement for incoming compressed texture data. */
+      totalsize = ((expected_update_w + 3) / 4) * ((extent[1] + 3) / 4) * to_block_size(format_);
+    }
+    else {
+      switch (this->dimensions_count()) {
+        case 1:
+          totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1);
+          break;
+        case 2:
+          totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1) * (size_t)extent[1];
+          break;
+        case 3:
+          totalsize = input_bytes_per_pixel * max_ulul(expected_update_w, 1) * (size_t)extent[1] *
+                      (size_t)extent[2];
+          break;
+        default:
+          BLI_assert(false);
+          break;
+      }
     }
 
     /* Early exit if update size is zero. update_sub sometimes has a zero-sized
@@ -798,7 +804,7 @@ void gpu::MTLTexture::update_sub(
             MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
             cs.bind_pso(pso);
             cs.bind_compute_bytes(&params, sizeof(params), 0);
-            cs.bind_compute_buffer(staging_buffer, 0, 1, true);
+            cs.bind_compute_buffer(staging_buffer, 0, 1);
             cs.bind_compute_texture(texture_handle, 0);
             [compute_encoder
                       dispatchThreads:MTLSizeMake(extent[0], 1, 1) /* Width, Height, Layer */
@@ -818,7 +824,7 @@ void gpu::MTLTexture::update_sub(
             MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
             cs.bind_pso(pso);
             cs.bind_compute_bytes(&params, sizeof(params), 0);
-            cs.bind_compute_buffer(staging_buffer, 0, 1, true);
+            cs.bind_compute_buffer(staging_buffer, 0, 1);
             cs.bind_compute_texture(texture_handle, 0);
             [compute_encoder
                       dispatchThreads:MTLSizeMake(extent[0], extent[1], 1) /* Width, layers, nil */
@@ -885,7 +891,7 @@ void gpu::MTLTexture::update_sub(
             MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
             cs.bind_pso(pso);
             cs.bind_compute_bytes(&params, sizeof(params), 0);
-            cs.bind_compute_buffer(staging_buffer, 0, 1, true);
+            cs.bind_compute_buffer(staging_buffer, 0, 1);
             cs.bind_compute_texture(texture_handle, 0);
             [compute_encoder
                       dispatchThreads:MTLSizeMake(
@@ -906,7 +912,7 @@ void gpu::MTLTexture::update_sub(
             MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
             cs.bind_pso(pso);
             cs.bind_compute_bytes(&params, sizeof(params), 0);
-            cs.bind_compute_buffer(staging_buffer, 0, 1, true);
+            cs.bind_compute_buffer(staging_buffer, 0, 1);
             cs.bind_compute_texture(texture_handle, 0);
             [compute_encoder dispatchThreads:MTLSizeMake(extent[0],
                                                          extent[1],
@@ -949,7 +955,7 @@ void gpu::MTLTexture::update_sub(
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(staging_buffer, 0, 1, true);
+          cs.bind_compute_buffer(staging_buffer, 0, 1);
           cs.bind_compute_texture(texture_handle, 0);
           [compute_encoder
                     dispatchThreads:MTLSizeMake(
@@ -1242,7 +1248,7 @@ void gpu::MTLTexture::generate_mipmap()
   }
 
   /* Fetch Active Context. */
-  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  MTLContext *ctx = MTLContext::get();
   BLI_assert(ctx);
 
   if (!ctx->device) {
@@ -1298,7 +1304,7 @@ void gpu::MTLTexture::copy_to(Texture *dst)
   UNUSED_VARS_NDEBUG(mt_src);
 
   /* Fetch active context. */
-  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  MTLContext *ctx = MTLContext::get();
   BLI_assert(ctx);
 
   /* Ensure texture is baked. */
@@ -1370,7 +1376,7 @@ void gpu::MTLTexture::clear(eGPUDataFormat data_format, const void *data)
     }
     if (fast_buf_clear_to_zero) {
       /* Fetch active context. */
-      MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+      MTLContext *ctx = MTLContext::get();
       BLI_assert(ctx);
 
       /* Begin compute encoder. */
@@ -1410,7 +1416,7 @@ void gpu::MTLTexture::clear(eGPUDataFormat data_format, const void *data)
     uint clear_data_size = to_bytesize(format_, data_format);
 
     /* Fetch active context. */
-    MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+    MTLContext *ctx = MTLContext::get();
     BLI_assert(ctx);
 
     /* Determine writeable texture handle. */
@@ -1602,7 +1608,7 @@ void gpu::MTLTexture::read_internal(int mip,
     return;
   }
   /* Fetch active context. */
-  MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+  MTLContext *ctx = MTLContext::get();
   BLI_assert(ctx);
 
   /* Calculate Desired output size. */
@@ -1761,7 +1767,7 @@ void gpu::MTLTexture::read_internal(int mip,
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(destination_buffer, 0, 1, true);
+          cs.bind_compute_buffer(destination_buffer, 0, 1);
           cs.bind_compute_texture(read_texture, 0);
           [compute_encoder dispatchThreads:MTLSizeMake(width, 1, 1) /* Width, Height, Layer */
                      threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
@@ -1811,7 +1817,7 @@ void gpu::MTLTexture::read_internal(int mip,
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(destination_buffer, 0, 1, true);
+          cs.bind_compute_buffer(destination_buffer, 0, 1);
           cs.bind_compute_texture(read_texture, 0);
           [compute_encoder dispatchThreads:MTLSizeMake(width, height, 1) /* Width, Height, Layer */
                      threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
@@ -1854,7 +1860,7 @@ void gpu::MTLTexture::read_internal(int mip,
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(destination_buffer, 0, 1, true);
+          cs.bind_compute_buffer(destination_buffer, 0, 1);
           cs.bind_compute_texture(read_texture, 0);
           [compute_encoder dispatchThreads:MTLSizeMake(width, height, 1) /* Width, Height, Layer */
                      threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
@@ -1904,7 +1910,7 @@ void gpu::MTLTexture::read_internal(int mip,
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(destination_buffer, 0, 1, true);
+          cs.bind_compute_buffer(destination_buffer, 0, 1);
           cs.bind_compute_texture(read_texture, 0);
           [compute_encoder
                     dispatchThreads:MTLSizeMake(width, height, depth) /* Width, Height, Layer */
@@ -1948,7 +1954,7 @@ void gpu::MTLTexture::read_internal(int mip,
           MTLComputeState &cs = ctx->main_command_buffer.get_compute_state();
           cs.bind_pso(pso);
           cs.bind_compute_bytes(&params, sizeof(params), 0);
-          cs.bind_compute_buffer(destination_buffer, 0, 1, true);
+          cs.bind_compute_buffer(destination_buffer, 0, 1);
           cs.bind_compute_texture(read_texture, 0);
           [compute_encoder
                     dispatchThreads:MTLSizeMake(width, height, depth) /* Width, Height, Layer */
@@ -2250,7 +2256,7 @@ void gpu::MTLTexture::ensure_baked()
   }
 
   if (!is_baked_) {
-    MTLContext *ctx = static_cast<MTLContext *>(unwrap(GPU_context_active_get()));
+    MTLContext *ctx = MTLContext::get();
     BLI_assert(ctx);
 
     /* Ensure texture mode is valid. */

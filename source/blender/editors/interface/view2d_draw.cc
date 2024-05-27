@@ -377,8 +377,9 @@ static void draw_vertical_scale_indicators(const ARegion *region,
   BLF_batch_draw_begin();
 
   BLF_enable(font_id, BLF_SHADOW);
-  const float shadow_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-  BLF_shadow(font_id, 5, shadow_color);
+  float shadow_color[4];
+  UI_GetThemeColor4fv(TH_BACK, shadow_color);
+  BLF_shadow(font_id, FontShadowType::Blur5x5, shadow_color);
   BLF_shadow_offset(font_id, 1, -1);
 
   const float x_offset = 8.0f;
@@ -416,7 +417,7 @@ static void view_to_string__time(
 {
   const Scene *scene = (const Scene *)user_data;
 
-  int brevity_level = 0;
+  int brevity_level = -1;
   if (U.timecode_style == USER_TIMECODE_MINIMAL && v2d_step >= FPS) {
     brevity_level = 1;
   }

@@ -296,8 +296,8 @@ static bool shape_key_poll(bContext *C)
   Object *ob = context_object(C);
   ID *data = static_cast<ID *>((ob) ? ob->data : nullptr);
 
-  return (ob != nullptr && !ID_IS_LINKED(ob) && !ID_IS_OVERRIDE_LIBRARY(ob) && data != nullptr &&
-          !ID_IS_LINKED(data) && !ID_IS_OVERRIDE_LIBRARY(data));
+  return (ob != nullptr && ID_IS_EDITABLE(ob) && !ID_IS_OVERRIDE_LIBRARY(ob) && data != nullptr &&
+          ID_IS_EDITABLE(data) && !ID_IS_OVERRIDE_LIBRARY(data));
 }
 
 static bool shape_key_exists_poll(bContext *C)
@@ -704,11 +704,11 @@ static int shape_key_lock_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string shape_key_lock_description(bContext * /*C*/,
-                                              wmOperatorType * /*op*/,
-                                              PointerRNA *params)
+static std::string shape_key_lock_get_description(bContext * /*C*/,
+                                                  wmOperatorType * /*op*/,
+                                                  PointerRNA *ptr)
 {
-  const int action = RNA_enum_get(params, "action");
+  const int action = RNA_enum_get(ptr, "action");
 
   switch (action) {
     case SHAPE_KEY_LOCK:
@@ -738,7 +738,7 @@ void OBJECT_OT_shape_key_lock(wmOperatorType *ot)
   /* api callbacks */
   ot->poll = shape_key_exists_poll;
   ot->exec = shape_key_lock_exec;
-  ot->get_description = shape_key_lock_description;
+  ot->get_description = shape_key_lock_get_description;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

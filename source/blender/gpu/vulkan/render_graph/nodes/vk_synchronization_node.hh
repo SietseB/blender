@@ -54,7 +54,7 @@ class VKSynchronizationNode : public VKNodeInfo<VKNodeType::SYNCHRONIZATION,
   {
     ResourceWithStamp resource = resources.get_image_and_increase_stamp(create_info.vk_image);
     node_links.outputs.append({resource,
-                               VK_ACCESS_TRANSFER_WRITE_BIT,
+                               VK_ACCESS_MEMORY_WRITE_BIT,
                                create_info.vk_image_layout,
                                create_info.vk_image_aspect});
   }
@@ -63,7 +63,7 @@ class VKSynchronizationNode : public VKNodeInfo<VKNodeType::SYNCHRONIZATION,
    * Build the commands and add them to the command_buffer.
    */
   void build_commands(VKCommandBufferInterface &command_buffer,
-                      const Data &data,
+                      Data &data,
                       VKBoundPipelines & /*r_bound_pipelines*/) override
   {
     UNUSED_VARS(command_buffer, data);

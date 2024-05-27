@@ -456,8 +456,14 @@ static void grease_pencil_primitive_update_curves(PrimitiveToolOperation &ptd)
       pressure = BKE_curvemapping_evaluateF(gset->cur_primitive, 0, t);
     }
 
-    const float radius = ed::greasepencil::radius_from_input_sample(
-        pressure, positions_3d[point], ptd.vc, ptd.brush, ptd.vc.scene, ptd.settings);
+    const float radius = ed::greasepencil::radius_from_input_sample(ptd.vc.rv3d,
+                                                                    ptd.region,
+                                                                    ptd.vc.scene,
+                                                                    ptd.brush,
+                                                                    pressure,
+                                                                    positions_3d[point],
+                                                                    ptd.placement.to_world_space(),
+                                                                    ptd.settings);
     const float opacity = ed::greasepencil::opacity_from_input_sample(
         pressure, ptd.brush, ptd.vc.scene, ptd.settings);
 
@@ -481,10 +487,8 @@ static void grease_pencil_primitive_init_curves(PrimitiveToolOperation &ptd)
       "material_index", bke::AttrDomain::Curve);
   bke::SpanAttributeWriter<bool> cyclic = attributes.lookup_or_add_for_write_span<bool>(
       "cyclic", bke::AttrDomain::Curve);
-  bke::SpanAttributeWriter<float> hardnesses = attributes.lookup_or_add_for_write_span<float>(
-      "hardness",
-      bke::AttrDomain::Curve,
-      bke::AttributeInitVArray(VArray<float>::ForSingle(1.0f, curves.curves_num())));
+  bke::SpanAttributeWriter<float> softness = attributes.lookup_or_add_for_write_span<float>(
+      "softness", bke::AttrDomain::Curve);
 
   /* Only set the attribute if the type is not the default or if it already exists. */
   if (ptd.settings->caps_type != GP_STROKE_CAP_TYPE_ROUND || attributes.contains("start_cap")) {
@@ -504,11 +508,11 @@ static void grease_pencil_primitive_init_curves(PrimitiveToolOperation &ptd)
   const bool is_cyclic = ELEM(ptd.type, PrimitiveType::Box, PrimitiveType::Circle);
   cyclic.span.last() = is_cyclic;
   materials.span.last() = ptd.material_index;
-  hardnesses.span.last() = ptd.hardness;
+  softness.span.last() = 1.0f - ptd.hardness;
 
   cyclic.finish();
   materials.finish();
-  hardnesses.finish();
+  softness.finish();
 
   curves.curve_types_for_write().last() = CURVE_TYPE_POLY;
   curves.update_curve_types();
@@ -521,7 +525,7 @@ static void grease_pencil_primitive_init_curves(PrimitiveToolOperation &ptd)
   bke::fill_attribute_range_default(
       attributes,
       bke::AttrDomain::Curve,
-      {"curve_type", "material_index", "cyclic", "hardness", "start_cap", "end_cap"},
+      {"curve_type", "material_index", "cyclic", "softness", "start_cap", "end_cap"},
       curves.curves_range().take_back(1));
 
   grease_pencil_primitive_update_curves(ptd);
@@ -646,7 +650,7 @@ static int grease_pencil_primitive_invoke(bContext *C, wmOperator *op, const wmE
 
   /* Initialize helper class for projecting screen space coordinates. */
   DrawingPlacement placement = DrawingPlacement(
-      *vc.scene, *vc.region, *view3d, *vc.obact, *grease_pencil->get_active_layer());
+      *vc.scene, *vc.region, *view3d, *vc.obact, grease_pencil->get_active_layer());
   if (placement.use_project_to_surface()) {
     placement.cache_viewport_depths(CTX_data_depsgraph_pointer(C), vc.region, view3d);
   }

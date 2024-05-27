@@ -8,7 +8,9 @@
 
 #pragma once
 
+#include "nodes/vk_begin_rendering_node.hh"
 #include "nodes/vk_blit_image_node.hh"
+#include "nodes/vk_clear_attachments_node.hh"
 #include "nodes/vk_clear_color_image_node.hh"
 #include "nodes/vk_clear_depth_stencil_image_node.hh"
 #include "nodes/vk_copy_buffer_node.hh"
@@ -17,6 +19,7 @@
 #include "nodes/vk_copy_image_to_buffer_node.hh"
 #include "nodes/vk_dispatch_indirect_node.hh"
 #include "nodes/vk_dispatch_node.hh"
+#include "nodes/vk_end_rendering_node.hh"
 #include "nodes/vk_fill_buffer_node.hh"
 #include "nodes/vk_synchronization_node.hh"
 
@@ -38,12 +41,15 @@ struct VKRenderGraphNode {
   VKNodeType type;
   union {
     VKBlitImageNode::Data blit_image;
+    VKBeginRenderingNode::Data begin_rendering;
+    VKClearAttachmentsNode::Data clear_attachments;
     VKClearColorImageNode::Data clear_color_image;
     VKClearDepthStencilImageNode::Data clear_depth_stencil_image;
     VKCopyBufferNode::Data copy_buffer;
     VKCopyBufferToImageNode::Data copy_buffer_to_image;
     VKCopyImageNode::Data copy_image;
     VKCopyImageToBufferNode::Data copy_image_to_buffer;
+    VKEndRenderingNode::Data end_rendering;
     VKDispatchNode::Data dispatch;
     VKDispatchIndirectNode::Data dispatch_indirect;
     VKFillBufferNode::Data fill_buffer;
@@ -94,10 +100,16 @@ struct VKRenderGraphNode {
     switch (type) {
       case VKNodeType::UNUSED:
         return VK_PIPELINE_STAGE_NONE;
+      case VKNodeType::BEGIN_RENDERING:
+        return VKBeginRenderingNode::pipeline_stage;
+      case VKNodeType::CLEAR_ATTACHMENTS:
+        return VKClearAttachmentsNode::pipeline_stage;
       case VKNodeType::CLEAR_COLOR_IMAGE:
         return VKClearColorImageNode::pipeline_stage;
       case VKNodeType::CLEAR_DEPTH_STENCIL_IMAGE:
         return VKClearDepthStencilImageNode::pipeline_stage;
+      case VKNodeType::END_RENDERING:
+        return VKEndRenderingNode::pipeline_stage;
       case VKNodeType::FILL_BUFFER:
         return VKFillBufferNode::pipeline_stage;
       case VKNodeType::COPY_BUFFER:
@@ -128,78 +140,38 @@ struct VKRenderGraphNode {
    * `VKCommandBuilder::build_node` and `VKCommandBuilder::build_pipeline_barriers.
    */
   void build_commands(VKCommandBufferInterface &command_buffer,
-                      VKBoundPipelines &r_bound_pipelines) const
+                      VKBoundPipelines &r_bound_pipelines)
   {
     switch (type) {
       case VKNodeType::UNUSED: {
         break;
       }
+#define BUILD_COMMANDS(NODE_TYPE, NODE_CLASS, ATTRIBUTE_NAME) \
+  case NODE_TYPE: { \
+    NODE_CLASS node_info; \
+    node_info.build_commands(command_buffer, ATTRIBUTE_NAME, r_bound_pipelines); \
+    break; \
+  }
 
-      case VKNodeType::CLEAR_COLOR_IMAGE: {
-        VKClearColorImageNode node_info;
-        node_info.build_commands(command_buffer, clear_color_image, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::CLEAR_DEPTH_STENCIL_IMAGE: {
-        VKClearDepthStencilImageNode node_info;
-        node_info.build_commands(command_buffer, clear_depth_stencil_image, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::FILL_BUFFER: {
-        VKFillBufferNode node_info;
-        node_info.build_commands(command_buffer, fill_buffer, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::COPY_BUFFER: {
-        VKCopyBufferNode node_info;
-        node_info.build_commands(command_buffer, copy_buffer, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::COPY_BUFFER_TO_IMAGE: {
-        VKCopyBufferToImageNode node_info;
-        node_info.build_commands(command_buffer, copy_buffer_to_image, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::COPY_IMAGE: {
-        VKCopyImageNode node_info;
-        node_info.build_commands(command_buffer, copy_image, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::COPY_IMAGE_TO_BUFFER: {
-        VKCopyImageToBufferNode node_info;
-        node_info.build_commands(command_buffer, copy_image_to_buffer, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::BLIT_IMAGE: {
-        VKBlitImageNode node_info;
-        node_info.build_commands(command_buffer, blit_image, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::SYNCHRONIZATION: {
-        VKSynchronizationNode node_info;
-        node_info.build_commands(command_buffer, synchronization, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::DISPATCH: {
-        VKDispatchNode node_info;
-        node_info.build_commands(command_buffer, dispatch, r_bound_pipelines);
-        break;
-      }
-
-      case VKNodeType::DISPATCH_INDIRECT: {
-        VKDispatchIndirectNode node_info;
-        node_info.build_commands(command_buffer, dispatch_indirect, r_bound_pipelines);
-        break;
-      }
+        BUILD_COMMANDS(VKNodeType::BEGIN_RENDERING, VKBeginRenderingNode, begin_rendering)
+        BUILD_COMMANDS(VKNodeType::CLEAR_ATTACHMENTS, VKClearAttachmentsNode, clear_attachments)
+        BUILD_COMMANDS(VKNodeType::CLEAR_COLOR_IMAGE, VKClearColorImageNode, clear_color_image)
+        BUILD_COMMANDS(VKNodeType::CLEAR_DEPTH_STENCIL_IMAGE,
+                       VKClearDepthStencilImageNode,
+                       clear_depth_stencil_image)
+        BUILD_COMMANDS(VKNodeType::END_RENDERING, VKEndRenderingNode, end_rendering)
+        BUILD_COMMANDS(VKNodeType::FILL_BUFFER, VKFillBufferNode, fill_buffer)
+        BUILD_COMMANDS(VKNodeType::COPY_BUFFER, VKCopyBufferNode, copy_buffer)
+        BUILD_COMMANDS(
+            VKNodeType::COPY_BUFFER_TO_IMAGE, VKCopyBufferToImageNode, copy_buffer_to_image)
+        BUILD_COMMANDS(VKNodeType::COPY_IMAGE, VKCopyImageNode, copy_image)
+        BUILD_COMMANDS(
+            VKNodeType::COPY_IMAGE_TO_BUFFER, VKCopyImageToBufferNode, copy_image_to_buffer)
+        BUILD_COMMANDS(VKNodeType::BLIT_IMAGE, VKBlitImageNode, blit_image)
+        BUILD_COMMANDS(VKNodeType::SYNCHRONIZATION, VKSynchronizationNode, synchronization)
+        BUILD_COMMANDS(VKNodeType::DISPATCH, VKDispatchNode, dispatch)
+        BUILD_COMMANDS(VKNodeType::DISPATCH_INDIRECT, VKDispatchIndirectNode, dispatch_indirect)
+#undef BUILD_COMMANDS
     }
   }
 
@@ -209,21 +181,24 @@ struct VKRenderGraphNode {
   void free_data()
   {
     switch (type) {
-      case VKNodeType::DISPATCH: {
-        VKDispatchNode node_info;
-        node_info.free_data(dispatch);
-        break;
-      }
 
-      case VKNodeType::DISPATCH_INDIRECT: {
-        VKDispatchIndirectNode node_info;
-        node_info.free_data(dispatch_indirect);
-        break;
-      }
+#define FREE_DATA(NODE_TYPE, NODE_CLASS, ATTRIBUTE_NAME) \
+  case NODE_TYPE: { \
+    NODE_CLASS node_info; \
+    node_info.free_data(ATTRIBUTE_NAME); \
+    break; \
+  }
+
+      FREE_DATA(VKNodeType::DISPATCH, VKDispatchNode, dispatch)
+      FREE_DATA(VKNodeType::DISPATCH_INDIRECT, VKDispatchIndirectNode, dispatch_indirect)
+#undef FREE_DATA
 
       case VKNodeType::UNUSED:
+      case VKNodeType::BEGIN_RENDERING:
+      case VKNodeType::CLEAR_ATTACHMENTS:
       case VKNodeType::CLEAR_COLOR_IMAGE:
       case VKNodeType::CLEAR_DEPTH_STENCIL_IMAGE:
+      case VKNodeType::END_RENDERING:
       case VKNodeType::FILL_BUFFER:
       case VKNodeType::COPY_BUFFER:
       case VKNodeType::COPY_IMAGE:

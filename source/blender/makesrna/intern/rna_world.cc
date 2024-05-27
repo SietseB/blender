@@ -11,6 +11,8 @@
 
 #include "RNA_define.hh"
 
+#include "BLI_math_rotation.h"
+
 #include "rna_internal.hh"
 
 #include "DNA_lightprobe_types.h"
@@ -280,6 +282,65 @@ void RNA_def_world(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, nullptr, "probe_resolution");
   RNA_def_property_enum_items(prop, world_probe_resolution_items);
   RNA_def_property_ui_text(prop, "Resolution", "Resolution when baked to a texture");
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "sun_threshold", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_ui_text(prop,
+                           "Sun Threshold",
+                           "If non-zero, the maximum value for world contribution that will be "
+                           "recorded inside the world light probe. The excess contribution is "
+                           "converted to a sun light. This reduces the light bleeding caused by "
+                           "very bright light sources");
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "sun_angle", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_range(prop, DEG2RADF(0.0f), DEG2RADF(180.0f));
+  RNA_def_property_ui_text(
+      prop, "Sun Angle", "Angular diameter of the Sun as seen from the Earth");
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "use_sun_shadow", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", WO_USE_SUN_SHADOW);
+  RNA_def_property_ui_text(prop, "Use Shadow", "Enable sun shadow casting");
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "sun_shadow_maximum_resolution", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0001f, 0.020f, 0.05f, 4);
+  RNA_def_property_ui_text(prop,
+                           "Shadows Resolution Limit",
+                           "Maximum size of a shadow map pixel. Higher values use less memory at "
+                           "the cost of shadow quality");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "sun_shadow_filter_radius", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0f, 5.0f, 1.0f, 2);
+  RNA_def_property_ui_text(
+      prop, "Shadow Filter Radius", "Blur shadow aliasing using Percentage Closer Filtering");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "use_sun_shadow_jitter", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", WO_USE_SUN_SHADOW_JITTER);
+  RNA_def_property_ui_text(
+      prop,
+      "Shadow Jitter",
+      "Enable jittered soft shadows to increase shadow precision (disabled in viewport unless "
+      "enabled in the render settings). Has a high performance impact");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_update(prop, 0, "rna_World_draw_update");
+
+  prop = RNA_def_property(srna, "sun_shadow_jitter_overblur", PROP_FLOAT, PROP_PERCENTAGE);
+  RNA_def_property_range(prop, 0.0f, 100.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 20.0f, 10.0f, 0);
+  RNA_def_property_ui_text(
+      prop,
+      "Shadow Jitter Overblur",
+      "Apply shadow tracing to each jittered sample to reduce under-sampling artifacts");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_update(prop, 0, "rna_World_draw_update");
 
   rna_def_lighting(brna);

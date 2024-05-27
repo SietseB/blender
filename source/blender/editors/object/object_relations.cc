@@ -2262,7 +2262,8 @@ static int make_local_exec(bContext *C, wmOperator *op)
     CTX_DATA_END;
   }
 
-  BKE_library_make_local(bmain, nullptr, nullptr, true, false); /* nullptr is all libraries. */
+  BKE_library_make_local(
+      bmain, nullptr, nullptr, true, false, true); /* nullptr is all libraries. */
 
   WM_event_add_notifier(C, NC_WINDOW, nullptr);
   return OPERATOR_FINISHED;
@@ -3007,7 +3008,7 @@ static bool check_geometry_node_group_sockets(wmOperator *op, const bNodeTree *t
       BKE_report(op->reports, RPT_ERROR, "The node group must have a geometry output socket");
       return false;
     }
-    const bNodeSocketType *typeinfo = first_output->socket_typeinfo();
+    const bke::bNodeSocketType *typeinfo = first_output->socket_typeinfo();
     const eNodeSocketDatatype type = typeinfo ? eNodeSocketDatatype(typeinfo->type) : SOCK_CUSTOM;
     if (type != SOCK_GEOMETRY) {
       BKE_report(op->reports, RPT_ERROR, "The first output must be a geometry socket");

@@ -709,9 +709,9 @@ static int actkeys_paste_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string actkeys_paste_description(bContext * /*C*/,
-                                             wmOperatorType * /*ot*/,
-                                             PointerRNA *ptr)
+static std::string actkeys_paste_get_description(bContext * /*C*/,
+                                                 wmOperatorType * /*ot*/,
+                                                 PointerRNA *ptr)
 {
   /* Custom description if the 'flipped' option is used. */
   if (RNA_boolean_get(ptr, "flipped")) {
@@ -735,7 +735,7 @@ void ACTION_OT_paste(wmOperatorType *ot)
 
   /* api callbacks */
   //  ot->invoke = WM_operator_props_popup; /* Better wait for action redo panel. */
-  ot->get_description = actkeys_paste_description;
+  ot->get_description = actkeys_paste_get_description;
   ot->exec = actkeys_paste_exec;
   ot->poll = ED_operator_action_active;
 
@@ -806,10 +806,9 @@ static void insert_grease_pencil_key(bAnimContext *ac,
 
   bool changed = false;
   if (hold_previous) {
-    const std::optional<FramesMapKey> active_frame_number = layer->frame_key_at(
-        current_frame_number);
-    if (!active_frame_number || layer->frames().lookup(*active_frame_number).is_null()) {
-      /* There is no active frame to hold to, or it's a null frame. Therefore just insert a blank
+    const std::optional<int> active_frame_number = layer->start_frame_at(current_frame_number);
+    if (!active_frame_number) {
+      /* There is no active frame to hold to, or it's an end frame. Therefore just insert a blank
        * frame. */
       changed |= grease_pencil->insert_frame(*layer, current_frame_number) != nullptr;
     }

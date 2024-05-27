@@ -2323,7 +2323,7 @@ static bool vertex_group_supported_poll_ex(bContext *C, const Object *ob)
 
   /* Data checks. */
   const ID *data = static_cast<const ID *>(ob->data);
-  if (data == nullptr || ID_IS_LINKED(data) || ID_IS_OVERRIDE_LIBRARY(data)) {
+  if (data == nullptr || !ID_IS_EDITABLE(data) || ID_IS_OVERRIDE_LIBRARY(data)) {
     CTX_wm_operator_poll_msg_set(C, "Object type \"%s\" does not have editable data");
     return false;
   }
@@ -2693,7 +2693,7 @@ static int vertex_group_select_exec(bContext *C, wmOperator * /*op*/)
 {
   Object *ob = context_object(C);
 
-  if (!ob || ID_IS_LINKED(ob) || ID_IS_OVERRIDE_LIBRARY(ob)) {
+  if (!ob || !ID_IS_EDITABLE(ob) || ID_IS_OVERRIDE_LIBRARY(ob)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -2984,12 +2984,12 @@ static int vertex_group_lock_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string vertex_group_lock_description(bContext * /*C*/,
-                                                 wmOperatorType * /*ot*/,
-                                                 PointerRNA *params)
+static std::string vertex_group_lock_get_description(bContext * /*C*/,
+                                                     wmOperatorType * /*ot*/,
+                                                     PointerRNA *ptr)
 {
-  int action = RNA_enum_get(params, "action");
-  int mask = RNA_enum_get(params, "mask");
+  int action = RNA_enum_get(ptr, "action");
+  int mask = RNA_enum_get(ptr, "mask");
 
   /* NOTE: constructing the following string literals can be done in a less verbose way,
    * however the resulting strings can't be usefully translated, (via `TIP_`). */
@@ -3058,7 +3058,7 @@ void OBJECT_OT_vertex_group_lock(wmOperatorType *ot)
   /* api callbacks */
   ot->poll = vertex_group_poll;
   ot->exec = vertex_group_lock_exec;
-  ot->get_description = vertex_group_lock_description;
+  ot->get_description = vertex_group_lock_get_description;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

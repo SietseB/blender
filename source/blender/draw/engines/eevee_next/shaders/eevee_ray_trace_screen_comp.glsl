@@ -13,6 +13,7 @@
 #pragma BLENDER_REQUIRE(eevee_gbuffer_lib.glsl)
 #pragma BLENDER_REQUIRE(eevee_ray_types_lib.glsl)
 #pragma BLENDER_REQUIRE(eevee_ray_trace_screen_lib.glsl)
+#pragma BLENDER_REQUIRE(eevee_closure_lib.glsl)
 #pragma BLENDER_REQUIRE(eevee_spherical_harmonics_lib.glsl)
 
 void main()
@@ -21,8 +22,14 @@ void main()
   uvec2 tile_coord = unpackUvec2x16(tiles_coord_buf[gl_WorkGroupID.x]);
   ivec2 texel = ivec2(gl_LocalInvocationID.xy + tile_coord * tile_size);
 
-  vec4 ray_data = imageLoad(ray_data_img, texel);
-  float ray_pdf_inv = ray_data.w;
+  /* Check whether texel is out of bounds for all cases, so we can utilize fast
+   * texture funcs and early exit if not. */
+  if (any(greaterThanEqual(texel, imageSize(ray_data_img).xy)) || any(lessThan(texel, ivec2(0)))) {
+    return;
+  }
+
+  vec4 ray_data_im = imageLoadFast(ray_data_img, texel);
+  float ray_pdf_inv = ray_data_im.w;
 
   if (ray_pdf_inv < 0.0) {
     /* Ray destined to planar trace. */
@@ -31,8 +38,8 @@ void main()
 
   if (ray_pdf_inv == 0.0) {
     /* Invalid ray or pixels without ray. Do not trace. */
-    imageStore(ray_time_img, texel, vec4(0.0));
-    imageStore(ray_radiance_img, texel, vec4(0.0));
+    imageStoreFast(ray_time_img, texel, vec4(0.0));
+    imageStoreFast(ray_radiance_img, texel, vec4(0.0));
     return;
   }
 
@@ -56,17 +63,15 @@ void main()
   vec3 V = drw_world_incident_vector(P);
   Ray ray;
   ray.origin = P;
-  ray.direction = ray_data.xyz;
+  ray.direction = ray_data_im.xyz;
 
   /* Only closure 0 can be a transmission closure. */
   if (closure_index == 0) {
-    uint gbuf_header = texelFetch(gbuf_header_tx, texel_fullres, 0).r;
     float thickness = gbuffer_read_thickness(gbuf_header, gbuf_normal_tx, texel_fullres);
     if (thickness != 0.0) {
-      vec3 surface_N = gbuffer_read_normal(gbuf_normal_tx, texel_fullres);
       ClosureUndetermined cl = gbuffer_read_bin(
           gbuf_header, gbuf_closure_tx, gbuf_normal_tx, texel_fullres, closure_index);
-      ray = raytrace_thickness_ray_ammend(ray, cl, V, surface_N, thickness);
+      ray = raytrace_thickness_ray_ammend(ray, cl, V, thickness);
     }
   }
 
@@ -74,9 +79,9 @@ void main()
   float noise_offset = sampling_rng_1D_get(SAMPLING_RAYTRACE_W);
   float rand_trace = interlieved_gradient_noise(vec2(texel), 5.0, noise_offset);
 
-  /* TODO(fclem): Take IOR into account in the roughness LOD bias. */
-  /* TODO(fclem): pdf to roughness mapping is a crude approximation. Find something better. */
-  float roughness = saturate(sample_pdf_uniform_hemisphere() / ray_pdf_inv);
+  ClosureUndetermined cl = gbuffer_read_bin(
+      gbuf_header, gbuf_closure_tx, gbuf_normal_tx, texel_fullres, closure_index);
+  float roughness = closure_apparent_roughness_get(cl);
 
   /* Transform the ray into view-space. */
   Ray ray_view;
@@ -143,6 +148,6 @@ void main()
 
   radiance = colorspace_brightness_clamp_max(radiance, uniform_buf.clamp.surface_indirect);
 
-  imageStore(ray_time_img, texel, vec4(hit.time));
-  imageStore(ray_radiance_img, texel, vec4(radiance, 0.0));
+  imageStoreFast(ray_time_img, texel, vec4(hit.time));
+  imageStoreFast(ray_radiance_img, texel, vec4(radiance, 0.0));
 }

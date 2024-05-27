@@ -236,9 +236,15 @@ static bool image_from_context_has_data_poll(bContext *C)
 /**
  * Use this when the image buffer is accessing the active tile without the image user.
  */
-static bool image_from_context_has_data_poll_active_tile(bContext *C)
+static bool image_from_context_editable_has_data_poll_active_tile(bContext *C)
 {
   Image *ima = image_from_context(C);
+
+  if (!ID_IS_EDITABLE(&ima->id)) {
+    CTX_wm_operator_poll_msg_set(C, "Image is not editable");
+    return false;
+  }
+
   ImageUser iuser = image_user_from_context_and_active_tile(C, ima);
 
   return BKE_image_has_ibuf(ima, &iuser);
@@ -1262,14 +1268,20 @@ static void image_open_cancel(bContext * /*C*/, wmOperator *op)
 
 static Image *image_open_single(Main *bmain,
                                 wmOperator *op,
-                                ImageFrameRange *range,
-                                bool use_multiview)
+                                const ImageFrameRange *range,
+                                const bool use_multiview,
+                                const bool check_exists)
 {
   bool exists = false;
   Image *ima = nullptr;
 
   errno = 0;
-  ima = BKE_image_load_exists_ex(bmain, range->filepath, &exists);
+  if (check_exists) {
+    ima = BKE_image_load_exists_ex(bmain, range->filepath, &exists);
+  }
+  else {
+    ima = BKE_image_load(bmain, range->filepath);
+  }
 
   if (!ima) {
     if (op->customdata) {
@@ -1338,9 +1350,17 @@ static int image_open_exec(bContext *C, wmOperator *op)
     image_open_init(C, op);
   }
 
+  ImageOpenData *iod = static_cast<ImageOpenData *>(op->customdata);
+
+  /* For editable assets always create a new image datablock. We can't assign
+   * a local datablock to linked asset datablocks. */
+  const bool check_exists = !(iod->pprop.prop && iod->pprop.ptr.owner_id &&
+                              ID_IS_LINKED(iod->pprop.ptr.owner_id) &&
+                              ID_IS_EDITABLE(iod->pprop.ptr.owner_id));
+
   ListBase ranges = ED_image_filesel_detect_sequences(bmain, op, use_udim);
   LISTBASE_FOREACH (ImageFrameRange *, range, &ranges) {
-    Image *ima_range = image_open_single(bmain, op, range, use_multiview);
+    Image *ima_range = image_open_single(bmain, op, range, use_multiview, check_exists);
 
     /* take the first image */
     if ((ima == nullptr) && ima_range) {
@@ -1358,12 +1378,14 @@ static int image_open_exec(bContext *C, wmOperator *op)
   }
 
   /* hook into UI */
-  ImageOpenData *iod = static_cast<ImageOpenData *>(op->customdata);
-
   if (iod->pprop.prop) {
     /* when creating new ID blocks, use is already 1, but RNA
      * pointer use also increases user, so this compensates it */
     id_us_min(&ima->id);
+
+    if (iod->pprop.ptr.owner_id) {
+      BKE_id_move_to_same_lib(*bmain, ima->id, *iod->pprop.ptr.owner_id);
+    }
 
     PointerRNA imaptr = RNA_id_pointer_create(&ima->id);
     RNA_property_pointer_set(&iod->pprop.ptr, iod->pprop.prop, imaptr, nullptr);
@@ -2346,7 +2368,7 @@ int ED_image_save_all_modified_info(const Main *bmain, ReportList *reports)
 
     if (image_should_be_saved(ima, &is_format_writable)) {
       if (BKE_image_has_packedfile(ima) || image_should_pack_during_save_all(ima)) {
-        if (!ID_IS_LINKED(ima)) {
+        if (ID_IS_EDITABLE(ima)) {
           num_saveable_images++;
         }
         else {
@@ -2589,6 +2611,10 @@ static int image_new_exec(bContext *C, wmOperator *op)
      * pointer use also increases user, so this compensates it */
     id_us_min(&ima->id);
 
+    if (data->pprop.ptr.owner_id) {
+      BKE_id_move_to_same_lib(*bmain, ima->id, *data->pprop.ptr.owner_id);
+    }
+
     PointerRNA imaptr = RNA_id_pointer_create(&ima->id);
     RNA_property_pointer_set(&data->pprop.ptr, data->pprop.prop, imaptr, nullptr);
     RNA_property_update(C, &data->pprop.ptr, data->pprop.prop);
@@ -2821,7 +2847,7 @@ void IMAGE_OT_flip(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = image_flip_exec;
-  ot->poll = image_from_context_has_data_poll_active_tile;
+  ot->poll = image_from_context_editable_has_data_poll_active_tile;
 
   /* properties */
   PropertyRNA *prop;
@@ -2902,7 +2928,7 @@ void IMAGE_OT_rotate_orthogonal(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = image_rotate_orthogonal_exec;
-  ot->poll = image_from_context_has_data_poll_active_tile;
+  ot->poll = image_from_context_editable_has_data_poll_active_tile;
 
   /* properties */
   PropertyRNA *prop;
@@ -3148,7 +3174,7 @@ void IMAGE_OT_invert(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = image_invert_exec;
-  ot->poll = image_from_context_has_data_poll_active_tile;
+  ot->poll = image_from_context_editable_has_data_poll_active_tile;
 
   /* properties */
   prop = RNA_def_boolean(ot->srna, "invert_r", false, "Red", "Invert red channel");
@@ -3240,7 +3266,7 @@ void IMAGE_OT_resize(wmOperatorType *ot)
   /* api callbacks */
   ot->invoke = image_scale_invoke;
   ot->exec = image_scale_exec;
-  ot->poll = image_from_context_has_data_poll_active_tile;
+  ot->poll = image_from_context_editable_has_data_poll_active_tile;
 
   /* properties */
   RNA_def_int_vector(ot->srna, "size", 2, nullptr, 1, INT_MAX, "Size", "", 1, SHRT_MAX);
@@ -3332,6 +3358,11 @@ static int image_unpack_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
+  if (!ID_IS_EDITABLE(&ima->id)) {
+    BKE_report(op->reports, RPT_ERROR, "Image is not editable");
+    return OPERATOR_CANCELLED;
+  }
+
   if (ELEM(ima->source, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)) {
     BKE_report(op->reports, RPT_ERROR, "Unpacking movies or image sequences not supported");
     return OPERATOR_CANCELLED;
@@ -3362,6 +3393,11 @@ static int image_unpack_invoke(bContext *C, wmOperator *op, const wmEvent * /*ev
   }
 
   if (!ima || !BKE_image_has_packedfile(ima)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  if (!ID_IS_EDITABLE(&ima->id)) {
+    BKE_report(op->reports, RPT_ERROR, "Image is not editable");
     return OPERATOR_CANCELLED;
   }
 

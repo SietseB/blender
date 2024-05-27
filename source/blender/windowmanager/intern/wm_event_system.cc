@@ -137,6 +137,35 @@ static void wm_event_state_update_and_click_set_ex(wmEvent *event,
                                                    const bool check_double_click);
 
 /* -------------------------------------------------------------------- */
+/** \name Private Utilities
+ * \{ */
+
+/**
+ * Return true if `region` exists in any screen.
+ * Note that `region` may be freed memory so it's contents should never be read.
+ */
+static bool screen_temp_region_exists(const ARegion *region)
+{
+  /* TODO(@ideasman42): this function would ideally not be needed.
+   * It avoids problems restoring the #bContext::wm::region_popup
+   * when it's not known if the popup was removed, however it would be better to
+   * resolve this by ensuring the contexts previous state never references stale data.
+   *
+   * This could be done using a context "stack" allowing freeing windowing data to clear
+   * references at all levels in the stack. */
+
+  Main *bmain = G_MAIN;
+  LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+    if (BLI_findindex(&screen->regionbase, region) != -1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Event Management
  * \{ */
 
@@ -821,6 +850,7 @@ static eHandlerActionFlag wm_handler_ui_call(bContext *C,
     CTX_wm_region_set(C, handler->context.region);
   }
   if (handler->context.region_popup) {
+    BLI_assert(screen_temp_region_exists(handler->context.region_popup));
     CTX_wm_region_popup_set(C, handler->context.region_popup);
   }
 
@@ -830,6 +860,7 @@ static eHandlerActionFlag wm_handler_ui_call(bContext *C,
   if ((retval != WM_UI_HANDLER_BREAK) || always_pass) {
     CTX_wm_area_set(C, area);
     CTX_wm_region_set(C, region);
+    BLI_assert((region_popup == nullptr) || screen_temp_region_exists(region_popup));
     CTX_wm_region_popup_set(C, region_popup);
   }
   else {
@@ -2199,10 +2230,17 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
           CTX_wm_region_set(C, handler->context.region);
         }
         if (handler->context.region_popup) {
+          BLI_assert(screen_temp_region_exists(handler->context.region_popup));
           CTX_wm_region_popup_set(C, handler->context.region_popup);
         }
 
         handler->remove_fn(C, handler->user_data);
+
+        /* Currently we don't have a practical way to check if this region
+         * was a temporary region created by `handler`, so do a full lookup. */
+        if (region_popup_prev && !screen_temp_region_exists(region_popup_prev)) {
+          region_popup_prev = nullptr;
+        }
 
         CTX_wm_area_set(C, area_prev);
         CTX_wm_region_set(C, region_prev);
@@ -4510,6 +4548,20 @@ void WM_event_modal_handler_region_replace(wmWindow *win,
       if ((handler->context.region == old_region) && (handler->is_fileselect == false)) {
         handler->context.region = new_region;
         handler->context.region_type = new_region ? new_region->regiontype : int(RGN_TYPE_WINDOW);
+      }
+    }
+  }
+}
+
+void WM_event_ui_handler_region_popup_replace(wmWindow *win,
+                                              const ARegion *old_region,
+                                              ARegion *new_region)
+{
+  LISTBASE_FOREACH (wmEventHandler *, handler_base, &win->modalhandlers) {
+    if (handler_base->type == WM_HANDLER_TYPE_UI) {
+      wmEventHandler_UI *handler = (wmEventHandler_UI *)handler_base;
+      if (handler->context.region_popup == old_region) {
+        handler->context.region_popup = new_region;
       }
     }
   }

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_grease_pencil.hh"
 
 #include "BLI_generic_span.hh"
@@ -25,6 +26,7 @@ struct Object;
 struct KeyframeEditData;
 struct wmKeyConfig;
 struct wmOperator;
+struct GPUOffScreen;
 struct ToolSettings;
 struct Scene;
 struct UndoType;
@@ -59,6 +61,7 @@ void ED_operatortypes_grease_pencil_weight_paint();
 void ED_operatormacros_grease_pencil();
 void ED_keymap_grease_pencil(wmKeyConfig *keyconf);
 void ED_primitivetool_modal_keymap(wmKeyConfig *keyconf);
+void ED_filltool_modal_keymap(wmKeyConfig *keyconf);
 
 void GREASE_PENCIL_OT_stroke_cutter(wmOperatorType *ot);
 
@@ -99,7 +102,7 @@ class DrawingPlacement {
                    const ARegion &region,
                    const View3D &view3d,
                    const Object &eval_object,
-                   const bke::greasepencil::Layer &layer);
+                   const bke::greasepencil::Layer *layer);
   ~DrawingPlacement();
 
  public:
@@ -114,6 +117,8 @@ class DrawingPlacement {
    */
   float3 project(float2 co) const;
   void project(Span<float2> src, MutableSpan<float3> dst) const;
+
+  float4x4 to_world_space() const;
 };
 
 void set_selected_frames_type(bke::greasepencil::Layer &layer,
@@ -143,7 +148,7 @@ void select_layer_channel(GreasePencil &grease_pencil, bke::greasepencil::Layer 
 struct KeyframeClipboard {
   /* Datatype for use in copy/paste buffer. */
   struct DrawingBufferItem {
-    blender::bke::greasepencil::FramesMapKey frame_number;
+    blender::bke::greasepencil::FramesMapKeyT frame_number;
     bke::greasepencil::Drawing drawing;
     int duration;
     eBezTriple_KeyframeType keytype;
@@ -151,8 +156,8 @@ struct KeyframeClipboard {
 
   struct LayerBufferItem {
     Vector<DrawingBufferItem> drawing_buffers;
-    blender::bke::greasepencil::FramesMapKey first_frame;
-    blender::bke::greasepencil::FramesMapKey last_frame;
+    blender::bke::greasepencil::FramesMapKeyT first_frame;
+    blender::bke::greasepencil::FramesMapKeyT last_frame;
   };
 
   Map<std::string, LayerBufferItem> copy_buffer{};
@@ -229,11 +234,13 @@ float opacity_from_input_sample(const float pressure,
                                 const Brush *brush,
                                 const Scene *scene,
                                 const BrushGpencilSettings *settings);
-float radius_from_input_sample(const float pressure,
-                               const float3 location,
-                               ViewContext vc,
-                               const Brush *brush,
+float radius_from_input_sample(const RegionView3D *rv3d,
+                               const ARegion *region,
                                const Scene *scene,
+                               const Brush *brush,
+                               float pressure,
+                               float3 location,
+                               float4x4 to_world,
                                const BrushGpencilSettings *settings);
 int grease_pencil_draw_operator_invoke(bContext *C, wmOperator *op);
 
@@ -331,6 +338,17 @@ IndexMask polyline_detect_corners(Span<float2> points,
                                   float angle_threshold,
                                   IndexMaskMemory &memory);
 
+bke::CurvesGeometry curves_merge_by_distance(
+    const bke::CurvesGeometry &src_curves,
+    const float merge_distance,
+    const IndexMask &selection,
+    const bke::AnonymousAttributePropagationInfo &propagation_info);
+
+int curve_merge_by_distance(const IndexRange points,
+                            const Span<float> distances,
+                            const IndexMask &selection,
+                            const float merge_distance,
+                            MutableSpan<int> r_merge_indices);
 /**
  * Structure describing a point in the destination relatively to the source.
  * If a point in the destination \a is_src_point, then it corresponds
@@ -399,5 +417,139 @@ IndexRange clipboard_paste_strokes(Main &bmain,
                                    Object &object,
                                    bke::greasepencil::Drawing &drawing,
                                    bool paste_back);
+
+/**
+ * Method used by the Fill tool to fit the render buffer to strokes.
+ */
+enum FillToolFitMethod {
+  /* Use the current view projection unchanged. */
+  None,
+  /* Fit all strokes into the view (may change pixel size). */
+  FitToView,
+};
+
+/**
+ * Fill tool for generating strokes in empty areas.
+ *
+ * This uses an approximate render of strokes and boundaries,
+ * then fills the image starting from the mouse position.
+ * The outlines of the filled pixel areas are returned as curves.
+ *
+ * \param layer: The layer containing the new stroke, used for reprojecting from images.
+ * \param boundary_layers: Layers that are purely for boundaries, regular strokes are not rendered.
+ * \param src_drawings: Drawings to include as boundary strokes.
+ * \param invert: Construct boundary around empty areas instead.
+ * \param fill_point: Point from which to start the bucket fill.
+ * \param fit_method: View fitting method to include all strokes.
+ * \param stroke_material_index: Material index to use for the new strokes.
+ * \param keep_images: Keep the image data block after generating curves.
+ */
+bke::CurvesGeometry fill_strokes(const ViewContext &view_context,
+                                 const Brush &brush,
+                                 const Scene &scene,
+                                 const bke::greasepencil::Layer &layer,
+                                 const VArray<bool> &boundary_layers,
+                                 Span<DrawingInfo> src_drawings,
+                                 bool invert,
+                                 const float2 &fill_point,
+                                 FillToolFitMethod fit_method,
+                                 int stroke_material_index,
+                                 bool keep_images);
+
+namespace image_render {
+
+/** Region size to restore after rendering. */
+struct RegionViewData {
+  int2 region_winsize;
+  rcti region_winrct;
+};
+
+/**
+ * Set up region to match the render buffer size.
+ */
+RegionViewData region_init(ARegion &region, const int2 &win_size);
+/**
+ * Restore original region size after rendering.
+ */
+void region_reset(ARegion &region, const RegionViewData &data);
+
+/**
+ * Create and off-screen buffer for rendering.
+ */
+GPUOffScreen *image_render_begin(const int2 &win_size);
+/**
+ * Finish rendering and convert the off-screen buffer into an image.
+ */
+Image *image_render_end(Main &bmain, GPUOffScreen *buffer);
+
+/**
+ * Set up the view matrix for world space rendering.
+ *
+ * \param win_size: Size of the render window.
+ * \param zoom: Zoom factor to render a smaller or larger part of the view.
+ * \param offset: Offset of the view relative to the overall size.
+ */
+void set_viewmat(const ViewContext &view_context,
+                 const Scene &scene,
+                 const int2 &win_size,
+                 const float2 &zoom,
+                 const float2 &offset);
+/**
+ * Reset the view matrix for screen space rendering.
+ */
+void clear_viewmat();
+
+/**
+ * Draw a dot with a given size and color.
+ */
+void draw_dot(const float3 &position, float point_size, const ColorGeometry4f &color);
+/**
+ * Draw a poly line from points.
+ */
+void draw_polyline(IndexRange indices,
+                   Span<float3> positions,
+                   const VArray<ColorGeometry4f> &colors,
+                   const float4x4 &layer_to_world,
+                   bool cyclic,
+                   float line_width);
+/**
+ * Draw a curve using the Grease Pencil stroke shader.
+ */
+void draw_grease_pencil_stroke(const RegionView3D &rv3d,
+                               const int2 &win_size,
+                               const Object &object,
+                               IndexRange indices,
+                               Span<float3> positions,
+                               const VArray<float> &radii,
+                               const VArray<ColorGeometry4f> &colors,
+                               const float4x4 &layer_to_world,
+                               bool cyclic,
+                               eGPDstroke_Caps cap_start,
+                               eGPDstroke_Caps cap_end,
+                               bool fill_stroke);
+/**
+ * Draw points as quads or circles.
+ */
+void draw_dots(IndexRange indices,
+               Span<float3> positions,
+               const VArray<float> &radii,
+               const VArray<ColorGeometry4f> &colors,
+               const float4x4 &layer_to_world);
+
+/**
+ * Draw curves geometry.
+ * \param mode: Mode of \a eMaterialGPencilStyle_Mode.
+ */
+void draw_grease_pencil_strokes(const RegionView3D &rv3d,
+                                const int2 &win_size,
+                                const Object &object,
+                                const bke::greasepencil::Drawing &drawing,
+                                const IndexMask &strokes_mask,
+                                const VArray<ColorGeometry4f> &colors,
+                                const float4x4 &layer_to_world,
+                                int mode,
+                                bool use_xray);
+
+}  // namespace image_render
 
 }  // namespace blender::ed::greasepencil

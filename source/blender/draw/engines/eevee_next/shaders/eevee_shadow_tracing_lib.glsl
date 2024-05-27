@@ -131,11 +131,11 @@ void shadow_map_trace_hit_check(inout ShadowMapTracingState state, ShadowTracing
 /* If the ray direction `L`  is below the horizon defined by N (normalized) at the shading point,
  * push it just above the horizon so that this ray will never be below it and produce
  * over-shadowing (since light evaluation already clips the light shape). */
-vec3 shadow_ray_above_horizon_ensure(vec3 L, vec3 N)
+vec3 shadow_ray_above_horizon_ensure(vec3 L, vec3 N, float max_clip_distance)
 {
-  float distance_to_plan = dot(L, -N);
-  if (distance_to_plan > 0.0) {
-    L += N * (0.01 + distance_to_plan);
+  float distance_to_plane = dot(L, -N);
+  if (distance_to_plane > 0.0 && distance_to_plane < 0.01 + max_clip_distance) {
+    L += N * (0.01 + distance_to_plane);
   }
   return L;
 }
@@ -163,16 +163,17 @@ ShadowRayDirectional shadow_ray_generate_directional(
   float dist_to_near_plane = -lP.z - clip_near;
   /* Trace in a radius that is covered by low resolution page inflation. */
   float max_tracing_distance = texel_radius * float(SHADOW_PAGE_RES << SHADOW_TILEMAP_LOD);
+  /* TODO(fclem): Remove atan here. We only need the cosine of the angle. */
   float max_tracing_angle = atan_fast(max_tracing_distance / dist_to_near_plane);
   float shadow_angle = min(light_sun_data_get(light).shadow_angle, max_tracing_angle);
 
   /* Light shape is 1 unit away from the shading point. */
-  vec3 direction = sample_uniform_cone(sample_cylinder(random_2d), shadow_angle);
+  vec3 direction = sample_uniform_cone(random_2d, cos(shadow_angle));
 
-  direction = shadow_ray_above_horizon_ensure(direction, lNg);
+  direction = shadow_ray_above_horizon_ensure(direction, lNg, max_tracing_distance);
 
   /* It only make sense to trace where there can be occluder. Clamp by distance to near plane. */
-  direction *= dist_to_near_plane / direction.z;
+  direction *= max(texel_radius, dist_to_near_plane / direction.z);
 
   ShadowRayDirectional ray;
   ray.origin = lP;
@@ -237,35 +238,25 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light, vec2 random_2d, 
 
   float clip_far = intBitsToFloat(light.clip_far);
   float clip_near = intBitsToFloat(light.clip_near);
-  float clip_side = light_local_data_get(light).clip_side;
+  float shape_radius = light_spot_data_get(light).shadow_radius;
 
-  /* TODO(fclem): 3D shift for jittered soft shadows. */
-  vec3 projection_origin = vec3(0.0, 0.0, -light_local_data_get(light).shadow_projection_shift);
   vec3 direction;
   if (is_area_light(light.type)) {
-    random_2d *= light_area_data_get(light).size;
+    random_2d *= light_area_data_get(light).size * light_area_data_get(light).shadow_scale;
 
     vec3 point_on_light_shape = vec3(random_2d, 0.0);
 
     direction = point_on_light_shape - lP;
-    direction = shadow_ray_above_horizon_ensure(direction, lNg);
-
-    /* Clip the ray to not cross the near plane.
-     * Scale it so that it encompass the whole cube (with a safety margin). */
-    float clip_distance = clip_near + 0.001;
-    float ray_length = max(abs(direction.x), max(abs(direction.y), abs(direction.z)));
-    direction *= saturate((ray_length - clip_distance) / ray_length);
+    direction = shadow_ray_above_horizon_ensure(direction, lNg, shape_radius);
   }
   else {
     float dist;
-    vec3 L = normalize_and_get_length(lP, dist);
+    vec3 lL = normalize_and_get_length(lP, dist);
     /* Disk rotated towards light vector. */
     vec3 right, up;
-    make_orthonormal_basis(L, right, up);
+    make_orthonormal_basis(lL, right, up);
 
-    float shape_radius = light_spot_data_get(light).radius;
     if (is_sphere_light(light.type)) {
-      /* FIXME(weizhen): this is not well-defined when `dist < light.spot.radius`. */
       shape_radius = light_sphere_disk_radius(shape_radius, dist);
     }
     random_2d *= shape_radius;
@@ -273,17 +264,19 @@ ShadowRayPunctual shadow_ray_generate_punctual(LightData light, vec2 random_2d, 
     vec3 point_on_light_shape = right * random_2d.x + up * random_2d.y;
 
     direction = point_on_light_shape - lP;
-    direction = shadow_ray_above_horizon_ensure(direction, lNg);
-
-    /* Clip the ray to not cross the light shape. */
-    float clip_distance = light_spot_data_get(light).radius;
-    direction *= saturate((dist - clip_distance) / dist);
+    direction = shadow_ray_above_horizon_ensure(direction, lNg, shape_radius);
   }
+  /* Clip the ray to not cross the near plane.
+   * Avoid traces that starts on tiles that have not been queried, creating noise. */
+  float clip_distance = clip_near + shape_radius * 0.5;
+  direction *= saturate(1.0 - clip_distance * inversesqrt(length_squared(direction)));
 
+  vec3 shadow_position = light_local_data_get(light).shadow_position;
   /* Compute the ray again. */
   ShadowRayPunctual ray;
-  ray.origin = lP;
-  ray.direction = direction;
+  /* Transform to shadow local space. */
+  ray.origin = lP - shadow_position;
+  ray.direction = direction + shadow_position;
   ray.light_tilemap_index = light.tilemap_index;
   ray.local_ray_up = safe_normalize(cross(cross(ray.origin, ray.direction), ray.direction));
   ray.light = light;
@@ -323,18 +316,22 @@ SHADOW_MAP_TRACE_FN(ShadowRayPunctual)
  * stochastic percentage closer filtering of shadow-maps. */
 vec3 shadow_pcf_offset(vec3 L, vec3 Ng, vec2 random)
 {
+  /* Angle between Light and normal. */
+  float cos_theta = abs(dot(L, Ng));
+  float sin_theta = sin_from_cos(cos_theta);
+  /* Slope of the receiver plane with respect to light direction. Equal to `tan(theta)`.
+   * Stop at 45° angle to avoid large bias and peter panning artifacts. */
+  float cone_height = saturate(sin_theta * safe_rcp(cos_theta));
   /* We choose a random disk distribution because it is rotationally invariant.
-   * This sames us the trouble of getting the correct orientation for punctual. */
-  vec2 disk_sample = sample_disk(random);
-  /* Compute the offset as a disk around the normal. */
-  mat3x3 tangent_frame = from_up_axis(Ng);
-  vec3 pcf_offset = tangent_frame[0] * disk_sample.x + tangent_frame[1] * disk_sample.y;
-
-  if (dot(pcf_offset, L) < 0.0) {
-    /* Reflect the offset to avoid overshadowing caused by moving the sampling point below another
-     * polygon behind the shading point. */
-    pcf_offset = reflect(pcf_offset, L);
-  }
+   * This saves us the trouble of getting the correct orientation for punctual. */
+  float distance_to_center = sqrt(random.x);
+  vec2 disk_sample = sample_circle(random.y) * distance_to_center;
+  /* Set the samples on a cone up to 45 degree. */
+  vec3 cone_sample = vec3(disk_sample, distance_to_center * cone_height);
+  /* Setup the cone around the light vector. */
+  vec3 pcf_offset = from_up_axis(L) * cone_sample;
+  /* Offset the cone in normal direction to avoid self shadowing when angle is greater than 45°. */
+  pcf_offset += Ng * saturate(sin_theta - cos_theta);
   return pcf_offset;
 }
 
@@ -345,37 +342,37 @@ vec3 shadow_pcf_offset(vec3 L, vec3 Ng, vec2 random)
  */
 float shadow_texel_radius_at_position(LightData light, const bool is_directional, vec3 P)
 {
-  vec3 lP = light_world_to_local_point(light, P);
-
   float scale = 1.0;
   if (is_directional) {
+    vec3 lP = light_world_to_local_point(light, P);
+    lP -= light_position_get(light);
     LightSunData sun = light_sun_data_get(light);
     if (light.type == LIGHT_SUN) {
       /* Simplification of `coverage_get(shadow_directional_level_fractional)`. */
       const float narrowing = float(SHADOW_TILEMAP_RES) / (float(SHADOW_TILEMAP_RES) - 1.0001);
       scale = length(lP) * narrowing;
-      scale *= exp2(light.lod_bias);
-      scale = clamp(scale, float(1 << sun.clipmap_lod_min), float(1 << sun.clipmap_lod_max));
+      scale = max(scale * exp2(light.lod_bias), exp2(light.lod_min));
+      scale = min(scale, exp2(float(sun.clipmap_lod_max)));
     }
     else {
       /* Uniform distribution everywhere. No distance scaling.
        * shadow_directional_level_fractional returns the cascade level, but all levels have the
        * same density as the level 0. So the effective density only depends on the `lod_bias`. */
-      scale = exp2(light.lod_bias);
+      scale = exp2(float(light_sun_data_get(light).clipmap_lod_min));
     }
   }
   else {
-    /* Simplification of `coverage_get(shadow_punctual_level_fractional)`. */
+    vec3 lP = light_world_to_local_point(light, P);
+    lP -= light_local_data_get(light).shadow_position;
+    /* Simplification of `exp2(shadow_punctual_level_fractional)`. */
     scale = shadow_punctual_pixel_ratio(light,
                                         lP,
                                         drw_view_is_perspective(),
                                         drw_view_z_distance(P),
                                         uniform_buf.shadow.film_pixel_radius);
     /* This gives the size of pixels at Z = 1. */
-    scale = 1.0 / scale;
-    scale *= exp2(-1.0 + light.lod_bias);
-    scale = clamp(scale, float(1 << 0), float(1 << SHADOW_TILEMAP_LOD));
-    scale *= shadow_punctual_frustum_padding_get(light);
+    scale = 0.5 / scale;
+    scale = min(scale, float(1 << (SHADOW_TILEMAP_LOD - 1)));
     /* Now scale by distance to the light. */
     scale *= reduce_max(abs(lP));
   }
@@ -414,7 +411,6 @@ float shadow_eval(LightData light,
                   float thickness, /* Only used if is_transmission is true. */
                   vec3 P,
                   vec3 Ng,
-                  vec3 L,
                   int ray_count,
                   int ray_step_count)
 {
@@ -433,6 +429,12 @@ float shadow_eval(LightData light,
   vec2 random_pcf_2d = vec2(0.0);
 #endif
 
+  /* Direction towards the shadow center (punctual) or direction (direction).
+   * Not the same as the light vector if the shadow is jittered. */
+  vec3 L = is_directional ? light_z_axis(light) :
+                            normalize(light_position_get(light) +
+                                      light_local_data_get(light).shadow_position - P);
+
   bool is_facing_light = (dot(Ng, L) > 0.0);
   /* Still bias the transmission surfaces towards the light if they are facing away. */
   vec3 N_bias = (is_transmission && !is_facing_light) ? reflect(Ng, L) : Ng;
@@ -449,13 +451,13 @@ float shadow_eval(LightData light,
   /* Avoid self intersection with respect to numerical precision. */
   P = offset_ray(P, N_bias);
   /* Stochastic Percentage Closer Filtering. */
-  P += (light.pcf_radius * texel_radius) * shadow_pcf_offset(L, Ng, random_pcf_2d);
+  P += (light.filter_radius * texel_radius) * shadow_pcf_offset(L, Ng, random_pcf_2d);
   /* Add normal bias to avoid aliasing artifacts. */
   P += N_bias * (texel_radius * shadow_normal_offset(Ng, L));
 
-  vec3 lP = is_directional ? light_world_to_local(light, P) :
-                             light_world_to_local(light, P - light_position_get(light));
-  vec3 lNg = light_world_to_local(light, Ng);
+  vec3 lP = is_directional ? light_world_to_local_direction(light, P) :
+                             light_world_to_local_point(light, P);
+  vec3 lNg = light_world_to_local_direction(light, Ng);
   /* Invert horizon clipping. */
   lNg = (is_transmission) ? -lNg : lNg;
   /* Don't do a any horizon clipping in this case as the closure is lit from both sides. */

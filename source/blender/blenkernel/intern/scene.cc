@@ -395,7 +395,7 @@ static void scene_free_data(ID *id)
 
   /* is no lib link block, but scene extension */
   if (scene->nodetree) {
-    ntreeFreeEmbeddedTree(scene->nodetree);
+    blender::bke::ntreeFreeEmbeddedTree(scene->nodetree);
     MEM_freeN(scene->nodetree);
     scene->nodetree = nullptr;
   }
@@ -1140,7 +1140,7 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     /* Set deprecated chunksize for forward compatibility. */
     temp_nodetree->chunksize = 256;
     BLO_write_struct_at_address(writer, bNodeTree, sce->nodetree, temp_nodetree);
-    ntreeBlendWrite(writer, temp_nodetree);
+    blender::bke::ntreeBlendWrite(writer, temp_nodetree);
   }
 
   BKE_color_managed_view_settings_blend_write(writer, &sce->view_settings);
@@ -1599,7 +1599,7 @@ constexpr IDTypeInfo get_type_info()
   info.name = "Scene";
   info.name_plural = "scenes";
   info.translation_context = BLT_I18NCONTEXT_ID_SCENE;
-  info.flags = 0;
+  info.flags = IDTYPE_FLAGS_NEVER_UNUSED;
   info.asset_type_info = nullptr;
 
   info.init_data = scene_init_data;

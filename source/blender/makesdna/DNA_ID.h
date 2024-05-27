@@ -14,6 +14,15 @@
 #include "DNA_listBase.h"
 
 #ifdef __cplusplus
+namespace blender::bke {
+struct PreviewImageRuntime;
+}
+using PreviewImageRuntimeHandle = blender::bke::PreviewImageRuntime;
+#else
+typedef struct PreviewImageRuntimeHandle PreviewImageRuntimeHandle;
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -579,8 +588,18 @@ typedef struct Library {
 
 /** #Library.runtime.tag */
 enum eLibrary_Tag {
-  /* Automatic recursive resync was needed when linking/loading data from that library. */
+  /** Automatic recursive re-synchronize was needed when linking/loading data from that library. */
   LIBRARY_TAG_RESYNC_REQUIRED = 1 << 0,
+  /**
+   * Data-blocks from this library are editable in the UI despite being linked.
+   * Used for asset that can be temporarily or permanently edited.
+   * Currently all data-blocks from this library will be edited. In the future this
+   * may need to become per data-block to handle cases where a library is both used
+   * for editable assets and linked into the blend file for other reasons.
+   */
+  LIBRARY_ASSET_EDITABLE = 1 << 1,
+  /** The blend file of this library is writable for asset editing. */
+  LIBRARY_ASSET_FILE_WRITABLE = 1 << 2,
 };
 
 /**
@@ -614,8 +633,6 @@ enum ePreviewImage_Flag {
 
 /* PreviewImage.tag */
 enum {
-  /** Actual loading of preview is deferred. */
-  PRV_TAG_DEFFERED = (1 << 0),
   /** Deferred preview is being loaded. */
   PRV_TAG_DEFFERED_RENDERING = (1 << 1),
   /** Deferred preview should be deleted asap. */
@@ -627,6 +644,7 @@ enum {
  * Don't call this for shallow copies (or the original instance will have dangling pointers).
  */
 typedef struct PreviewImage {
+  DNA_DEFINE_CXX_METHODS(PreviewImage)
   /* All values of 2 are really NUM_ICON_SIZES */
   unsigned int w[2];
   unsigned int h[2];
@@ -634,29 +652,40 @@ typedef struct PreviewImage {
   short changed_timestamp[2];
   unsigned int *rect[2];
 
-  /* Runtime-only data. */
-  struct GPUTexture *gputexture[2];
-  /** Used by previews outside of ID context. */
-  int icon_id;
-
-  /** Runtime data. */
-  short tag;
-  char _pad[2];
-
-#ifdef __cplusplus
-  PreviewImage();
-  /* Shallow copy! Contained data is not copied. */
-  PreviewImage(const PreviewImage &) = default;
-  /* Don't free contained data to allow shallow copies. */
-  ~PreviewImage() = default;
-  /* Shallow copy! Contained data is not copied. */
-  PreviewImage &operator=(const PreviewImage &) = default;
-#endif
+  PreviewImageRuntimeHandle *runtime;
 } PreviewImage;
 
+/**
+ * Amount of 'fake user' usages of this ID.
+ * Always 0 or 1.
+ */
 #define ID_FAKE_USERS(id) ((((const ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
-#define ID_REAL_USERS(id) (((const ID *)id)->us - ID_FAKE_USERS(id))
+/**
+ * Amount of defined 'extra' shallow, runtime-only usages of this ID (typically from UI).
+ * Always 0 or 1.
+ *
+ * \warning May not actually be part of the total #ID.us count, see #ID_EXTRA_REAL_USERS.
+ */
 #define ID_EXTRA_USERS(id) (((const ID *)id)->tag & LIB_TAG_EXTRAUSER ? 1 : 0)
+/**
+ * Amount of real 'extra' shallow, runtime-only usages of this ID (typically from UI).
+ * Always 0 or 1.
+ *
+ * \note Actual number of usages added to #ID.us by these extra usages.
+ * May be 0 even if there are some 'extra' usages of this ID,
+ * when there are also other 'normal' reference-counting usages of it.
+ */
+#define ID_EXTRA_REAL_USERS(id) (((const ID *)id)->tag & LIB_TAG_EXTRAUSER_SET ? 1 : 0)
+/**
+ * Amount of real usages of this ID (i.e. excluding the 'fake user' one, but including a potential
+ * 'extra' shallow/runtime usage).
+ */
+#define ID_REAL_USERS(id) (((const ID *)id)->us - ID_FAKE_USERS(id))
+/**
+ * Amount of 'normal' reference-counting usages of this ID
+ * (i.e. excluding the 'fake user' one, and a potential 'extra' shallow/runtime usage).
+ */
+#define ID_REFCOUNTING_USERS(id) (ID_REAL_USERS(id) - ID_EXTRA_REAL_USERS(id))
 
 #define ID_CHECK_UNDO(id) \
   ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM) && (GS((id)->name) != ID_WS))
@@ -669,6 +698,13 @@ typedef struct PreviewImage {
 #define ID_MISSING(_id) ((((const ID *)(_id))->tag & LIB_TAG_MISSING) != 0)
 
 #define ID_IS_LINKED(_id) (((const ID *)(_id))->lib != NULL)
+
+#define ID_TYPE_SUPPORTS_ASSET_EDITABLE(id_type) ELEM(id_type, ID_BR, ID_TE, ID_NT, ID_IM)
+
+#define ID_IS_EDITABLE(_id) \
+  ((((const ID *)(_id))->lib == NULL) || \
+   ((((const ID *)(_id))->lib->runtime.tag & LIBRARY_ASSET_EDITABLE) && \
+    ID_TYPE_SUPPORTS_ASSET_EDITABLE(GS((((const ID *)(_id))->name)))))
 
 /* Note that these are fairly high-level checks, should be used at user interaction level, not in
  * BKE_library_override typically (especially due to the check on LIB_TAG_EXTERN). */
@@ -1212,7 +1248,6 @@ typedef enum IDRecalcFlag {
 #define FILTER_ID_LI (1ULL << 39)
 #define FILTER_ID_GP (1ULL << 40)
 #define FILTER_ID_IP (1ULL << 41)
-#define FILTER_ID_AN (1ULL << 42)
 
 #define FILTER_ID_ALL \
   (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU_LEGACY | \
@@ -1222,7 +1257,7 @@ typedef enum IDRecalcFlag {
    FILTER_ID_SPK | FILTER_ID_SO | FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | \
    FILTER_ID_CF | FILTER_ID_WS | FILTER_ID_LP | FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO | \
    FILTER_ID_SIM | FILTER_ID_KE | FILTER_ID_SCR | FILTER_ID_WM | FILTER_ID_LI | FILTER_ID_GP | \
-   FILTER_ID_IP | FILTER_ID_AN)
+   FILTER_ID_IP)
 
 /**
  * This enum defines the index assigned to each type of IDs in the array returned by
@@ -1261,7 +1296,6 @@ typedef enum eID_Index {
   /* Animation types, might be used by almost all other types. */
   INDEX_ID_IP, /* Deprecated. */
   INDEX_ID_AC,
-  INDEX_ID_AN,
 
   /* Grease Pencil, special case, should be with the other obdata, but it can also be used by many
    * other ID types, including node trees e.g.

@@ -15,6 +15,8 @@ extern "C" {
 #include "BLI_compiler_attrs.h"
 #include "BLI_sys_types.h"
 
+struct BlendWriter;
+struct BlendReader;
 struct UserDef;
 struct bUserExtensionRepo;
 struct bUserAssetLibrary;
@@ -107,8 +109,8 @@ bUserExtensionRepo *BKE_preferences_extension_repo_find_by_module(const UserDef 
 /**
  * Using a full URL/remote path to find a repository that shares its prefix.
  */
-bUserExtensionRepo *BKE_preferences_extension_repo_find_by_remote_path_prefix(
-    const UserDef *userdef, const char *remote_path_full, const bool only_enabled);
+bUserExtensionRepo *BKE_preferences_extension_repo_find_by_remote_url_prefix(
+    const UserDef *userdef, const char *remote_url_full, const bool only_enabled);
 /**
  * Skip the `https` or `http` part of a URL `https://`, return zero if none is found.
  */
@@ -116,10 +118,15 @@ int BKE_preferences_extension_repo_remote_scheme_end(const char *url);
 /**
  * Set a name based on a URL, e.g. `https://www.example.com/path` -> `www.example.com`.
  */
-void BKE_preferences_extension_remote_to_name(const char *remote_path, char name[64]);
+void BKE_preferences_extension_remote_to_name(const char *remote_url, char name[64]);
 
 int BKE_preferences_extension_repo_get_index(const UserDef *userdef,
                                              const bUserExtensionRepo *repo);
+
+void BKE_preferences_extension_repo_read_data(struct BlendDataReader *reader,
+                                              bUserExtensionRepo *repo);
+void BKE_preferences_extension_repo_write_data(struct BlendWriter *writer,
+                                               const bUserExtensionRepo *repo);
 
 /** \} */
 

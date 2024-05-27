@@ -159,7 +159,7 @@ static void store_original_bezt_arrays(tGraphSliderOp *gso)
 
   /* Loop through filtered data and copy the curves. */
   LISTBASE_FOREACH (bAnimListElem *, ale, &anim_data) {
-    FCurve *fcu = (FCurve *)ale->key_data;
+    const FCurve *fcu = (const FCurve *)ale->key_data;
 
     if (fcu->bezt == nullptr) {
       /* This curve is baked, skip it. */
@@ -565,7 +565,9 @@ static bool decimate_poll_property(const bContext * /*C*/, wmOperator *op, const
   return true;
 }
 
-static std::string decimate_desc(bContext * /*C*/, wmOperatorType * /*ot*/, PointerRNA *ptr)
+static std::string decimate_get_description(bContext * /*C*/,
+                                            wmOperatorType * /*ot*/,
+                                            PointerRNA *ptr)
 {
 
   if (RNA_enum_get(ptr, "mode") == DECIM_ERROR) {
@@ -602,7 +604,7 @@ void GRAPH_OT_decimate(wmOperatorType *ot)
 
   /* API callbacks */
   ot->poll_property = decimate_poll_property;
-  ot->get_description = decimate_desc;
+  ot->get_description = decimate_get_description;
   ot->invoke = decimate_invoke;
   ot->modal = graph_slider_modal;
   ot->exec = decimate_exec;

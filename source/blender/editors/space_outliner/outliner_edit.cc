@@ -44,6 +44,7 @@
 #include "BKE_main.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
+#include "BKE_screen.hh"
 #include "BKE_workspace.hh"
 
 #include "DEG_depsgraph.hh"
@@ -342,7 +343,7 @@ static void do_item_rename(ARegion *region,
   else if (ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP)) {
     BKE_report(reports, RPT_INFO, "Sequence names are not editable from the Outliner");
   }
-  else if (TSE_IS_REAL_ID(tselem) && ID_IS_LINKED(tselem->id)) {
+  else if (TSE_IS_REAL_ID(tselem) && !ID_IS_EDITABLE(tselem->id)) {
     BKE_report(reports, RPT_INFO, "External library data is not editable");
   }
   else if (TSE_IS_REAL_ID(tselem) && ID_IS_OVERRIDE_LIBRARY(tselem->id)) {
@@ -633,7 +634,7 @@ static int outliner_id_remap_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ID_IS_LINKED(old_id)) {
+  if (!ID_IS_EDITABLE(old_id)) {
     BKE_reportf(op->reports,
                 RPT_WARNING,
                 "Old ID '%s' is linked from a library, indirect usages of this data-block will "
@@ -1244,6 +1245,54 @@ void OUTLINER_OT_select_all(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Start / Clear Search Filter Operators
+ * \{ */
+
+static int outliner_start_filter_exec(bContext *C, wmOperator * /*op*/)
+{
+  SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
+  ScrArea *area = CTX_wm_area(C);
+  ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_HEADER);
+  UI_textbutton_activate_rna(C, region, space_outliner, "filter_text");
+
+  return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_start_filter(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Filter";
+  ot->description = "Start entering filter text";
+  ot->idname = "OUTLINER_OT_start_filter";
+
+  /* Callbacks. */
+  ot->exec = outliner_start_filter_exec;
+  ot->poll = ED_operator_outliner_active;
+}
+
+static int outliner_clear_filter_exec(bContext *C, wmOperator * /*op*/)
+{
+  SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
+  space_outliner->search_string[0] = '\0';
+  ED_area_tag_redraw(CTX_wm_area(C));
+  return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_clear_filter(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Clear Filter";
+  ot->description = "Clear the search filter";
+  ot->idname = "OUTLINER_OT_clear_filter";
+
+  /* Callbacks. */
+  ot->exec = outliner_clear_filter_exec;
+  ot->poll = ED_operator_outliner_active;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name View Show Active (Outliner) Operator
  * \{ */
 
@@ -1832,8 +1881,7 @@ static void do_outliner_drivers_editop(SpaceOutliner *space_outliner,
             break;
           }
           case DRIVERS_EDITMODE_REMOVE: {
-            /* remove driver matching the information obtained (only if valid) */
-            ANIM_remove_driver(reports, id, path, array_index, dflags);
+            ANIM_remove_driver(id, path, array_index);
             break;
           }
         }

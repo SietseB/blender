@@ -177,7 +177,7 @@ static GreasePencilBatchCache *grease_pencil_batch_cache_get(GreasePencil &greas
 /** \name Vertex Buffers
  * \{ */
 
-BLI_INLINE int32_t pack_rotation_aspect_hardness(float rot, float asp, float hard)
+BLI_INLINE int32_t pack_rotation_aspect_hardness(float rot, float asp, float softness)
 {
   int32_t packed = 0;
   /* Aspect uses 9 bits */
@@ -196,7 +196,7 @@ BLI_INLINE int32_t pack_rotation_aspect_hardness(float rot, float asp, float har
     packed |= 1 << 17;
   }
   /* Hardness uses 8 bits */
-  packed |= int32_t(unit_float_to_uchar_clamp(hard)) << 18;
+  packed |= int32_t(unit_float_to_uchar_clamp(1.0f - softness)) << 18;
   return packed;
 }
 
@@ -713,8 +713,8 @@ static void grease_pencil_geom_batch_ensure(Object &object,
         "start_cap", bke::AttrDomain::Curve, GP_STROKE_CAP_TYPE_ROUND);
     const VArray<int8_t> end_caps = *attributes.lookup_or_default<int8_t>(
         "end_cap", bke::AttrDomain::Curve, 0);
-    const VArray<float> stroke_hardnesses = *attributes.lookup_or_default<float>(
-        "hardness", bke::AttrDomain::Curve, 1.0f);
+    const VArray<float> stroke_softness = *attributes.lookup_or_default<float>(
+        "softness", bke::AttrDomain::Curve, 0.0f);
     const VArray<float> stroke_point_aspect_ratios = *attributes.lookup_or_default<float>(
         "aspect_ratio", bke::AttrDomain::Curve, 1.0f);
     const VArray<ColorGeometry4f> stroke_fill_colors = info.drawing.fill_colors();
@@ -749,7 +749,10 @@ static void grease_pencil_geom_batch_ensure(Object &object,
                               GreasePencilColorVert &c_vert) {
       const float3 pos = math::transform_point(layer_space_to_object_space, positions[point_i]);
       copy_v3_v3(s_vert.pos, pos);
-      s_vert.radius = radii[point_i] * ((end_cap == GP_STROKE_CAP_TYPE_ROUND) ? 1.0f : -1.0f);
+      /* GP data itself does not constrain radii to be positive, but drawing code expects it, and
+       * use negative values as a special 'flag' to get rounded caps. */
+      s_vert.radius = math::max(radii[point_i], 0.0f) *
+                      ((end_cap == GP_STROKE_CAP_TYPE_ROUND) ? 1.0f : -1.0f);
       /* Convert to legacy "pixel" space. We divide here, because the shader expects the values to
        * be in the `px` space rather than world space. Otherwise the values will get clamped. */
       s_vert.radius /= bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
@@ -760,7 +763,7 @@ static void grease_pencil_geom_batch_ensure(Object &object,
       s_vert.mat = materials[curve_i] % GPENCIL_MATERIAL_BUFFER_LEN;
 
       s_vert.packed_asp_hard_rot = pack_rotation_aspect_hardness(
-          rotations[point_i], stroke_point_aspect_ratios[curve_i], stroke_hardnesses[curve_i]);
+          rotations[point_i], stroke_point_aspect_ratios[curve_i], stroke_softness[curve_i]);
       s_vert.u_stroke = u_stroke;
       copy_v2_v2(s_vert.uv_fill, texture_matrix * float4(pos, 1.0f));
 

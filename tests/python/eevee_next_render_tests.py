@@ -27,6 +27,9 @@ def setup():
         # Ambient Occlusion Pass
         eevee.gtao_distance = 1
 
+        # Lights
+        eevee.light_threshold = 0.001
+
         # Hair
         scene.render.hair_type = 'STRIP'
 
@@ -57,6 +60,10 @@ def setup():
 
         # Only include the plane in probes
         for ob in scene.objects:
+            if ob.type == 'LIGHT':
+                # Set maximum resolution
+                ob.data.shadow_maximum_resolution = 0.0
+
             if ob.name != 'Plane' and ob.type != 'LIGHT':
                 ob.hide_probe_volume = True
                 ob.hide_probe_sphere = True
@@ -85,7 +92,7 @@ def setup():
             grid.data.grid_resolution_z = 8
             grid.data.grid_bake_samples = 128
             grid.data.grid_capture_world = True
-            grid.data.surfel_density = 10.0
+            grid.data.grid_surfel_density = 100
             # Make lighting smoother for most of the case.
             grid.data.grid_dilation_threshold = 1.0
             bpy.ops.object.lightprobe_cache_bake(subset='ACTIVE')

@@ -605,9 +605,9 @@ static int graphkeys_paste_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string graphkeys_paste_description(bContext * /*C*/,
-                                               wmOperatorType * /*ot*/,
-                                               PointerRNA *ptr)
+static std::string graphkeys_paste_get_description(bContext * /*C*/,
+                                                   wmOperatorType * /*ot*/,
+                                                   PointerRNA *ptr)
 {
   /* Custom description if the 'flipped' option is used. */
   if (RNA_boolean_get(ptr, "flipped")) {
@@ -633,7 +633,7 @@ void GRAPH_OT_paste(wmOperatorType *ot)
   /* API callbacks */
 
   // ot->invoke = WM_operator_props_popup; /* better wait for graph redo panel */
-  ot->get_description = graphkeys_paste_description;
+  ot->get_description = graphkeys_paste_get_description;
   ot->exec = graphkeys_paste_exec;
   ot->poll = graphop_editable_keyframes_poll;
 
@@ -3295,7 +3295,7 @@ void GRAPH_OT_driver_variables_paste(wmOperatorType *ot)
 /** \name Delete Invalid Drivers Operator
  * \{ */
 
-static int graph_driver_delete_invalid_exec(bContext *C, wmOperator *op)
+static int graph_driver_delete_invalid_exec(bContext *C, wmOperator * /*op*/)
 {
   bAnimContext ac;
   ListBase anim_data = {nullptr, nullptr};
@@ -3326,7 +3326,7 @@ static int graph_driver_delete_invalid_exec(bContext *C, wmOperator *op)
       continue;
     }
 
-    ok |= ANIM_remove_driver(op->reports, ale->id, fcu->rna_path, fcu->array_index, 0);
+    ok |= ANIM_remove_driver(ale->id, fcu->rna_path, fcu->array_index);
     if (!ok) {
       break;
     }

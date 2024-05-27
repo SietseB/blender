@@ -825,6 +825,12 @@ typedef struct RenderData {
   float motion_blur_shutter;
   int motion_blur_position;
   struct CurveMapping mblur_shutter_curve;
+
+  /** Device to use for compositor engine. */
+  int compositor_device; /* eCompositorDevice */
+
+  /** Precision used by the GPU execution of the compositor tree. */
+  int compositor_precision; /* eCompositorPrecision */
 } RenderData;
 
 /** #RenderData::quality_flag */
@@ -844,6 +850,18 @@ enum {
   SCE_MB_START = 1,
   SCE_MB_END = 2,
 };
+
+/** #RenderData::compositor_device */
+typedef enum eCompositorDevice {
+  SCE_COMPOSITOR_DEVICE_CPU = 0,
+  SCE_COMPOSITOR_DEVICE_GPU = 1,
+} eCompositorDevice;
+
+/** #RenderData::compositor_precision */
+typedef enum eCompositorPrecision {
+  SCE_COMPOSITOR_PRECISION_AUTO = 0,
+  SCE_COMPOSITOR_PRECISION_FULL = 1,
+} eCompositorPrecision;
 
 /** \} */
 
@@ -1845,6 +1863,9 @@ typedef struct SceneEEVEE {
   float gtao_focus;
   int gtao_resolution;
 
+  int fast_gi_step_count;
+  int fast_gi_ray_count;
+
   float bokeh_overblur;
   float bokeh_max_size;
   float bokeh_threshold;
@@ -1873,12 +1894,10 @@ typedef struct SceneEEVEE {
   int shadow_step_count;
   float shadow_resolution_scale;
 
-  float clamp_world;
   float clamp_surface_direct;
   float clamp_surface_indirect;
   float clamp_volume_direct;
   float clamp_volume_indirect;
-  char _pad[4];
 
   int ray_tracing_method;
 
@@ -2291,7 +2310,7 @@ extern const char *RE_engine_id_CYCLES;
    (((base)->flag & BASE_SELECTABLE) != 0))
 #define BASE_SELECTED(v3d, base) (BASE_VISIBLE(v3d, base) && (((base)->flag & BASE_SELECTED) != 0))
 #define BASE_EDITABLE(v3d, base) \
-  (BASE_VISIBLE(v3d, base) && !ID_IS_LINKED((base)->object) && \
+  (BASE_VISIBLE(v3d, base) && ID_IS_EDITABLE((base)->object) && \
    (!ID_IS_OVERRIDE_LIBRARY_REAL((base)->object) || \
     ((base)->object->id.override_library->flag & LIBOVERRIDE_FLAG_SYSTEM_DEFINED) == 0))
 #define BASE_SELECTED_EDITABLE(v3d, base) \
@@ -2551,31 +2570,6 @@ typedef enum ePaintFlags {
   PAINT_USE_CAVITY_MASK = (1 << 3),
   PAINT_SCULPT_DELAY_UPDATES = (1 << 4),
 } ePaintFlags;
-
-/**
- * #Paint::symmetry_flags
- * (for now just a duplicate of sculpt symmetry flags).
- */
-typedef enum ePaintSymmetryFlags {
-  PAINT_SYMM_NONE = 0,
-  PAINT_SYMM_X = (1 << 0),
-  PAINT_SYMM_Y = (1 << 1),
-  PAINT_SYMM_Z = (1 << 2),
-  PAINT_SYMMETRY_FEATHER = (1 << 3),
-  PAINT_TILE_X = (1 << 4),
-  PAINT_TILE_Y = (1 << 5),
-  PAINT_TILE_Z = (1 << 6),
-} ePaintSymmetryFlags;
-ENUM_OPERATORS(ePaintSymmetryFlags, PAINT_TILE_Z);
-#define PAINT_SYMM_AXIS_ALL (PAINT_SYMM_X | PAINT_SYMM_Y | PAINT_SYMM_Z)
-
-#ifdef __cplusplus
-inline ePaintSymmetryFlags operator++(ePaintSymmetryFlags &flags, int)
-{
-  flags = ePaintSymmetryFlags(char(flags) + 1);
-  return flags;
-}
-#endif
 
 /**
  * #Sculpt::flags

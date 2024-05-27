@@ -63,7 +63,7 @@ void Sampling::init(const Scene *scene)
 
   auto clamp_value_load = [](float value) { return (value > 0.0) ? value : 1e20; };
 
-  clamp_data_.world = clamp_value_load(scene->eevee.clamp_world);
+  clamp_data_.sun_threshold = clamp_value_load(inst_.world.sun_threshold());
   clamp_data_.surface_direct = clamp_value_load(scene->eevee.clamp_surface_direct);
   clamp_data_.surface_indirect = clamp_value_load(scene->eevee.clamp_surface_indirect);
   clamp_data_.volume_direct = clamp_value_load(scene->eevee.clamp_volume_direct);
@@ -165,6 +165,16 @@ void Sampling::step()
     data_.dimensions[SAMPLING_RAYTRACE_U] = r[0];
     data_.dimensions[SAMPLING_RAYTRACE_V] = r[1];
     data_.dimensions[SAMPLING_RAYTRACE_W] = r[2];
+  }
+  {
+    double3 r, offset = {0, 0, 0};
+    uint3 primes = {2, 3, 5};
+    BLI_halton_3d(primes, offset, sample_ + 1, r);
+    /* WORKAROUND: We offset the distribution to make the first sample (0,0,0). */
+    /* TODO de-correlate. */
+    data_.dimensions[SAMPLING_SHADOW_I] = fractf(r[0] + (1.0 / 2.0));
+    data_.dimensions[SAMPLING_SHADOW_J] = fractf(r[1] + (2.0 / 3.0));
+    data_.dimensions[SAMPLING_SHADOW_K] = fractf(r[2] + (4.0 / 5.0));
   }
   {
     uint64_t sample_volume = sample_;

@@ -65,7 +65,6 @@
 
 #include "BLT_translation.hh"
 
-#include "BKE_DerivedMesh.hh"
 #include "BKE_action.h"
 #include "BKE_anim_data.hh"
 #include "BKE_anim_path.h"
@@ -111,6 +110,7 @@
 #include "BKE_material.h"
 #include "BKE_mball.hh"
 #include "BKE_mesh.hh"
+#include "BKE_mesh_legacy_derived_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
 #include "BKE_multires.hh"
@@ -3569,7 +3569,7 @@ std::optional<blender::Bounds<blender::float3>> BKE_object_boundbox_get(const Ob
     case OB_LATTICE:
       return BKE_lattice_minmax(static_cast<const Lattice *>(ob->data));
     case OB_ARMATURE:
-      return BKE_armature_min_max(ob->pose);
+      return BKE_armature_min_max(ob);
     case OB_GPENCIL_LEGACY:
       return BKE_gpencil_data_minmax(static_cast<const bGPdata *>(ob->data));
     case OB_CURVES:

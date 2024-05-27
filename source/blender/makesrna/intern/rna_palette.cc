@@ -188,7 +188,7 @@ static PaletteColor *rna_Palette_last_used_color_new(Palette *palette, const int
 
 static PaletteColor *rna_Palette_color_new(Palette *palette)
 {
-  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+  if (!ID_IS_EDITABLE(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
     return nullptr;
   }
 
@@ -198,7 +198,7 @@ static PaletteColor *rna_Palette_color_new(Palette *palette)
 
 static void rna_Palette_color_remove(Palette *palette, ReportList *reports, PointerRNA *color_ptr)
 {
-  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+  if (!ID_IS_EDITABLE(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
     return;
   }
 
@@ -217,7 +217,7 @@ static void rna_Palette_color_remove(Palette *palette, ReportList *reports, Poin
 
 static void rna_Palette_color_clear(Palette *palette)
 {
-  if (ID_IS_LINKED(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
+  if (!ID_IS_EDITABLE(palette) || ID_IS_OVERRIDE_LIBRARY(palette)) {
     return;
   }
 

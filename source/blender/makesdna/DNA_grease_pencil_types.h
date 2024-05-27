@@ -157,8 +157,8 @@ typedef struct GreasePencilFrame {
   int8_t type;
   char _pad[3];
 #ifdef __cplusplus
-  static GreasePencilFrame null();
-  bool is_null() const;
+  static GreasePencilFrame end();
+  bool is_end() const;
   bool is_implicit_hold() const;
   bool is_selected() const;
 #endif
@@ -508,9 +508,19 @@ typedef struct GreasePencil {
   bool has_active_layer() const;
   const blender::bke::greasepencil::Layer *get_active_layer() const;
   blender::bke::greasepencil::Layer *get_active_layer();
-  void set_active_layer(const blender::bke::greasepencil::Layer *layer);
+  void set_active_layer(blender::bke::greasepencil::Layer *layer);
   bool is_layer_active(const blender::bke::greasepencil::Layer *layer) const;
   void autolock_inactive_layers();
+
+  /* Active group functions. */
+  bool has_active_group() const;
+  const blender::bke::greasepencil::LayerGroup *get_active_group() const;
+  blender::bke::greasepencil::LayerGroup *get_active_group();
+
+  /* Active node functions. */
+  const blender::bke::greasepencil::TreeNode *get_active_node() const;
+  blender::bke::greasepencil::TreeNode *get_active_node();
+  void set_active_node(blender::bke::greasepencil::TreeNode *node);
 
   /* Adding layers and layer groups. */
   /** Adds a new layer with the given name to the top of root group. */
@@ -519,10 +529,10 @@ typedef struct GreasePencil {
   blender::bke::greasepencil::Layer &add_layer(
       blender::bke::greasepencil::LayerGroup &parent_group, blender::StringRefNull name);
   /** Duplicates the given layer to the top of the root group. */
-  blender::bke::greasepencil::Layer &add_layer(
+  blender::bke::greasepencil::Layer &duplicate_layer(
       const blender::bke::greasepencil::Layer &duplicate_layer);
   /** Duplicates the given layer to the top of the given group. */
-  blender::bke::greasepencil::Layer &add_layer(
+  blender::bke::greasepencil::Layer &duplicate_layer(
       blender::bke::greasepencil::LayerGroup &parent_group,
       const blender::bke::greasepencil::Layer &duplicate_layer);
   blender::bke::greasepencil::LayerGroup &add_layer_group(
@@ -550,6 +560,7 @@ typedef struct GreasePencil {
   void rename_node(blender::bke::greasepencil::TreeNode &node, blender::StringRefNull new_name);
 
   void remove_layer(blender::bke::greasepencil::Layer &layer);
+  void remove_group(blender::bke::greasepencil::LayerGroup &group, bool keep_children = false);
 
   /* Frames API functions. */
 

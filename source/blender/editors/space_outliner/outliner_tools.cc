@@ -141,7 +141,6 @@ static void get_element_operation_type(
       case ID_KE:
       case ID_WO:
       case ID_AC:
-      case ID_AN:
       case ID_TXT:
       case ID_GR:
       case ID_LS:
@@ -384,7 +383,7 @@ static void unlink_collection_fn(bContext *C,
     return;
   }
 
-  if (tsep && (ID_IS_LINKED(tsep->id) || ID_IS_OVERRIDE_LIBRARY(tsep->id))) {
+  if (tsep && (!ID_IS_EDITABLE(tsep->id) || ID_IS_OVERRIDE_LIBRARY(tsep->id))) {
     BKE_reportf(reports,
                 RPT_WARNING,
                 "Cannot unlink collection '%s' parented to another linked collection '%s'",
@@ -435,7 +434,7 @@ static void unlink_object_fn(bContext *C,
       /* Parented objects need to find which collection to unlink from. */
       TreeElement *te_parent = te->parent;
       while (tsep && GS(tsep->id->name) == ID_OB) {
-        if (ID_IS_LINKED(tsep->id)) {
+        if (!ID_IS_EDITABLE(tsep->id)) {
           BKE_reportf(reports,
                       RPT_WARNING,
                       "Cannot unlink object '%s' parented to another linked object '%s'",
@@ -449,7 +448,7 @@ static void unlink_object_fn(bContext *C,
     }
 
     if (tsep && tsep->id) {
-      if (ID_IS_LINKED(tsep->id) || ID_IS_OVERRIDE_LIBRARY(tsep->id)) {
+      if (!ID_IS_EDITABLE(tsep->id) || ID_IS_OVERRIDE_LIBRARY(tsep->id)) {
         BKE_reportf(reports,
                     RPT_WARNING,
                     "Cannot unlink object '%s' from linked collection or scene '%s'",
@@ -979,7 +978,7 @@ static void id_local_fn(bContext *C,
 {
   if (ID_IS_LINKED(tselem->id) && (tselem->id->tag & LIB_TAG_EXTERN)) {
     Main *bmain = CTX_data_main(C);
-    if (BKE_lib_id_make_local(bmain, tselem->id, 0)) {
+    if (BKE_lib_id_make_local(bmain, tselem->id, LIB_ID_MAKELOCAL_ASSET_DATA_CLEAR)) {
       BKE_id_newptr_and_tag_clear(tselem->id);
     }
   }

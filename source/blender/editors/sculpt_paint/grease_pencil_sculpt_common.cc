@@ -8,6 +8,7 @@
 #include "BKE_crazyspace.hh"
 #include "BKE_curves.hh"
 #include "BKE_grease_pencil.hh"
+#include "BKE_paint.hh"
 
 #include "BLI_index_mask.hh"
 #include "BLI_math_vector.hh"
@@ -245,7 +246,7 @@ void GreasePencilStrokeOperationCommon::foreach_editable_drawing(
   threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
     const Layer &layer = *grease_pencil.layer(info.layer_index);
 
-    ed::greasepencil::DrawingPlacement placement(scene, region, view3d, object_eval, layer);
+    ed::greasepencil::DrawingPlacement placement(scene, region, view3d, object_eval, &layer);
     if (placement.use_project_to_surface()) {
       placement.cache_viewport_depths(&depsgraph, &region, &view3d);
     }

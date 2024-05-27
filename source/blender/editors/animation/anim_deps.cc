@@ -55,10 +55,7 @@ void ANIM_list_elem_update(Main *bmain, Scene *scene, bAnimListElem *ale)
   adt = BKE_animdata_from_id(id);
   if (adt) {
     DEG_id_tag_update(id, ID_RECALC_ANIMATION);
-    if (adt->animation != nullptr) {
-      DEG_id_tag_update(&adt->animation->id, ID_RECALC_ANIMATION);
-    }
-    else if (adt->action != nullptr) {
+    if (adt->action != nullptr) {
       DEG_id_tag_update(&adt->action->id, ID_RECALC_ANIMATION);
     }
   }
@@ -365,7 +362,10 @@ void ANIM_animdata_update(bAnimContext *ac, ListBase *anim_data)
                   ANIMTYPE_ANIMDATA,
                   ANIMTYPE_NLAACTION,
                   ANIMTYPE_NLATRACK,
-                  ANIMTYPE_NLACURVE))
+                  ANIMTYPE_NLACURVE,
+                  ANIMTYPE_GREASE_PENCIL_LAYER,
+                  ANIMTYPE_GREASE_PENCIL_LAYER_GROUP,
+                  ANIMTYPE_GREASE_PENCIL_DATABLOCK))
     {
       if (ale->update & ANIM_UPDATE_DEPS) {
         ale->update &= ~ANIM_UPDATE_DEPS;

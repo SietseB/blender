@@ -94,7 +94,8 @@ class ViewerOperation : public NodeOperation {
     }
 
     const Domain domain = compute_domain();
-    GPU_texture_clear(context().get_viewer_output_texture(domain), GPU_DATA_FLOAT, color);
+    GPU_texture_clear(
+        context().get_viewer_output_texture(domain, image.is_data), GPU_DATA_FLOAT, color);
   }
 
   /* Executes when the alpha channel of the image is ignored. */
@@ -126,7 +127,7 @@ class ViewerOperation : public NodeOperation {
     const Result &image = get_input("Image");
     image.bind_as_texture(shader, "input_tx");
 
-    GPUTexture *output_texture = context().get_viewer_output_texture(domain);
+    GPUTexture *output_texture = context().get_viewer_output_texture(domain, image.is_data);
     const int image_unit = GPU_shader_get_sampler_binding(shader, "output_img");
     GPU_texture_image_bind(output_texture, image_unit);
 
@@ -166,7 +167,7 @@ class ViewerOperation : public NodeOperation {
     const Result &image = get_input("Image");
     image.bind_as_texture(shader, "input_tx");
 
-    GPUTexture *output_texture = context().get_viewer_output_texture(domain);
+    GPUTexture *output_texture = context().get_viewer_output_texture(domain, image.is_data);
     const int image_unit = GPU_shader_get_sampler_binding(shader, "output_img");
     GPU_texture_image_bind(output_texture, image_unit);
 
@@ -209,7 +210,7 @@ class ViewerOperation : public NodeOperation {
     const Result &alpha = get_input("Alpha");
     alpha.bind_as_texture(shader, "alpha_tx");
 
-    GPUTexture *output_texture = context().get_viewer_output_texture(domain);
+    GPUTexture *output_texture = context().get_viewer_output_texture(domain, image.is_data);
     const int image_unit = GPU_shader_get_sampler_binding(shader, "output_img");
     GPU_texture_image_bind(output_texture, image_unit);
 
@@ -256,17 +257,18 @@ void register_node_type_cmp_viewer()
 {
   namespace file_ns = blender::nodes::node_composite_viewer_cc;
 
-  static bNodeType ntype;
+  static blender::bke::bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_VIEWER, "Viewer", NODE_CLASS_OUTPUT);
   ntype.declare = file_ns::cmp_node_viewer_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_viewer;
   ntype.flag |= NODE_PREVIEW;
   ntype.initfunc = file_ns::node_composit_init_viewer;
-  node_type_storage(&ntype, "ImageUser", node_free_standard_storage, node_copy_standard_storage);
+  blender::bke::node_type_storage(
+      &ntype, "ImageUser", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
   ntype.no_muting = true;
 
-  nodeRegisterType(&ntype);
+  blender::bke::nodeRegisterType(&ntype);
 }
