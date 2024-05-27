@@ -504,7 +504,7 @@ static void gpencil_morph_target_edit_draw(const bContext * /*C*/, ARegion *regi
   BLF_size(font_id, style->widget.points * UI_SCALE_FAC);
   BLF_color4fv(font_id, color);
   BLF_enable(font_id, BLF_SHADOW);
-  BLF_shadow(font_id, 5, blender::float4{0.0f, 0.0f, 0.0f, 0.7f});
+  BLF_shadow(font_id, FontShadowType::Outline, blender::float4{0.0f, 0.0f, 0.0f, 0.7f});
   BLF_shadow_offset(font_id, 1, -1);
 
   const char *text;
