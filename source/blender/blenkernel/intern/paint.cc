@@ -119,7 +119,11 @@ static void palette_copy_data(Main * /*bmain*/,
   BLI_duplicatelist(&palette_dst->mixing_colors, &palette_src->mixing_colors);
   BLI_duplicatelist(&palette_dst->unshaded_colors, &palette_src->unshaded_colors);
 
-  /* Ondine TODO: copy unshaded_colors->mixed_colors from src to dst */
+  PaletteColor *color_dst = static_cast<PaletteColor *>((&palette_dst->unshaded_colors)->first);
+  LISTBASE_FOREACH (PaletteColor *, color_src, &palette_src->unshaded_colors) {
+    BLI_duplicatelist(&color_dst->mixed_colors, &color_src->mixed_colors);
+    color_dst = color_dst->next;
+  }
 }
 
 static void palette_free_data(ID *id)
@@ -157,14 +161,13 @@ static void palette_blend_read_data(BlendDataReader *reader, ID *id)
   Palette *palette = (Palette *)id;
   BLO_read_struct_list(reader, PaletteColor, &palette->colors);
   BLO_read_struct_list(reader, PaletteColor, &palette->last_used_colors);
-  BLO_read_struct_list(reader, PaletteColor, &palette->mixing_colors);
+  BLO_read_struct_list(reader, MixingColor, &palette->mixing_colors);
   BLO_read_struct_list(reader, PaletteColor, &palette->unshaded_colors);
 
   /* Relink mixed colors. */
   LISTBASE_FOREACH (PaletteColor *, color, &palette->unshaded_colors) {
-    BLO_read_struct_list(reader, PaletteColor, &color->mixed_colors);
+    BLO_read_struct_list(reader, MixingColor, &color->mixed_colors);
   }
-
 }
 
 static void palette_undo_preserve(BlendLibReader * /*reader*/, ID *id_new, ID *id_old)
