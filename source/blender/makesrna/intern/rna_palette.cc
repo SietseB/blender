@@ -148,7 +148,16 @@ static void rna_Palette_mixing_colors_mix(Palette *palette,
                                           const float water_portion,
                                           float mixed_color[3])
 {
-  OD_mix_spectral_colors(palette, water_portion, mixed_color);
+  OD_mix_palette_colors_by_portion(palette, water_portion, mixed_color);
+}
+
+static void rna_Palette_mix_two_colors(Palette * /*palette*/,
+                                       const float color_a[3],
+                                       const float color_b[3],
+                                       const float factor_a,
+                                       float mixed_color[3])
+{
+  OD_mix_two_colors_in_spectral_space(color_a, color_b, factor_a, mixed_color);
 }
 
 static MixingColor *rna_PaletteColor_mixed_color_new(PaletteColor *color)
@@ -184,7 +193,6 @@ static PaletteColor *rna_Palette_last_used_color_new(Palette *palette, const int
   PaletteColor *color = BKE_palette_last_used_color_add(palette, max_entries);
   return color;
 }
-
 
 static PaletteColor *rna_Palette_color_new(Palette *palette)
 {
@@ -539,6 +547,34 @@ static void rna_def_palette(BlenderRNA *brna)
   RNA_def_property_int_sdna(prop, nullptr, "darker_shades");
   prop = RNA_def_property(srna, "lighter_shades", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "lighter_shades");
+
+#  ifdef WITH_ONDINE
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  func = RNA_def_function(srna, "mix", "rna_Palette_mix_two_colors");
+  RNA_def_function_ui_description(func, "Mix two linear srgb colors in spectral color space");
+  parm = RNA_def_float_color(
+      func, "color_a", 3, nullptr, -FLT_MAX, FLT_MAX, "Color A", "", -FLT_MAX, FLT_MAX);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_float_color(
+      func, "color_b", 3, nullptr, -FLT_MAX, FLT_MAX, "Color B", "", -FLT_MAX, FLT_MAX);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_float(func,
+                       "factor",
+                       0.0f,
+                       0.0f,
+                       1.0f,
+                       "Mix Factor",
+                       "Mix factor, lower means more color A",
+                       0.0f,
+                       1.0f);
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_float_color(
+      func, "mixed_color", 3, nullptr, -FLT_MAX, FLT_MAX, "Mixed Color", "", -FLT_MAX, FLT_MAX);
+  RNA_def_parameter_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
+  RNA_def_function_output(func, parm);
+#  endif  // WITH_ONDINE
 }
 
 void RNA_def_palette(BlenderRNA *brna)
