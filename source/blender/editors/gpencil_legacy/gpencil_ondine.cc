@@ -156,7 +156,7 @@ bool GpencilOndine::prepare_camera_params(bContext *C)
   }
 }
 
-void GpencilOndine::set_unique_stroke_seeds(bContext *C)
+void GpencilOndine::set_unique_stroke_seeds(bContext *C, const bool current_frame_only)
 {
   Main *bmain = CTX_data_main(C);
   LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
@@ -169,7 +169,11 @@ void GpencilOndine::set_unique_stroke_seeds(bContext *C)
     }
 
     LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-      LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+      if (current_frame_only) {
+        bGPDframe *gpf = gpl->actframe;
+        if (gpf == nullptr) {
+          continue;
+        }
         GSet *seeds = BLI_gset_int_new("gps_seeds");
         LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
           while (BLI_gset_haskey(seeds, POINTER_FROM_INT(gps->seed))) {
@@ -178,6 +182,18 @@ void GpencilOndine::set_unique_stroke_seeds(bContext *C)
           BLI_gset_add(seeds, POINTER_FROM_INT(gps->seed));
         }
         BLI_gset_free(seeds, nullptr);
+      }
+      else {
+        LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
+          GSet *seeds = BLI_gset_int_new("gps_seeds");
+          LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+            while (BLI_gset_haskey(seeds, POINTER_FROM_INT(gps->seed))) {
+              gps->seed = rand() * 4096 + rand();
+            }
+            BLI_gset_add(seeds, POINTER_FROM_INT(gps->seed));
+          }
+          BLI_gset_free(seeds, nullptr);
+        }
       }
     }
   }
@@ -543,13 +559,14 @@ bool gpencil_ondine_render_init(bContext *C)
   return blender::ondine_render->prepare_camera_params(C);
 }
 
-static int gpencil_ondine_set_unique_stroke_seeds(bContext *C, wmOperator * /*op*/)
+static int gpencil_ondine_set_unique_stroke_seeds(bContext *C, wmOperator *op)
 {
-  blender::ondine_render->set_unique_stroke_seeds(C);
+  const bool current_frame_only = RNA_boolean_get(op->ptr, "current_frame");
+  blender::ondine_render->set_unique_stroke_seeds(C, current_frame_only);
   return OPERATOR_FINISHED;
 }
 
-/* Operator definition: ondine_set_unique_stroke_seeds */
+/* Operator definition: ondine_set_unique_stroke_seeds. */
 void GPENCIL_OT_ondine_set_unique_stroke_seeds(wmOperatorType *ot)
 {
   /* identifiers */
@@ -559,9 +576,11 @@ void GPENCIL_OT_ondine_set_unique_stroke_seeds(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = gpencil_ondine_set_unique_stroke_seeds;
+
+  ot->prop = RNA_def_boolean(ot->srna, "current_frame", true, "Current Frame Only", "");
 }
 
-/* Init Ondine watercolor rendering for current frame */
+/* Init Ondine watercolor rendering for current frame. */
 static int gpencil_ondine_render_init_exec(bContext *C, wmOperator * /*op*/)
 {
   bool success = gpencil_ondine_render_init(C);
@@ -572,7 +591,7 @@ static int gpencil_ondine_render_init_exec(bContext *C, wmOperator * /*op*/)
   return OPERATOR_FINISHED;
 }
 
-/* Operator definition: ondine_render_init */
+/* Operator definition: ondine_render_init. */
 void GPENCIL_OT_ondine_render_init(wmOperatorType *ot)
 {
   /* identifiers */

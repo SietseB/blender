@@ -59,6 +59,10 @@
 #  include <libavformat/avformat.h>
 #endif
 
+#ifdef WITH_ONDINE
+#  include "ondine_ops.hh"
+#endif
+
 #include "ED_render.hh"
 #include "ED_transform.hh"
 
@@ -2989,6 +2993,13 @@ static void rna_FFmpegSettings_codec_update(Main * /*bmain*/, Scene * /*scene*/,
   }
 }
 #  endif
+
+static float rna_Scene_ondine_render_progress_get(PointerRNA * /*ptr*/)
+{
+  return OD_get_render_progress();
+}
+
+static void rna_Scene_ondine_render_progress_set(PointerRNA * /*ptr*/, float /*value*/) {}
 
 #else
 
@@ -7474,6 +7485,13 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Compositor Precision", "The precision of compositor intermediate result");
   RNA_def_property_update(prop, NC_NODE | ND_DISPLAY, "rna_Scene_compositor_update");
+
+  /* Ondine. */
+  prop = RNA_def_property(srna, "ondine_progress", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_funcs(prop,
+                               "rna_Scene_ondine_render_progress_get",
+                               "rna_Scene_ondine_render_progress_set",
+                               nullptr);
 
   /* Nestled Data. */
   /* *** Non-Animated *** */

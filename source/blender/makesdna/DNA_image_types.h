@@ -240,6 +240,7 @@ enum {
   IMA_USE_VIEWS = (1 << 14),
   IMA_FLAG_UNUSED_15 = (1 << 15), /* cleared */
   IMA_FLAG_UNUSED_16 = (1 << 16), /* cleared */
+  IMA_ONDINE_RENDER = (1 << 17),
 };
 
 /** #Image.gpuflag */

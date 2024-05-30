@@ -814,18 +814,12 @@ def km_screen(params):
         ("render.render", {"type": 'F12', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("animation", True), ("use_viewport", True)]}),
         ("render.view_cancel", {"type": 'ESC', "value": 'PRESS'}, None),
-        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True}, 
+        ("render.view_show", {"type": 'F11', "value": 'PRESS', "alt": True},
          {"properties": [("ondine", False)]}),
         ("render.play_rendered_anim", {"type": 'F11', "value": 'PRESS', "ctrl": True, "alt": True}, None),
         # Ondine render
-        ("render.ondine_render", {"type": 'F12', "value": 'PRESS'},
-         {"properties": [("ondine", True), ("animation", False), ("view_after_render", False)]}),
-        ("render.ondine_render", {"type": 'F12', "value": 'PRESS', "ctrl": True},
-         {"properties": [("ondine", True), ("animation", True), ("view_after_render", False)]}),
-        ("render.view_show", {"type": 'F11', "value": 'PRESS'}, 
+        ("render.view_show", {"type": 'F11', "value": 'PRESS'},
          {"properties": [("ondine", True)]}),
-        ("render.ondine_render", {"type": 'F10', "value": 'PRESS'},
-         {"properties": [("ondine", True), ("animation", False), ("view_after_render", True)]}),
     ])
 
     if not params.legacy:
@@ -1733,7 +1727,7 @@ def km_view3d(params):
             *(() if not params.use_pie_click_drag else
               (("view3d.toggle_shading", {"type": 'Z', "value": 'CLICK', "alt": True},
                 {"properties": [("type", 'WIREFRAME')]}),)),
-            #("view3d.toggle_shading", {"type": 'Z', "value": 'PRESS', "shift": True},
+            # ("view3d.toggle_shading", {"type": 'Z', "value": 'PRESS', "shift": True},
             # {"properties": [("type", 'WIREFRAME')]}),
             ("view3d.toggle_xray", {"type": 'Z', "value": 'PRESS', "ctrl": True, "alt": True}, None),
             ("wm.context_toggle", {"type": 'Z', "value": 'PRESS', "alt": True, "shift": True},
@@ -1790,7 +1784,7 @@ def km_view3d(params):
             ("wm.context_set_enum", {"type": 'PERIOD', "value": 'PRESS', "alt": True},
              {"properties": [("data_path", 'tool_settings.transform_pivot_point'), ("value", 'ACTIVE_ELEMENT')]}),
             # Old shading.
-            #("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS'},
+            # ("wm.context_toggle_enum", {"type": 'Z', "value": 'PRESS'},
             # {"properties": [
             #     ("data_path", 'space_data.shading.type'), ("value_1", 'WIREFRAME'), ("value_2", 'SOLID'),
             # ]}),

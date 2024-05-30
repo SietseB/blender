@@ -30,7 +30,7 @@ class GpencilOndine {
                         float *r_color);
   float stroke_point_radius_get(bGPDstroke *gps, const int p_index, const float thickness);
   float2 gpencil_3D_point_to_2D(const float3 co);
-  void set_unique_stroke_seeds(bContext *C);
+  void set_unique_stroke_seeds(bContext *C, const bool current_frame_only);
 
  protected:
   bool invert_axis_[2];
