@@ -16,6 +16,7 @@
 
 #include "usd_attribute_utils.hh"
 #include "usd_hierarchy_iterator.hh"
+#include "usd_utils.hh"
 #include "usd_writer_curves.hh"
 
 #include "BLI_array_utils.hh"
@@ -393,7 +394,7 @@ void USDCurvesWriter::write_generic_data(const bke::CurvesGeometry &curves,
                 RPT_WARNING,
                 "Attribute '%s' (Blender domain %d, type %d) cannot be converted to USD",
                 std::string(attribute_id.name()).c_str(),
-                meta_data.domain,
+                int(meta_data.domain),
                 meta_data.data_type);
     return;
   }
@@ -405,7 +406,8 @@ void USDCurvesWriter::write_generic_data(const bke::CurvesGeometry &curves,
   }
 
   const pxr::UsdTimeCode timecode = get_export_time_code();
-  const pxr::TfToken pv_name(pxr::TfMakeValidIdentifier(attribute_id.name()));
+  const pxr::TfToken pv_name(
+      make_safe_name(attribute_id.name(), usd_export_context_.export_params.allow_unicode));
   const pxr::UsdGeomPrimvarsAPI pv_api = pxr::UsdGeomPrimvarsAPI(usd_curves);
 
   pxr::UsdGeomPrimvar pv_attr = pv_api.CreatePrimvar(pv_name, *pv_type, *pv_interp);
@@ -425,7 +427,8 @@ void USDCurvesWriter::write_uv_data(const bke::CurvesGeometry &curves,
   }
 
   const pxr::UsdTimeCode timecode = get_export_time_code();
-  const pxr::TfToken pv_name(pxr::TfMakeValidIdentifier(attribute_id.name()));
+  const pxr::TfToken pv_name(
+      make_safe_name(attribute_id.name(), usd_export_context_.export_params.allow_unicode));
   const pxr::UsdGeomPrimvarsAPI pv_api = pxr::UsdGeomPrimvarsAPI(usd_curves);
 
   pxr::UsdGeomPrimvar pv_uv = pv_api.CreatePrimvar(

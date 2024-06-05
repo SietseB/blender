@@ -26,7 +26,7 @@
 
 #include "BKE_attribute.hh"
 #include "BKE_brush.hh"
-#include "BKE_ccg.h"
+#include "BKE_ccg.hh"
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
@@ -370,7 +370,7 @@ void ED_object_sculptmode_enter_ex(Main &bmain,
   Paint *paint = BKE_paint_get_active_from_paintmode(&scene, PaintMode::Sculpt);
   BKE_paint_init(&bmain, &scene, PaintMode::Sculpt, PAINT_CURSOR_SCULPT);
 
-  ED_paint_cursor_start(paint, SCULPT_mode_poll_view3d);
+  ED_paint_cursor_start(paint, SCULPT_poll);
 
   /* Check dynamic-topology flag; re-enter dynamic-topology mode when changing modes,
    * As long as no data was added that is not supported. */
@@ -612,7 +612,7 @@ void SCULPT_geometry_preview_lines_update(bContext *C, SculptSession &ss, float 
 
     SculptVertexNeighborIter ni;
     SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, from_v, ni) {
-      if (totpoints + (ni.size * 2) < max_preview_verts) {
+      if (totpoints + (ni.neighbors.size() * 2) < max_preview_verts) {
         PBVHVertRef to_v = ni.vertex;
         int to_v_i = ni.index;
         ss.preview_vert_list[totpoints] = from_v;
@@ -967,7 +967,7 @@ static int sculpt_mask_by_color_invoke(bContext *C, wmOperator *op, const wmEven
   bke::pbvh::update_mask(*ss.pbvh);
   undo::push_end(ob);
 
-  SCULPT_flush_update_done(C, ob, SCULPT_UPDATE_MASK);
+  flush_update_done(C, ob, UpdateType::Mask);
   DEG_id_tag_update(&ob.id, ID_RECALC_GEOMETRY);
 
   return OPERATOR_FINISHED;
@@ -1176,7 +1176,7 @@ static int sculpt_bake_cavity_exec(bContext *C, wmOperator *op)
   bke::pbvh::update_mask(*ss.pbvh);
   undo::push_end(ob);
 
-  SCULPT_flush_update_done(C, ob, SCULPT_UPDATE_MASK);
+  flush_update_done(C, ob, UpdateType::Mask);
   SCULPT_tag_update_overlays(C);
 
   return OPERATOR_FINISHED;
@@ -1312,9 +1312,12 @@ void ED_operatortypes_sculpt()
   WM_operatortype_append(cloth::SCULPT_OT_cloth_filter);
   WM_operatortype_append(face_set::SCULPT_OT_face_set_lasso_gesture);
   WM_operatortype_append(face_set::SCULPT_OT_face_set_box_gesture);
+  WM_operatortype_append(face_set::SCULPT_OT_face_set_line_gesture);
+  WM_operatortype_append(face_set::SCULPT_OT_face_set_polyline_gesture);
   WM_operatortype_append(trim::SCULPT_OT_trim_box_gesture);
   WM_operatortype_append(trim::SCULPT_OT_trim_lasso_gesture);
   WM_operatortype_append(trim::SCULPT_OT_trim_line_gesture);
+  WM_operatortype_append(trim::SCULPT_OT_trim_polyline_gesture);
   WM_operatortype_append(project::SCULPT_OT_project_line_gesture);
 
   WM_operatortype_append(SCULPT_OT_sample_color);

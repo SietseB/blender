@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "usd_reader_material.hh"
-#include "usd_reader_utils.hh"
-
 #include "usd_asset_utils.hh"
+#include "usd_reader_utils.hh"
+#include "usd_utils.hh"
 
 #include "BKE_appdir.hh"
 #include "BKE_image.h"
@@ -88,23 +88,6 @@ static const pxr::TfToken UsdPrimvarReader_float2("UsdPrimvarReader_float2",
 static const pxr::TfToken UsdUVTexture("UsdUVTexture", pxr::TfToken::Immortal);
 static const pxr::TfToken UsdTransform2d("UsdTransform2d", pxr::TfToken::Immortal);
 }  // namespace usdtokens
-
-/* Temporary folder for saving imported textures prior to packing.
- * CAUTION: this directory is recursively deleted after material
- * import. */
-static const char *temp_textures_dir()
-{
-  static bool inited = false;
-
-  static char temp_dir[FILE_MAXDIR] = {'\0'};
-
-  if (!inited) {
-    BLI_path_join(temp_dir, sizeof(temp_dir), BKE_tempdir_session(), "usd_textures_tmp", SEP_STR);
-    inited = true;
-  }
-
-  return temp_dir;
-}
 
 using blender::io::usd::ShaderToNodeMap;
 
@@ -1376,7 +1359,7 @@ void build_material_map(const Main *bmain, blender::Map<std::string, Material *>
   BLI_assert_msg(r_mat_map, "...");
 
   LISTBASE_FOREACH (Material *, material, &bmain->materials) {
-    std::string usd_name = pxr::TfMakeValidIdentifier(material->id.name + 2);
+    std::string usd_name = make_safe_name(material->id.name + 2, true);
     r_mat_map->lookup_or_add_default(usd_name) = material;
   }
 }

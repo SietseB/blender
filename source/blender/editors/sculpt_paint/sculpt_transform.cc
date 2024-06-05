@@ -321,7 +321,7 @@ void update_modal_transform(bContext *C, Object &ob)
     SCULPT_flush_stroke_deform(sd, ob, true);
   }
 
-  SCULPT_flush_update_step(C, SCULPT_UPDATE_COORDS);
+  flush_update_step(C, UpdateType::Position);
 }
 
 void end_transform(bContext *C, Object &ob)
@@ -330,7 +330,7 @@ void end_transform(bContext *C, Object &ob)
   if (ss.filter_cache) {
     filter::cache_free(ss);
   }
-  SCULPT_flush_update_done(C, ob, SCULPT_UPDATE_COORDS);
+  flush_update_done(C, ob, UpdateType::Position);
 }
 
 enum class PivotPositionMode {
@@ -369,6 +369,15 @@ static EnumPropertyItem prop_sculpt_pivot_position_types[] = {
      "Sets the pivot position to the surface under the cursor"},
     {0, nullptr, 0, nullptr, nullptr},
 };
+
+static bool set_pivot_depends_on_cursor(bContext & /*C*/, wmOperatorType & /*ot*/, PointerRNA *ptr)
+{
+  if (!ptr) {
+    return true;
+  }
+  const PivotPositionMode mode = PivotPositionMode(RNA_enum_get(ptr, "mode"));
+  return mode == PivotPositionMode::CursorSurface;
+}
 
 static int set_pivot_position_exec(bContext *C, wmOperator *op)
 {
@@ -474,6 +483,17 @@ static int set_pivot_position_invoke(bContext *C, wmOperator *op, const wmEvent 
   return set_pivot_position_exec(C, op);
 }
 
+static bool set_pivot_position_poll_property(const bContext * /*C*/,
+                                             wmOperator *op,
+                                             const PropertyRNA *prop)
+{
+  if (STRPREFIX(RNA_property_identifier(prop), "mouse_")) {
+    const PivotPositionMode mode = PivotPositionMode(RNA_enum_get(op->ptr, "mode"));
+    return mode == PivotPositionMode::CursorSurface;
+  }
+  return true;
+}
+
 void SCULPT_OT_set_pivot_position(wmOperatorType *ot)
 {
   ot->name = "Set Pivot Position";
@@ -483,8 +503,10 @@ void SCULPT_OT_set_pivot_position(wmOperatorType *ot)
   ot->invoke = set_pivot_position_invoke;
   ot->exec = set_pivot_position_exec;
   ot->poll = SCULPT_mode_poll;
+  ot->depends_on_cursor = set_pivot_depends_on_cursor;
+  ot->poll_property = set_pivot_position_poll_property;
 
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_DEPENDS_ON_CURSOR;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
   RNA_def_enum(ot->srna,
                "mode",
                prop_sculpt_pivot_position_types,

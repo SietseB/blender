@@ -23,7 +23,7 @@ void main()
   ivec2 texel = ivec2(gl_LocalInvocationID.xy + tile_coord * tile_size);
 
   /* Check whether texel is out of bounds for all cases, so we can utilize fast
-   * texture funcs and early exit if not. */
+   * texture functions and early exit if not. */
   if (any(greaterThanEqual(texel, imageSize(ray_data_img).xy)) || any(lessThan(texel, ivec2(0)))) {
     return;
   }
@@ -141,7 +141,7 @@ void main()
     float clamp_indirect = uniform_buf.clamp.surface_indirect;
     samp.volume_irradiance = spherical_harmonics_clamp(samp.volume_irradiance, clamp_indirect);
 
-    radiance = lightprobe_eval_direction(samp, ray.origin, ray.direction, safe_rcp(ray_pdf_inv));
+    radiance = lightprobe_eval_direction(samp, ray.origin, ray.direction, ray_pdf_inv);
     /* Set point really far for correct reprojection of background. */
     hit.time = 10000.0;
   }

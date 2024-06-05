@@ -733,7 +733,7 @@ static void sculpt_mesh_filter_apply(bContext *C, wmOperator *op)
     bke::pbvh::update_normals(*ss.pbvh, ss.subdiv_ccg);
   }
 
-  SCULPT_flush_update_step(C, SCULPT_UPDATE_COORDS);
+  flush_update_step(C, UpdateType::Position);
 }
 
 static void sculpt_mesh_update_strength(wmOperator *op,
@@ -784,7 +784,7 @@ static void sculpt_mesh_filter_end(bContext *C)
   SculptSession &ss = *ob.sculpt;
 
   cache_free(ss);
-  SCULPT_flush_update_done(C, ob, SCULPT_UPDATE_COORDS);
+  flush_update_done(C, ob, UpdateType::Position);
 }
 
 static int sculpt_mesh_filter_confirm(SculptSession &ss,
@@ -829,7 +829,7 @@ static void sculpt_mesh_filter_cancel(bContext *C, wmOperator * /*op*/)
     BKE_pbvh_node_mark_update(node);
   }
 
-  blender::bke::pbvh::update_bounds(*ss->pbvh, PBVH_UpdateBB);
+  blender::bke::pbvh::update_bounds(*ss->pbvh);
 }
 
 static int sculpt_mesh_filter_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -1126,12 +1126,13 @@ void SCULPT_OT_mesh_filter(wmOperatorType *ot)
   /* RNA. */
   register_operator_props(ot);
 
-  RNA_def_enum(ot->srna,
-               "type",
-               prop_mesh_filter_types,
-               MESH_FILTER_INFLATE,
-               "Filter Type",
-               "Operation that is going to be applied to the mesh");
+  ot->prop = RNA_def_enum(ot->srna,
+                          "type",
+                          prop_mesh_filter_types,
+                          MESH_FILTER_INFLATE,
+                          "Filter Type",
+                          "Operation that is going to be applied to the mesh");
+  RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
   RNA_def_enum_flag(ot->srna,
                     "deform_axis",
                     prop_mesh_filter_deform_axis_items,

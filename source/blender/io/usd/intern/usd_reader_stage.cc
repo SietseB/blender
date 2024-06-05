@@ -17,6 +17,7 @@
 #include "usd_reader_skeleton.hh"
 #include "usd_reader_volume.hh"
 #include "usd_reader_xform.hh"
+#include "usd_utils.hh"
 
 #include <pxr/pxr.h>
 #include <pxr/usd/usdGeom/camera.h>
@@ -181,6 +182,10 @@ USDPrimReader *USDStageReader::create_reader_if_allowed(const pxr::UsdPrim &prim
   if (params_.import_meshes && prim.IsA<pxr::UsdGeomMesh>()) {
     return new USDMeshReader(prim, params_, settings_);
   }
+  if (params_.import_lights && prim.IsA<pxr::UsdLuxDomeLight>()) {
+    /* Dome lights are handled elsewhere. */
+    return nullptr;
+  }
 #if PXR_VERSION >= 2111
   if (params_.import_lights &&
       (prim.IsA<pxr::UsdLuxBoundableLightBase>() || prim.IsA<pxr::UsdLuxNonboundableLightBase>()))
@@ -225,6 +230,10 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim)
   }
   if (prim.IsA<pxr::UsdGeomMesh>()) {
     return new USDMeshReader(prim, params_, settings_);
+  }
+  if (prim.IsA<pxr::UsdLuxDomeLight>()) {
+    /* We don't handle dome lights. */
+    return nullptr;
   }
 #if PXR_VERSION >= 2111
   if (prim.IsA<pxr::UsdLuxBoundableLightBase>() || prim.IsA<pxr::UsdLuxNonboundableLightBase>()) {
@@ -364,6 +373,10 @@ USDPrimReader *USDStageReader::collect_readers(const pxr::UsdPrim &prim,
     }
   }
 
+  if (prim.IsA<pxr::UsdLuxDomeLight>()) {
+    dome_lights_.append(pxr::UsdLuxDomeLight(prim));
+  }
+
   pxr::Usd_PrimFlagsConjunction filter_flags = pxr::UsdPrimIsActive && pxr::UsdPrimIsLoaded &&
                                                !pxr::UsdPrimIsAbstract;
 
@@ -446,6 +459,7 @@ void USDStageReader::collect_readers()
   }
 
   clear_readers();
+  dome_lights_.clear();
 
   /* Identify paths to point instancer prototypes, as these will be converted
    * in a separate pass over the stage. */
@@ -553,7 +567,7 @@ void USDStageReader::import_all_materials(Main *bmain)
     Material *new_mtl = mtl_reader.add_material(usd_mtl);
     BLI_assert_msg(new_mtl, "Failed to create material");
 
-    const std::string mtl_name = pxr::TfMakeValidIdentifier(new_mtl->id.name + 2);
+    const std::string mtl_name = make_safe_name(new_mtl->id.name + 2, true);
     settings_.mat_name_to_mat.lookup_or_add_default(mtl_name) = new_mtl;
 
     if (params_.mtl_name_collision_mode == USD_MTL_NAME_COLLISION_MAKE_UNIQUE) {

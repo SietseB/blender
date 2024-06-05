@@ -22,7 +22,6 @@ set(INC_SYS
 set(SRC
   intern/action.cc
   intern/anim_rna.cc
-  intern/animation.cc
   intern/animdata.cc
   intern/bone_collections.cc
   intern/bonecolor.cc
@@ -68,9 +67,10 @@ if(WITH_GTESTS)
   set(TEST_INC
   )
   set(TEST_SRC
-    intern/animation_test.cc
+    intern/action_test.cc
     intern/bone_collections_test.cc
     intern/evaluation_test.cc
+    intern/keyframing_test.cc
   )
   set(TEST_LIB
     PRIVATE bf::animrig

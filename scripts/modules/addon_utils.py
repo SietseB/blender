@@ -660,6 +660,11 @@ def module_bl_info(mod, *, info_basis=None):
 # -----------------------------------------------------------------------------
 # Extension Utilities
 
+def _version_int_left_digits(x):
+    # Parse as integer until the first non-digit.
+    return int(x[:next((i for i, c in enumerate(x) if not c.isdigit()), len(x))] or "0")
+
+
 def _bl_info_from_extension(mod_name, mod_path):
     # Extract the `bl_info` from an extensions manifest.
     # This is returned as a module which has a `bl_info` variable.
@@ -683,7 +688,7 @@ def _bl_info_from_extension(mod_name, mod_path):
 
     # This isn't a full validation which happens on package install/update.
     if (value := data.get("name", None)) is None:
-        print("Error: missing \"name\" from in", filepath_toml)
+        print("Error: missing \"name\" in", filepath_toml)
         return None, filepath_toml
     if type(value) is not str:
         print("Error: \"name\" is not a string in", filepath_toml)
@@ -691,15 +696,23 @@ def _bl_info_from_extension(mod_name, mod_path):
     bl_info["name"] = value
 
     if (value := data.get("version", None)) is None:
-        print("Error: missing \"version\" from in", filepath_toml)
+        print("Error: missing \"version\" in", filepath_toml)
         return None, filepath_toml
     if type(value) is not str:
         print("Error: \"version\" is not a string in", filepath_toml)
         return None, filepath_toml
+    try:
+        value = tuple(
+            (int if i < 2 else _version_int_left_digits)(x)
+            for i, x in enumerate(value.split(".", 2))
+        )
+    except BaseException as ex:
+        print("Error: \"version\" is not a semantic version (X.Y.Z) in ", filepath_toml)
+        return None, filepath_toml
     bl_info["version"] = value
 
     if (value := data.get("blender_version_min", None)) is None:
-        print("Error: missing \"blender_version_min\" from in", filepath_toml)
+        print("Error: missing \"blender_version_min\" in", filepath_toml)
         return None, filepath_toml
     if type(value) is not str:
         print("Error: \"blender_version_min\" is not a string in", filepath_toml)
@@ -711,8 +724,16 @@ def _bl_info_from_extension(mod_name, mod_path):
         return None, filepath_toml
     bl_info["blender"] = value
 
+    # Only print warnings since description is not a mandatory field.
+    if (value := data.get("tagline", None)) is None:
+        print("Warning: missing \"tagline\" in", filepath_toml)
+    elif type(value) is not str:
+        print("Warning: \"tagline\" is not a string", filepath_toml)
+    else:
+        bl_info["description"] = value
+
     if (value := data.get("maintainer", None)) is None:
-        print("Error: missing \"author\" from in", filepath_toml)
+        print("Error: missing \"author\" in", filepath_toml)
         return None, filepath_toml
     if type(value) is not str:
         print("Error: \"maintainer\" is not a string", filepath_toml)

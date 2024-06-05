@@ -499,6 +499,7 @@ void gpu_shader_create_info_init()
     /* Overlay Armature Shape outline. */
     overlay_armature_shape_outline = overlay_armature_shape_outline_no_geom;
     overlay_armature_shape_outline_clipped = overlay_armature_shape_outline_clipped_no_geom;
+    overlay_armature_shape_wire = overlay_armature_shape_wire_no_geom;
 
     /* Overlay Motion Path Line. */
     overlay_motion_path_line = overlay_motion_path_line_no_geom;
@@ -523,21 +524,6 @@ void gpu_shader_create_info_init()
 
     /* Edit UV Edges. */
     overlay_edit_uv_edges = overlay_edit_uv_edges_no_geom;
-
-    /* Down-sample Cube/Probe rendering. */
-    eevee_legacy_effect_downsample_cube = eevee_legacy_effect_downsample_cube_no_geom;
-    eevee_legacy_probe_filter_glossy = eevee_legacy_probe_filter_glossy_no_geom;
-    eevee_legacy_lightprobe_planar_downsample = eevee_legacy_lightprobe_planar_downsample_no_geom;
-
-    /* EEVEE Volumetrics */
-    eevee_legacy_volumes_clear = eevee_legacy_volumes_clear_no_geom;
-    eevee_legacy_volumes_scatter = eevee_legacy_volumes_scatter_no_geom;
-    eevee_legacy_volumes_scatter_with_lights = eevee_legacy_volumes_scatter_with_lights_no_geom;
-    eevee_legacy_volumes_integration = eevee_legacy_volumes_integration_no_geom;
-    eevee_legacy_volumes_integration_OPTI = eevee_legacy_volumes_integration_OPTI_no_geom;
-
-    /* EEVEE Volumetric Material */
-    eevee_legacy_material_volumetric_vert = eevee_legacy_material_volumetric_vert_no_geom;
 
     /* GPencil stroke. */
     gpu_shader_gpencil_stroke = gpu_shader_gpencil_stroke_no_geom;

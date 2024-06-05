@@ -1432,6 +1432,7 @@ enum {
   CURVE_PAINT_FLAG_PRESSURE_RADIUS = (1 << 1),
   CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS = (1 << 2),
   CURVE_PAINT_FLAG_DEPTH_STROKE_OFFSET_ABS = (1 << 3),
+  CURVE_PAINT_FLAG_DEPTH_ONLY_SELECTED = (1 << 4),
 };
 
 /** #CurvePaintSettings::fit_method */
@@ -1865,6 +1866,11 @@ typedef struct SceneEEVEE {
 
   int fast_gi_step_count;
   int fast_gi_ray_count;
+  float fast_gi_distance;
+  float fast_gi_thickness_near;
+  float fast_gi_thickness_far;
+  char fast_gi_method;
+  char _pad0[3];
 
   float bokeh_overblur;
   float bokeh_max_size;
@@ -1902,11 +1908,6 @@ typedef struct SceneEEVEE {
   int ray_tracing_method;
 
   struct RaytraceEEVEE ray_tracing_options;
-
-  struct LightCache *light_cache DNA_DEPRECATED;
-  struct LightCache *light_cache_data;
-  /* Need a 128 byte string for some translations of some messages. */
-  char light_cache_info[128];
 
   float overscan;
   float light_threshold;
@@ -2745,6 +2746,9 @@ typedef enum eGPencil_Placement_Flags {
   GP_PROJECT_DEPTH_STROKE_ENDPOINTS = (1 << 4),
   GP_PROJECT_CURSOR = (1 << 5),
   GP_PROJECT_DEPTH_STROKE_FIRST = (1 << 6),
+
+  /** Surface project, "Only project on selected objects". */
+  GP_PROJECT_DEPTH_ONLY_SELECTED = (1 << 7),
 } eGPencil_Placement_Flags;
 
 /** #ToolSettings::gpencil_selectmode */
@@ -2875,6 +2879,11 @@ typedef enum RaytraceEEVEE_Method {
   /* TODO(fclem): Hardware ray-tracing. */
   // RAYTRACE_EEVEE_METHOD_HARDWARE = 2,
 } RaytraceEEVEE_Method;
+
+typedef enum FastGI_Method {
+  FAST_GI_FULL = 0,
+  FAST_GI_AO_ONLY = 1,
+} FastGI_Method;
 
 /** #SceneEEVEE::shadow_method */
 enum {

@@ -1557,8 +1557,7 @@ static void grease_pencil_brush_cursor_draw(PaintCursorContext *pcontext)
        * - Fixed size, or
        * - Brush size (i.e. stroke thickness)
        */
-      if ((gp_style) && ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
-          ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
+      if ((gp_style) && ((brush->flag & BRUSH_SMOOTH_STROKE) == 0) &&
           (brush->gpencil_tool == GPAINT_TOOL_DRAW))
       {
 
@@ -1570,6 +1569,11 @@ static void grease_pencil_brush_cursor_draw(PaintCursorContext *pcontext)
                                                   GPPAINT_MODE_BOTH);
         color = use_vertex_color_stroke ? float3(brush->rgb) : float4(gp_style->stroke_rgba).xyz();
       }
+    }
+
+    if ((brush->flag & BRUSH_SMOOTH_STROKE) != 0) {
+      const float scale = 1.0f / 255.0f;
+      color = scale * float3(paint->paint_cursor_col);
     }
   }
   else if (pcontext->mode == PaintMode::WeightGPencil) {
@@ -1585,25 +1589,6 @@ static void grease_pencil_brush_cursor_draw(PaintCursorContext *pcontext)
   const float3 darkcolor = color * 0.40f;
   immUniformColor4f(darkcolor[0], darkcolor[1], darkcolor[2], 0.8f);
   imm_draw_circle_wire_2d(pcontext->pos, x, y, pcontext->pixel_radius + 1, 32);
-
-  /* Draw line for lazy mouse */
-  /* TODO: No stabilize mode yet. */
-  // if ((last_mouse_position) &&
-  //     (pcontext->xbrush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP))
-  // {
-  //   GPU_line_smooth(true);
-  //   GPU_blend(GPU_BLEND_ALPHA);
-
-  //   copy_v3_v3(color, pcontext->brush->add_col);
-  //   immUniformColor4f(color[0], color[1], color[2], 0.8f);
-
-  //   immBegin(GPU_PRIM_LINES, 2);
-  //   immVertex2f(pos, x, y);
-  //   immVertex2f(pos,
-  //               last_mouse_position[0] + pcontext->region->winrct.xmin,
-  //               last_mouse_position[1] + pcontext->region->winrct.ymin);
-  //   immEnd();
-  // }
 }
 
 static void paint_draw_2D_view_brush_cursor(PaintCursorContext *pcontext)
@@ -1742,10 +1727,6 @@ static void paint_cursor_preview_boundary_data_update(PaintCursorContext *pconte
   /* Needed for updating the necessary SculptSession data in order to initialize the
    * boundary data for the preview. */
   BKE_sculpt_update_object_for_edit(pcontext->depsgraph, pcontext->vc.obact, false);
-
-  if (ss.boundary_preview) {
-    boundary::data_free(ss.boundary_preview);
-  }
 
   ss.boundary_preview = boundary::data_init(
       *pcontext->vc.obact, pcontext->brush, ss.active_vertex, pcontext->radius);

@@ -25,6 +25,9 @@ __all__ = (
 
     # Public Stand-Alone Utilities.
     "pkg_theme_file_list",
+    "platform_from_this_system",
+    "url_append_query_for_blender",
+    "url_parse_for_blender",
     "file_mtime_or_none",
 
     # Public API.
@@ -277,6 +280,123 @@ def pkg_theme_file_list(directory: str, pkg_idname: str) -> Tuple[str, List[str]
     return theme_dir, theme_files
 
 
+def repo_index_outdated(directory: str) -> bool:
+    filepath_json = os.path.join(directory, REPO_LOCAL_JSON)
+    mtime = file_mtime_or_none(filepath_json)
+    if mtime is None:
+        return True
+
+    # Refresh once every 24 hours.
+    age_in_seconds = time.time() - mtime
+    max_age_in_seconds = 3600.0 * 24.0
+    # Use abs in case clock moved backwards.
+    return abs(age_in_seconds) > max_age_in_seconds
+
+
+def platform_from_this_system() -> str:
+    import platform
+    system_replace = {
+        "darwin": "macos",
+    }
+    machine_replace = {
+        "x86_64": "x64",
+        "amd64": "x64",
+    }
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    return "{:s}-{:s}".format(
+        system_replace.get(system, system),
+        machine_replace.get(machine, machine),
+    )
+
+
+def _url_append_query(url: str, query: Dict[str, str]) -> str:
+    import urllib
+    import urllib.parse
+
+    # Remove empty parameters.
+    query = {key: value for key, value in query.items() if value is not None and value != ""}
+    if not query:
+        return url
+
+    # Decompose the URL into components.
+    parsed_url = urllib.parse.urlparse(url)
+
+    # Combine existing query parameters with new parameters
+    query_existing = urllib.parse.parse_qsl(parsed_url.query)
+    query_all = dict(query_existing)
+    query_all.update(query)
+
+    # Encode all parameters into a new query string.
+    query_all_encoded = urllib.parse.urlencode(query_all)
+
+    # Construct the URL with additional queries.
+    new_url = urllib.parse.urlunparse((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        parsed_url.params,
+        query_all_encoded,
+        parsed_url.fragment,
+    ))
+
+    return new_url
+
+
+def url_append_query_for_blender(url: str, blender_version: Tuple[int, int, int]) -> str:
+    # `blender_version` is typically `bpy.app.version`.
+
+    # While this won't cause errors, it's redundant to add this information to file URL's.
+    if url.startswith("file://"):
+        return url
+
+    query = {
+        "platform": platform_from_this_system(),
+        "blender_version": "{:d}.{:d}.{:d}".format(*blender_version),
+    }
+    return _url_append_query(url, query)
+
+
+def url_parse_for_blender(url: str) -> Tuple[str, Dict[str, str]]:
+    # Split the URL into components:
+    # - The stripped: `scheme + netloc + path`
+    # - Known query values used by Blender.
+    #   Extract `?repository=...` value from the URL and return it.
+    #   Concatenating it where appropriate.
+    #
+    import urllib
+    import urllib.parse
+
+    parsed_url = urllib.parse.urlparse(url)
+    query = urllib.parse.parse_qsl(parsed_url.query)
+
+    url_strip = urllib.parse.urlunparse((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        None,  # `parsed_url.params,`
+        None,  # `parsed_url.query,`
+        None,  # `parsed_url.fragment,`
+    ))
+
+    query_known = {}
+    if repo_path := next((value for key, value in query if key == "repository"), None):
+        if repo_path.startswith("/"):
+            repo_url = urllib.parse.urlunparse((
+                parsed_url.scheme,
+                parsed_url.netloc,
+                repo_path[1:],
+                None,  # `parsed_url.params,`
+                None,  # `parsed_url.query,`
+                None,  # `parsed_url.fragment,`
+            ))
+        else:
+            repo_url = repo_path
+        query_known["repository"] = repo_url
+
+    return url_strip, query_known
+
+
 # -----------------------------------------------------------------------------
 # Public Repository Actions
 #
@@ -284,22 +404,33 @@ def pkg_theme_file_list(directory: str, pkg_idname: str) -> Tuple[str, List[str]
 def repo_sync(
         *,
         directory: str,
+        remote_name: str,
         remote_url: str,
         online_user_agent: str,
+        access_token: str,
         use_idle: bool,
         force_exit_ok: bool = False,
+        dry_run: bool = False,
+        demote_connection_errors_to_status: bool = False,
         extension_override: str = "",
 ) -> Generator[InfoItemSeq, None, None]:
     """
     Implementation:
     ``bpy.ops.ext.repo_sync(directory)``.
     """
+    if dry_run:
+        yield [COMPLETE_ITEM]
+        return
+
     yield from command_output_from_json_0([
         "sync",
         "--local-dir", directory,
+        "--remote-name", remote_name,
         "--remote-url", remote_url,
         "--online-user-agent", online_user_agent,
+        "--access-token", access_token,
         *(("--force-exit-ok",) if force_exit_ok else ()),
+        *(("--demote-connection-errors-to-status",) if demote_connection_errors_to_status else ()),
         *(("--extension-override", extension_override) if extension_override else ()),
     ], use_idle=use_idle)
     yield [COMPLETE_ITEM]
@@ -310,6 +441,7 @@ def repo_upgrade(
         directory: str,
         remote_url: str,
         online_user_agent: str,
+        access_token: str,
         use_idle: bool,
 ) -> Generator[InfoItemSeq, None, None]:
     """
@@ -321,6 +453,7 @@ def repo_upgrade(
         "--local-dir", directory,
         "--remote-url", remote_url,
         "--online-user-agent", online_user_agent,
+        "--access-token", access_token,
     ], use_idle=use_idle)
     yield [COMPLETE_ITEM]
 
@@ -367,6 +500,7 @@ def pkg_install(
         remote_url: str,
         pkg_id_sequence: Sequence[str],
         online_user_agent: str,
+        access_token: str,
         use_cache: bool,
         use_idle: bool,
 ) -> Generator[InfoItemSeq, None, None]:
@@ -379,6 +513,7 @@ def pkg_install(
         "--local-dir", directory,
         "--remote-url", remote_url,
         "--online-user-agent", online_user_agent,
+        "--access-token", access_token,
         "--local-cache", str(int(use_cache)),
     ], use_idle=use_idle)
     yield [COMPLETE_ITEM]
@@ -411,7 +546,7 @@ def dummy_progress(
 ) -> Generator[InfoItemSeq, bool, None]:
     """
     Implementation:
-    ``bpy.ops.ext.dummy_progress()``.
+    ``bpy.ops.extensions.dummy_progress()``.
     """
     yield from command_output_from_json_0(["dummy-progress", "--time-duration=1.0"], use_idle=use_idle)
     yield [COMPLETE_ITEM]
@@ -496,6 +631,13 @@ def pkg_manifest_archive_url_abs_from_remote_url(remote_url: str, archive_url: s
             # Simply add to the URL.
             archive_url = remote_url.rstrip("/") + archive_url[1:]
     return archive_url
+
+
+def pkg_is_legacy_addon(filepath: str) -> bool:
+    from .cli.blender_ext import pkg_is_legacy_addon as pkg_is_legacy_addon_extern
+    result = pkg_is_legacy_addon_extern(filepath)
+    assert isinstance(result, bool)
+    return result
 
 
 def pkg_repo_cache_clear(local_dir: str) -> None:
@@ -740,7 +882,10 @@ class CommandBatch:
         )
 
     @staticmethod
-    def calc_status_text_icon_from_data(status_data: CommandBatch_StatusFlag, update_count: int) -> Tuple[str, str]:
+    def calc_status_text_icon_from_data(
+            status_data: CommandBatch_StatusFlag,
+            update_count: int,
+    ) -> Tuple[str, str]:
         # Generate a nice UI string for a status-bar & splash screen (must be short).
         #
         # NOTE: this is (arguably) UI logic, it's just nice to have it here
@@ -754,16 +899,18 @@ class CommandBatch:
         else:
             fail_text = ", some actions failed"
 
-        if status_data.flag == 1 << CommandBatchItem.STATUS_NOT_YET_STARTED:
-            return "Starting Extension Updates{:s}".format(fail_text), 'SORTTIME'
+        if (
+                status_data.flag == (1 << CommandBatchItem.STATUS_NOT_YET_STARTED) or
+                status_data.flag & (1 << CommandBatchItem.STATUS_RUNNING)
+        ):
+            return "Checking for Extension Updates{:s}".format(fail_text), 'SORTTIME'
+
         if status_data.flag == 1 << CommandBatchItem.STATUS_COMPLETE:
             if update_count > 0:
                 # NOTE: the UI design in #120612 has the number of extensions available in icon.
                 # Include in the text as this is not yet supported.
                 return "Extensions Updates Available ({:d}){:s}".format(update_count, fail_text), 'INTERNET'
             return "All Extensions Up-to-date{:s}".format(fail_text), 'CHECKMARK'
-        if status_data.flag & 1 << CommandBatchItem.STATUS_RUNNING:
-            return "Checking for Extension Updates{:s}".format(fail_text), 'SORTTIME'
 
         # Should never reach this line!
         return "Internal error, unknown state!{:s}".format(fail_text), 'ERROR'

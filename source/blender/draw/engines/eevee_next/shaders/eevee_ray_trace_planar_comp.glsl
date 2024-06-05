@@ -23,7 +23,8 @@ void main()
   uvec2 tile_coord = unpackUvec2x16(tiles_coord_buf[gl_WorkGroupID.x]);
   ivec2 texel = ivec2(gl_LocalInvocationID.xy + tile_coord * tile_size);
 
-  /* Check if texel is out of bounds, so we can utilize fast texture funcs and early-out if not. */
+  /* Check if texel is out of bounds,
+   * so we can utilize fast texture functions and early-out if not. */
   if (any(greaterThanEqual(texel, imageSize(ray_time_img).xy))) {
     return;
   }
@@ -100,7 +101,7 @@ void main()
     vec3 Ng = ray.direction;
     /* Fallback to nearest light-probe. */
     LightProbeSample samp = lightprobe_load(P, Ng, V);
-    radiance = lightprobe_eval_direction(samp, P, ray.direction, safe_rcp(ray_pdf_inv));
+    radiance = lightprobe_eval_direction(samp, P, ray.direction, ray_pdf_inv);
     /* Set point really far for correct reprojection of background. */
     hit.time = 10000.0;
   }

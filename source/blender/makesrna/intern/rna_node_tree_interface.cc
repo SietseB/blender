@@ -447,6 +447,15 @@ static const EnumPropertyItem *rna_NodeTreeInterfaceSocket_default_input_itemf(
                                       N_("The position from the context")};
       RNA_enum_item_add(&items, &items_count, &position);
     }
+    else if (type->type == SOCK_MATRIX) {
+      const EnumPropertyItem instance_transform{
+          GEO_NODE_DEFAULT_FIELD_INPUT_INSTANCE_TRANSFORM_FIELD,
+          "INSTANCE_TRANSFORM",
+          0,
+          N_("Instance Transform"),
+          N_("Transformation of each instance from the geometry context")};
+      RNA_enum_item_add(&items, &items_count, &instance_transform);
+    }
   }
 
   RNA_enum_item_end(&items, &items_count);
@@ -1013,6 +1022,14 @@ static void rna_def_node_interface_socket(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Single Value", "Only allow single value inputs rather than fields");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeTreeInterfaceItem_update");
+
+  prop = RNA_def_property(srna, "is_inspect_output", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", NODE_INTERFACE_SOCKET_INSPECT);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop,
+                           "Is Inspect Output",
+                           "Take link out of node group to connect to root tree output node");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeTreeInterfaceItem_update");
 
   prop = RNA_def_property(srna, "layer_selection_field", PROP_BOOLEAN, PROP_NONE);

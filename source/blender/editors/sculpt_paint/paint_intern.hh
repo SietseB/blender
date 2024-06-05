@@ -98,7 +98,7 @@ bool paint_supports_dynamic_size(const Brush &br, PaintMode mode);
  * Return true if the brush size can change during paint (normally used for pressure).
  */
 bool paint_supports_dynamic_tex_coords(const Brush &br, PaintMode mode);
-bool paint_supports_smooth_stroke(const Brush &br, PaintMode mode);
+bool paint_supports_smooth_stroke(PaintStroke *stroke, const Brush &br, PaintMode mode);
 bool paint_supports_texture(PaintMode mode);
 
 /**
@@ -461,6 +461,7 @@ void PAINT_OT_hide_show_line_gesture(wmOperatorType *ot);
 void PAINT_OT_hide_show_polyline_gesture(wmOperatorType *ot);
 
 void PAINT_OT_visibility_invert(wmOperatorType *ot);
+void PAINT_OT_visibility_filter(wmOperatorType *ot);
 }  // namespace blender::ed::sculpt_paint::hide
 
 /* `paint_mask.cc` */
@@ -473,6 +474,7 @@ void PAINT_OT_mask_flood_fill(wmOperatorType *ot);
 void PAINT_OT_mask_lasso_gesture(wmOperatorType *ot);
 void PAINT_OT_mask_box_gesture(wmOperatorType *ot);
 void PAINT_OT_mask_line_gesture(wmOperatorType *ot);
+void PAINT_OT_mask_polyline_gesture(wmOperatorType *ot);
 }  // namespace blender::ed::sculpt_paint::mask
 
 /* `paint_curve.cc` */

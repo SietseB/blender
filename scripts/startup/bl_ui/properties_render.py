@@ -622,15 +622,20 @@ class RENDER_PT_eevee_next_gi_approximation(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        layout.prop(props, "fast_gi_method")
+        layout.prop(props, "fast_gi_resolution", text="Resolution")
+
         col = layout.column(align=True)
         col.prop(props, "fast_gi_ray_count", text="Rays")
         col.prop(props, "fast_gi_step_count", text="Steps")
+        col.prop(props, "fast_gi_quality", text="Precision")
 
-        col = layout.column()
-        col.prop(props, "horizon_quality", text="Precision")
-        col.prop(props, "horizon_thickness", text="Thickness")
-        col.prop(props, "horizon_resolution", text="Resolution")
-        col.prop(props, "horizon_bias", text="Bias")
+        col = layout.column(align=True)
+        col.prop(props, "fast_gi_distance")
+        col.prop(props, "fast_gi_thickness_near", text="Thickness Near")
+        col.prop(props, "fast_gi_thickness_far", text="Far")
+
+        layout.prop(props, "fast_gi_bias", text="Bias")
 
 
 class RENDER_PT_eevee_next_denoise(RenderButtonsPanel, Panel):
@@ -939,17 +944,6 @@ class RENDER_PT_eevee_indirect_lighting(RenderButtonsPanel, Panel):
 
         scene = context.scene
         props = scene.eevee
-
-        col = layout.column()
-        col.operator("scene.light_cache_bake", text="Bake Indirect Lighting", icon='RENDER_STILL')
-        col.operator("scene.light_cache_bake", text="Bake Cubemap Only", icon='LIGHTPROBE_SPHERE').subset = 'CUBEMAPS'
-        col.operator("scene.light_cache_free", text="Delete Lighting Cache")
-
-        cache_info = scene.eevee.gi_cache_info
-        if cache_info:
-            col.label(text=rpt_(cache_info), translate=False)
-
-        col.prop(props, "gi_auto_bake")
 
         col.prop(props, "gi_diffuse_bounces")
         col.prop(props, "gi_cubemap_resolution")
@@ -1381,8 +1375,8 @@ classes = (
     RENDER_PT_eevee_next_raytracing_presets,
     RENDER_PT_eevee_next_raytracing,
     RENDER_PT_eevee_next_screen_trace,
-    RENDER_PT_eevee_next_gi_approximation,
     RENDER_PT_eevee_next_denoise,
+    RENDER_PT_eevee_next_gi_approximation,
     RENDER_PT_eevee_motion_blur,
     RENDER_PT_eevee_volumetric,
     RENDER_PT_eevee_volumetric_lighting,

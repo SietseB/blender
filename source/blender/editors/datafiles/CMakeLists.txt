@@ -613,6 +613,7 @@ set(ICON_NAMES
   outliner_data_volume
   volume_data
   pointcloud_point
+  internet_offline
   internet
   current_file
   home
@@ -625,6 +626,7 @@ set(ICON_NAMES
   shortdisplay
   longdisplay
   imgdisplay
+  tag
   bookmarks
   fontpreview
   filter

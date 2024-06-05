@@ -5769,6 +5769,14 @@ const PointerRNA *UI_but_context_ptr_get(const uiBut *but, const char *name, con
   return CTX_store_ptr_lookup(but->context, name, type);
 }
 
+std::optional<blender::StringRefNull> UI_but_context_string_get(const uiBut *but, const char *name)
+{
+  if (!but->context) {
+    return {};
+  }
+  return CTX_store_string_lookup(but->context, name);
+}
+
 const bContextStore *UI_but_context_get(const uiBut *but)
 {
   return but->context;
@@ -6432,7 +6440,21 @@ std::string UI_but_string_get_label(uiBut &but)
     }
     return but.str.substr(0, str_len);
   }
+
   return UI_but_string_get_rna_label(but);
+}
+
+std::string UI_but_context_menu_title_from_button(uiBut &but)
+{
+  if (but.type == UI_BTYPE_VIEW_ITEM) {
+    const uiButViewItem &view_item_but = static_cast<const uiButViewItem &>(but);
+    if (view_item_but.view_item == nullptr) {
+      return "";
+    }
+    const blender::ui::AbstractView &tree_view = view_item_but.view_item->get_view();
+    return IFACE_(tree_view.get_context_menu_title().c_str());
+  }
+  return UI_but_string_get_label(but);
 }
 
 std::string UI_but_string_get_tooltip_label(const uiBut &but)

@@ -94,8 +94,6 @@
 
 #include "GEO_fillet_curves.hh"
 
-#include "COM_profile.hh"
-
 #include "node_intern.hh" /* own include */
 
 #include <fmt/format.h>
@@ -133,6 +131,11 @@ struct TreeDrawContext {
 
   blender::Map<bNodeInstanceKey, blender::timeit::Nanoseconds>
       *compositor_per_node_execution_time = nullptr;
+
+  /**
+   * Label for reroute nodes that is derived from upstream reroute nodes.
+   */
+  blender::Map<const bNode *, blender::StringRefNull> reroute_auto_labels;
 };
 
 float ED_node_grid_size()
@@ -1401,11 +1404,12 @@ static void create_inspection_string_for_generic_value(const bNodeSocket &socket
     const math::Quaternion &rotation = *static_cast<math::Quaternion *>(socket_value);
     const math::EulerXYZ euler = math::to_euler(rotation);
     fmt::format_to(fmt::appender(buf),
-                   TIP_("({}" BLI_STR_UTF8_DEGREE_SIGN ", {}" BLI_STR_UTF8_DEGREE_SIGN
-                        ", {}" BLI_STR_UTF8_DEGREE_SIGN ") (Rotation)"),
+                   ("({}" BLI_STR_UTF8_DEGREE_SIGN ", {}" BLI_STR_UTF8_DEGREE_SIGN
+                    ", {}" BLI_STR_UTF8_DEGREE_SIGN ")"),
                    euler.x().degree(),
                    euler.y().degree(),
                    euler.z().degree());
+    fmt::format_to(fmt::appender(buf), TIP_("(Rotation)"));
   }
   else if (socket_type.is<bool>()) {
     fmt::format_to(fmt::appender(buf),
@@ -1474,17 +1478,24 @@ static void create_inspection_string_for_field_info(const bNodeSocket &socket,
 static void create_inspection_string_for_geometry_info(const geo_log::GeometryInfoLog &value_log,
                                                        fmt::memory_buffer &buf)
 {
-  Span<bke::GeometryComponent::Type> component_types = value_log.component_types;
-  if (component_types.is_empty()) {
-    fmt::format_to(fmt::appender(buf), TIP_("Empty Geometry"));
-    return;
-  }
-
   auto to_string = [](int value) {
     char str[BLI_STR_FORMAT_INT32_GROUPED_SIZE];
     BLI_str_format_int_grouped(str, value);
     return std::string(str);
   };
+
+  if (value_log.grid_info) {
+    const geo_log::GeometryInfoLog::GridInfo &grid_info = *value_log.grid_info;
+    fmt::format_to(fmt::appender(buf),
+                   grid_info.is_empty ? TIP_("Empty Grid") : TIP_("\u2022 Grid"));
+    return;
+  }
+
+  Span<bke::GeometryComponent::Type> component_types = value_log.component_types;
+  if (component_types.is_empty()) {
+    fmt::format_to(fmt::appender(buf), TIP_("Empty Geometry"));
+    return;
+  }
 
   fmt::format_to(fmt::appender(buf), TIP_("Geometry:"));
   fmt::format_to(fmt::appender(buf), "\n");
@@ -1510,7 +1521,7 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
       case bke::GeometryComponent::Type::Curve: {
         const geo_log::GeometryInfoLog::CurveInfo &curve_info = *value_log.curve_info;
         fmt::format_to(fmt::appender(buf),
-                       TIP_("\u2022 Curve:{} points,{} splines"),
+                       TIP_("\u2022 Curve: {} points,{} splines"),
                        to_string(curve_info.points_num),
                        to_string(curve_info.splines_num));
         break;
@@ -1523,7 +1534,8 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         break;
       }
       case bke::GeometryComponent::Type::Volume: {
-        fmt::format_to(fmt::appender(buf), TIP_("\u2022 Volume"));
+        const geo_log::GeometryInfoLog::VolumeInfo &volume_info = *value_log.volume_info;
+        fmt::format_to(fmt::appender(buf), TIP_("\u2022 Volume: {} grids"), volume_info.grids_num);
         break;
       }
       case bke::GeometryComponent::Type::Edit: {
@@ -2051,6 +2063,15 @@ void node_socket_draw(bNodeSocket *sock, const rcti *rect, const float color[4],
 
   /* Restore. */
   GPU_blend(state);
+}
+
+/** Some elements of the node UI are hidden, when they get too small. */
+#define NODE_TREE_SCALE_SMALL 0.2f
+
+/** The node tree scales both with the view and with the UI. */
+static float node_tree_view_scale(const SpaceNode &snode)
+{
+  return (1.0f / snode.runtime->aspect) * UI_SCALE_FAC;
 }
 
 static void node_draw_preview_background(rctf *rect)
@@ -3618,11 +3639,8 @@ static void node_draw_basis(const bContext &C,
     UI_draw_roundbox_4fv(&rect, false, BASIS_RAD + outline_width, color_outline);
   }
 
-  float scale;
-  UI_view2d_scale_get(&v2d, &scale, nullptr);
-
   /* Skip slow socket drawing if zoom is small. */
-  if (scale > 0.2f) {
+  if (node_tree_view_scale(snode) > NODE_TREE_SCALE_SMALL) {
     node_draw_sockets(v2d, C, ntree, node, block, true, false);
   }
 
@@ -4144,8 +4162,108 @@ static void frame_node_draw(const bContext &C,
   UI_block_draw(&C, &block);
 }
 
-static void reroute_node_draw(
-    const bContext &C, ARegion &region, bNodeTree &ntree, const bNode &node, uiBlock &block)
+/**
+ * Returns the reroute node linked to the input of the given reroute, if there is one.
+ */
+static const bNode *reroute_node_get_linked_reroute(const bNode &reroute)
+{
+  BLI_assert(reroute.is_reroute());
+
+  const bNodeSocket *input_socket = reroute.input_sockets().first();
+  if (input_socket->directly_linked_links().is_empty()) {
+    return nullptr;
+  }
+  const bNodeLink *input_link = input_socket->directly_linked_links().first();
+  const bNode *from_node = input_link->fromnode;
+  return from_node->is_reroute() ? from_node : nullptr;
+}
+
+/**
+ * The auto label overlay displays a label on reroute nodes based on the user-defined label of a
+ * linked reroute upstream.
+ */
+static StringRefNull reroute_node_get_auto_label(TreeDrawContext &tree_draw_ctx,
+                                                 const bNode &src_reroute)
+{
+  BLI_assert(src_reroute.is_reroute());
+
+  if (src_reroute.label[0] != '\0') {
+    return StringRefNull(src_reroute.label);
+  }
+
+  Map<const bNode *, StringRefNull> &reroute_auto_labels = tree_draw_ctx.reroute_auto_labels;
+
+  StringRefNull label;
+  Vector<const bNode *> reroute_path;
+
+  /* Traverse reroute path backwards until label, non-reroute node or link-cycle is found. */
+  for (const bNode *reroute = &src_reroute; reroute;
+       reroute = reroute_node_get_linked_reroute(*reroute))
+  {
+    reroute_path.append(reroute);
+    if (const StringRefNull *label_ptr = reroute_auto_labels.lookup_ptr(reroute)) {
+      label = *label_ptr;
+      break;
+    }
+    if (reroute->label[0] != '\0') {
+      label = reroute->label;
+      break;
+    }
+    /* This makes sure that the loop eventually ends even if there are link-cycles. */
+    reroute_auto_labels.add(reroute, "");
+  }
+
+  /* Remember the label for each node on the path to avoid recomputing it. */
+  for (const bNode *reroute : reroute_path) {
+    reroute_auto_labels.add_overwrite(reroute, label);
+  }
+
+  return label;
+}
+
+static void reroute_node_draw_label(TreeDrawContext &tree_draw_ctx,
+                                    const SpaceNode &snode,
+                                    const bNode &node,
+                                    uiBlock &block)
+{
+  const bool has_label = node.label[0] != '\0';
+  const bool use_auto_label = !has_label && (snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS) &&
+                              (snode.overlay.flag & SN_OVERLAY_SHOW_REROUTE_AUTO_LABELS);
+
+  if (!has_label && !use_auto_label) {
+    return;
+  }
+
+  /* Don't show the automatic label, when being zoomed out. */
+  if (!has_label && node_tree_view_scale(snode) < NODE_TREE_SCALE_SMALL) {
+    return;
+  }
+
+  char showname[128];
+  STRNCPY(showname,
+          has_label ? node.label : reroute_node_get_auto_label(tree_draw_ctx, node).c_str());
+
+  const short width = 512;
+  const int x = BLI_rctf_cent_x(&node.runtime->totr) - (width / 2);
+  const int y = node.runtime->totr.ymax;
+
+  uiBut *label_but = uiDefBut(
+      &block, UI_BTYPE_LABEL, 0, showname, x, y, width, short(NODE_DY), nullptr, 0, 0, nullptr);
+
+  UI_but_drawflag_disable(label_but, UI_BUT_TEXT_LEFT);
+
+  if (use_auto_label && !(node.flag & NODE_SELECT)) {
+    UI_but_flag_enable(label_but, UI_BUT_INACTIVE);
+  }
+}
+
+static void reroute_node_draw(const bContext &C,
+                              TreeDrawContext &tree_draw_ctx,
+                              ARegion &region,
+                              const SpaceNode &snode,
+                              bNodeTree &ntree,
+                              const bNode &node,
+                              uiBlock &block)
 {
   /* Skip if out of view. */
   const rctf &rct = node.runtime->totr;
@@ -4156,19 +4274,7 @@ static void reroute_node_draw(
     return;
   }
 
-  if (node.label[0] != '\0') {
-    /* Draw title (node label). */
-    char showname[128]; /* 128 used below */
-    STRNCPY(showname, node.label);
-    const short width = 512;
-    const int x = BLI_rctf_cent_x(&node.runtime->totr) - (width / 2);
-    const int y = node.runtime->totr.ymax;
-
-    uiBut *label_but = uiDefBut(
-        &block, UI_BTYPE_LABEL, 0, showname, x, y, width, short(NODE_DY), nullptr, 0, 0, nullptr);
-
-    UI_but_drawflag_disable(label_but, UI_BUT_TEXT_LEFT);
-  }
+  reroute_node_draw_label(tree_draw_ctx, snode, node, block);
 
   /* Only draw input socket as they all are placed on the same position highlight
    * if node itself is selected, since we don't display the node body separately. */
@@ -4191,7 +4297,7 @@ static void node_draw(const bContext &C,
     frame_node_draw(C, tree_draw_ctx, region, snode, ntree, node, block);
   }
   else if (node.is_reroute()) {
-    reroute_node_draw(C, region, ntree, node, block);
+    reroute_node_draw(C, tree_draw_ctx, region, snode, ntree, node, block);
   }
   else {
     const View2D &v2d = region.v2d;

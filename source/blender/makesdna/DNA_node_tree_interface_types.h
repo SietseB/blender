@@ -67,8 +67,10 @@ typedef enum NodeTreeInterfaceSocketFlag {
   NODE_INTERFACE_SOCKET_COMPACT = 1 << 4,
   NODE_INTERFACE_SOCKET_SINGLE_VALUE_ONLY = 1 << 5,
   NODE_INTERFACE_SOCKET_LAYER_SELECTION = 1 << 6,
+  /* INSPECT is used by Connect to Output operator to ensure socket that exits from node group. */
+  NODE_INTERFACE_SOCKET_INSPECT = 1 << 7,
 } NodeTreeInterfaceSocketFlag;
-ENUM_OPERATORS(NodeTreeInterfaceSocketFlag, NODE_INTERFACE_SOCKET_LAYER_SELECTION);
+ENUM_OPERATORS(NodeTreeInterfaceSocketFlag, NODE_INTERFACE_SOCKET_INSPECT);
 
 typedef struct bNodeTreeInterfaceSocket {
   bNodeTreeInterfaceItem item;
@@ -132,6 +134,7 @@ typedef enum GeometryNodeDefaultInputType {
   GEO_NODE_DEFAULT_FIELD_INPUT_ID_INDEX_FIELD = 2,
   GEO_NODE_DEFAULT_FIELD_INPUT_NORMAL_FIELD = 3,
   GEO_NODE_DEFAULT_FIELD_INPUT_POSITION_FIELD = 4,
+  GEO_NODE_DEFAULT_FIELD_INPUT_INSTANCE_TRANSFORM_FIELD = 5,
 } GeometryNodeDefaultInputType;
 
 typedef struct bNodeTreeInterfacePanel {

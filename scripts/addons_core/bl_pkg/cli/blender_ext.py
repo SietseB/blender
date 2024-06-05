@@ -660,6 +660,37 @@ def pkg_manifest_from_archive_and_validate(
         return pkg_manifest_from_zipfile_and_validate(zip_fh, archive_subdir, strict=strict)
 
 
+def pkg_is_legacy_addon(filepath: str) -> bool:
+    # Python file is legacy.
+    if os.path.splitext(filepath)[1].lower() == ".py":
+        return True
+
+    try:
+        zip_fh_context = zipfile.ZipFile(filepath, mode="r")
+    except Exception:
+        return False
+
+    with contextlib.closing(zip_fh_context) as zip_fh:
+        # If manifest not legacy.
+        if pkg_zipfile_detect_subdir_or_none(zip_fh) is not None:
+            return False
+
+        # If any Python file contains bl_info it's legacy.
+        for filename in zip_fh_context.NameToInfo.keys():
+            if filename.startswith("."):
+                continue
+            if not filename.lower().endswith(".py"):
+                continue
+            try:
+                file_content = zip_fh.read(filename)
+            except Exception:
+                file_content = None
+            if file_content and file_content.find(b"bl_info"):
+                return True
+
+    return False
+
+
 def remote_url_has_filename_suffix(url: str) -> bool:
     # When the URL ends with `.json` it's assumed to be a URL that is inside a directory.
     # In these cases the file is stripped before constricting relative paths.
@@ -674,6 +705,29 @@ def remote_url_get(url: str) -> str:
         return "{:s}/{:s}".format(url.rstrip("/"), PKG_REPO_LIST_FILENAME)
 
     return url
+
+
+def remote_url_params_strip(url: str) -> str:
+    # Parse the URL to get its scheme, domain, and query parameters.
+    parsed_url = urllib.parse.urlparse(url)
+
+    # Combine the scheme, netloc, path without any other parameters, stripping the URL.
+    new_url = urllib.parse.urlunparse((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        None,  # `parsed_url.params,`
+        None,  # `parsed_url.query,`
+        None,  # `parsed_url.fragment,`
+    ))
+
+    return new_url
+
+
+def remote_url_validate_or_error(url: str) -> Optional[str]:
+    if url_has_known_prefix(url):
+        return None
+    return "remote URL doesn't begin with a known prefix: {:s}".format(" ".join(URL_KNOWN_PREFIX))
 
 
 # -----------------------------------------------------------------------------
@@ -906,8 +960,6 @@ class PathPatternMatch:
 # URL Downloading
 
 # Originally based on `urllib.request.urlretrieve`.
-
-
 def url_retrieve_to_data_iter(
         url: str,
         *,
@@ -1064,6 +1116,20 @@ def url_retrieve_to_filepath_iter_or_filesystem(
             yield (read, size)
 
 
+def url_retrieve_exception_is_connectivity(
+        ex: Union[Exception, KeyboardInterrupt],
+) -> bool:
+    if isinstance(ex, FileNotFoundError):
+        return True
+    if isinstance(ex, TimeoutError):
+        return True
+    # Covers `HTTPError` too.
+    if isinstance(ex, urllib.error.URLError):
+        return True
+
+    return False
+
+
 def url_retrieve_exception_as_message(
         ex: Union[Exception, KeyboardInterrupt],
         *,
@@ -1074,14 +1140,19 @@ def url_retrieve_exception_as_message(
     Provides more user friendly messages when reading from a URL fails.
     """
     # These exceptions may occur when reading from the file-system or a URL.
+    url_strip = remote_url_params_strip(url)
     if isinstance(ex, FileNotFoundError):
-        return "{:s}: file-not-found ({:s}) reading {!r}!".format(prefix, str(ex), url)
+        return "{:s}: file-not-found ({:s}) reading {!r}!".format(prefix, str(ex), url_strip)
     if isinstance(ex, TimeoutError):
-        return "{:s}: timeout ({:s}) reading {!r}!".format(prefix, str(ex), url)
+        return "{:s}: timeout ({:s}) reading {!r}!".format(prefix, str(ex), url_strip)
     if isinstance(ex, urllib.error.URLError):
-        return "{:s}: URL error ({:s}) reading {!r}!".format(prefix, str(ex), url)
+        if isinstance(ex, urllib.error.HTTPError):
+            if ex.code == 403:
+                return "{:s}: HTTP error (403) access token may be incorrect, reading {!r}!".format(prefix, url_strip)
+            return "{:s}: HTTP error ({:s}) reading {!r}!".format(prefix, str(ex), url_strip)
+        return "{:s}: URL error ({:s}) reading {!r}!".format(prefix, str(ex), url_strip)
 
-    return "{:s}: unexpected error ({:s}) reading {!r}!".format(prefix, str(ex), url)
+    return "{:s}: unexpected error ({:s}) reading {!r}!".format(prefix, str(ex), url_strip)
 
 
 def pkg_idname_is_valid_or_error(pkg_idname: str) -> Optional[str]:
@@ -1232,28 +1303,33 @@ def pkg_manifest_validate_field_tagline(value: str, strict: bool) -> Optional[st
 
 
 def pkg_manifest_validate_field_permissions(
-        value: List[Any],
+        # `Dict[str, str]` is expected but at this point it's only guaranteed to be a dict.
+        value: Dict[Any, Any],
         strict: bool,
 ) -> Optional[str]:
     _ = strict
     # Always strict for now as it doesn't seem as there are repositories using invalid values.
     strict = True
     if strict:
-        values_valid = {
+        keys_valid = {
             "files",
             "network",
             "clipboard",
             "camera",
             "microphone",
         }
-        for i, item in enumerate(value):
-            if not isinstance(item, str):
-                return "at index {:d} must be a string not a {:s}".format(i, str(type(value)))
-            if item not in values_valid:
-                return "at index {:d} must be a value in {!r}".format(i, tuple(values_valid))
+        for item_key, item_value in value.items():
+            if not isinstance(item_key, str):
+                return "key \"{:s}\" must be a string not a {:s}".format(str(item_key), str(type(item_key)))
+            if not isinstance(item_value, str):
+                return "value of \"{:s}\" must be a string not a {:s}".format(item_key, str(type(item_value)))
+            if item_key not in keys_valid:
+                return "value of \"{:s}\" must be a value in {!r}".format(item_key, tuple(keys_valid))
     else:
-        if (error := pkg_manifest_validate_field_any_list_of_non_empty_strings(value, strict)) is not None:
-            return error
+        # TODO: basic validation.
+        # if (error := pkg_manifest_validate_field_any_dict_of_non_empty_strings(value, strict)) is not None:
+        #     return error
+        pass
 
     return None
 
@@ -1375,7 +1451,7 @@ pkg_manifest_known_keys_and_types: Tuple[
     ("blender_version_max", str, pkg_manifest_validate_field_any_version_primitive_or_empty),
     ("website", str, pkg_manifest_validate_field_any_non_empty_string_stripped_no_control_chars),
     ("copyright", list, pkg_manifest_validate_field_any_non_empty_list_of_non_empty_strings),
-    ("permissions", list, pkg_manifest_validate_field_permissions),
+    ("permissions", dict, pkg_manifest_validate_field_permissions),
     ("tags", list, pkg_manifest_validate_field_any_non_empty_list_of_non_empty_strings),
     ("wheels", list, pkg_manifest_validate_field_wheels),
 )
@@ -1498,7 +1574,7 @@ def pkg_manifest_is_valid_or_error_all(
 # Standalone Utilities
 
 
-def url_request_headers_create(*, accept_json: bool, user_agent: str) -> Dict[str, str]:
+def url_request_headers_create(*, accept_json: bool, user_agent: str, access_token: str) -> Dict[str, str]:
     headers = {}
     if accept_json:
         # Default for JSON requests this allows top-level URL's to be used.
@@ -1507,6 +1583,10 @@ def url_request_headers_create(*, accept_json: bool, user_agent: str) -> Dict[st
     if user_agent:
         # Typically: `Blender/4.2.0 (Linux x84_64; cycle=alpha)`.
         headers["User-Agent"] = user_agent
+
+    if access_token:
+        headers["Authorization"] = "Bearer {:s}".format(access_token)
+
     return headers
 
 
@@ -1621,17 +1701,26 @@ def repo_local_private_dir_ensure_with_subdir(*, local_dir: str, subdir: str) ->
 def repo_sync_from_remote(
         *,
         msg_fn: MessageFn,
+        remote_name: str,
         remote_url: str,
         local_dir: str,
         online_user_agent: str,
+        access_token: str,
         timeout_in_seconds: float,
+        demote_connection_errors_to_status: bool,
         extension_override: str,
 ) -> bool:
     """
     Load package information into the local path.
     """
+
+    # Validate arguments.
+    if (error := remote_url_validate_or_error(remote_url)) is not None:
+        message_error(msg_fn, error)
+        return False
+
     request_exit = False
-    request_exit |= message_status(msg_fn, "Sync repo: {:s}".format(remote_url))
+    request_exit |= message_status(msg_fn, "Checking repository \"{:s}\" for updates...".format(remote_name))
     if request_exit:
         return False
 
@@ -1650,7 +1739,7 @@ def repo_sync_from_remote(
 
     with CleanupPathsContext(files=(local_json_path_temp,), directories=()):
         # TODO: time-out.
-        request_exit |= message_status(msg_fn, "Sync downloading remote data")
+        request_exit |= message_status(msg_fn, "Refreshing extensions list for \"{:s}\"...".format(remote_name))
         if request_exit:
             return False
 
@@ -1659,7 +1748,11 @@ def repo_sync_from_remote(
             for (read, size) in url_retrieve_to_filepath_iter_or_filesystem(
                     remote_json_url,
                     local_json_path_temp,
-                    headers=url_request_headers_create(accept_json=True, user_agent=online_user_agent),
+                    headers=url_request_headers_create(
+                        accept_json=True,
+                        user_agent=online_user_agent,
+                        access_token=access_token,
+                    ),
                     chunk_size=CHUNK_SIZE_DEFAULT,
                     timeout_in_seconds=timeout_in_seconds,
             ):
@@ -1669,7 +1762,11 @@ def repo_sync_from_remote(
                 read_total += read
             del read_total
         except (Exception, KeyboardInterrupt) as ex:
-            message_error(msg_fn, url_retrieve_exception_as_message(ex, prefix="sync", url=remote_url))
+            msg = url_retrieve_exception_as_message(ex, prefix="sync", url=remote_url)
+            if demote_connection_errors_to_status and url_retrieve_exception_is_connectivity(ex):
+                message_status(msg_fn, msg)
+            else:
+                message_error(msg_fn, msg)
             return False
 
         if request_exit:
@@ -1677,11 +1774,14 @@ def repo_sync_from_remote(
 
         error_msg = repo_json_is_valid_or_error(local_json_path_temp)
         if error_msg is not None:
-            message_error(msg_fn, "sync: invalid manifest ({:s}) reading {!r}!".format(error_msg, remote_url))
+            message_error(
+                msg_fn,
+                "Repository error: invalid manifest ({:s}) for repository \"{:s}\"!".format(error_msg, remote_name),
+            )
             return False
         del error_msg
 
-        request_exit |= message_status(msg_fn, "Sync complete: {:s}".format(remote_url))
+        request_exit |= message_status(msg_fn, "Extensions list for \"{:s}\" updated".format(remote_name))
         if request_exit:
             return False
 
@@ -1762,16 +1862,6 @@ def arg_handle_str_as_package_names(value: str) -> Sequence[str]:
     return result
 
 
-def arg_handle_str_as_url(value: str) -> Sequence[str]:
-    # Handle so unexpected URL's don't cause difficult to understand errors in inner logic.
-    # The URL's themselves may be invalid still, this just fails early in the case of obvious oversights.
-    if not url_has_known_prefix(value):
-        raise argparse.ArgumentTypeError(
-            "Invalid URL \"{:s}\", expected a prefix in {!r}".format(value, URL_KNOWN_PREFIX)
-        )
-    return value
-
-
 # -----------------------------------------------------------------------------
 # Generate Repository
 
@@ -1809,11 +1899,24 @@ def generic_arg_repo_dir(subparse: argparse.ArgumentParser) -> None:
     )
 
 
+def generic_arg_remote_name(subparse: argparse.ArgumentParser) -> None:
+    subparse.add_argument(
+        "--remote-name",
+        dest="remote_name",
+        type=str,
+        help=(
+            "The remote repository name."
+        ),
+        default="",
+        required=False,
+    )
+
+
 def generic_arg_remote_url(subparse: argparse.ArgumentParser) -> None:
     subparse.add_argument(
         "--remote-url",
         dest="remote_url",
-        type=arg_handle_str_as_url,
+        type=str,
         help=(
             "The remote repository URL."
         ),
@@ -1937,6 +2040,29 @@ def generic_arg_online_user_agent(subparse: argparse.ArgumentParser) -> None:
     )
 
 
+def generic_arg_access_token(subparse: argparse.ArgumentParser) -> None:
+    subparse.add_argument(
+        "--access-token",
+        dest="access_token",
+        type=str,
+        help=(
+            "Access token for remote repositories which require authorized access."
+        ),
+        default="",
+        required=False,
+    )
+
+
+def generic_arg_verbose(subparse: argparse.ArgumentParser) -> None:
+    subparse.add_argument(
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=False,
+        help="Include verbose output.",
+    )
+
+
 def generic_arg_timeout(subparse: argparse.ArgumentParser) -> None:
     subparse.add_argument(
         "--timeout",
@@ -1958,6 +2084,19 @@ def generic_arg_ignore_broken_pipe(subparse: argparse.ArgumentParser) -> None:
         default=False,
         help=(
             "Silently ignore broken pipe, use when the caller may disconnect."
+        ),
+    )
+
+
+def generic_arg_demote_connection_failure_to_status(subparse: argparse.ArgumentParser) -> None:
+    subparse.add_argument(
+        "--demote-connection-errors-to-status",
+        dest="demote_connection_errors_to_status",
+        action="store_true",
+        default=False,
+        help=(
+            "Demote errors relating to connection failure to status updates.\n"
+            "To be used when connection failure should not be considered an error."
         ),
     )
 
@@ -2077,8 +2216,16 @@ class subcmd_client:
             msg_fn: MessageFn,
             remote_url: str,
             online_user_agent: str,
+            access_token: str,
             timeout_in_seconds: float,
+            demote_connection_errors_to_status: bool,
     ) -> bool:
+
+        # Validate arguments.
+        if (error := remote_url_validate_or_error(remote_url)) is not None:
+            message_error(msg_fn, error)
+            return False
+
         remote_json_url = remote_url_get(remote_url)
 
         # TODO: validate JSON content.
@@ -2086,14 +2233,22 @@ class subcmd_client:
             result = io.BytesIO()
             for block in url_retrieve_to_data_iter_or_filesystem(
                     remote_json_url,
-                    headers=url_request_headers_create(accept_json=True, user_agent=online_user_agent),
+                    headers=url_request_headers_create(
+                        accept_json=True,
+                        user_agent=online_user_agent,
+                        access_token=access_token,
+                    ),
                     chunk_size=CHUNK_SIZE_DEFAULT,
                     timeout_in_seconds=timeout_in_seconds,
             ):
                 result.write(block)
 
         except (Exception, KeyboardInterrupt) as ex:
-            message_error(msg_fn, url_retrieve_exception_as_message(ex, prefix="list", url=remote_url))
+            msg = url_retrieve_exception_as_message(ex, prefix="list", url=remote_url)
+            if demote_connection_errors_to_status and url_retrieve_exception_is_connectivity(ex):
+                message_status(msg_fn, msg)
+            else:
+                message_error(msg_fn, msg)
             return False
 
         result_str = result.getvalue().decode("utf-8")
@@ -2120,9 +2275,12 @@ class subcmd_client:
             msg_fn: MessageFn,
             *,
             remote_url: str,
+            remote_name: str,
             local_dir: str,
             online_user_agent: str,
+            access_token: str,
             timeout_in_seconds: float,
+            demote_connection_errors_to_status: bool,
             force_exit_ok: bool,
             extension_override: str,
     ) -> bool:
@@ -2131,10 +2289,13 @@ class subcmd_client:
 
         success = repo_sync_from_remote(
             msg_fn=msg_fn,
+            remote_name=remote_name,
             remote_url=remote_url,
             local_dir=local_dir,
             online_user_agent=online_user_agent,
+            access_token=access_token,
             timeout_in_seconds=timeout_in_seconds,
+            demote_connection_errors_to_status=demote_connection_errors_to_status,
             extension_override=extension_override,
         )
         return success
@@ -2281,8 +2442,15 @@ class subcmd_client:
             local_cache: bool,
             packages: Sequence[str],
             online_user_agent: str,
+            access_token: str,
             timeout_in_seconds: float,
     ) -> bool:
+
+        # Validate arguments.
+        if (error := remote_url_validate_or_error(remote_url)) is not None:
+            message_error(msg_fn, error)
+            return False
+
         # Extract...
         pkg_repo_data = repo_pkginfo_from_local_with_idname_as_key(local_dir=local_dir)
         if pkg_repo_data is None:
@@ -2295,6 +2463,9 @@ class subcmd_client:
 
         # Ensure a private directory so a local cache can be created.
         local_cache_dir = repo_local_private_dir_ensure_with_subdir(local_dir=local_dir, subdir="cache")
+
+        # Needed so relative paths can be properly calculated.
+        remote_url_strip = remote_url_params_strip(remote_url)
 
         # TODO: this could be optimized to only lookup known ID's.
         json_data_pkg_info_map: Dict[str, Dict[str, Any]] = {
@@ -2344,10 +2515,10 @@ class subcmd_client:
 
                 # Remote path.
                 if pkg_archive_url.startswith("./"):
-                    if remote_url_has_filename_suffix(remote_url):
-                        filepath_remote_archive = remote_url.rpartition("/")[0] + pkg_archive_url[1:]
+                    if remote_url_has_filename_suffix(remote_url_strip):
+                        filepath_remote_archive = remote_url_strip.rpartition("/")[0] + pkg_archive_url[1:]
                     else:
-                        filepath_remote_archive = remote_url.rstrip("/") + pkg_archive_url[1:]
+                        filepath_remote_archive = remote_url_strip.rstrip("/") + pkg_archive_url[1:]
                 else:
                     filepath_remote_archive = pkg_archive_url
 
@@ -2375,7 +2546,11 @@ class subcmd_client:
                         with open(filepath_local_cache_archive, "wb") as fh_cache:
                             for block in url_retrieve_to_data_iter_or_filesystem(
                                     filepath_remote_archive,
-                                    headers=url_request_headers_create(accept_json=False, user_agent=online_user_agent),
+                                    headers=url_request_headers_create(
+                                        accept_json=False,
+                                        user_agent=online_user_agent,
+                                        access_token=access_token,
+                                    ),
                                     chunk_size=CHUNK_SIZE_DEFAULT,
                                     timeout_in_seconds=timeout_in_seconds,
                             ):
@@ -2393,6 +2568,9 @@ class subcmd_client:
                                 filename_archive_size_test += len(block)
 
                     except (Exception, KeyboardInterrupt) as ex:
+                        # NOTE: don't support `demote_connection_errors_to_status` here because a connection
+                        # failure on installing *is* an error by definition.
+                        # Unlike querying information which might reasonably be skipped.
                         message_error(msg_fn, url_retrieve_exception_as_message(ex, prefix="install", url=remote_url))
                         return False
 
@@ -2507,6 +2685,7 @@ class subcmd_author:
             pkg_source_dir: str,
             pkg_output_dir: str,
             pkg_output_filepath: str,
+            verbose: bool,
     ) -> bool:
         if not os.path.isdir(pkg_source_dir):
             message_error(msg_fn, "Missing local \"{:s}\"".format(pkg_source_dir))
@@ -2538,13 +2717,19 @@ class subcmd_author:
                 message_error(msg_fn, "Error parsing TOML \"{:s}\" {:s}".format(pkg_manifest_filepath, error_msg))
             return False
 
+        # Always include wheels & manifest.
+        build_paths_extra = (
+            # Inclusion of the manifest is implicit.
+            # No need to require the manifest to include itself.
+            PKG_MANIFEST_FILENAME_TOML,
+            *(manifest.wheels or ()),
+        )
+
         if (manifest_build_data := manifest_data.get("build")) is not None:
-            manifest_build_test = PkgManifest_Build.from_dict_all_errors(manifest_build_data, extra_paths=[
-                # Inclusion of the manifest is implicit.
-                # No need to require the manifest to include itself.
-                PKG_MANIFEST_FILENAME_TOML,
-                *(manifest.wheels or ()),
-            ])
+            manifest_build_test = PkgManifest_Build.from_dict_all_errors(
+                manifest_build_data,
+                extra_paths=build_paths_extra,
+            )
             if isinstance(manifest_build_test, list):
                 for error_msg in manifest_build_test:
                     message_error(msg_fn, "Error parsing TOML \"{:s}\" {:s}".format(pkg_manifest_filepath, error_msg))
@@ -2567,23 +2752,73 @@ class subcmd_author:
         if manifest_build.paths_exclude_pattern is not None:
             build_paths_exclude_pattern = PathPatternMatch(manifest_build.paths_exclude_pattern)
 
-        build_paths: Optional[List[str]] = None
+        build_paths: List[Tuple[str, str]] = []
+
+        # Manifest & wheels.
+        if build_paths_extra:
+            build_paths.extend(build_paths_expand_iter(pkg_source_dir, build_paths_extra))
+
         if manifest_build.paths is not None:
-            build_paths = manifest_build.paths
+            build_paths.extend(build_paths_expand_iter(pkg_source_dir, manifest_build.paths))
+        else:
+            # Mixing literal and pattern matched lists of files is a hassle.
+            # De-duplicate canonical root-relative path names.
+            def filepath_canonical_from_relative(filepath_rel: str):
+                filepath_rel = os.path.normpath(filepath_rel)
+                if os.sep == "\\":
+                    filepath_rel = filepath_rel.replace("\\", "/")
+                return filepath_rel
 
-        def scandir_filter_with_paths_exclude_pattern(filepath: str, is_dir: bool) -> bool:
-            assert build_paths_exclude_pattern is not None
-            if os.sep == "\\":
-                filepath = filepath.replace("\\", "/")
-            if is_dir:
-                assert not filepath.endswith("/")
-                filepath = filepath + "/"
-            assert not filepath.startswith(("/", "./", "../"))
-            return not build_paths_exclude_pattern.test_path(filepath)
+            # Use lowercase to prevent duplicates on MS-Windows.
+            build_paths_extra_canonical: Set[int] = set(
+                filepath_canonical_from_relative(f).lower()
+                for f in build_paths_extra
+            )
 
-        def scandir_filter_fallback(filepath: str, is_dir: bool) -> bool:
-            _ = is_dir
-            return not os.path.basename(filepath).startswith(".")
+            # Scanning the file-system may fail, surround by try/except.
+            try:
+                if build_paths_exclude_pattern:
+                    def scandir_filter_with_paths_exclude_pattern(filepath: str, is_dir: bool) -> bool:
+                        # Returning true includes the file.
+                        assert build_paths_exclude_pattern is not None
+                        if os.sep == "\\":
+                            filepath = filepath.replace("\\", "/")
+                        filepath_canonical = filepath
+                        if is_dir:
+                            assert not filepath.endswith("/")
+                            filepath = filepath + "/"
+                        assert not filepath.startswith(("/", "./", "../"))
+                        result = not build_paths_exclude_pattern.test_path(filepath)
+                        if result and (not is_dir):
+                            # Finally check the path isn't one of the known paths.
+                            if filepath_canonical.lower() in build_paths_extra_canonical:
+                                result = False
+                        return result
+
+                    build_paths.extend(
+                        scandir_recursive(
+                            pkg_source_dir,
+                            filter_fn=scandir_filter_with_paths_exclude_pattern,
+                        ),
+                    )
+                else:
+                    # In this case there isn't really a good option, just ignore all dot-files.
+                    def scandir_filter_fallback(filepath: str, is_dir: bool) -> bool:
+                        # Returning true includes the file.
+                        result = not os.path.basename(filepath).startswith(".")
+                        if result and (not is_dir):
+                            # Finally check the path isn't one of the known paths.
+                            if filepath_canonical.lower() in build_paths_extra_canonical:
+                                result = False
+                        return result
+
+                    build_paths.extend(scandir_recursive(pkg_source_dir, filter_fn=scandir_filter_fallback))
+
+                del build_paths_extra_canonical
+
+            except Exception as ex:
+                message_status(msg_fn, "Error building path list \"{:s}\"".format(str(ex)))
+                return False
 
         pkg_filename = manifest.id + PKG_EXT
 
@@ -2612,26 +2847,13 @@ class subcmd_author:
 
         with CleanupPathsContext(files=(outfile_temp,), directories=()):
             try:
-                zip_fh_context = zipfile.ZipFile(outfile_temp, 'w', zipfile.ZIP_LZMA)
+                zip_fh_context = zipfile.ZipFile(outfile_temp, 'w', zipfile.ZIP_DEFLATED, compresslevel=9)
             except Exception as ex:
                 message_status(msg_fn, "Error creating archive \"{:s}\"".format(str(ex)))
                 return False
 
             with contextlib.closing(zip_fh_context) as zip_fh:
-
-                if build_paths is not None:
-                    filepath_iterator = build_paths_expand_iter(pkg_source_dir, build_paths)
-                else:
-                    filepath_iterator = scandir_recursive(
-                        pkg_source_dir,
-                        filter_fn=(
-                            scandir_filter_with_paths_exclude_pattern if build_paths_exclude_pattern else
-                            # In this case there isn't really a good option, just ignore all dot-files.
-                            scandir_filter_fallback
-                        ),
-                    )
-
-                for filepath_abs, filepath_rel in filepath_iterator:
+                for filepath_abs, filepath_rel in build_paths:
                     if filepath_rel in filenames_root_exclude:
                         continue
 
@@ -2643,6 +2865,9 @@ class subcmd_author:
                     except Exception as ex:
                         message_status(msg_fn, "Error adding to archive \"{:s}\"".format(str(ex)))
                         return False
+
+                    if verbose:
+                        message_status(msg_fn, "add: {:s}".format(filepath_rel))
 
                 request_exit |= message_status(msg_fn, "complete")
                 if request_exit:
@@ -2850,6 +3075,7 @@ def unregister():
                     pkg_source_dir=pkg_src_dir,
                     pkg_output_dir=repo_dir,
                     pkg_output_filepath="",
+                    verbose=False,
                 ):
                     # Error running command.
                     return False
@@ -2937,16 +3163,20 @@ def argparse_create_client_list(subparsers: "argparse._SubParsersAction[argparse
     generic_arg_remote_url(subparse)
     generic_arg_local_dir(subparse)
     generic_arg_online_user_agent(subparse)
+    generic_arg_access_token(subparse)
 
     generic_arg_output_type(subparse)
     generic_arg_timeout(subparse)
+    generic_arg_demote_connection_failure_to_status(subparse)
 
     subparse.set_defaults(
         func=lambda args: subcmd_client.list_packages(
             msg_fn_from_args(args),
             args.remote_url,
             online_user_agent=args.online_user_agent,
+            access_token=args.access_token,
             timeout_in_seconds=args.timeout,
+            demote_connection_errors_to_status=args.demote_connection_errors_to_status,
         ),
     )
 
@@ -2963,21 +3193,27 @@ def argparse_create_client_sync(subparsers: "argparse._SubParsersAction[argparse
     )
 
     generic_arg_remote_url(subparse)
+    generic_arg_remote_name(subparse)
     generic_arg_local_dir(subparse)
     generic_arg_online_user_agent(subparse)
+    generic_arg_access_token(subparse)
 
     generic_arg_output_type(subparse)
     generic_arg_timeout(subparse)
     generic_arg_ignore_broken_pipe(subparse)
+    generic_arg_demote_connection_failure_to_status(subparse)
     generic_arg_extension_override(subparse)
 
     subparse.set_defaults(
         func=lambda args: subcmd_client.sync(
             msg_fn_from_args(args),
             remote_url=args.remote_url,
+            remote_name=args.remote_name if args.remote_name else remote_url_params_strip(args.remote_url),
             local_dir=args.local_dir,
             online_user_agent=args.online_user_agent,
+            access_token=args.access_token,
             timeout_in_seconds=args.timeout,
+            demote_connection_errors_to_status=args.demote_connection_errors_to_status,
             force_exit_ok=args.force_exit_ok,
             extension_override=args.extension_override,
         ),
@@ -3018,6 +3254,7 @@ def argparse_create_client_install(subparsers: "argparse._SubParsersAction[argpa
     generic_arg_local_dir(subparse)
     generic_arg_local_cache(subparse)
     generic_arg_online_user_agent(subparse)
+    generic_arg_access_token(subparse)
 
     generic_arg_output_type(subparse)
     generic_arg_timeout(subparse)
@@ -3030,6 +3267,7 @@ def argparse_create_client_install(subparsers: "argparse._SubParsersAction[argpa
             local_cache=args.local_cache,
             packages=args.packages.split(","),
             online_user_agent=args.online_user_agent,
+            access_token=args.access_token,
             timeout_in_seconds=args.timeout,
         ),
     )
@@ -3073,6 +3311,7 @@ def argparse_create_author_build(
     generic_arg_package_source_dir(subparse)
     generic_arg_package_output_dir(subparse)
     generic_arg_package_output_filepath(subparse)
+    generic_arg_verbose(subparse)
 
     if args_internal:
         generic_arg_output_type(subparse)
@@ -3083,6 +3322,7 @@ def argparse_create_author_build(
             pkg_source_dir=args.source_dir,
             pkg_output_dir=args.output_dir,
             pkg_output_filepath=args.output_filepath,
+            verbose=args.verbose,
         ),
     )
 
