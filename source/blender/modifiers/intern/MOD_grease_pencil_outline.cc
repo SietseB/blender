@@ -431,6 +431,7 @@ static bke::CurvesGeometry create_curves_outline(const bke::greasepencil::Drawin
       "end_cap", bke::AttrDomain::Curve, GP_STROKE_CAP_ROUND);
   const VArray<int> src_material_index = *src_attributes.lookup_or_default(
       "material_index", bke::AttrDomain::Curve, -1);
+  const VArray<int> src_seeds = drawing.seeds();
 
   /* Transform positions into view space. */
   Array<float3> view_positions(src_positions.size());
@@ -498,6 +499,8 @@ static bke::CurvesGeometry create_curves_outline(const bke::greasepencil::Drawin
       "material_index", bke::AttrDomain::Curve);
   bke::SpanAttributeWriter<float> dst_radius = dst_attributes.lookup_or_add_for_write_span<float>(
       "radius", bke::AttrDomain::Point);
+  bke::SpanAttributeWriter<int> dst_seeds = dst_attributes.lookup_or_add_for_write_span<int>(
+      ".seed", bke::AttrDomain::Curve);
   const MutableSpan<int> dst_offsets = dst_curves.offsets_for_write();
   const MutableSpan<float3> dst_positions = dst_curves.positions_for_write();
   /* Source indices for attribute mapping. */
@@ -522,6 +525,9 @@ static bke::CurvesGeometry create_curves_outline(const bke::greasepencil::Drawin
       for (const int i : curves.index_range()) {
         dst_material.span[curves[i]] = src_material_index[data.curve_indices[i]];
       }
+    }
+    for (const int i : curves.index_range()) {
+      dst_seeds.span[curves[i]] = src_seeds[data.curve_indices[i]];
     }
 
     /* Append point data. */
@@ -602,6 +608,7 @@ static void modify_drawing(const GreasePencilOutlineModifierData &omd,
   }
 
   drawing.strokes_for_write() = std::move(curves);
+  drawing.ensure_unique_seeds();
   drawing.tag_topology_changed();
 }
 

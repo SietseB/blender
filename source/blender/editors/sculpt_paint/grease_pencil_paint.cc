@@ -315,10 +315,17 @@ struct PaintOperationExecutor {
                   "softness",
                   "start_cap",
                   "end_cap",
-                  "fill_color"};
+                  "fill_color",
+                  ".seed"};
         }
         else {
-          return {"curve_type", "material_index", "cyclic", "softness", "start_cap", "end_cap"};
+          return {"curve_type",
+                  "material_index",
+                  "cyclic",
+                  "softness",
+                  "start_cap",
+                  "end_cap",
+                  ".seed"};
         }
       default:
         return {};
@@ -372,6 +379,9 @@ struct PaintOperationExecutor {
     if (fill_color_) {
       drawing_->fill_colors_for_write()[active_curve] = *fill_color_;
     }
+
+    drawing_->seeds_for_write()[active_curve] = rand() * 4096 + rand();
+    drawing_->ensure_unique_seeds();
 
     bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
     bke::SpanAttributeWriter<int> materials = attributes.lookup_or_add_for_write_span<int>(

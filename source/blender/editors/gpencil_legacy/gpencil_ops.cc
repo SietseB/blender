@@ -777,10 +777,6 @@ void ED_operatortypes_gpencil_legacy()
 
   /* armatures */
   WM_operatortype_append(GPENCIL_OT_generate_weights);
-
-  /* Ondine watercolor additions */
-  WM_operatortype_append(GPENCIL_OT_ondine_render_init);
-  WM_operatortype_append(GPENCIL_OT_ondine_set_unique_stroke_seeds);
 }
 
 void ED_operatormacros_gpencil()

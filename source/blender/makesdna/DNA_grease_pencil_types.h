@@ -79,6 +79,40 @@ typedef enum GreasePencilDrawingBaseFlag {
 } GreasePencilDrawingBaseFlag;
 
 /**
+ * Ondine: Structs for runtime render data of strokes and points.
+ */
+typedef struct GPStrokePoint {
+  float x;
+  float y;
+  float radius;
+  float alpha;
+  float dist_to_cam;
+  float color_r;
+  float color_g;
+  float color_b;
+} GPStrokePoint;
+
+typedef struct OndineRenderStroke {
+  float render_fill_color[3];
+  float render_fill_opacity;
+  float render_stroke_opacity;
+  float render_stroke_radius;
+  float render_thickness;
+  float render_dist_to_camera;
+  int render_flag;
+  float render_bbox[4];
+  float render_max_radius;
+} OndineRenderStroke;
+
+typedef enum GreasePencilOndineRenderStrokeFlag {
+  GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
+  GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
+  GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 2),
+  GP_ONDINE_STROKE_IS_OUT_OF_VIEW = (1 << 3),
+  GP_ONDINE_STROKE_IS_CYCLIC = (1 << 4),
+} GreasePencilOndineRenderStrokeFlag;
+
+/**
  * Base class for drawings and drawing references (drawings from other objects).
  */
 typedef struct GreasePencilDrawingBase {
@@ -245,6 +279,26 @@ typedef enum GreasePencilLayerTreeNodeFlag {
   GP_LAYER_TREE_NODE_USE_LOCKED_MATERIAL = (1 << 9),
 } GreasePencilLayerTreeNodeFlag;
 
+/** Ondine flags for layer. #GreasePencilLayer.ondine_flag */
+typedef enum GreasePencilLayerOndineFlag {
+  /* mix with previous layer */
+  GP_LAYER_ONDINE_MIX_WITH_UNDERLYING = (1 << 0),
+  /* limit to background layers */
+  GP_LAYER_ONDINE_LIMIT_TO_UNDERLYING = (1 << 1),
+  /* layer is entirely wetted */
+  GP_LAYER_ONDINE_IS_WETTED = (1 << 2),
+  /* clear beneath */
+  GP_LAYER_ONDINE_CLEAR_UNDERLYING = (1 << 3),
+  /* use stroke texture */
+  GP_LAYER_ONDINE_USE_STROKE_TEXTURE = (1 << 4),
+  /* mirror stroke texture angle */
+  GP_LAYER_ONDINE_STROKE_TEXTURE_MIRROR_ANGLE = (1 << 5),
+  /* gouache style */
+  GP_LAYER_ONDINE_GOUACHE_STYLE = (1 << 6),
+  /* scaled pigment flow, depending on stroke thickness */
+  GP_LAYER_ONDINE_SCALE_PIGMENT_FLOW = (1 << 7),
+} GreasePencilLayerOndineFlag;
+
 struct GreasePencilLayerTreeGroup;
 typedef struct GreasePencilLayerTreeNode {
   /* ListBase pointers. */
@@ -313,6 +367,19 @@ typedef struct GreasePencilLayer {
    */
   float translation[3], rotation[3], scale[3];
   char _pad3[4];
+
+  /** Ondine watercolor additions. */
+  uint32_t ondine_flag;
+  float stroke_wetness;
+  float stroke_dryness;
+  float stroke_darkened_edge_width;
+  float darkened_edge_width_var;
+  float layer_darkened_edge_width;
+  float darkened_edge_intensity;
+  float brush_jitter;
+  float watercolor_color_variation;
+  float watercolor_alpha_variation;
+
   /** Name of the view layer used to filter render output. */
   char *viewlayername;
   /**
@@ -470,6 +537,24 @@ typedef struct GreasePencil {
   ListBase vertex_group_names;
   int vertex_group_active_index;
   char _pad4[4];
+
+  /* Ondine watercolor additions. */
+  uint32_t ondine_flag;
+  int randomize_seed_step;
+  float stroke_base_alpha;
+  float watercolor_noise_strength_high;
+  float stroke_overlap_darkening;
+  float layer_overlap_darkening;
+  float dry_stroke_edge_jitter;
+  float true_depth_threshold;
+
+  /* Pigment flow particle settings. */
+  float pparticle_speed_min;
+  float pparticle_speed_max;
+  int pparticle_len_min;
+  int pparticle_len_max;
+  float pparticle_hairiness;
+  char _pad5[4];
 
   /**
    * Onion skinning settings.

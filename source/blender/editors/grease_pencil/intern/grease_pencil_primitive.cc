@@ -517,6 +517,9 @@ static void grease_pencil_primitive_init_curves(PrimitiveToolOperation &ptd)
   curves.curve_types_for_write().last() = CURVE_TYPE_POLY;
   curves.update_curve_types();
 
+  ptd.drawing->seeds_for_write().last() = rand() * 4096 + rand();
+  ptd.drawing->ensure_unique_seeds();
+
   /* Initialize the rest of the attributes with default values. */
   bke::fill_attribute_range_default(attributes,
                                     bke::AttrDomain::Point,
@@ -525,7 +528,7 @@ static void grease_pencil_primitive_init_curves(PrimitiveToolOperation &ptd)
   bke::fill_attribute_range_default(
       attributes,
       bke::AttrDomain::Curve,
-      {"curve_type", "material_index", "cyclic", "softness", "start_cap", "end_cap"},
+      {"curve_type", "material_index", "cyclic", "softness", "start_cap", "end_cap", ".seed"},
       curves.curves_range().take_back(1));
 
   grease_pencil_primitive_update_curves(ptd);

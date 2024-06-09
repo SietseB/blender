@@ -473,6 +473,7 @@ static int grease_pencil_delete_exec(bContext *C, wmOperator * /*op*/)
     else if (selection_domain == bke::AttrDomain::Point) {
       curves = remove_points_and_split(curves, elements);
     }
+    info.drawing.ensure_unique_seeds();
     info.drawing.tag_topology_changed();
     changed = true;
   });
@@ -616,6 +617,7 @@ static int grease_pencil_dissolve_exec(bContext *C, wmOperator *op)
     const Array<bool> points_to_dissolve = get_points_to_dissolve(curves, points, mode);
     if (points_to_dissolve.as_span().contains(true)) {
       curves.remove_points(IndexMask::from_bools(points_to_dissolve, memory), {});
+      info.drawing.ensure_unique_seeds();
       info.drawing.tag_topology_changed();
       changed = true;
     }
@@ -1351,6 +1353,7 @@ static int grease_pencil_duplicate_exec(bContext *C, wmOperator * /*op*/)
     else if (selection_domain == bke::AttrDomain::Point) {
       curves::duplicate_points(curves, elements);
     }
+    info.drawing.ensure_unique_seeds();
     info.drawing.tag_topology_changed();
     changed.store(true, std::memory_order_relaxed);
   });
@@ -1780,6 +1783,7 @@ static int grease_pencil_move_to_layer_exec(bContext *C, wmOperator *op)
 
       curves_src.remove_curves(selected_strokes, {});
 
+      drawing_dst->ensure_unique_seeds();
       drawing_dst->tag_topology_changed();
     }
 
@@ -1950,6 +1954,7 @@ static bool grease_pencil_separate_selected(bContext &C,
         curves_src, selected_points, {});
     curves_src = remove_points_and_split(curves_src, selected_points);
 
+    drawing_dst->ensure_unique_seeds();
     info.drawing.tag_topology_changed();
     drawing_dst->tag_topology_changed();
 
@@ -2027,6 +2032,7 @@ static bool grease_pencil_separate_layer(bContext &C,
           info.drawing.strokes(), strokes, {});
       curves_src.remove_curves(strokes, {});
 
+      drawing_dst->ensure_unique_seeds();
       info.drawing.tag_topology_changed();
       drawing_dst->tag_topology_changed();
 
@@ -2097,6 +2103,7 @@ static bool grease_pencil_separate_material(bContext &C,
       drawing_dst->strokes_for_write() = bke::curves_copy_curve_selection(curves_src, strokes, {});
       curves_src.remove_curves(strokes, {});
 
+      drawing_dst->ensure_unique_seeds();
       info.drawing.tag_topology_changed();
       drawing_dst->tag_topology_changed();
       DEG_id_tag_update(&grease_pencil_dst.id, ID_RECALC_GEOMETRY);
@@ -2480,6 +2487,7 @@ IndexRange clipboard_paste_strokes(Main &bmain,
       bke::GeometrySet::from_curves(paste_back ? target_id : clipboard_id)};
   bke::GeometrySet joined_curves = geometry::join_geometries(geometry_sets, {});
   drawing.strokes_for_write() = std::move(joined_curves.get_curves_for_write()->geometry.wrap());
+  drawing.ensure_unique_seeds();
 
   /* Remap the material indices of the pasted curves to the target object material indices. */
   bke::MutableAttributeAccessor attributes = drawing.strokes_for_write().attributes_for_write();
@@ -2525,6 +2533,7 @@ static int grease_pencil_stroke_merge_by_distance_exec(bContext *C, wmOperator *
     }
     drawing.strokes_for_write() = curves_merge_by_distance(
         drawing.strokes(), threshold, points, {});
+    drawing.ensure_unique_seeds();
     drawing.tag_topology_changed();
     changed.store(true, std::memory_order_relaxed);
   });

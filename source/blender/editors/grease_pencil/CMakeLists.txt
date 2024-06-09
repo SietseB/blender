@@ -30,6 +30,7 @@ set(SRC
   intern/grease_pencil_image_render.cc
   intern/grease_pencil_layers.cc
   intern/grease_pencil_material.cc
+  intern/grease_pencil_ondine.cc
   intern/grease_pencil_ops.cc
   intern/grease_pencil_primitive.cc
   intern/grease_pencil_select.cc
@@ -41,6 +42,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   PRIVATE bf::animrig
+  PRIVATE bf::blenfont
   PRIVATE bf::blenlib
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
@@ -49,6 +51,16 @@ set(LIB
   extern_curve_fit_nd
   extern_fmtlib
 )
+
+if(WITH_ONDINE)
+  list(APPEND INC
+    ../../ondine
+  )
+  list(APPEND LIB
+    bf_ondine
+  )
+  add_definitions(-DWITH_ONDINE)
+endif()
 
 blender_add_lib(bf_editor_grease_pencil "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 add_dependencies(bf_editor_curves bf_rna)

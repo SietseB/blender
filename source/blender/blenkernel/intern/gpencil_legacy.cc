@@ -262,9 +262,6 @@ void BKE_gpencil_blend_read_data(BlendDataReader *reader, bGPdata *gpd)
         /* Relink geometry. */
         BLO_read_struct_array(reader, bGPDtriangle, gps->tot_triangles, &gps->triangles);
 
-        /* Reset 2D points array. */
-        gps->points_2d = nullptr;
-
         /* Relink stroke edit curve. */
         BLO_read_struct(reader, bGPDcurve, &gps->editcurve);
         if (gps->editcurve != nullptr) {
@@ -430,9 +427,6 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
   }
   if (&gps->morphs != nullptr) {
     BKE_gpencil_free_stroke_morphs(gps);
-  }
-  if (gps->points_2d) {
-    MEM_freeN(gps->points_2d);
   }
 
   MEM_freeN(gps);
@@ -860,7 +854,6 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
   else {
     gps->points = nullptr;
   }
-  gps->points_2d = nullptr;
 
   /* initialize triangle memory to dummy data */
   gps->triangles = nullptr;
@@ -870,9 +863,6 @@ bGPDstroke *BKE_gpencil_stroke_new(int mat_idx, int totpoints, short thickness)
 
   gps->dvert = nullptr;
   gps->editcurve = nullptr;
-
-  /* Ondine: random seed */
-  gps->seed = rand() * 4096 + rand();
 
   return gps;
 }
@@ -943,14 +933,13 @@ bGPDcurve *BKE_gpencil_stroke_curve_duplicate(bGPDcurve *gpc_src)
 bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
                                          const bool dup_points,
                                          const bool dup_curve,
-                                         const bool dup_seed)
+                                         const bool /*dup_seed*/)
 {
   bGPDstroke *gps_dst = nullptr;
 
   gps_dst = static_cast<bGPDstroke *>(MEM_dupallocN(gps_src));
   gps_dst->prev = gps_dst->next = nullptr;
   gps_dst->triangles = static_cast<bGPDtriangle *>(MEM_dupallocN(gps_src->triangles));
-  gps_dst->points_2d = nullptr;
 
   if (dup_points) {
     gps_dst->points = static_cast<bGPDspoint *>(MEM_dupallocN(gps_src->points));
@@ -988,14 +977,6 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
   }
   else {
     gps_dst->editcurve = nullptr;
-  }
-
-  /* Ondine: copy seed (used as an ID for strokes) */
-  if (dup_seed) {
-    gps_dst->seed = gps_src->seed;
-  }
-  else {
-    gps_dst->seed = rand() * 4096 + rand();
   }
 
   /* return new stroke */
@@ -1329,9 +1310,6 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
   }
   if (&gps->morphs) {
     BKE_gpencil_free_stroke_morphs(gps);
-  }
-  if (gps->points_2d) {
-    MEM_freeN(gps->points_2d);
   }
   MEM_freeN(gps->triangles);
   BLI_freelinkN(&gpf->strokes, gps);

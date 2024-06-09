@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2023 Blender Authors
 #
-# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: layer-2.0-or-later
 import bpy
 from bpy.types import Panel, Menu, UIList
 from rna_prop_ui import PropertyPanel
@@ -25,6 +25,22 @@ class LayerDataButtonsPanel:
     def poll(cls, context):
         grease_pencil = context.grease_pencil
         return grease_pencil and grease_pencil.layers.active_layer
+
+
+class GreasePencilLayerEdgeDarkeningPanel:
+    def draw(self, context):
+        ob = context.object
+        grease_pencil = ob.data
+        layer = grease_pencil.layers.active_layer
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.enabled = layer.stroke_dryness == 0
+        col = layout.column(align=True)
+        col.prop(layer, "stroke_darkened_edge_width", slider=True, text="Stroke")
+        col.prop(layer, "layer_darkened_edge_width", slider=True, text="Layer")
+        col.prop(layer, "darkened_edge_width_var", slider=True, text="Variation")
+        col.prop(layer, "darkened_edge_intensity", slider=True, text="Intensity")
 
 
 class GREASE_PENCIL_UL_masks(UIList):
@@ -77,6 +93,22 @@ class GreasePencil_LayerMaskPanel:
         sub = col.column(align=True)
         sub.operator("grease_pencil.layer_mask_reorder", icon='TRIA_UP', text="").direction = 'UP'
         sub.operator("grease_pencil.layer_mask_reorder", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+        # Test for layers above current one (not supported in Ondine)
+        if grease_pencil.watercolor:
+            layers = []
+            for lay in grease_pencil.layers:
+                if lay.name == layer.name:
+                    break
+                layers.append(lay.name)
+            warning = False
+            for ml in layer.mask_layers:
+                if ml.name not in layers:
+                    warning = True
+                    break
+            if warning:
+                row = layout.row()
+                row.label(text="Only underlying layers can be used as mask.", icon='ERROR')
 
 
 class GreasePencil_LayerTransformPanel:
@@ -236,14 +268,61 @@ class DATA_PT_grease_pencil_layers(DataButtonsPanel, Panel):
         col = layout.column(align=True)
 
         # Layer main properties
-        row = layout.row(align=True)
-        row.prop(layer, "blend_mode", text="Blend Mode")
+        if not grease_pencil.watercolor:
+            row = layout.row(align=True)
+            row.prop(layer, "blend_mode", text="Blend Mode")
 
-        row = layout.row(align=True)
-        row.prop(layer, "opacity", text="Opacity", slider=True)
+            row = layout.row(align=True)
+            row.prop(layer, "opacity", text="Opacity", slider=True)
 
-        row = layout.row(align=True)
-        row.prop(layer, "use_lights", text="Lights")
+            row = layout.row(align=True)
+            row.prop(layer, "use_lights", text="Lights")
+
+        if grease_pencil.watercolor:
+            layout.use_property_split = False
+
+            row = layout.row()
+            col = row.column()
+            col.scale_x = 0.78
+            col.label(text="")
+            col = row.column()
+            col.prop(layer, "clear_underlying")
+            col.prop(layer, "mix_with_underlying")
+            col.prop(layer, "limit_to_underlying")
+            col = row.column()
+            col.prop(layer, "gouache_style")
+            col = col.column()
+            col.enabled = (layer.stroke_dryness == 0)
+            col.prop(layer, "scale_pigment_flow")
+            col.prop(layer, "is_wetted")
+
+            layout.use_property_split = True
+            layout.separator()
+            col = layout.column()
+            col.prop(layer, "opacity", text="Opacity", slider=True)
+            col = layout.column(align=True)
+            col.prop(layer, "watercolor_alpha_variation", slider=True)
+            col.prop(layer, "watercolor_color_variation", slider=True)
+
+            sub = layout.grid_flow(columns=1, align=True)
+            col = sub.column()
+            col.enabled = (layer.stroke_dryness == 0)
+            col.prop(layer, "stroke_wetness", slider=True)
+            col = sub.column()
+            col.enabled = True
+            col.prop(layer, "stroke_dryness", slider=True)
+
+
+class DATA_PT_grease_pencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePencilLayerEdgeDarkeningPanel, Panel):
+    bl_label = "Edge Darkening"
+    bl_parent_id = "DATA_PT_grease_pencil_layers"
+
+    @classmethod
+    def poll(cls, context):
+        if context.object.type != 'GREASEPENCIL':
+            return False
+        grease_pencil = context.object.data
+        return grease_pencil.layers.active_layer and grease_pencil.watercolor
 
 
 class DATA_PT_grease_pencil_layer_masks(LayerDataButtonsPanel, GreasePencil_LayerMaskPanel, Panel):
@@ -354,6 +433,7 @@ classes = (
     GREASE_PENCIL_MT_layer_mask_add,
     DATA_PT_context_grease_pencil,
     DATA_PT_grease_pencil_layers,
+    DATA_PT_grease_pencil_layer_edge_darkening,
     DATA_PT_grease_pencil_layer_masks,
     DATA_PT_grease_pencil_layer_transform,
     DATA_PT_grease_pencil_layer_relations,

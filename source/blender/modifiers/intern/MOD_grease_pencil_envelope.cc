@@ -613,6 +613,7 @@ static void create_envelope_strokes(const EnvelopeInfo &info,
   dst_curves.update_curve_types();
 
   drawing.strokes_for_write() = std::move(dst_curves);
+  drawing.create_instance_seeds();
   drawing.tag_topology_changed();
 }
 

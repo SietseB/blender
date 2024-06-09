@@ -338,6 +338,7 @@ static void modify_drawing(const GreasePencilDashModifierData &dmd,
       ctx.object, src_curves, dmd.influence, curve_mask_memory);
 
   drawing.strokes_for_write() = create_dashes(pattern_info, src_curves, curves_mask);
+  drawing.create_instance_seeds();
   drawing.tag_topology_changed();
 }
 

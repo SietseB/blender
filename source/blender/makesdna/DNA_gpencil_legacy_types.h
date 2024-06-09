@@ -112,29 +112,6 @@ typedef enum eGPDspoint_Flag {
   GP_SPOINT_TEMP_TAG2 = (1 << 3),
 } eGPSPoint_Flag;
 
-typedef struct bGPDspoint2D {
-  DNA_DEFINE_CXX_METHODS(bGPDspoint2D)
-
-  /* 2D stroke point data:
-   * - x
-   * - y
-   * - pressure_3d
-   * - strength
-   * - dist_to_camera
-   * - color[3]
-   */
-  float data[8];
-} bGPDspoint2D;
-
-typedef enum eGPDspoint2D_Fields {
-  ONDINE_X = 0,
-  ONDINE_Y = 1,
-  ONDINE_PRESSURE3D = 2,
-  ONDINE_STRENGTH = 3,
-  ONDINE_DIST_TO_CAM = 4,
-  ONDINE_COLOR = 5,
-} eGPDspoint2D_Fields;
-
 /* ***************************************** */
 /* GP stroke point delta's for storing morph target data. */
 typedef struct bGPDspoint_delta {
@@ -333,7 +310,7 @@ typedef struct bGPDstroke_Runtime {
   short render_flag;
   char _pad1[2];
   float render_bbox[4];
-  float render_max_pressure;
+  float render_max_radius;
 
   /** Original stroke (used to dereference evaluated data) */
   struct bGPDstroke *gps_orig;
@@ -417,17 +394,10 @@ typedef struct bGPDstroke {
   /** Morph target data. */
   ListBase morphs;
 
-  /** Ondine watercolor additions */
-  /** Array of 2D data-points for stroke. */
-  bGPDspoint2D *points_2d;
-  int totpoints_2d;
-
-  /** Seed for randomization of stroke density, noise etc. */
-  int seed;
-
   /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as
    * well! */
 
+  void *_pad5;
   bGPDstroke_Runtime runtime;
 } bGPDstroke;
 
@@ -472,14 +442,6 @@ typedef enum eGPDstroke_Caps {
   /* Keep last. */
   GP_STROKE_CAP_MAX,
 } GPDstroke_Caps;
-
-/** #bGPDstroke.renderflag */
-typedef enum eGPDstroke_RenderFlag {
-  GP_ONDINE_STROKE_HAS_FILL = (1 << 0),
-  GP_ONDINE_STROKE_HAS_STROKE = (1 << 1),
-  GP_ONDINE_STROKE_FILL_IS_CLOCKWISE = (1 << 2),
-  GP_ONDINE_STROKE_IS_OUT_OF_VIEW = (1 << 3),
-} eGPDstroke_RenderFlag;
 
 /* Arrows ----------------------- */
 
@@ -740,26 +702,6 @@ typedef enum eGPDlayer_Flag {
   /* Disable masks in view-layer render */
   GP_LAYER_DISABLE_MASKS_IN_VIEWLAYER = (1 << 15),
 } eGPDlayer_Flag;
-
-/** bGPDlayer.OndineFlag */
-typedef enum eGPDlayer_OndineFlag {
-  /* mix with previous layer */
-  GP_LAYER_ONDINE_MIX_WITH_UNDERLYING = (1 << 0),
-  /* limit to background layers */
-  GP_LAYER_ONDINE_LIMIT_TO_UNDERLYING = (1 << 1),
-  /* layer is entirely wetted */
-  GP_LAYER_ONDINE_IS_WETTED = (1 << 2),
-  /* clear beneath */
-  GP_LAYER_ONDINE_CLEAR_UNDERLYING = (1 << 3),
-  /* use stroke texture */
-  GP_LAYER_ONDINE_USE_STROKE_TEXTURE = (1 << 4),
-  /* mirror stroke texture angle */
-  GP_LAYER_ONDINE_STROKE_TEXTURE_MIRROR_ANGLE = (1 << 5),
-  /* gouache style */
-  GP_LAYER_ONDINE_GOUACHE_STYLE = (1 << 6),
-  /* scaled pigment flow, depending on stroke thickness */
-  GP_LAYER_ONDINE_SCALE_PIGMENT_FLOW = (1 << 7),
-} eGPDlayer_OndineFlag;
 
 /** #bGPDlayer.onion_flag */
 typedef enum eGPDlayer_OnionFlag {

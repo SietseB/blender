@@ -1352,9 +1352,6 @@ static void gpencil_primitive_interaction_end(bContext *C,
 
     /* Calc geometry data. */
     BKE_gpencil_stroke_geometry_update(tgpi->gpd, gps);
-
-    /* Ondine: set seed */
-    gps->seed = BLI_rng_get_int(tgpi->rng);
   }
 
   /* transfer stroke from temporary buffer to the actual frame */

@@ -170,6 +170,7 @@ static void modify_drawing(const GreasePencilMirrorModifierData &mmd,
         *ctx.object, mmd, src_curves, masked_curves);
   }
 
+  drawing.create_instance_seeds();
   drawing.tag_topology_changed();
 }
 

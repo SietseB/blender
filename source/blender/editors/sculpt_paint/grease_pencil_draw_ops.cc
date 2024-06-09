@@ -769,6 +769,7 @@ static bool grease_pencil_apply_fill(bContext &C, wmOperator &op, const wmEvent 
              std::move(joined_geometry_set.get_curves_for_write()->geometry.wrap()) :
              bke::CurvesGeometry());
     info.target.drawing.strokes_for_write() = std::move(joined_curves);
+    info.target.drawing.ensure_unique_seeds();
     info.target.drawing.tag_topology_changed();
   }
 

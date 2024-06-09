@@ -248,6 +248,7 @@ static void modify_drawing(const GreasePencilArrayModifierData &mmd,
         *ctx.object, mmd, src_curves, std::move(masked_curves));
   }
 
+  drawing.create_instance_seeds();
   drawing.tag_topology_changed();
 }
 

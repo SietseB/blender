@@ -55,8 +55,6 @@
 
 #include "DEG_depsgraph_query.hh"
 
-#include "gpencil_ondine.hh"
-
 const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
@@ -347,6 +345,7 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #  include "DEG_depsgraph_build.hh"
 
 #  include "ED_curve.hh"
+#  include "ED_grease_pencil_ondine.hh"
 #  include "ED_lattice.hh"
 #  include "ED_object.hh"
 #  include "ED_particle.hh"
@@ -2355,12 +2354,12 @@ static void rna_LightLinking_collection_update(Main *bmain, Scene * /*scene*/, P
 
 void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
 {
-  gpencil_ondine_set_zdepth(ob);
+  blender::ondine::gpencil_ondine_set_zdepth(ob);
 }
 
 void rna_Object_gpencil_ondine_set_render_data(Object *ob, const float mat[16])
 {
-  gpencil_ondine_set_render_data(ob, (const float(*)[4])mat);
+  blender::ondine::gpencil_ondine_set_render_data(ob, (const float(*)[4])mat);
 }
 
 #else

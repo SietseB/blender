@@ -1209,6 +1209,7 @@ void create_stroke(Main &bmain, Object &object, const float4x4 &matrix, const in
 
   drawing_lines.strokes_for_write() = create_drawing_data(
       stroke_positions, stroke_radii, stroke_opacities, {0, 175}, {material_index}, matrix);
+  drawing_lines.ensure_unique_seeds();
   drawing_lines.tag_topology_changed();
 }
 
@@ -1279,6 +1280,8 @@ void create_suzanne(Main &bmain, Object &object, const float4x4 &matrix, const i
                                                           monkey_fill_offsets,
                                                           monkey_fill_materials,
                                                           matrix);
+  drawing_lines.ensure_unique_seeds();
+  drawing_fills.ensure_unique_seeds();
   drawing_lines.tag_topology_changed();
   drawing_fills.tag_topology_changed();
 }

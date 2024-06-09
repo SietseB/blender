@@ -590,7 +590,8 @@ static bke::CurvesGeometry boundary_to_curves(const Scene &scene,
   MutableSpan<float3> positions = curves.positions_for_write();
   bke::MutableAttributeAccessor attributes = curves.attributes_for_write();
   /* Attributes that are defined explicitly and should not be set to default values. */
-  Set<std::string> skip_curve_attributes = {"curve_type", "material_index", "cyclic", "hardness"};
+  Set<std::string> skip_curve_attributes = {
+      "curve_type", "material_index", "cyclic", "hardness", ".seed"};
   Set<std::string> skip_point_attributes = {"position", "radius", "opacity"};
 
   curves.curve_types_for_write().fill(CURVE_TYPE_POLY);
@@ -620,6 +621,13 @@ static bke::CurvesGeometry boundary_to_curves(const Scene &scene,
   cyclic.finish();
   materials.finish();
   hardnesses.finish();
+
+  bke::SpanAttributeWriter<int> seeds = attributes.lookup_or_add_for_write_span<int>(
+      ".seed", bke::AttrDomain::Curve);
+  for (const int curve_i : seeds.span.index_range()) {
+    seeds.span[curve_i] = rand() * 4096 + rand();
+  }
+  seeds.finish();
 
   for (const int point_i : curves.points_range()) {
     const int pixel_index = boundary.pixels[point_i];

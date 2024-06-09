@@ -560,6 +560,7 @@ struct EraseOperationExecutor {
       if (erased) {
         /* Set the new geometry. */
         drawing.geometry.wrap() = std::move(dst);
+        drawing.ensure_unique_seeds();
         drawing.tag_topology_changed();
         changed = true;
       }

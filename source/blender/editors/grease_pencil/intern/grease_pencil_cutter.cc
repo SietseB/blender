@@ -633,6 +633,7 @@ static bool execute_cutter_on_drawing(const int layer_index,
   if (cut_strokes.has_value()) {
     /* Set the new geometry. */
     drawing.geometry.wrap() = std::move(cut_strokes.value());
+    drawing.ensure_unique_seeds();
     drawing.tag_topology_changed();
   }
 

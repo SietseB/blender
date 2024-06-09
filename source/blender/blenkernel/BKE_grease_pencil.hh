@@ -69,6 +69,12 @@ class DrawingRuntime {
    * and remove a drawing if it has zero users.
    */
   mutable std::atomic<int> user_count = 1;
+
+  /**
+   * Ondine: Point data for rendering strokes in 2D space.
+   */
+  mutable Array<GPStrokePoint> points_2d;
+  mutable Array<OndineRenderStroke> render_strokes;
 };
 
 class Drawing : public ::GreasePencilDrawing {
@@ -132,6 +138,15 @@ class Drawing : public ::GreasePencilDrawing {
    */
   VArray<ColorGeometry4f> fill_colors() const;
   MutableSpan<ColorGeometry4f> fill_colors_for_write();
+
+  /**
+   * Ondine: Random seed for every stroke, used as stroke ID and for randomization of watercolor
+   * noise.
+   */
+  VArray<int> seeds() const;
+  MutableSpan<int> seeds_for_write();
+  void ensure_unique_seeds();
+  void create_instance_seeds();
 
   /**
    * Add a user for this drawing. When a drawing has multiple users, both users are allowed to
@@ -844,6 +859,8 @@ class GreasePencilRuntime {
   void *batch_cache = nullptr;
   /* The frame on which the object was evaluated (only valid for evaluated object). */
   int eval_frame = 0;
+  /* Ondine: z-depth of object. */
+  float render_zdepth;
 
  public:
   GreasePencilRuntime() {}

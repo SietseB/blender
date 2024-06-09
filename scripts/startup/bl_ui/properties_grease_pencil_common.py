@@ -758,7 +758,8 @@ class GPENCIL_UL_morph_target(UIList):
 
         # Filtering by name
         if self.filter_name:
-            flt_flags = helper_funcs.filter_items_by_name(self.filter_name, self.bitflag_filter_item, morph_targets, "name")
+            flt_flags = helper_funcs.filter_items_by_name(
+                self.filter_name, self.bitflag_filter_item, morph_targets, "name")
         if not flt_flags:
             flt_flags = [self.bitflag_filter_item] * len(morph_targets)
 
@@ -862,22 +863,6 @@ class GPENCIL_MT_layer_mask_menu(Menu):
 
         if done is False:
             layout.label(text="No layers to add")
-
-
-class GreasePencilLayerEdgeDarkeningPanel:
-
-    def draw(self, context):
-        gpd = context.active_object.data
-        gpl = gpd.layers.active
-
-        layout = self.layout
-        layout.use_property_split = True
-        layout.enabled = gpl.stroke_dryness == 0
-        col = layout.column(align=True)
-        col.prop(gpl, "stroke_darkened_edge_width", slider=True, text="Stroke")
-        col.prop(gpl, "layer_darkened_edge_width", slider=True, text="Layer")
-        col.prop(gpl, "darkened_edge_width_var", slider=True, text="Variation")
-        col.prop(gpl, "darkened_edge_intensity", slider=True, text="Intensity")
 
 
 class GreasePencilLayerMasksPanel:

@@ -1055,9 +1055,6 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
   /* Set stroke caps. */
   gps->caps[0] = gps->caps[1] = short(brush->gpencil_settings->caps_type);
 
-  /* Ondine: set seed */
-  gps->seed = BLI_rng_get_int(p->rng);
-
   /* allocate enough memory for a continuous array for storage points */
   const int subdivide = brush->gpencil_settings->draw_subdivide;
 

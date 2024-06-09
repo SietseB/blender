@@ -7,7 +7,6 @@ from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 
 from bl_ui.properties_grease_pencil_common import (
-    GreasePencilLayerEdgeDarkeningPanel,
     GreasePencilLayerMasksPanel,
     GreasePencilLayerTransformPanel,
     GreasePencilLayerAdjustmentsPanel,
@@ -177,7 +176,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
 
             if gpd.watercolor:
                 layout.use_property_split = False
-                
+
                 row = layout.row()
                 col = row.column()
                 col.scale_x = 0.78
@@ -192,7 +191,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col.enabled = (gpl.stroke_dryness == 0)
                 col.prop(gpl, "scale_pigment_flow")
                 col.prop(gpl, "is_wetted")
-                
+
                 layout.use_property_split = True
                 layout.separator()
                 col = layout.column()
@@ -200,7 +199,7 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col = layout.column(align=True)
                 col.prop(gpl, "watercolor_alpha_variation", slider=True)
                 col.prop(gpl, "watercolor_color_variation", slider=True)
-                
+
                 sub = layout.grid_flow(columns=1, align=True)
                 col = sub.column()
                 col.enabled = (gpl.stroke_dryness == 0)
@@ -208,16 +207,6 @@ class DATA_PT_gpencil_layers(DataButtonsPanel, Panel):
                 col = sub.column()
                 col.enabled = True
                 col.prop(gpl, "stroke_dryness", slider=True)
-
-
-class DATA_PT_gpencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePencilLayerEdgeDarkeningPanel, Panel):
-    bl_label = "Edge Darkening"
-    bl_parent_id = "DATA_PT_gpencil_layers"
-
-    @classmethod
-    def poll(cls, context):
-        gpencil = context.gpencil
-        return gpencil and gpencil.layers.active and gpencil.watercolor
 
 
 class DATA_PT_gpencil_layer_masks(LayerDataButtonsPanel, GreasePencilLayerMasksPanel, Panel):
@@ -238,7 +227,7 @@ class DATA_PT_gpencil_layer_default_render(LayerDataButtonsPanel, Panel):
 
         gpd = context.gpencil
         gpl = gpd.layers.active
-        
+
         col = layout.column()
         col.prop(gpl, "blend_mode")
         col.prop(gpl, "use_lights")
@@ -560,7 +549,6 @@ classes = (
     DATA_PT_gpencil_onion_skinning,
     DATA_PT_gpencil_onion_skinning_custom_colors,
     DATA_PT_gpencil_onion_skinning_display,
-    DATA_PT_gpencil_layer_edge_darkening,
     DATA_PT_gpencil_layer_masks,
     DATA_PT_gpencil_layer_default_render,
     DATA_PT_gpencil_layer_transform,

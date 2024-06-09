@@ -92,6 +92,33 @@ static void grease_pencil_init_data(ID *id)
   CustomData_reset(&grease_pencil->layers_data);
 
   grease_pencil->runtime = MEM_new<GreasePencilRuntime>(__func__);
+
+  /* Ondine. */
+  for (greasepencil::Layer *layer : grease_pencil->layers_for_write()) {
+    layer->ondine_flag = 0;
+    layer->stroke_wetness = 0.2f;
+    layer->stroke_dryness = 0.0f;
+    layer->stroke_darkened_edge_width = 0.0f;
+    layer->layer_darkened_edge_width = 0.0f;
+    layer->darkened_edge_width_var = 50.0f;
+    layer->darkened_edge_intensity = 0.8f;
+    layer->watercolor_alpha_variation = 1.0f;
+    layer->watercolor_color_variation = 1.0f;
+  }
+
+  grease_pencil->ondine_flag = GP_ONDINE_WATERCOLOR;
+  grease_pencil->randomize_seed_step = 0;
+  grease_pencil->stroke_base_alpha = 0.95f;
+  grease_pencil->watercolor_noise_strength_high = 1.0f;
+  grease_pencil->layer_overlap_darkening = 0.1f;
+  grease_pencil->stroke_overlap_darkening = 0.0f;
+  grease_pencil->pparticle_speed_min = 0.8f;
+  grease_pencil->pparticle_speed_max = 1.2f;
+  grease_pencil->pparticle_len_min = 50;
+  grease_pencil->pparticle_len_max = 65;
+  grease_pencil->pparticle_hairiness = 0.3f;
+  grease_pencil->dry_stroke_edge_jitter = 0.25f;
+  grease_pencil->true_depth_threshold = 0.9f;
 }
 
 static void grease_pencil_copy_data(Main * /*bmain*/,
@@ -133,6 +160,22 @@ static void grease_pencil_copy_data(Main * /*bmain*/,
 
   /* Make sure the runtime pointer exists. */
   grease_pencil_dst->runtime = MEM_new<bke::GreasePencilRuntime>(__func__);
+
+  /* Ondine. */
+  grease_pencil_dst->ondine_flag = grease_pencil_src->ondine_flag;
+  grease_pencil_dst->randomize_seed_step = grease_pencil_src->randomize_seed_step;
+  grease_pencil_dst->stroke_base_alpha = grease_pencil_src->stroke_base_alpha;
+  grease_pencil_dst->watercolor_noise_strength_high =
+      grease_pencil_src->watercolor_noise_strength_high;
+  grease_pencil_dst->layer_overlap_darkening = grease_pencil_src->layer_overlap_darkening;
+  grease_pencil_dst->stroke_overlap_darkening = grease_pencil_src->stroke_overlap_darkening;
+  grease_pencil_dst->pparticle_speed_min = grease_pencil_src->pparticle_speed_min;
+  grease_pencil_dst->pparticle_speed_max = grease_pencil_src->pparticle_speed_max;
+  grease_pencil_dst->pparticle_len_min = grease_pencil_src->pparticle_len_min;
+  grease_pencil_dst->pparticle_len_max = grease_pencil_src->pparticle_len_max;
+  grease_pencil_dst->pparticle_hairiness = grease_pencil_src->pparticle_hairiness;
+  grease_pencil_dst->dry_stroke_edge_jitter = grease_pencil_src->dry_stroke_edge_jitter;
+  grease_pencil_dst->true_depth_threshold = grease_pencil_src->true_depth_threshold;
 }
 
 static void grease_pencil_free_data(ID *id)
@@ -256,6 +299,7 @@ static const std::string ATTR_RADIUS = "radius";
 static const std::string ATTR_OPACITY = "opacity";
 static const std::string ATTR_VERTEX_COLOR = "vertex_color";
 static const std::string ATTR_FILL_COLOR = "fill_color";
+static const std::string ATTR_ONDINE_SEED = ".seed";
 
 /* Curves attributes getters */
 static int domain_num(const CurvesGeometry &curves, const AttrDomain domain)
@@ -728,6 +772,42 @@ MutableSpan<ColorGeometry4f> Drawing::fill_colors_for_write()
                                                 ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
+VArray<int> Drawing::seeds() const
+{
+  return *this->strokes().attributes().lookup_or_default<int>(
+      ATTR_ONDINE_SEED, AttrDomain::Curve, 0);
+}
+
+MutableSpan<int> Drawing::seeds_for_write()
+{
+  return get_mutable_attribute<int>(
+      this->strokes_for_write(), AttrDomain::Curve, ATTR_ONDINE_SEED, 0);
+}
+
+void Drawing::ensure_unique_seeds()
+{
+  MutableSpan<int> seeds = this->seeds_for_write();
+  Set<int> used_seeds;
+  for (const int seed_i : seeds.index_range()) {
+    while (seeds[seed_i] == 0 || used_seeds.contains(seeds[seed_i])) {
+      seeds[seed_i] = rand() * 4096 + rand();
+    }
+    used_seeds.add(seeds[seed_i]);
+  }
+}
+
+void Drawing::create_instance_seeds()
+{
+  MutableSpan<int> seeds = this->seeds_for_write();
+  Set<int> used_seeds;
+  for (const int seed_i : seeds.index_range()) {
+    while (used_seeds.contains(seeds[seed_i])) {
+      seeds[seed_i] += 10;
+    }
+    used_seeds.add(seeds[seed_i]);
+  }
+}
+
 void Drawing::tag_texture_matrices_changed()
 {
   this->runtime->curve_texture_matrices.tag_dirty();
@@ -933,6 +1013,17 @@ Layer::Layer()
   this->active_mask_index = 0;
 
   this->runtime = MEM_new<LayerRuntime>(__func__);
+
+  /* Ondine. */
+  this->ondine_flag = 0;
+  this->stroke_wetness = 0.2f;
+  this->stroke_dryness = 0.0f;
+  this->stroke_darkened_edge_width = 0.0f;
+  this->layer_darkened_edge_width = 0.0f;
+  this->darkened_edge_width_var = 50.0f;
+  this->darkened_edge_intensity = 0.8f;
+  this->watercolor_alpha_variation = 1.0f;
+  this->watercolor_color_variation = 1.0f;
 }
 
 Layer::Layer(StringRefNull name) : Layer()
@@ -970,6 +1061,17 @@ Layer::Layer(const Layer &other) : Layer()
   this->tag_frames_map_changed();
 
   /* TODO: what about masks cache? */
+
+  /* Ondine. */
+  this->ondine_flag = other.ondine_flag;
+  this->stroke_wetness = other.stroke_wetness;
+  this->stroke_dryness = other.stroke_dryness;
+  this->stroke_darkened_edge_width = other.stroke_darkened_edge_width;
+  this->layer_darkened_edge_width = other.layer_darkened_edge_width;
+  this->darkened_edge_width_var = other.darkened_edge_width_var;
+  this->darkened_edge_intensity = other.darkened_edge_intensity;
+  this->watercolor_alpha_variation = other.watercolor_alpha_variation;
+  this->watercolor_color_variation = other.watercolor_color_variation;
 }
 
 Layer::~Layer()

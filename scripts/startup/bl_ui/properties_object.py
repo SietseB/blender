@@ -44,23 +44,23 @@ class OBJECT_PT_gp_ondine_settings(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return ob and (ob.type == 'GPENCIL' or ob.type == 'EMPTY' or ob.type == 'ARMATURE')
+        return ob and (ob.type == 'GREASEPENCIL' or ob.type == 'EMPTY' or ob.type == 'ARMATURE')
 
     def draw(self, context):
         layout = self.layout
         ob = context.object
-        
+
         layout.use_property_split = True
         col = layout.column(align=True)
-        
-        if ob.type == 'GPENCIL':
+
+        if ob.type == 'GREASEPENCIL':
             ondine = ob.data
-            
+
             col.prop(ondine, 'watercolor')
             col.prop(ondine, 'gouache_style')
             col.prop(ondine, 'clear_background')
             col.prop(ondine, 'smooth_randomize_steps')
-            
+
             layout.separator()
             col = layout.column(align=True)
             col.prop(ondine, 'randomize_seed_step')
@@ -92,19 +92,19 @@ class OBJECT_PT_gp_ondine_true_depth(bpy.types.Panel):
     @classmethod
     def poll(self, context):
         ob = context.object
-        return ob and ob.type == 'GPENCIL'
+        return ob and ob.type == 'GREASEPENCIL'
 
     def draw_header(self, context):
-        gpd = context.object.data
-        self.layout.prop(gpd, 'true_depth', text='')
-    
+        grease_pencil = context.object.data
+        self.layout.prop(grease_pencil, 'true_depth', text='')
+
     def draw(self, context):
         layout = self.layout
-        gpd = context.object.data
+        grease_pencil = context.object.data
         layout.use_property_split = True
 
         col = layout.column(align=True)
-        col.prop(gpd, 'true_depth_threshold', slider=True)
+        col.prop(grease_pencil, 'true_depth_threshold', slider=True)
 
 
 # Subpanel
@@ -121,7 +121,7 @@ class OBJECT_PT_gp_ondine_pigment_flow(bpy.types.Panel):
     @classmethod
     def poll(self, context):
         ob = context.object
-        return ob and ob.type == 'GPENCIL'
+        return ob and ob.type == 'GREASEPENCIL'
 
     def draw(self, context):
         layout = self.layout

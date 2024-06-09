@@ -189,26 +189,26 @@ class MATERIAL_PT_gpencil_strokecolor_default(GPMaterialButtonsPanel, Panel):
     bl_label = "Default Render"
     bl_parent_id = "MATERIAL_PT_gpencil_strokecolor"
     bl_options = {'DEFAULT_CLOSED'}
-    
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        
+
         ma = context.material
         if ma is None or ma.grease_pencil is None:
             return
-        
+
         gpcolor = ma.grease_pencil
-        
+
         col = layout.column()
         col.enabled = not gpcolor.lock
-        
+
         if gpcolor.mode in {'DOTS', 'BOX'}:
             col.prop(gpcolor, "alignment_mode")
-            
+
         if gpcolor.stroke_style == 'TEXTURE' and gpcolor.mode == 'LINE':
             col.prop(gpcolor, "pixel_size", text="UV Factor")
-        
+
         col.prop(gpcolor, "use_stroke_holdout")
 
         if gpcolor.mode == 'LINE':
@@ -252,7 +252,7 @@ class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
 class MATERIAL_PT_gpencil_fillcolor_ondine(GPMaterialButtonsPanel, Panel):
     bl_label = "Ondine Render"
     bl_parent_id = "MATERIAL_PT_gpencil_fillcolor"
-    
+
     @classmethod
     def poll(cls, context):
         ma = context.material
@@ -260,21 +260,21 @@ class MATERIAL_PT_gpencil_fillcolor_ondine(GPMaterialButtonsPanel, Panel):
             return False
         gpcolor = ma.grease_pencil
         return gpcolor.fill_style == 'GRADIENT'
-    
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        
+
         ma = context.material
         gpcolor = ma.grease_pencil
-        
+
         col = layout.column()
         col.enabled = not gpcolor.lock
 
         if gpcolor.fill_style == 'GRADIENT':
             if gpcolor.gradient_type == 'LINEAR':
                 col.prop(gpcolor, "texture_angle", text="Rotation")
-                
+
                 col = layout.column(align=True)
                 col.enabled = not gpcolor.lock
                 col.prop(gpcolor, "ondine_gradient_offset", text="Base Offset", index=0)
@@ -283,24 +283,24 @@ class MATERIAL_PT_gpencil_fillcolor_ondine(GPMaterialButtonsPanel, Panel):
                 col.prop(gpcolor, "ondine_gradient_offset", text="Offset")
                 col.prop(gpcolor, "ondine_gradient_scale", text="Scale")
 
-        
+
 class MATERIAL_PT_gpencil_fillcolor_default(GPMaterialButtonsPanel, Panel):
     bl_label = "Default Render"
     bl_parent_id = "MATERIAL_PT_gpencil_fillcolor"
-    
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        
+
         ma = context.material
         if ma is None or ma.grease_pencil is None:
             return
-        
+
         gpcolor = ma.grease_pencil
-        
+
         col = layout.column()
         col.enabled = not gpcolor.lock
-        
+
         if gpcolor.fill_style == 'GRADIENT':
             col.prop(gpcolor, "texture_offset", text="Location")
 
@@ -316,7 +316,7 @@ class MATERIAL_PT_gpencil_fillcolor_default(GPMaterialButtonsPanel, Panel):
         elif gpcolor.fill_style == 'TEXTURE':
             col.prop(gpcolor, "fill_color", text="Base Color")
             col.prop(gpcolor, "use_fill_holdout")
-            
+
             col.separator()
             col.template_ID(gpcolor, "fill_image", open="image.open")
 

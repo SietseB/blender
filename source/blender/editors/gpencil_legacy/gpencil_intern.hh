@@ -683,10 +683,6 @@ void GPENCIL_OT_convert_old_files(wmOperatorType *ot);
 /* armatures */
 void GPENCIL_OT_generate_weights(wmOperatorType *ot);
 
-/* Ondine watercolor additions */
-void GPENCIL_OT_ondine_render_init(wmOperatorType *ot);
-void GPENCIL_OT_ondine_set_unique_stroke_seeds(wmOperatorType *ot);
-
 /* ****************************************************** */
 /* Stroke Iteration Utilities */
 
