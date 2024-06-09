@@ -1642,7 +1642,7 @@ class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, Panel):
         row.template_list(
             "USERPREF_UL_asset_libraries", "user_asset_libraries",
             paths, "asset_libraries",
-            paths, "active_asset_library"
+            paths, "active_asset_library",
         )
 
         col = row.column(align=True)
@@ -2122,6 +2122,40 @@ class USERPREF_PT_keymap(KeymapPanel, Panel):
 # -----------------------------------------------------------------------------
 # Extension Panels
 
+
+class USERPREF_MT_extensions_active_repo(Menu):
+    bl_label = "Active Repository"
+
+    def draw(self, _context):
+        # Add-ons may extend.
+        pass
+
+
+class USERPREF_MT_extensions_active_repo_remove(Menu):
+    bl_label = "Remove Extension Repository"
+
+    def draw(self, context):
+        layout = self.layout
+
+        extensions = context.preferences.extensions
+        active_repo_index = extensions.active_repo
+
+        try:
+            active_repo = None if active_repo_index < 0 else extensions.repos[active_repo_index]
+        except IndexError:
+            active_repo = None
+
+        is_system_repo = (active_repo.use_custom_directory is False) and (active_repo.source == 'SYSTEM')
+
+        props = layout.operator("preferences.extension_repo_remove", text="Remove Repository")
+        props.index = active_repo_index
+
+        if not is_system_repo:
+            props = layout.operator("preferences.extension_repo_remove", text="Remove Repository & Files")
+            props.index = active_repo_index
+            props.remove_files = True
+
+
 class USERPREF_PT_extensions_repos(Panel):
     bl_label = "Repositories"
     bl_options = {'HIDE_HEADER'}
@@ -2145,17 +2179,16 @@ class USERPREF_PT_extensions_repos(Panel):
         row.template_list(
             "USERPREF_UL_extension_repos", "user_extension_repos",
             extensions, "repos",
-            extensions, "active_repo"
+            extensions, "active_repo",
         )
 
         col = row.column(align=True)
         col.operator_menu_enum("preferences.extension_repo_add", "type", text="", icon='ADD')
-        props = col.operator_menu_enum("preferences.extension_repo_remove", "type", text="", icon='REMOVE')
-        props.index = active_repo_index
+        col.menu("USERPREF_MT_extensions_active_repo_remove", text="", icon='REMOVE')
 
         col.separator()
-        col.operator("preferences.extension_repo_sync", text="", icon='FILE_REFRESH')
-        col.operator("preferences.extension_repo_upgrade", text="", icon='IMPORT')
+
+        col.menu_contents("USERPREF_MT_extensions_active_repo")
 
         try:
             active_repo = None if active_repo_index < 0 else extensions.repos[active_repo_index]
@@ -2192,14 +2225,15 @@ class USERPREF_PT_extensions_repos(Panel):
 
         if layout_panel:
             layout_panel.use_property_split = True
+            use_custom_directory = active_repo.use_custom_directory
 
             col = layout_panel.column(align=False, heading="Custom Directory")
             row = col.row(align=True)
             sub = row.row(align=True)
             sub.prop(active_repo, "use_custom_directory", text="")
             sub = sub.row(align=True)
-            sub.active = active_repo.use_custom_directory
-            if active_repo.use_custom_directory:
+            sub.active = use_custom_directory
+            if use_custom_directory:
                 if active_repo.custom_directory == "":
                     sub.alert = True
                 sub.prop(active_repo, "custom_directory", text="")
@@ -2209,6 +2243,10 @@ class USERPREF_PT_extensions_repos(Panel):
                 # prefer a read-only property over a label because this is not necessarily
                 # valid UTF-8 which will raise a Python exception when passed in as text.
                 sub.prop(active_repo, "directory", text="")
+
+            row = layout_panel.row()
+            row.active = not use_custom_directory
+            row.prop(active_repo, "source")
 
             if active_repo.use_remote_url:
                 row = layout_panel.row(align=True, heading="Authentication")
@@ -2352,8 +2390,8 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
             if p
         )
 
-        # collect the categories that can be filtered on
-        addon_modules = [mod for mod in addon_utils.modules(refresh=False)]
+        # Collect the categories that can be filtered on.
+        addon_modules = addon_utils.modules(refresh=False)
 
         self._draw_addon_header(layout, prefs, wm)
 
@@ -2777,7 +2815,6 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
                 ({"property": "use_grease_pencil_version3"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
                 ({"property": "use_grease_pencil_version3_convert_on_load"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
                 ({"property": "enable_overlay_next"}, ("blender/blender/issues/102179", "#102179")),
-                ({"property": "use_extension_utils"}, ("/blender/blender/issues/117286", "#117286")),
                 ({"property": "use_animation_baklava"}, ("/blender/blender/issues/120406", "#120406")),
             ),
         )
@@ -2817,6 +2854,7 @@ class USERPREF_PT_experimental_debugging(ExperimentalPanel, Panel):
                 ({"property": "use_asset_indexing"}, None),
                 ({"property": "use_viewport_debug"}, None),
                 ({"property": "use_eevee_debug"}, None),
+                ({"property": "use_extensions_debug"}, ("/blender/blender/issues/119521", "#119521")),
             ),
         )
 
@@ -2917,6 +2955,8 @@ classes = (
 
     USERPREF_PT_addons,
 
+    USERPREF_MT_extensions_active_repo,
+    USERPREF_MT_extensions_active_repo_remove,
     USERPREF_PT_extensions_repos,
 
     USERPREF_PT_studiolight_lights,

@@ -852,6 +852,8 @@ class PREFERENCES_OT_addon_expand(Operator):
 
         addon_module_name = self.module
 
+        # Ensure `addons_fake_modules` is set.
+        _modules = addon_utils.modules(refresh=False)
         mod = addon_utils.addons_fake_modules.get(addon_module_name)
         if mod is not None:
             bl_info = addon_utils.module_bl_info(mod)
@@ -876,6 +878,7 @@ class PREFERENCES_OT_addon_show(Operator):
 
         addon_module_name = self.module
 
+        # Ensure `addons_fake_modules` is set.
         _modules = addon_utils.modules(refresh=False)
         mod = addon_utils.addons_fake_modules.get(addon_module_name)
         if mod is not None:
@@ -1046,7 +1049,7 @@ class PREFERENCES_OT_studiolight_install(Operator):
         # print message
         msg = rpt_("StudioLight Installed {!r} into {!r}").format(
             ", ".join(e.name for e in self.files),
-            path_studiolights
+            path_studiolights,
         )
         print(msg)
         self.report({'INFO'}, msg)

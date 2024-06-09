@@ -39,15 +39,14 @@
 namespace blender::ed::sculpt_paint::greasepencil {
 
 static float brush_radius_to_pixel_radius(const RegionView3D *rv3d,
-                                          const Scene *scene,
                                           const Brush *brush,
                                           const float3 pos)
 {
-  if (BKE_brush_use_locked_size(scene, brush)) {
+  if ((brush->flag & BRUSH_LOCK_SIZE) != 0) {
     const float pixel_size = ED_view3d_pixel_size(rv3d, pos);
-    return BKE_brush_unprojected_radius_get(scene, brush) / pixel_size;
+    return brush->unprojected_radius / pixel_size;
   }
-  return float(BKE_brush_size_get(scene, brush));
+  return float(brush->size);
 }
 
 template<typename T>
@@ -204,7 +203,7 @@ struct PaintOperationExecutor {
 
   /**
    * Creates a new curve with one point at the beginning or end.
-   * Note: Does not initialize the new curve or points.
+   * \note Does not initialize the new curve or points.
    */
   static void create_blank_curve(bke::CurvesGeometry &curves, const bool on_back)
   {
@@ -248,7 +247,7 @@ struct PaintOperationExecutor {
 
   /**
    * Extends the first or last curve by `new_points_num` number of points.
-   * Note: Does not initialize the new points.
+   * \note Does not initialize the new points.
    */
   static void extend_curve(bke::CurvesGeometry &curves,
                            const bool on_back,
@@ -346,14 +345,13 @@ struct PaintOperationExecutor {
     const float start_radius = ed::greasepencil::radius_from_input_sample(
         rv3d,
         region,
-        scene_,
         brush_,
         start_sample.pressure,
         start_location,
         self.placement_.to_world_space(),
         settings_);
     const float start_opacity = ed::greasepencil::opacity_from_input_sample(
-        start_sample.pressure, brush_, scene_, settings_);
+        start_sample.pressure, brush_, settings_);
     Scene *scene = CTX_data_scene(&C);
     const bool on_back = (scene->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) != 0;
 
@@ -523,14 +521,13 @@ struct PaintOperationExecutor {
     const float3 position = self.placement_.project(coords);
     float radius = ed::greasepencil::radius_from_input_sample(rv3d,
                                                               region,
-                                                              scene_,
                                                               brush_,
                                                               extension_sample.pressure,
                                                               position,
                                                               self.placement_.to_world_space(),
                                                               settings_);
     const float opacity = ed::greasepencil::opacity_from_input_sample(
-        extension_sample.pressure, brush_, scene_, settings_);
+        extension_sample.pressure, brush_, settings_);
     Scene *scene = CTX_data_scene(&C);
     const bool on_back = (scene->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) != 0;
 
@@ -582,7 +579,7 @@ struct PaintOperationExecutor {
     /* If the next sample is far away, we subdivide the segment to add more points. */
     const float distance_px = math::distance(coords, prev_coords);
     const float brush_radius_px = brush_radius_to_pixel_radius(
-        rv3d, scene, brush_, math::transform_point(self.placement_.to_world_space(), position));
+        rv3d, brush_, math::transform_point(self.placement_.to_world_space(), position));
     /* Clamp the number of points within a pixel in screen space. */
     constexpr int max_points_per_pixel = 4;
     /* The value `brush_->spacing` is a percentage of the brush radius in pixels. */

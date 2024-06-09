@@ -649,8 +649,12 @@ typedef struct bUserExtensionRepo {
   char custom_dirpath[1024]; /* FILE_MAX */
   char remote_url[1024];     /* FILE_MAX */
 
-  int flag;
-  char _pad0[4];
+  /** Options for the repository (#eUserExtensionRepo_Flag). */
+  uint8_t flag;
+  /** The source location when the custom directory isn't used (#eUserExtensionRepo_Source). */
+  uint8_t source;
+
+  char _pad0[6];
 } bUserExtensionRepo;
 
 typedef enum eUserExtensionRepo_Flag {
@@ -662,6 +666,15 @@ typedef enum eUserExtensionRepo_Flag {
   USER_EXTENSION_REPO_FLAG_SYNC_ON_STARTUP = 1 << 4,
   USER_EXTENSION_REPO_FLAG_USE_ACCESS_TOKEN = 1 << 5,
 } eUserExtensionRepo_Flag;
+
+/**
+ * The source to use (User or System), only valid when the
+ * #USER_EXTENSION_REPO_FLAG_USE_CUSTOM_DIRECTORY flag isn't set.
+ */
+typedef enum eUserExtensionRepo_Source {
+  USER_EXTENSION_REPO_SOURCE_USER = 0,
+  USER_EXTENSION_REPO_SOURCE_SYSTEM = 1,
+} eUserExtensionRepo_Source;
 
 typedef struct SolidLight {
   int flag;
@@ -737,6 +750,7 @@ typedef struct UserDef_Experimental {
   char no_asset_indexing;
   char use_viewport_debug;
   char use_all_linked_data_direct;
+  char use_extensions_debug;
   char SANITIZE_AFTER_HERE;
   /* The following options are automatically sanitized (set to 0)
    * when the release cycle is not alpha. */
@@ -749,7 +763,6 @@ typedef struct UserDef_Experimental {
   char enable_overlay_next;
   char use_new_volume_nodes;
   char use_shader_node_previews;
-  char use_extension_utils;
   char use_grease_pencil_version3_convert_on_load;
   char use_animation_baklava;
   char _pad[3];

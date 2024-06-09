@@ -50,7 +50,7 @@ class Shader {
    * The backend is free to implement their support as they see fit.
    */
   struct Constants {
-    using Value = shader::ShaderCreateInfo::SpecializationConstant::Value;
+    using Value = shader::SpecializationConstant::Value;
     Vector<gpu::shader::Type> types;
     /* Current values set by `GPU_shader_constant_*()` call. The backend can choose to interpret
      * that however it wants (i.e: bind another shader instead). */
@@ -173,11 +173,15 @@ class ShaderCompiler {
   };
 
  public:
+  virtual ~ShaderCompiler(){};
+
   Shader *compile(const shader::ShaderCreateInfo &info, bool is_batch_compilation);
 
   virtual BatchHandle batch_compile(Span<const shader::ShaderCreateInfo *> &infos) = 0;
   virtual bool batch_is_ready(BatchHandle handle) = 0;
   virtual Vector<Shader *> batch_finalize(BatchHandle &handle) = 0;
+
+  virtual void precompile_specializations(Span<ShaderSpecialization> /*specializations*/){};
 };
 
 /* Generic (fully synchronous) implementation for backends that don't implement their own
@@ -193,7 +197,7 @@ class ShaderCompilerGeneric : public ShaderCompiler {
   Map<BatchHandle, Batch> batches;
 
  public:
-  ~ShaderCompilerGeneric();
+  virtual ~ShaderCompilerGeneric() override;
 
   virtual BatchHandle batch_compile(Span<const shader::ShaderCreateInfo *> &infos) override;
   virtual bool batch_is_ready(BatchHandle handle) override;
