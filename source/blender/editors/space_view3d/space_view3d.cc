@@ -419,6 +419,10 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   WM_event_add_keymap_handler(&region->handlers, keymap);
 
   keymap = WM_keymap_ensure(
+      wm->defaultconf, "Grease Pencil Weight Gradient", SPACE_EMPTY, RGN_TYPE_WINDOW);
+  WM_event_add_keymap_handler(&region->handlers, keymap);
+
+  keymap = WM_keymap_ensure(
       wm->defaultconf, "Grease Pencil Brush Stroke", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->handlers, keymap);
 

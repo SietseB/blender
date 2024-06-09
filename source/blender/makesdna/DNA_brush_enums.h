@@ -623,6 +623,7 @@ typedef enum eBrushGPWeightTool {
   GPWEIGHT_TOOL_BLUR = 1,
   GPWEIGHT_TOOL_AVERAGE = 2,
   GPWEIGHT_TOOL_SMEAR = 3,
+  GPWEIGHT_TOOL_GRADIENT = 4,
 } eBrushGPWeightTool;
 
 /* direction that the brush displaces along */

@@ -4792,6 +4792,34 @@ def km_grease_pencil_weight_paint(params):
     return keymap
 
 
+def km_grease_pencil_weight_gradient(params):
+    items = []
+    keymap = (
+        "Grease Pencil Weight Gradient",
+        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
+        {"items": items},
+    )
+
+    items.extend([
+        ("grease_pencil.weight_gradient",
+            {"type": params.tool_mouse, "value": params.tool_maybe_tweak_value},
+            {"properties": [("mode", 'NORMAL')]}),
+        ("grease_pencil.weight_gradient",
+            {"type": params.tool_mouse, "value": params.tool_maybe_tweak_value, "ctrl": True},
+            {"properties": [("mode", 'INVERT')]}),
+        # Radial controls
+        *_template_paint_radial_control("gpencil_weight_paint"),
+        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
+         radial_control_properties("gpencil_weight_paint", 'weight', 'use_unified_weight')),
+        # Toggle Add/Subtract for weight draw tool
+        ("grease_pencil.weight_toggle_direction", {"type": 'D', "value": 'PRESS'}, None),
+        # Context menu
+        *_template_items_context_panel("VIEW3D_PT_gpencil_weight_context_menu", params.context_menu_event),
+    ])
+
+    return keymap
+
+
 # Grease Pencil v3 Fill Tool.
 def km_grease_pencil_fill_tool(_params):
     items = []
@@ -9108,6 +9136,7 @@ def generate_keymaps(params=None):
         km_grease_pencil_edit_mode(params),
         km_grease_pencil_sculpt_mode(params),
         km_grease_pencil_weight_paint(params),
+        km_grease_pencil_weight_gradient(params),
         km_grease_pencil_brush_stroke(params),
         km_grease_pencil_fill_tool(params),
         # Object mode.

@@ -331,6 +331,11 @@ const EnumPropertyItem rna_enum_brush_gpencil_weight_types_items[] = {
      ICON_BRUSH_SMEAR,
      "Smear",
      "Smear weight in active vertex group"},
+    {GPWEIGHT_TOOL_GRADIENT,
+     "GRADIENT",
+     ICON_SMOOTHCURVE,
+     "Gradient",
+     "Draw a weight gradient in active vertex group"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -1033,6 +1038,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
     case PaintMode::WeightGPencil:
       switch (me->gpencil_weight_tool) {
         case GPWEIGHT_TOOL_DRAW:
+        case GPWEIGHT_TOOL_GRADIENT:
           return prop_direction_items;
         default:
           return rna_enum_dummy_DEFAULT_items;

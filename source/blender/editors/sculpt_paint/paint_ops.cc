@@ -145,6 +145,9 @@ static eGPBrush_Presets gpencil_get_brush_preset_from_tool(bToolRef *tool,
       if (STREQ(tool->runtime->data_block, "SMEAR")) {
         return GP_BRUSH_PRESET_WEIGHT_SMEAR;
       }
+      if (STREQ(tool->runtime->data_block, "GRADIENT")) {
+        return GP_BRUSH_PRESET_WEIGHT_GRADIENT;
+      }
       break;
     }
     case CTX_MODE_VERTEX_GPENCIL_LEGACY: {

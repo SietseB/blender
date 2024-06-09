@@ -1595,13 +1595,15 @@ static void paint_draw_2D_view_brush_cursor(PaintCursorContext *pcontext)
 {
   switch (pcontext->mode) {
     case PaintMode::GPencil:
-    case PaintMode::WeightGPencil: {
       grease_pencil_brush_cursor_draw(pcontext);
       break;
-    }
-    default: {
+    case PaintMode::WeightGPencil:
+      if (pcontext->brush->gpencil_weight_tool != GPWEIGHT_TOOL_GRADIENT) {
+        grease_pencil_brush_cursor_draw(pcontext);
+      }
+      break;
+    default:
       paint_draw_2D_view_brush_cursor_default(pcontext);
-    }
   }
 }
 

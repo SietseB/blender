@@ -114,7 +114,25 @@ bool grease_pencil_weight_painting_poll(bContext *C)
   if (!ts || !ts->gp_weightpaint) {
     return false;
   }
-  return true;
+  Brush *brush = BKE_paint_brush(&ts->gp_weightpaint->paint);
+  return brush && brush->gpencil_settings && brush->gpencil_weight_tool != GPWEIGHT_TOOL_GRADIENT;
+}
+
+bool grease_pencil_weight_gradient_poll(bContext *C)
+{
+  if (!active_grease_pencil_poll(C)) {
+    return false;
+  }
+  Object *object = CTX_data_active_object(C);
+  if ((object->mode & OB_MODE_WEIGHT_GPENCIL_LEGACY) == 0) {
+    return false;
+  }
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  if (!ts || !ts->gp_weightpaint) {
+    return false;
+  }
+  Brush *brush = BKE_paint_brush(&ts->gp_weightpaint->paint);
+  return brush && brush->gpencil_settings && brush->gpencil_weight_tool == GPWEIGHT_TOOL_GRADIENT;
 }
 
 static void keymap_grease_pencil_edit_mode(wmKeyConfig *keyconf)
@@ -143,6 +161,9 @@ static void keymap_grease_pencil_weight_paint_mode(wmKeyConfig *keyconf)
   wmKeyMap *keymap = WM_keymap_ensure(
       keyconf, "Grease Pencil Weight Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = grease_pencil_weight_painting_poll;
+  keymap = WM_keymap_ensure(
+      keyconf, "Grease Pencil Weight Gradient", SPACE_EMPTY, RGN_TYPE_WINDOW);
+  keymap->poll = grease_pencil_weight_gradient_poll;
 }
 
 /* Enabled for all tools except the fill tool. */

@@ -1435,6 +1435,7 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
     }
     case GP_BRUSH_PRESET_WEIGHT_GRADIENT: {
       brush->gpencil_settings->icon_id = GP_BRUSH_ICON_VERTEX_BLUR;
+      brush->gpencil_weight_tool = GPWEIGHT_TOOL_GRADIENT;
 
       brush->alpha = 1.0f;
       brush->weight = 1.0f;

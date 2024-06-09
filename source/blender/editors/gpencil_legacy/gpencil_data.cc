@@ -2107,7 +2107,7 @@ static void gpencil_brush_delete_mode_brushes(Main *bmain,
       }
 
       if (mode == CTX_MODE_WEIGHT_GPENCIL_LEGACY) {
-        if ((preset < GP_BRUSH_PRESET_WEIGHT_DRAW) || (preset > GP_BRUSH_PRESET_WEIGHT_SMEAR)) {
+        if ((preset < GP_BRUSH_PRESET_WEIGHT_DRAW) || (preset > GP_BRUSH_PRESET_WEIGHT_GRADIENT)) {
           continue;
         }
         if ((brush_active) && (brush_active->gpencil_weight_tool != brush->gpencil_weight_tool)) {
