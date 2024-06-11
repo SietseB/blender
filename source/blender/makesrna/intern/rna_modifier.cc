@@ -237,7 +237,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
     {eModifierType_GreasePencilArray,
      "GREASE_PENCIL_ARRAY",
      ICON_MOD_ARRAY,
-     "Array strokes",
+     "Array Strokes",
      "Duplicate strokes into an array"},
     {eModifierType_GreasePencilBuild,
      "GREASE_PENCIL_BUILD",
@@ -257,7 +257,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
     {eModifierType_GreasePencilMirror,
      "GREASE_PENCIL_MIRROR",
      ICON_MOD_MIRROR,
-     "Mirror strokes",
+     "Mirror Strokes",
      "Duplicate strokes like a mirror"},
     {eModifierType_GreasePencilMultiply,
      "GREASE_PENCIL_MULTIPLY",
@@ -272,7 +272,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
     {eModifierType_GreasePencilSubdiv,
      "GREASE_PENCIL_SUBDIV",
      ICON_MOD_SUBSURF,
-     "Subdivide strokes",
+     "Subdivide Strokes",
      "Grease Pencil subdivide modifier"},
     {eModifierType_GreasePencilEnvelope,
      "GREASE_PENCIL_ENVELOPE",
@@ -9579,6 +9579,12 @@ static void rna_def_modifier_grease_pencil_array(BlenderRNA *brna)
   prop = RNA_def_property(srna, "constant_offset", PROP_FLOAT, PROP_TRANSLATION);
   RNA_def_property_float_sdna(prop, nullptr, "offset");
   RNA_def_property_ui_text(prop, "Constant Offset", "Value for the distance between items");
+  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "constant_rotation", PROP_FLOAT, PROP_EULER);
+  RNA_def_property_float_sdna(prop, nullptr, "rotation");
+  RNA_def_property_ui_text(prop, "Constant Rotation", "Value for the rotation between items");
   RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 

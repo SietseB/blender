@@ -2925,13 +2925,13 @@ typedef struct GreasePencilArrayModifierData {
   /** #GreasePencilArrayModifierFlag */
   int flag;
   float offset[3];
+  float rotation[3];
   float shift[3];
 
   float rnd_offset[3];
   float rnd_rot[3];
   float rnd_scale[3];
 
-  char _pad[4];
   /** (first element is the index) random values. (?) */
   int seed;
 

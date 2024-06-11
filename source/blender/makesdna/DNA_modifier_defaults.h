@@ -936,6 +936,7 @@
     .count = 2, \
     .flag = GP_ARRAY_USE_RELATIVE, \
     .offset = {0.0f, 0.0f, 0.0f}, \
+    .rotation = {0.0f, 0.0f, 0.0f}, \
     .shift = {1.0f, 0.0f, 0.0f}, \
     .rnd_offset = {0.0f, 0.0f, 0.0f}, \
     .rnd_rot = {0.0f, 0.0f, 0.0f}, \

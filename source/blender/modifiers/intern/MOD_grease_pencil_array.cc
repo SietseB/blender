@@ -104,14 +104,14 @@ static float4x4 get_array_matrix(const Object &ob,
     return mat_offset * obinv * mmd.object->object_to_world();
   }
 
-  const float3 offset = [&]() {
-    if (mmd.flag & MOD_GREASE_PENCIL_ARRAY_USE_OFFSET) {
-      return float3(mmd.offset) * elem_idx;
-    }
-    return float3(0.0f);
-  }();
+  float3 offset = float3(0.0f);
+  float3 rotation = float3(0.0f);
+  if (mmd.flag & MOD_GREASE_PENCIL_ARRAY_USE_OFFSET) {
+    offset = float3(mmd.offset) * elem_idx;
+    rotation = float3(mmd.rotation) * elem_idx;
+  }
 
-  return math::from_location<float4x4>(offset);
+  return math::from_loc_rot<float4x4>(offset, rotation);
 }
 
 static float4x4 get_rand_matrix(const GreasePencilArrayModifierData &mmd,
@@ -308,6 +308,7 @@ static void panel_draw(const bContext *C, Panel *panel)
     uiLayout *col = uiLayoutColumn(sub, false);
     uiLayoutSetActive(col, RNA_boolean_get(ptr, "use_constant_offset"));
     uiItemR(col, ptr, "constant_offset", UI_ITEM_NONE, IFACE_("Distance"), ICON_NONE);
+    uiItemR(col, ptr, "constant_rotation", UI_ITEM_NONE, IFACE_("Rotation"), ICON_NONE);
   }
 
   if (uiLayout *sub = uiLayoutPanelProp(
