@@ -857,7 +857,9 @@
     .noise_offset = 0.0f, \
     .step = 4, \
     .seed = 1, \
-  }
+    .modify_color = MOD_GREASE_PENCIL_COLOR_BOTH, \
+    .hsv = {1.0f, 1.0f, 1.0f}, \
+}
 
 #define _DNA_DEFAULT_GreasePencilMirrorModifierData \
   { \

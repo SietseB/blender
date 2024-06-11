@@ -2759,8 +2759,13 @@ typedef struct GreasePencilNoiseModifierData {
   int step;
   /** Random seed */
   int seed;
+  /** HSV factors. */
+  float hsv[3];
+  /** Modify stroke, fill or both. */
+  short modify_color;
 
-  void *_pad1;
+  char _pad1[2];
+  void *_pad2;
 } GreasePencilNoiseModifierData;
 
 typedef struct GreasePencilMirrorModifierData {

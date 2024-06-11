@@ -9175,6 +9175,13 @@ static void rna_def_modifier_grease_pencil_noise(BlenderRNA *brna)
       {0, nullptr, 0, nullptr, nullptr},
   };
 
+  static const EnumPropertyItem color_mode_items[] = {
+      {MOD_GREASE_PENCIL_COLOR_BOTH, "BOTH", 0, "Stroke & Fill", "Modify fill and stroke colors"},
+      {MOD_GREASE_PENCIL_COLOR_STROKE, "STROKE", 0, "Stroke", "Modify stroke color only"},
+      {MOD_GREASE_PENCIL_COLOR_FILL, "FILL", 0, "Fill", "Modify fill color only"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+
   srna = RNA_def_struct(brna, "GreasePencilNoiseModifier", "Modifier");
   RNA_def_struct_ui_text(srna, "Grease Pencil Noise Modifier", "Noise effect modifier");
   RNA_def_struct_sdna(srna, "GreasePencilNoiseModifierData");
@@ -9189,6 +9196,7 @@ static void rna_def_modifier_grease_pencil_noise(BlenderRNA *brna)
 
   rna_def_modifier_panel_open_prop(srna, "open_influence_panel", 0);
   rna_def_modifier_panel_open_prop(srna, "open_random_panel", 1);
+  rna_def_modifier_panel_open_prop(srna, "open_color_panel", 2);
 
   RNA_define_lib_overridable(true);
 
@@ -9252,6 +9260,44 @@ static void rna_def_modifier_grease_pencil_noise(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, nullptr, "noise_mode");
   RNA_def_property_enum_items(prop, modifier_noise_random_mode_items);
   RNA_def_property_ui_text(prop, "Mode", "Where to perform randomization");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "use_random_smooth", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", GP_NOISE_USE_RANDOM_SMOOTH);
+  RNA_def_property_ui_text(
+      prop, "Smooth Transition", "Interpolate between random steps for smooth transition");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "use_color", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", GP_NOISE_USE_COLOR);
+  RNA_def_property_ui_text(prop, "Color", "Apply noise to the color of strokes and fills");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "modify_color", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, color_mode_items); /* share the enum */
+  RNA_def_property_ui_text(prop, "Mode", "Which colors of the stroke are affected");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "hue", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
+  RNA_def_property_float_sdna(prop, nullptr, "hsv[0]");
+  RNA_def_property_ui_text(prop, "Hue", "Color hue factor");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "saturation", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
+  RNA_def_property_float_sdna(prop, nullptr, "hsv[1]");
+  RNA_def_property_ui_text(prop, "Saturation", "Color saturation factor");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_range(prop, 0.0, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
+  RNA_def_property_float_sdna(prop, nullptr, "hsv[2]");
+  RNA_def_property_ui_text(prop, "Value", "Color value factor");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   RNA_define_lib_overridable(false);
 }
