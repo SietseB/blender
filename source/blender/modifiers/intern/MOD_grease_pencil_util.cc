@@ -324,6 +324,9 @@ Vector<bke::greasepencil::Drawing *> get_drawings_for_write(GreasePencil &grease
   VectorSet<Drawing *> drawings;
   layer_mask.foreach_index([&](const int64_t layer_i) {
     const Layer &layer = *grease_pencil.layer(layer_i);
+    if (!layer.is_visible()) {
+      return;
+    }
     /* Set of owned drawings, ignore drawing references to other data blocks. */
     if (Drawing *drawing = grease_pencil.get_drawing_at(layer, frame)) {
       drawings.add(drawing);
@@ -341,6 +344,9 @@ Vector<LayerDrawingInfo> get_drawing_infos_by_layer(GreasePencil &grease_pencil,
   Vector<LayerDrawingInfo> drawing_infos;
   layer_mask.foreach_index([&](const int64_t layer_i) {
     const Layer &layer = *grease_pencil.layer(layer_i);
+    if (!layer.is_visible()) {
+      return;
+    }
     Drawing *drawing = grease_pencil.get_drawing_at(layer, frame);
     if (drawing == nullptr) {
       return;
@@ -363,6 +369,9 @@ Vector<FrameDrawingInfo> get_drawing_infos_by_frame(GreasePencil &grease_pencil,
   Vector<FrameDrawingInfo> drawing_infos;
   layer_mask.foreach_index([&](const int64_t layer_i) {
     const Layer &layer = *grease_pencil.layer(layer_i);
+    if (!layer.is_visible()) {
+      return;
+    }
     const std::optional<int> start_frame = layer.start_frame_at(frame);
     if (!start_frame) {
       return;
