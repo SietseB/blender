@@ -1085,4 +1085,20 @@
     .mode = 0, \
   }
 
+#define _DNA_DEFAULT_GreasePencilFollowCurveModifierData \
+  { \
+    .object = NULL, \
+    .flag = MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE | MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT | MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST, \
+    .seed = 0, \
+    .speed = 0.0f, \
+    .speed_variation = 0.0f, \
+    .angle = 0.0f, \
+    .angle_axis = MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Y, \
+    .spirals = 0.0f, \
+    .curve_resolution = 1024, \
+    .object_axis = MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Z, \
+    .object_center = 0.5f, \
+    .completion = 1.0f, \
+  }
+
 /* clang-format off */

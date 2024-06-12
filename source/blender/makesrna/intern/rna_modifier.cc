@@ -409,6 +409,11 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      ICON_MOD_SHRINKWRAP,
      "Shrinkwrap",
      "Project the shape onto another object"},
+    {eModifierType_GreasePencilFollowCurve,
+     "GREASE_PENCIL_FOLLOW_CURVE",
+     ICON_FORCE_CURVE,
+     "Follow Curve",
+     "Deform stroke points along curves"},
 
     RNA_ENUM_ITEM_HEADING(N_("Physics"), nullptr),
     {eModifierType_Cloth, "CLOTH", ICON_MOD_CLOTH, "Cloth", "Physic simulation for cloth"},
@@ -1109,6 +1114,7 @@ RNA_MOD_OBJECT_SET(GreasePencilOutline, object, OB_EMPTY);
 RNA_MOD_OBJECT_SET(GreasePencilShrinkwrap, target, OB_MESH);
 RNA_MOD_OBJECT_SET(GreasePencilShrinkwrap, aux_target, OB_MESH);
 RNA_MOD_OBJECT_SET(GreasePencilBuild, object, OB_EMPTY);
+RNA_MOD_OBJECT_SET(GreasePencilFollowCurve, object, OB_CURVES_LEGACY);
 
 static void rna_HookModifier_object_set(PointerRNA *ptr,
                                         PointerRNA value,
@@ -2052,6 +2058,7 @@ RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilOutline);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilShrinkwrap);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilBuild);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilTexture);
+RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilFollowCurve);
 
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilOffset);
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilOpacity);
@@ -11019,6 +11026,166 @@ static void rna_def_modifier_grease_pencil_texture(BlenderRNA *brna)
   RNA_define_lib_overridable(false);
 }
 
+static void rna_def_modifier_grease_pencil_follow_curve(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  static const EnumPropertyItem modifier_follow_curve_axis_items[] = {
+      {MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_X, "X", 0, "X", "Projection angle around x axis"},
+      {MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Y, "Y", 0, "Y", "Projection angle around y axis"},
+      {MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Z, "Z", 0, "Z", "Projection angle around z axis"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+
+  srna = RNA_def_struct(brna, "GreasePencilFollowCurveModifier", "Modifier");
+  RNA_def_struct_ui_text(srna,
+                         "Grease Pencil Follow Curve Modifier",
+                         "Follow Curve modifier to deform stroke points along curves");
+  RNA_def_struct_sdna(srna, "GreasePencilFollowCurveModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_FORCE_CURVE);
+
+  rna_def_modifier_grease_pencil_layer_filter(srna);
+  rna_def_modifier_grease_pencil_material_filter(
+      srna, "rna_GreasePencilFollowCurveModifier_material_filter_set");
+
+  rna_def_modifier_panel_open_prop(srna, "open_influence_panel", 0);
+
+  RNA_define_lib_overridable(true);
+
+  prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Curve Object", "Object with Bezier curves to follow");
+  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+  RNA_def_property_pointer_funcs(
+      prop, nullptr, "rna_GreasePencilFollowCurveModifier_object_set", nullptr, nullptr);
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+  prop = RNA_def_property(srna, "curve_resolution", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, nullptr, "curve_resolution");
+  RNA_def_property_range(prop, 32, 4096);
+  RNA_def_property_ui_range(prop, 32, 4096, 32, 0);
+  RNA_def_property_ui_text(
+      prop, "Resolution", "The precision with which a curve is divided into points");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
+  RNA_def_property_float_sdna(prop, nullptr, "angle");
+  RNA_def_property_range(prop, 0.0f, DEG2RAD(360.0f));
+  RNA_def_property_ui_range(prop, 0.0f, DEG2RAD(359.5f), 10.0f, 1);
+  RNA_def_property_ui_text(
+      prop, "Rotation Angle", "Rotation angle of the stroke projected on the curve(s)");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "axis", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, nullptr, "angle_axis");
+  RNA_def_property_enum_items(prop, modifier_follow_curve_axis_items);
+  RNA_def_property_ui_text(prop, "Axis", "Axis for the rotation angle");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "spirals", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "spirals");
+  RNA_def_property_range(prop, -100.0, 100.0);
+  RNA_def_property_ui_range(prop, -100.0, 100.0, 0.1, 1);
+  RNA_def_property_ui_text(prop, "Spirals", "Number of spirals a stroke makes around the curve");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "speed", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "speed");
+  RNA_def_property_range(prop, -1.0, 1.0);
+  RNA_def_property_ui_range(prop, -1.0, 1.0, 0.002, 3);
+  RNA_def_property_ui_text(prop, "Speed", "Animation speed, in units per frame");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "speed_variation", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "speed_variation");
+  RNA_def_property_range(prop, 0.0, 1.0);
+  RNA_def_property_ui_range(prop, 0.0, 1.0, 0.001, 3);
+  RNA_def_property_ui_text(prop,
+                           "Variation",
+                           "Random variation in speed. When not zero, strokes will have different "
+                           "speeds in the animation");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "seed", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_sdna(prop, nullptr, "seed");
+  RNA_def_property_ui_text(prop, "Seed", "Random seed");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "scatter", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER);
+  RNA_def_property_ui_text(prop, "Scatter", "Scatter strokes over the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "dissolve", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE);
+  RNA_def_property_ui_text(
+      prop,
+      "Dissolve",
+      "Hide stroke points before the start point and behind the end point of the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "repeat", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT);
+  RNA_def_property_ui_text(
+      prop, "Repeat", "Repeat the animation of a stroke when it completed following the curve(s)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "tail_first", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST);
+  RNA_def_property_ui_text(
+      prop, "Tail First", "Start with the end of a stroke when projecting it on the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "vary_dir", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR);
+  RNA_def_property_ui_text(prop,
+                           "Vary Direction",
+                           "Randomly vary the direction of stroke projection on curves (both "
+                           "head-to-tail and tail-to-head)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "entire_object", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT);
+  RNA_def_property_ui_text(
+      prop, "Entire Object", "Let the entire Grease Pencil object follow the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "object_axis", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, nullptr, "object_axis");
+  RNA_def_property_enum_items(prop, modifier_follow_curve_axis_items);
+  RNA_def_property_ui_text(
+      prop, "Object Axis", "Object axis used to project the object on the curve");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "object_center", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "object_center");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Center", "Center of the object projected on the curve");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "completion", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "completion");
+  RNA_def_property_range(prop, -0.1f, 2.1f);
+  RNA_def_property_ui_range(prop, -0.1f, 2.1f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Completion", "Completion of the projection on the curve");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  RNA_define_lib_overridable(false);
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -11223,6 +11390,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_grease_pencil_shrinkwrap(brna);
   rna_def_modifier_grease_pencil_build(brna);
   rna_def_modifier_grease_pencil_texture(brna);
+  rna_def_modifier_grease_pencil_follow_curve(brna);
 }
 
 #endif

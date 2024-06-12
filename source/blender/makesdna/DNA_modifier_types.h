@@ -121,6 +121,7 @@ typedef enum ModifierType {
   eModifierType_GreasePencilBuild = 84,
   eModifierType_GreasePencilSimplify = 85,
   eModifierType_GreasePencilTexture = 86,
+  eModifierType_GreasePencilFollowCurve = 87,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
@@ -169,6 +170,8 @@ typedef struct ModifierData {
   int persistent_uid;
   /** MAX_NAME. */
   char name[64];
+  /* Type name. */
+  char type_name[32];
 
   char *error;
 
@@ -3472,3 +3475,89 @@ typedef enum GreasePencilTextureModifierMode {
   MOD_GREASE_PENCIL_TEXTURE_FILL = 1,
   MOD_GREASE_PENCIL_TEXTURE_STROKE_AND_FILL = 2,
 } GreasePencilTextureModifierMode;
+
+typedef struct GreasePencilFollowCurvePoint {
+  float co[3];
+  float vec_to_next[3];
+  float vec_len;
+  float vec_len_accumulative;
+} GreasePencilFollowCurvePoint;
+
+typedef struct GreasePencilFollowCurve {
+  /** Bezier curve. */
+  struct Curve *curve;
+  /** Curve point data. */
+  struct GreasePencilFollowCurvePoint *points;
+  int points_len;
+  /* Curve length. */
+  float length;
+} GreasePencilFollowCurve;
+
+typedef struct GreasePencilFollowCurveModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+
+  /** Object with curves to follow. */
+  struct Object *object;
+
+  /** Flags. */
+  int flag;
+  /** Seed. */
+  int seed;
+  /** Spped. */
+  float speed;
+  /** Speed variation. */
+  float speed_variation;
+  /* Projection angle. */
+  float angle;
+  /* Projection axis. */
+  int angle_axis;
+  /** Number of spirals around a curve. */
+  float spirals;
+  /** Curve resolution */
+  int curve_resolution;
+  /** Object profile axis. */
+  int object_axis;
+  /** Object profile center. */
+  float object_center;
+  /** Projection completion. */
+  float completion;
+
+  /** Stroke or object profile vector. */
+  float profile_vec[3];
+  /** Stroke or object profile starting point. */
+  float profile_start[3];
+  /** Scale of profile for mapping it fully to the curve. */
+  float profile_scale;
+  char _pad0[4];
+  /** Current frame. */
+  int cfra;
+  /** Speed data per frame. */
+  float *speed_per_frame;
+  int speed_per_frame_len;
+  /** Bezier curves to follow. */
+  int curves_len;
+  struct GreasePencilFollowCurve *curves;
+} GreasePencilFollowCurveModifierData;
+
+typedef enum GreasePencilFollowCurveFlag {
+  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_LAYER = (1 << 0),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_PASS = (1 << 1),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_VGROUP = (1 << 2),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_UNIFORM_SPACE = (1 << 3),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_LAYERPASS = (1 << 4),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_MATERIAL = (1 << 5),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER = (1 << 6),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE = (1 << 7),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT = (1 << 8),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST = (1 << 9),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR = (1 << 10),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT = (1 << 11),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST = (1 << 12),
+} GreasePencilFollowCurveFlag;
+
+typedef enum GreasePencilFollowCurveAxis {
+  MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_X = 0,
+  MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Y = 1,
+  MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Z = 2,
+} GreasePencilFollowCurveAxis;

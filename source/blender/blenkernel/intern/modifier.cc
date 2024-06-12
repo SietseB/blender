@@ -1020,6 +1020,28 @@ bool BKE_modifiers_persistent_uids_are_valid(const Object &object)
   return true;
 }
 
+static void modifier_renumber_by_type_name(ModifierData *md)
+{
+  if (BLI_strcaseeq(md->type_name, "FollowCurve")) {
+    md->type = eModifierType_GreasePencilFollowCurve;
+    return;
+  }
+}
+
+static void modifier_set_type_name(ModifierData *md)
+{
+  if (md->type_name[0] != '\0') {
+    return;
+  }
+
+  switch (md->type) {
+    case eModifierType_GreasePencilFollowCurve: {
+      BLI_strncpy(md->type_name, "FollowCurve", sizeof(md->type_name));
+      break;
+    }
+  }
+}
+
 void BKE_modifier_blend_write(BlendWriter *writer, const ID *id_owner, ListBase *modbase)
 {
   if (modbase == nullptr) {
@@ -1037,6 +1059,9 @@ void BKE_modifier_blend_write(BlendWriter *writer, const ID *id_owner, ListBase 
       mti->blend_write(writer, id_owner, md);
       continue;
     }
+
+    /* Set modifier type name, because it's more robust than just a type number. */
+    modifier_set_type_name(md);
 
     BLO_write_struct_by_name(writer, mti->struct_name, md);
 
@@ -1247,6 +1272,11 @@ void BKE_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb, Object 
   LISTBASE_FOREACH (ModifierData *, md, lb) {
     md->error = nullptr;
     md->runtime = nullptr;
+
+    /* Renumber modifiers based on their type name. */
+    if (md->type_name[0] != '\0') {
+      modifier_renumber_by_type_name(md);
+    }
 
     /* If linking from a library, clear 'local' library override flag. */
     if (ID_IS_LINKED(ob)) {
