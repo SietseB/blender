@@ -1580,6 +1580,17 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, nullptr);
 
+  /* Ondine: Subdivision level for new strokes. */
+  prop = RNA_def_property(srna, "subdivision_level", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, nullptr, "subdivision_level");
+  RNA_def_property_range(prop, 0, 12);
+  RNA_def_property_ui_text(
+      prop,
+      "Subdiv Level",
+      "Level of subdivision for new strokes, to create evenly spaced stroke points");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, nullptr);
+
   /* Simplify factor */
   prop = RNA_def_property(srna, "simplify_factor", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, nullptr, "simplify_f");
@@ -1591,7 +1602,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   prop = RNA_def_property(srna, "simplify_pixel_threshold", PROP_FLOAT, PROP_PIXEL);
   RNA_def_property_float_sdna(prop, nullptr, "simplify_px");
   RNA_def_property_range(prop, 0, 10.0);
-  RNA_def_property_ui_range(prop, 0, 10.0, 1.0f, 1);
+  RNA_def_property_ui_range(prop, 0, 10.0, 10.0f, 1);
   RNA_def_property_ui_text(
       prop,
       "Simplify",

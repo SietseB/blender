@@ -59,7 +59,10 @@ typedef struct BrushGpencilSettings {
   char _pad2[2];
   /* Type of caps: eGPDstroke_Caps. */
   int8_t caps_type;
-  char _pad[5];
+  char _pad[1];
+
+  /** Ondine: level of subdivision of new strokes. */
+  int subdivision_level;
 
   int flag2;
 

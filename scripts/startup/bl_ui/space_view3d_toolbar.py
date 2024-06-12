@@ -2124,7 +2124,7 @@ class GreasePencilWeightPanel:
             return bool(gpd.is_stroke_weight_mode)
         else:
             return True
-    
+
     def is_tool_with_brush(context):
         tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
         if tool is not None and tool.idname == 'builtin.gradient':
@@ -2134,11 +2134,11 @@ class GreasePencilWeightPanel:
 
 class VIEW3D_PT_tools_grease_pencil_weight_paint_select(View3DPanel, Panel, GreasePencilWeightPanel):
     bl_label = "Brushes"
-    
+
     @classmethod
     def poll(cls, context):
         return cls.is_tool_with_brush(context)
-    
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -2168,7 +2168,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_settings(Panel, View3DPanel, Gr
     @classmethod
     def poll(cls, context):
         return cls.is_tool_with_brush(context)
-    
+
     def draw(self, context):
         if self.is_popover:
             return
@@ -2218,7 +2218,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_gradient_falloff(GreasePencilBrushFal
         tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
         if tool is None or tool.idname != 'builtin.gradient':
             return False
-        
+
         ts = context.tool_settings
         settings = ts.gpencil_weight_paint
         brush = settings.brush
@@ -2760,11 +2760,14 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing(View3DPanel, Panel)
         col1.prop(gp_settings, "pen_smooth_factor")
         col1.prop(gp_settings, "pen_smooth_steps")
 
-        col1 = col.column(align=True)
-        col1.prop(gp_settings, "pen_subdivision_steps", text="Subdivisions")
+        # col1 = col.column(align=True)
+        # col1.prop(gp_settings, "pen_subdivision_steps", text="Subdivisions")
 
         col1 = col.column(align=True)
-        col1.prop(gp_settings, "simplify_pixel_threshold", slider=True)
+        col1.prop(gp_settings, "simplify_pixel_threshold")
+
+        col1 = col.column(align=True)
+        col1.prop(gp_settings, "subdivision_level")
 
         col1 = col.column(align=True)
         col1.prop(gp_settings, "use_trim")

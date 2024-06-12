@@ -829,6 +829,55 @@ static void simplify_stroke(bke::greasepencil::Drawing &drawing,
   }
 }
 
+static void subdivide_stroke(bke::greasepencil::Drawing &drawing,
+                             const int subdivision_level,
+                             const int active_curve)
+{
+  /* Get the maximum distance a stroke segment can be without being subdivided. */
+  constexpr float BASE_SUBDIV_DISTANCE = 0.75f;
+  const float max_segment_distance = BASE_SUBDIV_DISTANCE / subdivision_level;
+
+  const bke::CurvesGeometry &curves_src = drawing.strokes();
+  const Span<float3> positions = curves_src.positions();
+  const offset_indices::OffsetIndices<int> points_by_curve = curves_src.points_by_curve();
+  Array<Vector<ed::greasepencil::PointTransferData>> src_to_dst_points(curves_src.points_num());
+  const IndexRange active_point_range = points_by_curve[active_curve];
+
+  for (const int point_index : curves_src.points_range()) {
+    float dist_to_next;
+    int num_extra_points = 0;
+    /* For the active curve, check all the distances between point segments. When they are bigger
+     * than the maximum allowed distance, the segment needs subdivision.  */
+    if (active_point_range.drop_back(1).contains(point_index)) {
+      dist_to_next = math::distance(positions[point_index], positions[point_index + 1]);
+      num_extra_points = int(dist_to_next / max_segment_distance);
+    }
+
+    src_to_dst_points[point_index] = Vector<ed::greasepencil::PointTransferData>(num_extra_points +
+                                                                                 1);
+    src_to_dst_points[point_index][0].is_src_point = true;
+    src_to_dst_points[point_index][0].is_cut = false;
+    src_to_dst_points[point_index][0].src_point = point_index;
+    src_to_dst_points[point_index][0].src_next_point = point_index + 1;
+    src_to_dst_points[point_index][0].factor = 0.0f;
+
+    if (num_extra_points > 0) {
+      const float subdiv_factor = 1.0f / (num_extra_points + 1);
+      for (int i = 1; i <= num_extra_points; i++) {
+        src_to_dst_points[point_index][i].is_src_point = false;
+        src_to_dst_points[point_index][i].is_cut = false;
+        src_to_dst_points[point_index][i].src_point = point_index;
+        src_to_dst_points[point_index][i].src_next_point = point_index + 1;
+        src_to_dst_points[point_index][i].factor = subdiv_factor * i;
+      }
+    }
+  }
+
+  bke::CurvesGeometry curves_dst;
+  ed::greasepencil::compute_topology_change(curves_src, curves_dst, src_to_dst_points, true);
+  drawing.strokes_for_write() = std::move(curves_dst);
+}
+
 static int trim_end_points(bke::greasepencil::Drawing &drawing,
                            const float epsilon,
                            const bool on_back,
@@ -954,6 +1003,9 @@ void PaintOperation::on_stroke_done(const bContext &C)
                       this->screen_space_smoothed_coords_.as_span().drop_back(num_points_removed),
                       settings->simplify_px,
                       active_curve);
+    }
+    if (settings->subdivision_level > 0) {
+      subdivide_stroke(drawing, settings->subdivision_level, active_curve);
     }
   }
   drawing.set_texture_matrices({texture_space_}, IndexRange::from_single(active_curve));
