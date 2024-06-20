@@ -1540,6 +1540,11 @@ static void grease_pencil_brush_cursor_draw(PaintCursorContext *pcontext)
       return;
     }
 
+    /* Hide the cursor while drwaing. */
+    if (grease_pencil->runtime->is_drawing_stroke) {
+      return;
+    }
+
     if ((brush->flag & BRUSH_LOCK_SIZE) != 0) {
       const bke::greasepencil::Layer *layer = grease_pencil->get_active_layer();
       const ed::greasepencil::DrawingPlacement placement(
@@ -2124,10 +2129,10 @@ static void paint_draw_cursor(bContext *C, int x, int y, void * /*unused*/)
 
 /* Public API */
 
-void ED_paint_cursor_start(Paint *p, bool (*poll)(bContext *C))
+void ED_paint_cursor_start(Paint *paint, bool (*poll)(bContext *C))
 {
-  if (p && !p->paint_cursor) {
-    p->paint_cursor = WM_paint_cursor_activate(
+  if (paint && !paint->paint_cursor) {
+    paint->paint_cursor = WM_paint_cursor_activate(
         SPACE_TYPE_ANY, RGN_TYPE_ANY, poll, paint_draw_cursor, nullptr);
   }
 

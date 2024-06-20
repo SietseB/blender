@@ -449,13 +449,14 @@ struct FilmData {
   float exposure_scale;
   /** Scaling factor for scaled resolution rendering. */
   int scaling_factor;
+  /** Software LOD bias to apply to when sampling texture inside the node-tree evaluation. */
+  float texture_lod_bias;
   /** Film pixel filter radius. */
   float filter_radius;
   /** Precomputed samples. First in the table is the closest one. The rest is unordered. */
   int samples_len;
   /** Sum of the weights of all samples in the sample table. */
   float samples_weight_total;
-  int _pad1;
   int _pad2;
   FilmSample samples[FILM_PRECOMP_SAMPLE_MAX];
 };
@@ -795,6 +796,11 @@ struct LightCullingData {
   uint tile_y_len;
   /** Number of word per tile. Depends on the maximum number of lights. */
   uint tile_word_len;
+  /** Is the view being processed by light culling flipped (true for light probe planes). */
+  bool32_t view_is_flipped;
+  uint _pad0;
+  uint _pad1;
+  uint _pad2;
 };
 BLI_STATIC_ASSERT_ALIGN(LightCullingData, 16)
 
@@ -1390,6 +1396,12 @@ BLI_STATIC_ASSERT_ALIGN(ShadowPagesInfoData, 16)
 
 struct ShadowStatistics {
   /** Statistics that are read back to CPU after a few frame (to avoid stall). */
+  /**
+   * WARNING: Excepting `view_needed_count` it is uncertain if these are accurate.
+   * This is because `eevee_shadow_page_allocate_comp` runs on all pages even for
+   * directional. There might be some lingering states somewhere as relying on
+   * `page_update_count` was causing non-deterministic infinite loop. Needs further investigation.
+   */
   int page_used_count;
   int page_update_count;
   int page_allocated_count;

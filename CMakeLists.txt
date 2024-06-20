@@ -704,7 +704,7 @@ if(NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64"))
     gfx900 gfx90c gfx902
     gfx1010 gfx1011 gfx1012
     gfx1030 gfx1031 gfx1032 gfx1034 gfx1035 gfx1036
-    gfx1100 gfx1101 gfx1102 gfx1103
+    gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151
     CACHE STRING "AMD HIP architectures to build binaries for"
   )
   mark_as_advanced(WITH_CYCLES_DEVICE_HIP)
@@ -1234,6 +1234,9 @@ set_and_warn_dependency(WITH_IMAGE_OPENEXR WITH_CYCLES_OSL OFF)
 # Hydra requires USD.
 set_and_warn_dependency(WITH_USD WITH_HYDRA OFF)
 
+# The Ocean modifier requires FFTW3.
+set_and_warn_dependency(WITH_FFTW3 WITH_MOD_OCEANSIM OFF)
+
 if(NOT WITH_CYCLES)
   set(WITH_CYCLES_OSL OFF)
 endif()
@@ -1436,10 +1439,6 @@ endif()
 
 # -----------------------------------------------------------------------------
 # Common Checks for Compatible Options
-
-if(NOT WITH_FFTW3 AND WITH_MOD_OCEANSIM)
-  message(FATAL_ERROR "WITH_MOD_OCEANSIM requires WITH_FFTW3 to be ON")
-endif()
 
 if(WITH_INTERNATIONAL)
   if(NOT WITH_BOOST)

@@ -111,12 +111,14 @@ const char *ShaderModule::static_shader_create_info_name_get(eShaderType shader_
   switch (shader_type) {
     case AMBIENT_OCCLUSION_PASS:
       return "eevee_ambient_occlusion_pass";
-    case FILM_FRAG:
-      return "eevee_film_frag";
+    case FILM_COPY:
+      return "eevee_film_copy_frag";
     case FILM_COMP:
       return "eevee_film_comp";
     case FILM_CRYPTOMATTE_POST:
       return "eevee_film_cryptomatte_post";
+    case FILM_FRAG:
+      return "eevee_film_frag";
     case DEFERRED_COMBINE:
       return "eevee_deferred_combine";
     case DEFERRED_LIGHT_SINGLE:
@@ -345,7 +347,45 @@ GPUShader *ShaderModule::static_shader_get(eShaderType shader_type)
  *
  * \{ */
 
-void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOutput *codegen_)
+/* Helper class to get free sampler slots for materials. */
+class SamplerSlots {
+  int first_reserved_;
+  int last_reserved_;
+  int index_;
+
+ public:
+  SamplerSlots(eMaterialPipeline pipeline_type,
+               eMaterialGeometry geometry_type,
+               bool has_shader_to_rgba)
+  {
+    index_ = 0;
+    if (ELEM(geometry_type, MAT_GEOM_POINT_CLOUD, MAT_GEOM_CURVES)) {
+      index_ = 1;
+    }
+    else if (geometry_type == MAT_GEOM_GPENCIL) {
+      index_ = 2;
+    }
+
+    first_reserved_ = MATERIAL_TEXTURE_RESERVED_SLOT_FIRST;
+    last_reserved_ = MATERIAL_TEXTURE_RESERVED_SLOT_LAST_NO_EVAL;
+    if (pipeline_type == MAT_PIPE_DEFERRED && has_shader_to_rgba) {
+      last_reserved_ = MATERIAL_TEXTURE_RESERVED_SLOT_LAST_HYBRID;
+    }
+    else if (pipeline_type == MAT_PIPE_FORWARD) {
+      last_reserved_ = MATERIAL_TEXTURE_RESERVED_SLOT_LAST_FORWARD;
+    }
+  }
+
+  int get()
+  {
+    if (index_ == first_reserved_) {
+      index_ = last_reserved_ + 1;
+    }
+    return index_++;
+  }
+};
+
+void ShaderModule::material_create_info_amend(GPUMaterial *gpumat, GPUCodegenOutput *codegen_)
 {
   using namespace blender::gpu::shader;
 
@@ -366,12 +406,6 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
   GPUCodegenOutput &codegen = *codegen_;
   ShaderCreateInfo &info = *reinterpret_cast<ShaderCreateInfo *>(codegen.create_info);
 
-  /* WORKAROUND: Replace by new ob info. */
-  int64_t ob_info_index = info.additional_infos_.first_index_of_try("draw_object_infos");
-  if (ob_info_index != -1) {
-    info.additional_infos_[ob_info_index] = "draw_object_infos_new";
-  }
-
   /* WORKAROUND: Add new ob attr buffer. */
   if (GPU_material_uniform_attributes(gpumat) != nullptr) {
     info.additional_info("draw_object_attribute_new");
@@ -389,12 +423,12 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
     info.define("UNI_ATTR(a)", "vec4(0.0)");
   }
 
-  /* First indices are reserved by the engine.
-   * Put material samplers in reverse order, starting from the last slot. */
-  int sampler_slot = GPU_max_textures_frag() - 1;
+  SamplerSlots sampler_slots(
+      pipeline_type, geometry_type, GPU_material_flag_get(gpumat, GPU_MATFLAG_SHADER_TO_RGBA));
+
   for (auto &resource : info.batch_resources_) {
     if (resource.bind_type == ShaderCreateInfo::Resource::BindType::SAMPLER) {
-      resource.slot = sampler_slot--;
+      resource.slot = sampler_slots.get();
     }
   }
 
@@ -543,14 +577,11 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
         /* TODO(fclem): Eventually, we could add support for loading both. For now, remove the
          * vertex inputs after conversion (avoid name collision). */
         for (auto &input : info.vertex_inputs_) {
-          info.sampler(sampler_slot--, ImageType::FLOAT_3D, input.name, Frequency::BATCH);
+          info.sampler(sampler_slots.get(), ImageType::FLOAT_3D, input.name, Frequency::BATCH);
         }
         info.vertex_inputs_.clear();
         /* Volume materials require these for loading the grid attributes from smoke sims. */
         info.additional_info("draw_volume_infos");
-        if (ob_info_index == -1) {
-          info.additional_info("draw_object_infos_new");
-        }
       }
       break;
     case MAT_GEOM_POINT_CLOUD:
@@ -562,7 +593,7 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
           global_vars << input.type << " " << input.name << ";\n";
         }
         else {
-          info.sampler(sampler_slot--, ImageType::FLOAT_BUFFER, input.name, Frequency::BATCH);
+          info.sampler(sampler_slots.get(), ImageType::FLOAT_BUFFER, input.name, Frequency::BATCH);
         }
       }
       info.vertex_inputs_.clear();
@@ -572,7 +603,7 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
         /* Even if world do not have grid attributes, we use dummy texture binds to pass correct
          * defaults. So we have to replace all attributes as samplers. */
         for (auto &input : info.vertex_inputs_) {
-          info.sampler(sampler_slot--, ImageType::FLOAT_3D, input.name, Frequency::BATCH);
+          info.sampler(sampler_slots.get(), ImageType::FLOAT_3D, input.name, Frequency::BATCH);
         }
         info.vertex_inputs_.clear();
       }
@@ -595,7 +626,7 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
     case MAT_GEOM_VOLUME:
       /** Volume grid attributes come from 3D textures. Transfer attributes to samplers. */
       for (auto &input : info.vertex_inputs_) {
-        info.sampler(sampler_slot--, ImageType::FLOAT_3D, input.name, Frequency::BATCH);
+        info.sampler(sampler_slots.get(), ImageType::FLOAT_3D, input.name, Frequency::BATCH);
       }
       info.vertex_inputs_.clear();
       break;
@@ -683,8 +714,14 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
         if (info.additional_infos_.first_index_of_try("draw_object_infos_new") == -1) {
           info.additional_info("draw_object_infos_new");
         }
+        /* TODO(fclem): Should use `to_scale` but the gpu_shader_math_matrix_lib.glsl isn't
+         * included everywhere yet. */
+        frag_gen << "vec3 ob_scale;\n";
+        frag_gen << "ob_scale.x = length(ModelMatrix[0].xyz);\n";
+        frag_gen << "ob_scale.y = length(ModelMatrix[1].xyz);\n";
+        frag_gen << "ob_scale.z = length(ModelMatrix[2].xyz);\n";
         frag_gen << "vec3 ls_dimensions = safe_rcp(abs(OrcoTexCoFactors[1].xyz));\n";
-        frag_gen << "vec3 ws_dimensions = mat3x3(ModelMatrix) * ls_dimensions;\n";
+        frag_gen << "vec3 ws_dimensions = ob_scale * ls_dimensions;\n";
         /* Choose the minimum axis so that cuboids are better represented. */
         frag_gen << "return reduce_min(ws_dimensions);\n";
       }
@@ -796,7 +833,7 @@ void ShaderModule::material_create_info_ammend(GPUMaterial *gpumat, GPUCodegenOu
  * thread unsafe manner. */
 static void codegen_callback(void *thunk, GPUMaterial *mat, GPUCodegenOutput *codegen)
 {
-  reinterpret_cast<ShaderModule *>(thunk)->material_create_info_ammend(mat, codegen);
+  reinterpret_cast<ShaderModule *>(thunk)->material_create_info_amend(mat, codegen);
 }
 
 static GPUPass *pass_replacement_cb(void *thunk, GPUMaterial *mat)

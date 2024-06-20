@@ -735,11 +735,14 @@ class USERPREF_PT_system_network(SystemPanel, CenterAlignMixIn, Panel):
         if system.use_online_access != runtime_online_access:
             row = layout.split(factor=0.4)
             row.label(text="")
-            row.label(
-                text="{:s} on startup, overriding the preference.".format(
-                    "Enabled" if runtime_online_access else "Disabled"
-                ),
-            )
+            if runtime_online_access:
+                text = iface_("Enabled on startup, overriding the preference.")
+            else:
+                text = iface_("Disabled on startup, overriding the preference.")
+            row.label(text=text, translate=False)
+
+        layout.row().prop(system, "network_timeout", text="Time Out")
+        layout.row().prop(system, "network_connection_limit", text="Connection Limit")
 
 
 class USERPREF_PT_system_memory(SystemPanel, CenterAlignMixIn, Panel):
@@ -1249,7 +1252,7 @@ class USERPREF_PT_theme_collection_colors(ThemePanel, CenterAlignMixIn, Panel):
 
 
 class USERPREF_PT_theme_strip_colors(ThemePanel, CenterAlignMixIn, Panel):
-    bl_label = "Strip Colors"
+    bl_label = "Strip Color Tags"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw_header(self, _context):
@@ -2145,7 +2148,7 @@ class USERPREF_MT_extensions_active_repo_remove(Menu):
         except IndexError:
             active_repo = None
 
-        is_system_repo = (active_repo.use_custom_directory is False) and (active_repo.source == 'SYSTEM')
+        is_system_repo = (active_repo.use_remote_url is False) and (active_repo.source == 'SYSTEM')
 
         props = layout.operator("preferences.extension_repo_remove", text="Remove Repository")
         props.index = active_repo_index
@@ -2203,7 +2206,8 @@ class USERPREF_PT_extensions_repos(Panel):
         # For now it can be accessed from Python if someone is.
         # `layout.prop(active_repo, "use_remote_url", text="Use Remote URL")`
 
-        if active_repo.use_remote_url:
+        use_remote_url = active_repo.use_remote_url
+        if use_remote_url:
             row = layout.row()
             split = row.split(factor=0.936)
             if active_repo.remote_url == "":
@@ -2244,15 +2248,14 @@ class USERPREF_PT_extensions_repos(Panel):
                 # valid UTF-8 which will raise a Python exception when passed in as text.
                 sub.prop(active_repo, "directory", text="")
 
-            row = layout_panel.row()
-            row.active = not use_custom_directory
-            row.prop(active_repo, "source")
-
-            if active_repo.use_remote_url:
+            if use_remote_url:
                 row = layout_panel.row(align=True, heading="Authentication")
                 row.prop(active_repo, "use_access_token")
 
-            layout_panel.prop(active_repo, "use_cache")
+                layout_panel.prop(active_repo, "use_cache")
+            else:
+                layout_panel.prop(active_repo, "source")
+
             layout_panel.separator()
 
             layout_panel.prop(active_repo, "module")
@@ -2464,8 +2467,6 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
             colsub = box.column()
             row = colsub.row(align=True)
 
-            is_extension = addon_utils.check_extension(addon_module_name)
-
             row.operator(
                 "preferences.addon_expand",
                 icon='DISCLOSURE_TRI_DOWN' if bl_info["show_expanded"] else 'DISCLOSURE_TRI_RIGHT',
@@ -2509,11 +2510,7 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
                 if value := bl_info["version"]:
                     split = colsub.row().split(factor=0.15)
                     split.label(text="Version:")
-                    # Extensions use SEMVER.
-                    if is_extension:
-                        split.label(text=value, translate=False)
-                    else:
-                        split.label(text=".".join(str(x) for x in value), translate=False)
+                    split.label(text=".".join(str(x) for x in value), translate=False)
                 if value := bl_info["warning"]:
                     split = colsub.row().split(factor=0.15)
                     split.label(text="Warning:")
@@ -2798,6 +2795,7 @@ class USERPREF_PT_experimental_new_features(ExperimentalPanel, Panel):
                 ({"property": "use_extended_asset_browser"},
                  ("blender/blender/projects/10", "Pipeline, Assets & IO Project Page")),
                 ({"property": "use_new_volume_nodes"}, ("blender/blender/issues/103248", "#103248")),
+                ({"property": "use_new_file_import_nodes"}, ("blender/blender/issues/122846", "#122846")),
                 ({"property": "use_shader_node_previews"}, ("blender/blender/issues/110353", "#110353")),
             ),
         )
@@ -2812,8 +2810,6 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
                 ({"property": "use_new_curves_tools"}, ("blender/blender/issues/68981", "#68981")),
                 ({"property": "use_new_point_cloud_type"}, ("blender/blender/issues/75717", "#75717")),
                 ({"property": "use_sculpt_texture_paint"}, ("blender/blender/issues/96225", "#96225")),
-                ({"property": "use_grease_pencil_version3"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
-                ({"property": "use_grease_pencil_version3_convert_on_load"}, ("blender/blender/projects/6", "Grease Pencil 3.0")),
                 ({"property": "enable_overlay_next"}, ("blender/blender/issues/102179", "#102179")),
                 ({"property": "use_animation_baklava"}, ("/blender/blender/issues/120406", "#120406")),
             ),

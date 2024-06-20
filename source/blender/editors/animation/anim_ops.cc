@@ -736,16 +736,7 @@ static int binding_unassign_object_exec(bContext *C, wmOperator * /*op*/)
   using namespace blender;
 
   Object *object = CTX_data_active_object(C);
-  if (!object) {
-    return OPERATOR_CANCELLED;
-  }
-
-  AnimData *adt = BKE_animdata_from_id(&object->id);
-  if (!adt) {
-    return OPERATOR_CANCELLED;
-  }
-
-  animrig::unassign_binding(*adt);
+  animrig::unassign_binding(object->id);
 
   WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN, nullptr);
   return OPERATOR_FINISHED;

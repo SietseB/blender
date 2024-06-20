@@ -1015,10 +1015,21 @@ static void childof_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *tar
   bChildOfConstraint *data = static_cast<bChildOfConstraint *>(con->data);
   bConstraintTarget *ct = static_cast<bConstraintTarget *>(targets->first);
 
-  /* only evaluate if there is a target */
+  /* Only evaluate if there is a target.
+   *
+   * NOTE: we're setting/unsetting the CONSTRAINT_SPACEONCE flag here because:
+   *
+   * 1. It's only used by the Child Of constraint anyway.
+   * 2. It's only used to affect the steps taken immediately after this function
+   *    returns, and this way we ensure it's always set correctly for that.
+   *
+   * It was previously set in other places which resulted in bugs like #116567.
+   * In the future we should ideally move to a different approach entirely. */
   if (!VALID_CONS_TARGET(ct)) {
+    con->flag &= ~CONSTRAINT_SPACEONCE;
     return;
   }
+  con->flag |= CONSTRAINT_SPACEONCE;
 
   float parmat[4][4];
   float inverse_matrix[4][4];
@@ -1747,17 +1758,43 @@ static void rotlimit_evaluate(bConstraint *con, bConstraintOb *cob, ListBase * /
 
   mat4_to_eulO(eul, rot_order, cob->matrix);
 
-  /* constraint data uses radians internally */
-
-  /* limiting of euler values... */
-  if (data->flag & LIMIT_XROT) {
-    eul[0] = clamp_angle(eul[0], data->xmin, data->xmax);
+  /* Limit the euler values. */
+  if (data->flag & LIMIT_ROT_LEGACY_BEHAVIOR) {
+    /* The legacy behavior, which just does a naive clamping of the angles as
+     * simple numbers. Since the input angles are always in the range [-180,
+     * 180] degrees due to being derived from matrix decomposition, this naive
+     * approach causes problems when rotations cross 180 degrees. Specifically,
+     * it results in unpredictable and unwanted rotation flips of the
+     * constrained objects/bones, especially when the constraint isn't in local
+     * space.
+     *
+     * The correct thing to do is a more sophisticated form of clamping that
+     * treats the angles as existing on a continuous loop, which is what the
+     * non-legacy behavior further below does. However, for backwards
+     * compatibility we are preserving this old behavior behind an option.
+     *
+     * See issues #117927 and #123105 for additional background. */
+    if (data->flag & LIMIT_XROT) {
+      eul[0] = clamp_f(eul[0], data->xmin, data->xmax);
+    }
+    if (data->flag & LIMIT_YROT) {
+      eul[1] = clamp_f(eul[1], data->ymin, data->ymax);
+    }
+    if (data->flag & LIMIT_ZROT) {
+      eul[2] = clamp_f(eul[2], data->zmin, data->zmax);
+    }
   }
-  if (data->flag & LIMIT_YROT) {
-    eul[1] = clamp_angle(eul[1], data->ymin, data->ymax);
-  }
-  if (data->flag & LIMIT_ZROT) {
-    eul[2] = clamp_angle(eul[2], data->zmin, data->zmax);
+  else {
+    /* The correct, non-legacy behavior. */
+    if (data->flag & LIMIT_XROT) {
+      eul[0] = clamp_angle(eul[0], data->xmin, data->xmax);
+    }
+    if (data->flag & LIMIT_YROT) {
+      eul[1] = clamp_angle(eul[1], data->ymin, data->ymax);
+    }
+    if (data->flag & LIMIT_ZROT) {
+      eul[2] = clamp_angle(eul[2], data->zmin, data->zmax);
+    }
   }
 
   loc_eulO_size_to_mat4(cob->matrix, loc, eul, size, rot_order);
@@ -5884,7 +5921,6 @@ static bConstraint *add_new_constraint(Object *ob,
        * the constraint gets evaluated in pose-space */
       if (pchan) {
         con->ownspace = CONSTRAINT_SPACE_POSE;
-        con->flag |= CONSTRAINT_SPACEONCE;
       }
       break;
     }
@@ -6596,13 +6632,6 @@ void BKE_constraint_blend_read_data(BlendDataReader *reader, ID *id_owner, ListB
 
         /* version patch for runtime flag, was not cleared in some case */
         data->flag &= ~CONSTRAINT_IK_AUTO;
-        break;
-      }
-      case CONSTRAINT_TYPE_CHILDOF: {
-        /* XXX version patch, in older code this flag wasn't always set, and is inherent to type */
-        if (con->ownspace == CONSTRAINT_SPACE_POSE) {
-          con->flag |= CONSTRAINT_SPACEONCE;
-        }
         break;
       }
       case CONSTRAINT_TYPE_TRANSFORM_CACHE: {

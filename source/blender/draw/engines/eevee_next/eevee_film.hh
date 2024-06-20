@@ -55,6 +55,9 @@ class Film {
   /** Incoming combined buffer with post FX applied (motion blur + depth of field). */
   GPUTexture *combined_final_tx_ = nullptr;
 
+  /** Are we using the compute shader/pipeline. */
+  bool use_compute_;
+
   /**
    * Main accumulation textures containing every render-pass except depth, cryptomatte and
    * combined.
@@ -69,10 +72,9 @@ class Film {
   SwapChain<Texture, 2> combined_tx_;
   /** Weight buffers. Double buffered to allow updating it during accumulation. */
   SwapChain<Texture, 2> weight_tx_;
-  /** User setting to disable reprojection. Useful for debugging or have a more precise render. */
-  bool force_disable_reprojection_ = false;
 
   PassSimple accumulate_ps_ = {"Film.Accumulate"};
+  PassSimple copy_ps_ = {"Film.Copy"};
   PassSimple cryptomatte_post_ps_ = {"Film.Cryptomatte.Post"};
 
   FilmData &data_;
@@ -155,7 +157,10 @@ class Film {
   static bool pass_is_float3(eViewLayerEEVEEPassType pass_type)
   {
     return pass_storage_type(pass_type) == PASS_STORAGE_COLOR &&
-           !ELEM(pass_type, EEVEE_RENDER_PASS_COMBINED, EEVEE_RENDER_PASS_VECTOR);
+           !ELEM(pass_type,
+                 EEVEE_RENDER_PASS_COMBINED,
+                 EEVEE_RENDER_PASS_VECTOR,
+                 EEVEE_RENDER_PASS_TRANSPARENT);
   }
 
   /* Returns layer offset in the accumulation texture. -1 if the pass is not enabled. */
@@ -268,6 +273,9 @@ class Film {
       case EEVEE_RENDER_PASS_AO:
         result.append(RE_PASSNAME_AO);
         break;
+      case EEVEE_RENDER_PASS_TRANSPARENT:
+        result.append(RE_PASSNAME_TRANSPARENT);
+        break;
       case EEVEE_RENDER_PASS_CRYPTOMATTE_OBJECT:
         build_cryptomatte_passes(RE_PASSNAME_CRYPTOMATTE_OBJECT);
         break;
@@ -292,6 +300,8 @@ class Film {
    * Precompute sample weights if they are uniform across the whole film extent.
    */
   void update_sample_table();
+
+  void init_pass(PassSimple &pass, GPUShader *sh);
 };
 
 /** \} */

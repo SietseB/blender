@@ -25,11 +25,14 @@ vec4 blend_color(vec4 cur, vec4 color)
 }
 
 /* Given signed distance `d` to a shape and current premultiplied color `cur`, blends
- * in an outline of at least 1px width (plus `extra_half_width` on each side), inset
- * by `inset` pixels. Outline color `outline_color` is in straight alpha. */
-vec4 add_outline(float d, float extra_half_width, float inset, vec4 cur, vec4 outline_color)
+ * in an outline at distance between `edge1` and `edge2`.
+ * Outline color `outline_color` is in straight alpha. */
+vec4 add_outline(float d, float edge1, float edge2, vec4 cur, vec4 outline_color)
 {
-  float f = abs(d + inset) - extra_half_width;
+  d -= 0.5;
+  edge1 *= context_data.pixelsize;
+  edge2 *= context_data.pixelsize;
+  float f = abs(d + (edge1 + edge2) * 0.5) - abs(edge2 - edge1) * 0.5 + 0.5;
   float a = clamp(1.0 - f, 0.0, 1.0);
   outline_color.a *= a;
   return blend_color(cur, outline_color);
@@ -40,16 +43,20 @@ void main()
   vec2 co = co_interp;
 
   SeqStripDrawData strip = strip_data[strip_id];
-  vec2 size = vec2(strip.right_handle - strip.left_handle, strip.top - strip.bottom) * 0.5;
-  vec2 center = vec2(strip.right_handle + strip.left_handle, strip.top + strip.bottom) * 0.5;
 
   /* Transform strip rectangle into pixel coordinates, so that
    * rounded corners have proper aspect ratio and can be expressed in pixels.
-   * Also snap to pixel grid coorinates, so that outline/border is clear
+   * Make sure strip right side does not include the last pixel.
+   * Also snap to pixel grid coordinates, so that outline/border is clear
    * non-fractional pixel sizes. */
   vec2 view_to_pixel = vec2(context_data.inv_pixelx, context_data.inv_pixely);
-  size = round(size * view_to_pixel);
-  center = round(center * view_to_pixel);
+  vec2 pos1 = round(vec2(strip.left_handle, strip.bottom) * view_to_pixel);
+  vec2 pos2 = round(vec2(strip.right_handle, strip.top) * view_to_pixel);
+  pos2.x -= 1.0;
+  /* Make sure strip is at least 1px wide. */
+  pos2.x = max(pos2.x, pos1.x + 1.0);
+  vec2 size = (pos2 - pos1) * 0.5;
+  vec2 center = (pos1 + pos2) * 0.5;
   vec2 pos = round(co * view_to_pixel);
 
   float radius = context_data.round_radius;
@@ -57,14 +64,37 @@ void main()
     radius = 0.0;
   }
 
+  bool border = (strip.flags & GPU_SEQ_FLAG_BORDER) != 0;
+  bool selected = (strip.flags & GPU_SEQ_FLAG_SELECTED) != 0;
+  float outline_width = selected ? 2.0 : 1.0;
+
+  /* Distance to whole strip shape. */
   float sdf = sdf_rounded_box(pos - center, size, radius);
+
+  /* Distance to inner part when handles are taken into account. */
+  float sdf_inner = sdf;
+  if ((strip.flags & GPU_SEQ_FLAG_ANY_HANDLE) != 0) {
+    float handle_width = strip.handle_width * view_to_pixel.x;
+    /* Take left/right handle from horizontal sides. */
+    if ((strip.flags & GPU_SEQ_FLAG_DRAW_LH) != 0) {
+      pos1.x += handle_width;
+    }
+    if ((strip.flags & GPU_SEQ_FLAG_DRAW_RH) != 0) {
+      pos2.x -= handle_width;
+    }
+    /* Reduce vertical size by outline width. */
+    pos1.y += context_data.pixelsize * outline_width;
+    pos2.y -= context_data.pixelsize * outline_width;
+
+    size = (pos2 - pos1) * 0.5;
+    center = (pos1 + pos2) * 0.5;
+    sdf_inner = sdf_rounded_box(pos - center, size, radius);
+  }
 
   vec4 col = vec4(0.0);
 
-  bool back_part = (strip.flags & GPU_SEQ_FLAG_BACKGROUND_PART) != 0;
-
-  if (back_part) {
-
+  /* Background. */
+  if ((strip.flags & GPU_SEQ_FLAG_BACKGROUND) != 0) {
     col = unpackUnorm4x8(strip.col_background);
     /* Darker background for multi-image strip hold still regions. */
     if ((strip.flags & GPU_SEQ_FLAG_SINGLE_IMAGE) == 0) {
@@ -72,71 +102,86 @@ void main()
         col.rgb = color_shade(col.rgb, -35.0);
       }
     }
-
-    /* Color band. */
-    if ((strip.flags & GPU_SEQ_FLAG_COLOR_BAND) != 0) {
-      if (co.y < strip.strip_content_top) {
-        col.rgb = unpackUnorm4x8(strip.col_color_band).rgb;
-        /* Darker line to better separate the color band. */
-        if (co.y > strip.strip_content_top - context_data.pixely) {
-          col.rgb = color_shade(col.rgb, -20.0);
-        }
-      }
-    }
-
-    /* Transition. */
-    if ((strip.flags & GPU_SEQ_FLAG_TRANSITION) != 0) {
-      if (co.x >= strip.content_start && co.x <= strip.content_end &&
-          co.y < strip.strip_content_top)
-      {
-        float diag_y = strip.strip_content_top - (strip.strip_content_top - strip.bottom) *
-                                                     (co.x - strip.content_start) /
-                                                     (strip.content_end - strip.content_start);
-        uint transition_color = co.y <= diag_y ? strip.col_transition_in :
-                                                 strip.col_transition_out;
-        col.rgb = unpackUnorm4x8(transition_color).rgb;
-      }
-    }
-
-    col.rgb *= col.a; /* Premultiply alpha. */
   }
-  else {
-    /* Missing media. */
-    if ((strip.flags & GPU_SEQ_FLAG_MISSING_TITLE) != 0) {
-      if (co.y > strip.strip_content_top) {
-        col = blend_color(col, vec4(112.0 / 255.0, 0.0, 0.0, 230.0 / 255.0));
-      }
-    }
-    if ((strip.flags & GPU_SEQ_FLAG_MISSING_CONTENT) != 0) {
-      if (co.y <= strip.strip_content_top) {
-        col = blend_color(col, vec4(64.0 / 255.0, 0.0, 0.0, 230.0 / 255.0));
-      }
-    }
 
-    /* Locked. */
-    if ((strip.flags & GPU_SEQ_FLAG_LOCKED) != 0) {
-      if (co.y <= strip.strip_content_top) {
-        float phase = mod(gl_FragCoord.x + gl_FragCoord.y, 12.0);
-        if (phase >= 8.0) {
-          col = blend_color(col, vec4(0.0, 0.0, 0.0, 0.25));
-        }
+  /* Color band. */
+  if ((strip.flags & GPU_SEQ_FLAG_COLOR_BAND) != 0) {
+    if (co.y < strip.strip_content_top) {
+      col.rgb = unpackUnorm4x8(strip.col_color_band).rgb;
+      /* Darker line to better separate the color band. */
+      if (co.y > strip.strip_content_top - context_data.pixely) {
+        col.rgb = color_shade(col.rgb, -20.0);
       }
     }
+  }
 
-    /* Highlight. */
-    if ((strip.flags & GPU_SEQ_FLAG_HIGHLIGHT) != 0) {
-      col = blend_color(col, vec4(1.0, 1.0, 1.0, 48.0 / 255.0));
+  /* Transition. */
+  if ((strip.flags & GPU_SEQ_FLAG_TRANSITION) != 0) {
+    if (co.x >= strip.content_start && co.x <= strip.content_end && co.y < strip.strip_content_top)
+    {
+      float diag_y = strip.strip_content_top - (strip.strip_content_top - strip.bottom) *
+                                                   (co.x - strip.content_start) /
+                                                   (strip.content_end - strip.content_start);
+      uint transition_color = co.y <= diag_y ? strip.col_transition_in : strip.col_transition_out;
+      col.rgb = unpackUnorm4x8(transition_color).rgb;
     }
+  }
 
-    /* Handles. */
-    if ((strip.flags & GPU_SEQ_FLAG_HANDLES) != 0) {
-      if (co.x >= strip.left_handle && co.x < strip.left_handle + strip.handle_width) {
-        col = blend_color(col, unpackUnorm4x8(strip.col_handle_left));
-      }
-      if (co.x > strip.right_handle - strip.handle_width && co.x <= strip.right_handle) {
-        col = blend_color(col, unpackUnorm4x8(strip.col_handle_right));
+  /* Previous parts were all assigning color (not blending it),
+   * make sure from now on alpha is premultiplied. */
+  col.rgb *= col.a;
+
+  /* Missing media. */
+  if ((strip.flags & GPU_SEQ_FLAG_MISSING_TITLE) != 0) {
+    if (co.y > strip.strip_content_top) {
+      col = blend_color(col, vec4(112.0 / 255.0, 0.0, 0.0, 230.0 / 255.0));
+    }
+  }
+  if ((strip.flags & GPU_SEQ_FLAG_MISSING_CONTENT) != 0) {
+    if (co.y <= strip.strip_content_top) {
+      col = blend_color(col, vec4(64.0 / 255.0, 0.0, 0.0, 230.0 / 255.0));
+    }
+  }
+
+  /* Locked. */
+  if ((strip.flags & GPU_SEQ_FLAG_LOCKED) != 0) {
+    if (co.y <= strip.strip_content_top) {
+      float phase = mod(gl_FragCoord.x + gl_FragCoord.y, 12.0);
+      if (phase >= 8.0) {
+        col = blend_color(col, vec4(0.0, 0.0, 0.0, 0.25));
       }
     }
+  }
+
+  /* Highlight. */
+  if ((strip.flags & GPU_SEQ_FLAG_HIGHLIGHT) != 0) {
+    col = blend_color(col, vec4(1.0, 1.0, 1.0, 48.0 / 255.0));
+  }
+
+  /* Handles. */
+  vec4 col_outline = unpackUnorm4x8(strip.col_outline);
+  if ((strip.flags & GPU_SEQ_FLAG_ANY_HANDLE) != 0) {
+    bool left_side = pos.x < center.x;
+    uint handle_flag = left_side ? GPU_SEQ_FLAG_SELECTED_LH : GPU_SEQ_FLAG_SELECTED_RH;
+    bool selected_handle = (strip.flags & handle_flag) != 0;
+    /* Blend in handle color in between strip shape and inner handle shape. */
+    if (sdf <= 0.0 && sdf_inner >= 0.0) {
+      vec4 hcol = selected_handle ? col_outline : vec4(0, 0, 0, 0.2);
+      hcol.a *= clamp(sdf_inner, 0.0, 1.0);
+      col = blend_color(col, hcol);
+    }
+    /* For an unselected handle, no longer take it into account
+     * for the "inner" distance. */
+    if (!selected_handle) {
+      sdf_inner = sdf;
+    }
+  }
+
+  /* Inset 1px line with background color. */
+  if (border && selected) {
+    /* Inset line should be inside regular border or inside the handles. */
+    float d = max(sdf_inner - 2.0 * context_data.pixelsize, sdf);
+    col = add_outline(d, 2.0, 3.0, col, unpackUnorm4x8(context_data.col_back));
   }
 
   /* Outside of strip rounded rectangle? */
@@ -144,19 +189,9 @@ void main()
     col = vec4(0.0);
   }
 
-  /* Outline. */
-  if (!back_part) {
-    bool selected = (strip.flags & GPU_SEQ_FLAG_SELECTED) != 0;
-    vec4 col_outline = unpackUnorm4x8(strip.col_outline);
-    if (selected) {
-      /* Inset 1px line with background color. */
-      col = add_outline(sdf, 0.0, 2.0, col, unpackUnorm4x8(context_data.col_back));
-      /* 2x wide outline. */
-      col = add_outline(sdf, 0.5, 0.5, col, col_outline);
-    }
-    else {
-      col = add_outline(sdf, 0.0, 0.0, col, col_outline);
-    }
+  /* Outline / border. */
+  if (border) {
+    col = add_outline(sdf, 0.0, outline_width, col, col_outline);
   }
 
   fragColor = col;

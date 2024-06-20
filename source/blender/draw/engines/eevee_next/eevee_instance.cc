@@ -62,6 +62,7 @@ void Instance::init(const int2 &output_res,
   v3d = v3d_;
   rv3d = rv3d_;
   manager = DRW_manager_get();
+  update_eval_members();
 
   info = "";
 
@@ -86,11 +87,12 @@ void Instance::init(const int2 &output_res,
   if (assign_if_different(overlays_enabled_, v3d && !(v3d->flag2 & V3D_HIDE_OVERLAYS))) {
     sampling.reset();
   }
-  if (DRW_state_is_navigating()) {
+  if (is_painting()) {
     sampling.reset();
   }
-
-  update_eval_members();
+  if (is_navigating() && scene->eevee.flag & SCE_EEVEE_SHADOW_JITTERED_VIEWPORT) {
+    sampling.reset();
+  }
 
   sampling.init(scene);
   camera.init();
@@ -122,14 +124,13 @@ void Instance::init_light_bake(Depsgraph *depsgraph, draw::Manager *manager)
   drw_view = nullptr;
   v3d = nullptr;
   rv3d = nullptr;
+  update_eval_members();
 
   is_light_bake = true;
   debug_mode = (eDebugMode)G.debug_value;
   info = "";
 
   shaders.is_ready(true);
-
-  update_eval_members();
 
   sampling.init(scene);
   camera.init();
@@ -264,7 +265,8 @@ void Instance::object_sync(Object *ob)
   if (partsys_is_visible && ob != DRW_context_state_get()->object_edit) {
     auto sync_hair =
         [&](ObjectHandle hair_handle, ModifierData &md, ParticleSystem &particle_sys) {
-          ResourceHandle _res_handle = manager->resource_handle(ob->object_to_world());
+          ResourceHandle _res_handle = manager->resource_handle_for_psys(ob_ref,
+                                                                         ob->object_to_world());
           sync.sync_curves(ob, hair_handle, _res_handle, ob_ref, &md, &particle_sys);
         };
     foreach_hair_particle_handle(ob, ob_handle, sync_hair);
@@ -608,6 +610,7 @@ void Instance::update_passes(RenderEngine *engine, Scene *scene, ViewLayer *view
   CHECK_PASS_LEGACY(ENVIRONMENT, SOCK_RGBA, 3, "RGB");
   CHECK_PASS_LEGACY(SHADOW, SOCK_RGBA, 3, "RGB");
   CHECK_PASS_LEGACY(AO, SOCK_RGBA, 3, "RGB");
+  CHECK_PASS_EEVEE(TRANSPARENT, SOCK_RGBA, 4, "RGBA");
 
   LISTBASE_FOREACH (ViewLayerAOV *, aov, &view_layer->aovs) {
     if ((aov->flag & AOV_CONFLICT) != 0) {

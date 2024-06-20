@@ -858,7 +858,7 @@ static void namebutton_fn(bContext *C, void *tsep, char *oldname)
            * function. */
           std::string new_name(node.name());
           node.set_name(oldname);
-          grease_pencil.rename_node(node, new_name);
+          grease_pencil.rename_node(*bmain, node, new_name);
           DEG_id_tag_update(&grease_pencil.id, ID_RECALC_SYNC_TO_EVAL);
           WM_event_add_notifier(C, NC_ID | NA_RENAME, nullptr);
           break;
@@ -1489,7 +1489,6 @@ static void outliner_draw_restrictbuts(uiBlock *block,
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
         }
       }
-#ifdef WITH_GREASE_PENCIL_V3
       else if (tselem->type == TSE_GREASE_PENCIL_NODE) {
         bke::greasepencil::TreeNode &node =
             tree_element_cast<TreeElementGreasePencilNode>(te)->node();
@@ -1525,7 +1524,6 @@ static void outliner_draw_restrictbuts(uiBlock *block,
           }
         }
       }
-#endif
       else if (outliner_is_collection_tree_element(te)) {
         PointerRNA collection_ptr;
         PointerRNA layer_collection_ptr;

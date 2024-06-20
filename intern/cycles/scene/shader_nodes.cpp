@@ -1220,6 +1220,85 @@ void NoiseTextureNode::compile(OSLCompiler &compiler)
   compiler.add(this, "node_noise_texture");
 }
 
+/* Gabor Texture */
+
+NODE_DEFINE(GaborTextureNode)
+{
+  NodeType *type = NodeType::add("gabor_texture", create, NodeType::SHADER);
+
+  TEXTURE_MAPPING_DEFINE(GaborTextureNode);
+
+  static NodeEnum type_enum;
+  type_enum.insert("2D", NODE_GABOR_TYPE_2D);
+  type_enum.insert("3D", NODE_GABOR_TYPE_3D);
+  SOCKET_ENUM(type, "Type", type_enum, NODE_GABOR_TYPE_2D);
+
+  SOCKET_IN_POINT(vector, "Vector", zero_float3(), SocketType::LINK_TEXTURE_GENERATED);
+  SOCKET_IN_FLOAT(scale, "Scale", 5.0f);
+  SOCKET_IN_FLOAT(frequency, "Frequency", 2.0f);
+  SOCKET_IN_FLOAT(anisotropy, "Anisotropy", 1.0f);
+  SOCKET_IN_FLOAT(orientation_2d, "Orientation 2D", M_PI_F / 4.0f);
+  SOCKET_IN_VECTOR(orientation_3d, "Orientation 3D", make_float3(M_SQRT2_F, M_SQRT2_F, 0.0f));
+
+  SOCKET_OUT_FLOAT(value, "Value");
+  SOCKET_OUT_FLOAT(phase, "Phase");
+  SOCKET_OUT_FLOAT(intensity, "Intensity");
+
+  return type;
+}
+
+GaborTextureNode::GaborTextureNode() : TextureNode(get_node_type()) {}
+
+void GaborTextureNode::compile(SVMCompiler &compiler)
+{
+  ShaderInput *vector_in = input("Vector");
+  ShaderInput *scale_in = input("Scale");
+  ShaderInput *frequency_in = input("Frequency");
+  ShaderInput *anisotropy_in = input("Anisotropy");
+  ShaderInput *orientation_2d_in = input("Orientation 2D");
+  ShaderInput *orientation_3d_in = input("Orientation 3D");
+
+  ShaderOutput *value_out = output("Value");
+  ShaderOutput *phase_out = output("Phase");
+  ShaderOutput *intensity_out = output("Intensity");
+
+  int vector_stack_offset = tex_mapping.compile_begin(compiler, vector_in);
+  int scale_stack_offset = compiler.stack_assign_if_linked(scale_in);
+  int frequency_stack_offset = compiler.stack_assign_if_linked(frequency_in);
+  int anisotropy_stack_offset = compiler.stack_assign_if_linked(anisotropy_in);
+  int orientation_2d_stack_offset = compiler.stack_assign_if_linked(orientation_2d_in);
+  int orientation_3d_stack_offset = compiler.stack_assign(orientation_3d_in);
+
+  int value_stack_offset = compiler.stack_assign_if_linked(value_out);
+  int phase_stack_offset = compiler.stack_assign_if_linked(phase_out);
+  int intensity_stack_offset = compiler.stack_assign_if_linked(intensity_out);
+
+  compiler.add_node(
+      NODE_TEX_GABOR,
+      type,
+      compiler.encode_uchar4(vector_stack_offset,
+                             scale_stack_offset,
+                             frequency_stack_offset,
+                             anisotropy_stack_offset),
+      compiler.encode_uchar4(orientation_2d_stack_offset, orientation_3d_stack_offset));
+
+  compiler.add_node(
+      compiler.encode_uchar4(value_stack_offset, phase_stack_offset, intensity_stack_offset),
+      __float_as_int(scale),
+      __float_as_int(frequency),
+      __float_as_int(anisotropy));
+  compiler.add_node(__float_as_int(orientation_2d));
+
+  tex_mapping.compile_end(compiler, vector_in, vector_stack_offset);
+}
+
+void GaborTextureNode::compile(OSLCompiler &compiler)
+{
+  tex_mapping.compile(compiler);
+  compiler.parameter(this, "type");
+  compiler.add(this, "node_gabor_texture");
+}
+
 /* Voronoi Texture */
 
 NODE_DEFINE(VoronoiTextureNode)
@@ -2123,24 +2202,38 @@ void ConvertNode::constant_fold(const ConstantFolder &folder)
   /* proxy nodes should have been removed at this point */
   assert(special_type != SHADER_SPECIAL_TYPE_PROXY);
 
-  /* TODO(DingTo): conversion from/to int is not supported yet, don't fold in that case */
-
   if (folder.all_inputs_constant()) {
-    if (from == SocketType::FLOAT) {
+    if (from == SocketType::FLOAT || from == SocketType::INT) {
+      float val = value_float;
+      if (from == SocketType::INT) {
+        val = value_int;
+      }
       if (SocketType::is_float3(to)) {
-        folder.make_constant(make_float3(value_float, value_float, value_float));
+        folder.make_constant(make_float3(val, val, val));
+      }
+      else if (to == SocketType::INT) {
+        folder.make_constant((int)val);
+      }
+      else if (to == SocketType::FLOAT) {
+        folder.make_constant(val);
       }
     }
     else if (SocketType::is_float3(from)) {
-      if (to == SocketType::FLOAT) {
+      if (to == SocketType::FLOAT || to == SocketType::INT) {
+        float val;
         if (from == SocketType::COLOR) {
-          /* color to float */
-          float val = folder.scene->shader_manager->linear_rgb_to_gray(value_color);
-          folder.make_constant(val);
+          /* color to scalar */
+          val = folder.scene->shader_manager->linear_rgb_to_gray(value_color);
         }
         else {
-          /* vector/point/normal to float */
-          folder.make_constant(average(value_vector));
+          /* vector/point/normal to scalar */
+          val = average(value_vector);
+        }
+        if (to == SocketType::INT) {
+          folder.make_constant((int)val);
+        }
+        else if (to == SocketType::FLOAT) {
+          folder.make_constant(val);
         }
       }
       else if (SocketType::is_float3(to)) {
@@ -2599,7 +2692,7 @@ DiffuseBsdfNode::DiffuseBsdfNode() : BsdfNode(get_node_type())
 
 void DiffuseBsdfNode::compile(SVMCompiler &compiler)
 {
-  BsdfNode::compile(compiler, input("Roughness"), NULL);
+  BsdfNode::compile(compiler, input("Roughness"), nullptr, input("Color"));
 }
 
 void DiffuseBsdfNode::compile(OSLCompiler &compiler)

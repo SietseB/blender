@@ -16,21 +16,10 @@ bl_info = {
 }
 
 if "bpy" in locals():
-    import importlib
-    from . import (
-        bl_extension_ops,
-        bl_extension_ui,
-        bl_extension_utils,
-    )
-    importlib.reload(bl_extension_ops)
-    importlib.reload(bl_extension_ui)
-    importlib.reload(bl_extension_utils)
-    del (
-        bl_extension_ops,
-        bl_extension_ui,
-        bl_extension_utils,
-    )
-    del importlib
+    # This doesn't need to be inline because sub-modules aren't important into the global name-space.
+    # The check for `bpy` ensures this is always assigned before use.
+    # pylint: disable-next=used-before-assignment
+    _local_module_reload()
 
 import bpy
 
@@ -42,26 +31,26 @@ from bpy.props import (
     StringProperty,
 )
 
-from bpy.types import (
-    AddonPreferences,
-)
 
+# -----------------------------------------------------------------------------
+# Local Module Reload
 
-class BlExtPreferences(AddonPreferences):
-    bl_idname = __name__
-    timeout: IntProperty(
-        name="Time Out",
-        default=10,
+def _local_module_reload():
+    import importlib
+    from . import (
+        bl_extension_cli,
+        bl_extension_local,
+        bl_extension_notify,
+        bl_extension_ops,
+        bl_extension_ui,
+        bl_extension_utils,
     )
-    show_development_reports: BoolProperty(
-        name="Show Development Reports",
-        description=(
-            "Show the result of running commands in the main interface "
-            "this has the advantage that multiple processes that run at once have their errors properly grouped "
-            "which is not the case for reports which are mixed together"
-        ),
-        default=False,
-    )
+    importlib.reload(bl_extension_cli)
+    importlib.reload(bl_extension_local)
+    importlib.reload(bl_extension_notify)
+    importlib.reload(bl_extension_ops)
+    importlib.reload(bl_extension_ui)
+    importlib.reload(bl_extension_utils)
 
 
 class StatusInfoUI:
@@ -135,22 +124,10 @@ def repo_stats_calc_outdated_for_repo_directory(repo_directory):
     if pkg_manifest_local is None:
         return 0
 
-    if False:
-        # TODO: support this, currently creating this data involves a conversion which isn't free.
-        # This can probably be done once and cached, but for now use another function that provides this.
-        pkg_manifest_remote = repo_cache_store.refresh_remote_from_directory(
-            directory=repo_directory,
-            error_fn=print,
-        )
-    else:
-        pkg_manifest_remote = None
-        for pkg_manifest_remote_test in repo_cache_store.pkg_manifest_from_remote_ensure(
-                error_fn=print,
-                ignore_missing=True,
-                directory_subset=[repo_directory],
-        ):
-            pkg_manifest_remote = pkg_manifest_remote_test
-            break
+    pkg_manifest_remote = repo_cache_store.refresh_remote_from_directory(
+        directory=repo_directory,
+        error_fn=print,
+    )
 
     if pkg_manifest_remote is None:
         return 0
@@ -162,7 +139,7 @@ def repo_stats_calc_outdated_for_repo_directory(repo_directory):
         if item_remote is None:
             continue
 
-        if item_remote["version"] != item_local["version"]:
+        if item_remote.version != item_local.version:
             package_count += 1
     return package_count
 
@@ -174,6 +151,7 @@ def repo_stats_calc():
     if bpy.app.background:
         return
 
+    import os
     package_count = 0
 
     for repo_item in bpy.context.preferences.extensions.repos:
@@ -184,7 +162,14 @@ def repo_stats_calc():
         if not repo_item.remote_url:
             continue
 
-        package_count += repo_stats_calc_outdated_for_repo_directory(repo_item.directory)
+        # If the directory is missing, ignore it.
+        # Otherwise users may be bothered with errors from unrelated repositories
+        # because calculating status currently runs after many actions.
+        repo_directory = repo_item.directory
+        if not os.path.isdir(repo_directory):
+            continue
+
+        package_count += repo_stats_calc_outdated_for_repo_directory(repo_directory)
 
     bpy.context.window_manager.extensions_updates = package_count
 
@@ -197,6 +182,7 @@ def print_debug(*args, **kw):
 
 def repos_to_notify():
     import os
+    from . import bl_extension_ops
     from .bl_extension_utils import (
         repo_index_outdated,
         scandir_with_demoted_errors,
@@ -267,7 +253,7 @@ def repos_to_notify():
             bl_extension_ops.RepoItem(
                 name=repo_item.name,
                 directory=repo_directory,
-                source="" if repo_item.use_custom_directory else repo_item.source,
+                source="" if repo_item.use_remote_url else repo_item.source,
                 remote_url=remote_url,
                 module=repo_item.module,
                 use_cache=repo_item.use_cache,
@@ -291,6 +277,12 @@ def extenion_repos_sync(*_):
 
     print_debug("SYNC:", active_repo.name)
     # There may be nothing to upgrade.
+
+    # FIXME: don't use the operator, this is error prone.
+    # The same method used to update the status-bar on startup would be preferable.
+    if not bpy.ops.extensions.repo_sync_all.poll():
+        print("skipping sync, poll failed")
+        return
 
     from contextlib import redirect_stdout
     import io
@@ -361,6 +353,7 @@ def monkeypatch_extenions_repos_update_pre_impl():
 
 def monkeypatch_extenions_repos_update_post_impl():
     import os
+    # pylint: disable-next=redefined-outer-name
     from . import bl_extension_ops
 
     repo_cache_store = repo_cache_store_ensure()
@@ -440,8 +433,7 @@ def monkeypatch_install():
 def monkeypatch_uninstall():
     handlers = bpy.app.handlers._extension_repos_update_pre
     fn_override = monkeypatch_extensions_repos_update_pre
-    for i in range(len(handlers)):
-        fn = handlers[i]
+    for i, fn in enumerate(handlers):
         if fn is fn_override:
             handlers[i] = fn_override._fn_orig
             del fn_override._fn_orig
@@ -449,8 +441,7 @@ def monkeypatch_uninstall():
 
     handlers = bpy.app.handlers._extension_repos_update_post
     fn_override = monkeypatch_extenions_repos_update_post
-    for i in range(len(handlers)):
-        fn = handlers[i]
+    for i, fn in enumerate(handlers):
         if fn is fn_override:
             handlers[i] = fn_override._fn_orig
             del fn_override._fn_orig
@@ -475,7 +466,7 @@ def repo_cache_store_ensure():
         bl_extension_ops,
         bl_extension_utils,
     )
-    _repo_cache_store = bl_extension_utils.RepoCacheStore()
+    _repo_cache_store = bl_extension_utils.RepoCacheStore(bpy.app.version)
     bl_extension_ops.repo_cache_store_refresh_from_prefs(_repo_cache_store)
     return _repo_cache_store
 
@@ -514,7 +505,7 @@ def theme_preset_draw(menu, context):
         repo_item = repos_all[i]
         directory = repo_item.directory
         for pkg_idname, value in pkg_manifest_local.items():
-            if value["type"] != "theme":
+            if value.type != "theme":
                 continue
 
             theme_dir, theme_files = pkg_theme_file_list(directory, pkg_idname)
@@ -538,7 +529,6 @@ class BlExtDummyGroup(bpy.types.PropertyGroup):
 # Registration
 
 classes = (
-    BlExtPreferences,
     BlExtDummyGroup,
 )
 
