@@ -71,7 +71,7 @@ using namespace blender::ed::seq;
 
 #define MUTE_ALPHA 120
 
-constexpr float MISSING_ICON_SIZE = 16.0f;
+constexpr float MISSING_ICON_SIZE = 12.0f;
 
 struct StripDrawContext {
   Sequence *seq;
@@ -881,22 +881,23 @@ static void get_strip_text_color(const TimelineDrawContext *ctx,
                                  const StripDrawContext *strip,
                                  uchar r_col[4])
 {
-  /* Text: white 75% opacity, fully opaque when selected/active. */
   const Sequence *seq = strip->seq;
   const bool active_or_selected = (seq->flag & SELECT) || strip->is_active_strip;
-  if (active_or_selected) {
-    r_col[0] = r_col[1] = r_col[2] = 255;
-    r_col[3] = 255;
-  }
-  else {
-    r_col[0] = r_col[1] = r_col[2] = 224;
-    r_col[3] = 192;
-  }
 
-  /* Muted strips: gray color, reduce opacity. */
-  if (SEQ_render_is_muted(ctx->channels, seq)) {
-    r_col[0] = r_col[1] = r_col[2] = 192;
-    r_col[3] *= 0.66f;
+  /* Text: white when selected/active, black otherwise. */
+  r_col[0] = r_col[1] = r_col[2] = r_col[3] = 255;
+
+  /* If not active or selected, draw text black. */
+  if (!active_or_selected) {
+    r_col[0] = r_col[1] = r_col[2] = 0;
+
+    /* On muted and missing media/data-block strips: gray color, reduce opacity. */
+    if ((SEQ_render_is_muted(ctx->channels, seq)) ||
+        (strip->missing_data_block || strip->missing_media))
+    {
+      r_col[0] = r_col[1] = r_col[2] = 192;
+      r_col[3] *= 0.66f;
+    }
   }
 }
 
@@ -1247,15 +1248,10 @@ static void visible_strips_ordered_get(TimelineDrawContext *timeline_ctx,
   Vector<Sequence *> strips = sequencer_visible_strips_get(timeline_ctx->C);
   r_unselected.clear();
   r_selected.clear();
-  const bool act_seq_is_selected = act_seq != nullptr && (act_seq->flag & SELECT) != 0;
-
-  if (act_seq_is_selected) {
-    strips.remove_if([&](Sequence *seq) { return seq == act_seq; });
-  }
 
   for (Sequence *seq : strips) {
-    /* Selected active will be added last. */
-    if (act_seq_is_selected && seq == act_seq) {
+    /* Active will be added last. */
+    if (seq == act_seq) {
       continue;
     }
 
@@ -1267,10 +1263,15 @@ static void visible_strips_ordered_get(TimelineDrawContext *timeline_ctx,
       r_selected.append(strip_ctx);
     }
   }
-  /* Add selected active, if any. */
-  if (act_seq_is_selected) {
+  /* Add active, if any. */
+  if (act_seq) {
     StripDrawContext strip_ctx = strip_draw_context_get(timeline_ctx, act_seq);
-    r_selected.append(strip_ctx);
+    if ((act_seq->flag & SELECT) == 0) {
+      r_unselected.append(strip_ctx);
+    }
+    else {
+      r_selected.append(strip_ctx);
+    }
   }
 }
 
@@ -1301,7 +1302,7 @@ static void draw_strips_background(TimelineDrawContext *timeline_ctx,
     /* Muted strips: turn almost gray. */
     if (col[3] == MUTE_ALPHA) {
       uchar muted_color[3] = {128, 128, 128};
-      UI_GetColorPtrBlendShade3ubv(col, muted_color, col, 0.8f, 0);
+      UI_GetColorPtrBlendShade3ubv(col, muted_color, col, 0.5f, 0);
     }
     data.col_background = color_pack(col);
 
@@ -1512,13 +1513,8 @@ static void draw_seq_strips(TimelineDrawContext *timeline_ctx,
   /* Draw icons. */
   draw_strip_icons(timeline_ctx, strips);
 
-  /* Draw text labels with a drop shadow. */
-  const int font_id = BLF_default();
-  BLF_enable(font_id, BLF_SHADOW);
-  BLF_shadow(font_id, FontShadowType::Blur3x3, float4{0.0f, 0.0f, 0.0f, 1.0f});
-  BLF_shadow_offset(font_id, 1, -1);
+  /* Draw text labels. */
   UI_view2d_text_cache_draw(timeline_ctx->region);
-  BLF_disable(font_id, BLF_SHADOW);
   GPU_blend(GPU_BLEND_NONE);
 }
 
