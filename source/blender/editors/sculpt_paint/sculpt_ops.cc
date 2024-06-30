@@ -355,6 +355,10 @@ void ED_object_sculptmode_enter_ex(Main &bmain,
   const int mode_flag = OB_MODE_SCULPT;
   Mesh *mesh = BKE_mesh_from_object(&ob);
 
+  /* Re-triangulating the mesh for position changes in sculpt mode isn't worth the performance
+   * impact, so delay triangulation updates until the user exits sculpt mode. */
+  mesh->runtime->corner_tris_cache.freeze();
+
   /* Enter sculpt mode. */
   ob.mode |= mode_flag;
 
@@ -371,7 +375,7 @@ void ED_object_sculptmode_enter_ex(Main &bmain,
   Paint *paint = BKE_paint_get_active_from_paintmode(&scene, PaintMode::Sculpt);
   BKE_paint_init(&bmain, &scene, PaintMode::Sculpt, PAINT_CURSOR_SCULPT);
 
-  ED_paint_cursor_start(paint, SCULPT_poll);
+  ED_paint_cursor_start(paint, SCULPT_brush_cursor_poll);
 
   /* Check dynamic-topology flag; re-enter dynamic-topology mode when changing modes,
    * As long as no data was added that is not supported. */
@@ -449,6 +453,8 @@ void ED_object_sculptmode_exit_ex(Main &bmain, Depsgraph &depsgraph, Scene &scen
   using namespace blender::ed::sculpt_paint;
   const int mode_flag = OB_MODE_SCULPT;
   Mesh *mesh = BKE_mesh_from_object(&ob);
+
+  mesh->runtime->corner_tris_cache.unfreeze();
 
   multires_flush_sculpt_updates(&ob);
 
@@ -638,13 +644,14 @@ void SCULPT_geometry_preview_lines_update(bContext *C, SculptSession &ss, float 
 
 static int sculpt_sample_color_invoke(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
+  using namespace blender;
+  using namespace blender::ed::sculpt_paint;
   Sculpt &sd = *CTX_data_tool_settings(C)->sculpt;
   Scene &scene = *CTX_data_scene(C);
   Object &ob = *CTX_data_active_object(C);
   Brush &brush = *BKE_paint_brush(&sd.paint);
   SculptSession &ss = *ob.sculpt;
   PBVHVertRef active_vertex = SCULPT_active_vertex_get(ss);
-  blender::float4 active_vertex_color;
 
   if (!SCULPT_handles_colors_report(ss, op->reports)) {
     return OPERATOR_CANCELLED;
@@ -659,12 +666,19 @@ static int sculpt_sample_color_invoke(bContext *C, wmOperator *op, const wmEvent
   BKE_sculpt_update_object_for_edit(CTX_data_depsgraph_pointer(C), &ob, false);
 
   /* No color attribute? Set color to white. */
-  if (!SCULPT_has_colors(ss)) {
-    copy_v4_fl(active_vertex_color, 1.0f);
+  const Mesh &mesh = *static_cast<const Mesh *>(ob.data);
+  const OffsetIndices<int> faces = mesh.faces();
+  const Span<int> corner_verts = mesh.corner_verts();
+  const GroupedSpan<int> vert_to_face_map = ss.vert_to_face_map;
+  const bke::GAttributeReader color_attribute = color::active_color_attribute(mesh);
+
+  blender::float4 active_vertex_color;
+  if (!color_attribute) {
+    active_vertex_color = float4(1.0f);
   }
-  else {
-    active_vertex_color = SCULPT_vertex_color_get(ss, active_vertex);
-  }
+  const GVArraySpan colors = *color_attribute;
+  active_vertex_color = color::color_vert_get(
+      faces, corner_verts, vert_to_face_map, colors, color_attribute.domain, active_vertex.i);
 
   float color_srgb[3];
   IMB_colormanagement_scene_linear_to_srgb_v3(color_srgb, active_vertex_color);
@@ -870,10 +884,6 @@ static int sculpt_mask_by_color_invoke(bContext *C, wmOperator *op, const wmEven
   const float threshold = RNA_float_get(op->ptr, "threshold");
   const bool invert = RNA_boolean_get(op->ptr, "invert");
   const bool preserve_mask = RNA_boolean_get(op->ptr, "preserve_previous_mask");
-
-  if (SCULPT_has_loop_colors(ob)) {
-    BKE_pbvh_ensure_node_loops(*ss.pbvh);
-  }
 
   if (RNA_boolean_get(op->ptr, "contiguous")) {
     sculpt_mask_by_color_contiguous(ob, active_vertex, threshold, invert, preserve_mask);

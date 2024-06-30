@@ -38,6 +38,7 @@ struct SimulationData;
 }
 namespace undo {
 struct Node;
+struct StepData;
 enum class Type : int8_t;
 }
 }
@@ -123,6 +124,7 @@ enum eBoundaryAutomaskMode {
 namespace blender::ed::sculpt_paint::undo {
 
 enum class Type : int8_t {
+  None,
   Position,
   HideVert,
   HideFace,
@@ -135,28 +137,7 @@ enum class Type : int8_t {
   Color,
 };
 
-/* Storage of geometry for the undo node.
- * Is used as a storage for either original or modified geometry. */
-struct NodeGeometry {
-  /* Is used for sanity check, helping with ensuring that two and only two
-   * geometry pushes happened in the undo stack. */
-  bool is_initialized;
-
-  CustomData vert_data;
-  CustomData edge_data;
-  CustomData corner_data;
-  CustomData face_data;
-  int *face_offset_indices;
-  const ImplicitSharingInfo *face_offsets_sharing_info;
-  int totvert;
-  int totedge;
-  int totloop;
-  int faces_num;
-};
-
 struct Node {
-  Type type;
-
   Array<float3> position;
   Array<float3> orig_position;
   Array<float3> normal;
@@ -168,10 +149,6 @@ struct Node {
 
   /* Mesh. */
 
-  /* to verify if totvert it still the same */
-  int mesh_verts_num;
-  int mesh_corners_num;
-
   Array<int> vert_indices;
   int unique_verts_num;
 
@@ -182,44 +159,14 @@ struct Node {
 
   /* Multires. */
 
-  /** The number of grids in the entire mesh. */
-  int mesh_grids_num;
-  /** A copy of #SubdivCCG::grid_size. */
-  int grid_size;
   /** Indices of grids in the PBVH node. */
   Array<int> grids;
   BitGroupVector<> grid_hidden;
-
-  /* bmesh */
-  BMLogEntry *bm_entry;
-  bool applied;
-
-  /* shape keys */
-  char shapeName[MAX_NAME]; /* `sizeof(KeyBlock::name)`. */
-
-  /* Geometry modification operations.
-   *
-   * Original geometry is stored before some modification is run and is used to restore state of
-   * the object when undoing the operation
-   *
-   * Modified geometry is stored after the modification and is used to redo the modification. */
-  bool geometry_clear_pbvh;
-  undo::NodeGeometry geometry_original;
-  undo::NodeGeometry geometry_modified;
-
-  /* Geometry at the bmesh enter moment. */
-  undo::NodeGeometry geometry_bmesh_enter;
-
-  /* pivot */
-  float3 pivot_pos;
-  float pivot_rot[4];
 
   /* Sculpt Face Sets */
   Array<int> face_sets;
 
   Vector<int> face_indices;
-
-  size_t undo_size;
 };
 
 }
@@ -727,6 +674,11 @@ bool SCULPT_mode_poll_view3d(bContext *C);
 bool SCULPT_poll(bContext *C);
 
 /**
+ * Determines whether or not the brush cursor should be shown in the viewport
+ */
+bool SCULPT_brush_cursor_poll(bContext *C);
+
+/**
  * Returns true if sculpt session can handle color attributes
  * (BKE_pbvh_type(*ss->pbvh) == PBVH_FACES).  If false an error
  * message will be shown to the user.  Operators should return
@@ -875,16 +827,8 @@ const blender::float3 SCULPT_vertex_normal_get(const SculptSession &ss, PBVHVert
 float SCULPT_mask_get_at_grids_vert_index(const SubdivCCG &subdiv_ccg,
                                           const CCGKey &key,
                                           int vert_index);
-blender::float4 SCULPT_vertex_color_get(const SculptSession &ss, PBVHVertRef vertex);
-void SCULPT_vertex_color_set(SculptSession &ss, PBVHVertRef vertex, const blender::float4 &color);
 
 bool SCULPT_vertex_is_occluded(SculptSession &ss, PBVHVertRef vertex, bool original);
-
-/** Returns true if a color attribute exists in the current sculpt session. */
-bool SCULPT_has_colors(const SculptSession &ss);
-
-/** Returns true if the active color attribute is on loop (AttrDomain::Corner) domain. */
-bool SCULPT_has_loop_colors(const Object &ob);
 
 const float *SCULPT_vertex_persistent_co_get(const SculptSession &ss, PBVHVertRef vertex);
 blender::float3 SCULPT_vertex_persistent_normal_get(const SculptSession &ss, PBVHVertRef vertex);
@@ -1031,10 +975,9 @@ Set<int> gather_hidden_face_sets(Span<bool> hide_poly, Span<int> face_sets);
  * Initialize a #SculptOrigVertData for accessing original vertex data;
  * handles #BMesh, #Mesh, and multi-resolution.
  */
-void SCULPT_orig_vert_data_init(SculptOrigVertData &data,
-                                const Object &ob,
-                                const PBVHNode &node,
-                                blender::ed::sculpt_paint::undo::Type type);
+SculptOrigVertData SCULPT_orig_vert_data_init(const Object &ob,
+                                              const PBVHNode &node,
+                                              blender::ed::sculpt_paint::undo::Type type);
 /**
  * Update a #SculptOrigVertData for a particular vertex from the PBVH iterator.
  */
@@ -1174,22 +1117,6 @@ void sculpt_apply_texture(const SculptSession &ss,
                           float r_rgba[4]);
 
 /**
- * Return a color of a brush texture on a particular vertex multiplied by active masks.
- */
-void SCULPT_brush_strength_color(
-    SculptSession &ss,
-    const Brush &brush,
-    const float brush_point[3],
-    float len,
-    const float vno[3],
-    const float fno[3],
-    float mask,
-    const PBVHVertRef vertex,
-    int thread_id,
-    const blender::ed::sculpt_paint::auto_mask::NodeData *automask_data,
-    float r_rgba[4]);
-
-/**
  * Calculates the vertex offset for a single vertex depending on the brush setting rgb as vector
  * displacement.
  */
@@ -1253,7 +1180,7 @@ ENUM_OPERATORS(WarnFlag, MODIFIER);
 
 /** Enable dynamic topology; mesh will be triangulated */
 void enable_ex(Main &bmain, Depsgraph &depsgraph, Object &ob);
-void disable(bContext *C, undo::Node *unode);
+void disable(bContext *C, undo::StepData *undo_step);
 void disable_with_undo(Main &bmain, Depsgraph &depsgraph, Scene &scene, Object &ob);
 
 /**
@@ -1602,7 +1529,13 @@ void bmesh_four_neighbor_average(float avg[3], const float3 &direction, BMVert *
 
 float3 neighbor_coords_average(SculptSession &ss, PBVHVertRef vertex);
 float neighbor_mask_average(SculptSession &ss, SculptMaskWriteInfo write_info, PBVHVertRef vertex);
-float4 neighbor_color_average(SculptSession &ss, PBVHVertRef vertex);
+float4 neighbor_color_average(SculptSession &ss,
+                              OffsetIndices<int> faces,
+                              Span<int> corner_verts,
+                              GroupedSpan<int> vert_to_face_map,
+                              GSpan color_attribute,
+                              bke::AttrDomain color_domain,
+                              int vert);
 
 /**
  * Mask the mesh boundaries smoothing only the mesh surface without using auto-masking.
@@ -1656,11 +1589,13 @@ void SCULPT_cache_free(blender::ed::sculpt_paint::StrokeCache *cache);
 namespace blender::ed::sculpt_paint::undo {
 
 /**
- * Store undo data of the given type for a PBVH node.
+ * Store undo data of the given type for a PBVH node. This function can be called by multiple
+ * threads concurrently, as long as they don't pass the same PBVH node.
  *
  * This is only possible when building an undo step, in between #push_begin and #push_end.
  */
-undo::Node *push_node(const Object &object, const PBVHNode *node, undo::Type type);
+void push_node(const Object &object, const PBVHNode *node, undo::Type type);
+void push_nodes(Object &object, Span<const PBVHNode *> nodes, undo::Type type);
 
 /**
  * Retrieve the undo data of a given type for the active undo step. For example, this is used to
@@ -1668,7 +1603,7 @@ undo::Node *push_node(const Object &object, const PBVHNode *node, undo::Type typ
  *
  * This is only possible when building an undo step, in between #push_begin and #push_end.
  */
-undo::Node *get_node(const PBVHNode *node, undo::Type type);
+const undo::Node *get_node(const PBVHNode *node, undo::Type type);
 
 /**
  * Pushes an undo step using the operator name. This is necessary for
@@ -1684,6 +1619,9 @@ void push_begin(Object &ob, const wmOperator *op);
 void push_begin_ex(Object &ob, const char *name);
 void push_end(Object &ob);
 void push_end_ex(Object &ob, const bool use_nested_undo);
+
+void restore_from_bmesh_enter_geometry(const StepData &step_data, Mesh &mesh);
+BMLogEntry *get_bmesh_log_entry();
 
 }
 
@@ -1813,7 +1751,7 @@ struct GestureData {
 /* Common abstraction structure for gesture operations. */
 struct Operation {
   /* Initial setup (data updates, special undo push...). */
-  void (*begin)(bContext &, GestureData &);
+  void (*begin)(bContext &, wmOperator &, GestureData &);
 
   /* Apply the gesture action for each symmetry pass. */
   void (*apply_for_symmetry_pass)(bContext &, GestureData &);
@@ -2014,6 +1952,42 @@ void do_draw_face_sets_brush(const Sculpt &sd, Object &ob, Span<PBVHNode *> node
 
 namespace color {
 
+/* Swaps colors at each element in indices with values in colors. */
+void swap_gathered_colors(Span<int> indices,
+                          GMutableSpan color_attribute,
+                          MutableSpan<float4> r_colors);
+
+/* Stores colors from the elements in indices into colors. */
+void gather_colors(const GSpan color_attribute,
+                   const Span<int> indices,
+                   MutableSpan<float4> r_colors);
+
+/* Like gather_colors but handles loop->vert conversion */
+void gather_colors_vert(OffsetIndices<int> faces,
+                        Span<int> corner_verts,
+                        GroupedSpan<int> vert_to_face_map,
+                        GSpan color_attribute,
+                        bke::AttrDomain color_domain,
+                        Span<int> verts,
+                        MutableSpan<float4> r_colors);
+
+void color_vert_set(OffsetIndices<int> faces,
+                    Span<int> corner_verts,
+                    GroupedSpan<int> vert_to_face_map,
+                    bke::AttrDomain color_domain,
+                    int vert,
+                    const float4 &color,
+                    GMutableSpan color_attribute);
+float4 color_vert_get(OffsetIndices<int> faces,
+                      Span<int> corner_verts,
+                      GroupedSpan<int> vert_to_face_map,
+                      GSpan color_attribute,
+                      bke::AttrDomain color_domain,
+                      int vert);
+
+bke::GAttributeReader active_color_attribute(const Mesh &mesh);
+bke::GSpanAttributeWriter active_color_attribute_for_write(Mesh &mesh);
+
 void do_paint_brush(PaintModeSettings &paint_mode_settings,
                     const Sculpt &sd,
                     Object &ob,
@@ -2044,7 +2018,6 @@ float SCULPT_clay_thumb_get_stabilized_pressure(
     const blender::ed::sculpt_paint::StrokeCache &cache);
 
 void SCULPT_do_clay_thumb_brush(const Sculpt &sd, Object &ob, blender::Span<PBVHNode *> nodes);
-void SCULPT_do_clay_brush(const Sculpt &sd, Object &ob, blender::Span<PBVHNode *> nodes);
 void SCULPT_do_snake_hook_brush(const Sculpt &sd, Object &ob, blender::Span<PBVHNode *> nodes);
 void SCULPT_do_thumb_brush(const Sculpt &sd, Object &ob, blender::Span<PBVHNode *> nodes);
 void SCULPT_do_rotate_brush(const Sculpt &sd, Object &ob, blender::Span<PBVHNode *> nodes);

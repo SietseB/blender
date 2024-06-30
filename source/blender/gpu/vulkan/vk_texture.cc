@@ -13,6 +13,7 @@
 #include "vk_data_conversion.hh"
 #include "vk_framebuffer.hh"
 #include "vk_memory.hh"
+#include "vk_pixel_buffer.hh"
 #include "vk_shader.hh"
 #include "vk_shader_interface.hh"
 #include "vk_state_manager.hh"
@@ -88,15 +89,16 @@ void VKTexture::generate_mipmap()
 void VKTexture::copy_to(VKTexture &dst_texture, VkImageAspectFlags vk_image_aspect)
 {
   render_graph::VKCopyImageNode::CreateInfo copy_image = {};
-  copy_image.src_image = vk_image_handle();
-  copy_image.dst_image = dst_texture.vk_image_handle();
-  copy_image.region.srcSubresource.aspectMask = vk_image_aspect;
-  copy_image.region.srcSubresource.mipLevel = 0;
-  copy_image.region.srcSubresource.layerCount = vk_layer_count(1);
-  copy_image.region.dstSubresource.aspectMask = vk_image_aspect;
-  copy_image.region.dstSubresource.mipLevel = 0;
-  copy_image.region.dstSubresource.layerCount = vk_layer_count(1);
-  copy_image.region.extent = vk_extent_3d(0);
+  copy_image.node_data.src_image = vk_image_handle();
+  copy_image.node_data.dst_image = dst_texture.vk_image_handle();
+  copy_image.node_data.region.srcSubresource.aspectMask = vk_image_aspect;
+  copy_image.node_data.region.srcSubresource.mipLevel = 0;
+  copy_image.node_data.region.srcSubresource.layerCount = vk_layer_count(1);
+  copy_image.node_data.region.dstSubresource.aspectMask = vk_image_aspect;
+  copy_image.node_data.region.dstSubresource.mipLevel = 0;
+  copy_image.node_data.region.dstSubresource.layerCount = vk_layer_count(1);
+  copy_image.node_data.region.extent = vk_extent_3d(0);
+  copy_image.vk_image_aspect = to_vk_image_aspect_flag_bits(device_format_get());
 
   VKContext &context = *VKContext::get();
   context.render_graph.add_node(copy_image);
@@ -140,14 +142,21 @@ void VKTexture::clear_depth_stencil(const eGPUFrameBufferBits buffers,
                                     uint clear_stencil)
 {
   BLI_assert(buffers & (GPU_DEPTH_BIT | GPU_STENCIL_BIT));
+  VkImageAspectFlags vk_image_aspect_device = to_vk_image_aspect_flag_bits(device_format_get());
+  VkImageAspectFlags vk_image_aspect = to_vk_image_aspect_flag_bits(
+                                           buffers & (GPU_DEPTH_BIT | GPU_STENCIL_BIT)) &
+                                       vk_image_aspect_device;
+  if (vk_image_aspect == VK_IMAGE_ASPECT_NONE) {
+    /* Early exit: texture doesn't have any aspect that needs to be cleared. */
+    return;
+  }
 
   render_graph::VKClearDepthStencilImageNode::CreateInfo clear_depth_stencil_image = {};
   clear_depth_stencil_image.node_data.vk_image = vk_image_handle();
-  clear_depth_stencil_image.vk_image_aspects = to_vk_image_aspect_flag_bits(device_format_get());
+  clear_depth_stencil_image.vk_image_aspects = vk_image_aspect_device;
   clear_depth_stencil_image.node_data.vk_clear_depth_stencil_value.depth = clear_depth;
   clear_depth_stencil_image.node_data.vk_clear_depth_stencil_value.stencil = clear_stencil;
-  clear_depth_stencil_image.node_data.vk_image_subresource_range.aspectMask =
-      to_vk_image_aspect_flag_bits(buffers & (GPU_DEPTH_BIT | GPU_STENCIL_BIT));
+  clear_depth_stencil_image.node_data.vk_image_subresource_range.aspectMask = vk_image_aspect;
   clear_depth_stencil_image.node_data.vk_image_subresource_range.layerCount =
       VK_REMAINING_ARRAY_LAYERS;
   clear_depth_stencil_image.node_data.vk_image_subresource_range.levelCount =
@@ -304,13 +313,13 @@ void VKTexture::update_sub(
   context.render_graph.add_node(copy_buffer_to_image);
 }
 
-void VKTexture::update_sub(int /*offset*/[3],
-                           int /*extent*/[3],
-                           eGPUDataFormat /*format*/,
-                           GPUPixelBuffer * /*pixbuf*/)
+void VKTexture::update_sub(int offset_[3],
+                           int extent_[3],
+                           eGPUDataFormat format,
+                           GPUPixelBuffer *pixbuf)
 {
-  BLI_assert(!is_texture_view());
-  NOT_YET_IMPLEMENTED;
+  VKPixelBuffer &pixel_buffer = *unwrap(unwrap(pixbuf));
+  update_sub(0, offset_, extent_, format, pixel_buffer.map());
 }
 
 /* TODO(fclem): Legacy. Should be removed at some point. */
@@ -521,13 +530,14 @@ void VKTexture::add_to_descriptor_set(AddToDescriptorSetContext &data,
   const std::optional<VKDescriptorSet::Location> location =
       data.shader_interface.descriptor_set_location(bind_type, binding);
   if (location) {
+    const VKImageViewArrayed arrayed = data.shader_interface.arrayed(bind_type, binding);
     if (bind_type == shader::ShaderCreateInfo::Resource::BindType::IMAGE) {
-      data.descriptor_set.image_bind(*this, *location);
+      data.descriptor_set.image_bind(*this, *location, arrayed);
     }
     else {
       VKDevice &device = VKBackend::get().device;
       const VKSampler &sampler = device.samplers().get(sampler_state);
-      data.descriptor_set.bind(*this, *location, sampler);
+      data.descriptor_set.bind(*this, *location, sampler, arrayed);
     }
     data.resource_access_info.images.append({vk_image_handle(),
                                              data.shader_interface.access_mask(bind_type, binding),
@@ -586,7 +596,7 @@ const VKImageView &VKTexture::image_view_get(const VKImageViewInfo &info)
   if (is_texture_view()) {
     // TODO: API should be improved as we don't support image view specialization.
     // In the current API this is still possible to setup when using attachments.
-    return image_view_get();
+    return image_view_get(info.arrayed);
   }
   for (const VKImageView &image_view : image_views_) {
     if (image_view.info == info) {
@@ -598,12 +608,17 @@ const VKImageView &VKTexture::image_view_get(const VKImageViewInfo &info)
   return image_views_.last();
 }
 
-const VKImageView &VKTexture::image_view_get()
+const VKImageView &VKTexture::image_view_get(VKImageViewArrayed arrayed)
 {
-  image_view_info_.layer_range = layer_range();
   image_view_info_.mip_range = mip_map_range();
   image_view_info_.use_srgb = true;
   image_view_info_.use_stencil = use_stencil_;
+  image_view_info_.arrayed = arrayed;
+  image_view_info_.layer_range = layer_range();
+  if (arrayed == VKImageViewArrayed::NOT_ARRAYED) {
+    image_view_info_.layer_range = image_view_info_.layer_range.slice(
+        0, ELEM(type_, GPU_TEXTURE_CUBE, GPU_TEXTURE_CUBE_ARRAY) ? 6 : 1);
+  }
 
   if (is_texture_view()) {
     return source_texture_->image_view_get(image_view_info_);

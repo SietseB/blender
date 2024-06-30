@@ -902,24 +902,16 @@ static int init_op_exec(bContext *C, wmOperator *op)
           "material_index", bke::AttrDomain::Face, 0);
       const VArraySpan<bool> hide_poly = *attributes.lookup<bool>(".hide_poly",
                                                                   bke::AttrDomain::Face);
-      const Set<int> hidden_face_sets = gather_hidden_face_sets(hide_poly, face_sets.span);
-
-      int prev_material = material_indices[0];
-      int material_face_set = 1;
       for (const int i : IndexRange(mesh->faces_num)) {
         if (!hide_poly.is_empty() && hide_poly[i]) {
           continue;
         }
-        if (prev_material != material_indices[i]) {
-          material_face_set += 1;
-        }
-        while (hidden_face_sets.contains(material_face_set)) {
-          material_face_set += 1;
-        }
 
-        face_sets.span[i] = material_face_set;
-        prev_material = material_indices[i];
+        /* In some cases material face set index could be same as hidden face set index
+         * A more robust implementation is needed to avoid this */
+        face_sets.span[i] = material_indices[i] + 1;
       }
+
       face_sets.finish();
       break;
     }
@@ -1740,10 +1732,11 @@ struct FaceSetOperation {
   int new_face_set_id;
 };
 
-static void gesture_begin(bContext &C, gesture::GestureData &gesture_data)
+static void gesture_begin(bContext &C, wmOperator &op, gesture::GestureData &gesture_data)
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(&C);
   BKE_sculpt_update_object_for_edit(depsgraph, gesture_data.vc.obact, false);
+  undo::push_begin(*gesture_data.vc.obact, &op);
 }
 
 static void gesture_apply_mesh(gesture::GestureData &gesture_data, const Span<PBVHNode *> nodes)
@@ -1845,7 +1838,10 @@ static void gesture_apply_for_symmetry_pass(bContext & /*C*/, gesture::GestureDa
   }
 }
 
-static void gesture_end(bContext & /*C*/, gesture::GestureData & /*gesture_data*/) {}
+static void gesture_end(bContext & /*C*/, gesture::GestureData &gesture_data)
+{
+  undo::push_end(*gesture_data.vc.obact);
+}
 
 static void init_operation(gesture::GestureData &gesture_data, wmOperator & /*op*/)
 {
