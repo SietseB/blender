@@ -63,6 +63,7 @@ typedef struct BrushGpencilSettings {
 
   /** Ondine: level of subdivision of new strokes. */
   int subdivision_level;
+  char _pad1[4];
 
   int flag2;
 
