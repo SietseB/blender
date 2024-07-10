@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.2.0 Beta (b'37e2a27bdddc')\n"
+"Project-Id-Version: Blender 4.2.0 Beta (b'987b781412f1')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-24 08:56+0000\n"
+"POT-Creation-Date: 2024-07-08 18:33+0000\n"
 "PO-Revision-Date: 2024-06-13 16:56+0000\n"
 "Last-Translator: Bartosz <gang65@poczta.onet.pl>\n"
 "Language-Team: Polish <https://translate.blender.org/projects/blender-ui/ui/pl/>\n"
@@ -8758,10 +8758,6 @@ msgid "Color of smoke"
 msgstr "Kolor dymu"
 
 
-msgid "Mapping"
-msgstr "Mapowanie"
-
-
 msgid "Collection"
 msgstr "Kolekcja"
 
@@ -9240,6 +9236,10 @@ msgstr "Oryginalny ID"
 
 msgid "Groups"
 msgstr "Grupy"
+
+
+msgid "Feature Set"
+msgstr "Zestaw funkcji"
 
 
 msgid "B-Bone"
@@ -11144,6 +11144,10 @@ msgid "Along Stroke"
 msgstr "Wzdłuż kreski"
 
 
+msgid "Mapping"
+msgstr "Mapowanie"
+
+
 msgid "Max Angle"
 msgstr "Największy kąt"
 
@@ -12633,6 +12637,10 @@ msgid "Move to Collection"
 msgstr "Przenieś do kolekcji"
 
 
+msgid "(undocumented operator)"
+msgstr "(operator bez dokumentacji)"
+
+
 msgctxt "Operator"
 msgid "Select Mirror"
 msgstr "Zaznacz odbicie lustrzane"
@@ -12780,10 +12788,6 @@ msgstr "Na zewnątrz obszaru adnotacji"
 msgctxt "Operator"
 msgid "Select"
 msgstr "Zaznacz"
-
-
-msgid "(undocumented operator)"
-msgstr "(operator bez dokumentacji)"
 
 
 msgctxt "Operator"
@@ -14693,6 +14697,10 @@ msgid "Custom properties"
 msgstr "Własne właściwości"
 
 
+msgid "Property Name"
+msgstr "Nazwa właściwości"
+
+
 msgctxt "Operator"
 msgid "Install Add-on"
 msgstr "Instaluj wtyczkę"
@@ -15597,10 +15605,6 @@ msgid "Edit Property"
 msgstr "Edytuj właściwość"
 
 
-msgid "Property Name"
-msgstr "Nazwa właściwości"
-
-
 msgctxt "Operator"
 msgid "Edit Property Value"
 msgstr "Edytuj wartość właściwości"
@@ -15948,11 +15952,6 @@ msgstr "Dane geometrii"
 
 msgid "Snapping"
 msgstr "Przyciąganie"
-
-
-msgctxt "ID"
-msgid "Displacement"
-msgstr "Przemieszczenie"
 
 
 msgid "Advanced Filter"
@@ -16771,10 +16770,6 @@ msgstr "Obliczenia procesora graficznego"
 
 msgid "Use GPU compute device for rendering, configured in the system tab in the user preferences"
 msgstr "Używa urządzenia graficznego do renderowania, skonfigurowanego w zakładce „System” w preferencjach użytkownika"
-
-
-msgid "Feature Set"
-msgstr "Zestaw funkcji"
 
 
 msgid "Feature set to use for rendering"
@@ -17764,6 +17759,11 @@ msgid "Rotate Normals"
 msgstr "Obróć wektory normalne"
 
 
+msgctxt "Operator"
+msgid "None"
+msgstr "Brak"
+
+
 msgid "Warning"
 msgstr "Uwaga"
 
@@ -17848,6 +17848,45 @@ msgstr "Zastosuj odwróconą pozę"
 msgctxt "Operator"
 msgid "Toggle Asset Shelf"
 msgstr "Przełącz półkę zasobów"
+
+
+msgid "Description:"
+msgstr "Opis:"
+
+
+msgid "Internet:"
+msgstr "Internet:"
+
+
+msgid "Author:"
+msgstr "Autor:"
+
+
+msgid "Version:"
+msgstr "Wersja:"
+
+
+msgid "Warning:"
+msgstr "Ostrzeżenie:"
+
+
+msgctxt "Operator"
+msgid "Documentation"
+msgstr "Dokumentacja"
+
+
+msgid "File:"
+msgstr "Plik:"
+
+
+msgctxt "Operator"
+msgid "Apply"
+msgstr "Zastosuj"
+
+
+msgctxt "Operator"
+msgid "Action"
+msgstr "Akcja"
 
 
 msgctxt "Operator"
@@ -18249,11 +18288,6 @@ msgstr "Ukryj niezaznaczone"
 
 
 msgctxt "Operator"
-msgid "None"
-msgstr "Brak"
-
-
-msgctxt "Operator"
 msgid "Invert"
 msgstr "Odwróć"
 
@@ -18495,11 +18529,6 @@ msgstr "Odbicie X"
 msgctxt "Operator"
 msgid "Mirror Y"
 msgstr "Odbicie Y"
-
-
-msgctxt "Operator"
-msgid "Action"
-msgstr "Akcja"
 
 
 msgctxt "Operator"
@@ -19068,41 +19097,12 @@ msgid "Load Factory Blender Preferences"
 msgstr "Wczytaj preferencje fabryczne programu Blender"
 
 
-msgid "Description:"
-msgstr "Opis:"
-
-
 msgid "Location:"
 msgstr "Położenie:"
 
 
-msgid "File:"
-msgstr "Plik:"
-
-
-msgid "Author:"
-msgstr "Autor:"
-
-
-msgid "Version:"
-msgstr "Wersja:"
-
-
-msgid "Warning:"
-msgstr "Ostrzeżenie:"
-
-
-msgid "Internet:"
-msgstr "Internet:"
-
-
 msgid "User:"
 msgstr "Użytkownik:"
-
-
-msgctxt "Operator"
-msgid "Documentation"
-msgstr "Dokumentacja"
 
 
 msgctxt "Operator"
@@ -19563,11 +19563,6 @@ msgstr "Ponownie utwórz siatkę"
 msgctxt "Operator"
 msgid "Quick Edit"
 msgstr "Szybka edycja"
-
-
-msgctxt "Operator"
-msgid "Apply"
-msgstr "Zastosuj"
 
 
 msgid "<No ID pointer>"
@@ -20845,6 +20840,14 @@ msgid "Redo"
 msgstr "Ponów"
 
 
+msgid "OK"
+msgstr "OK"
+
+
+msgid "Cancel"
+msgstr "Anuluj"
+
+
 msgid "Menu \"%s\" not found"
 msgstr "Nie odnaleziono menu \"%s\""
 
@@ -21211,6 +21214,11 @@ msgid "New"
 msgstr "Nowy"
 
 
+msgctxt "PaintCurve"
+msgid "New"
+msgstr "Nowa"
+
+
 msgctxt "ParticleSettings"
 msgid "New"
 msgstr "Nowe"
@@ -21254,11 +21262,6 @@ msgstr "Nowy"
 msgctxt "World"
 msgid "New"
 msgstr "Nowy"
-
-
-msgctxt "PaintCurve"
-msgid "New"
-msgstr "Nowa"
 
 
 msgid "Close"
@@ -21376,10 +21379,6 @@ msgstr "Kula"
 msgctxt "Mesh"
 msgid "Icosphere"
 msgstr "Kula ico"
-
-
-msgid "Cancel"
-msgstr "Anuluj"
 
 
 msgid "Intersection Type"
@@ -22545,10 +22544,6 @@ msgstr "Brak aktywnej grupy wierzchołków do malowania, rezygnuję"
 
 msgid "Warning!"
 msgstr "Uwaga!"
-
-
-msgid "OK"
-msgstr "OK"
 
 
 msgid "Attribute Data Detected"

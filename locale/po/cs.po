@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.2.0 Beta (b'37e2a27bdddc')\n"
+"Project-Id-Version: Blender 4.2.0 Beta (b'987b781412f1')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-24 08:56+0000\n"
+"POT-Creation-Date: 2024-07-08 18:33+0000\n"
 "PO-Revision-Date: 2024-04-29 13:36+0000\n"
 "Last-Translator: Zdeněk Doležal <Griperis@outlook.cz>\n"
 "Language-Team: Czech <https://translate.blender.org/projects/blender-ui/ui/cs/>\n"
@@ -7754,16 +7754,8 @@ msgid "Surface Emission"
 msgstr "Vypouštění Povrchu"
 
 
-msgid "Mapping"
-msgstr "Mapování"
-
-
 msgid "Texture mapping type"
 msgstr "Kresba na texturu"
-
-
-msgid "Generated"
-msgstr "Oddělit"
 
 
 msgid "Generated coordinates centered to flow object"
@@ -7860,6 +7852,10 @@ msgstr "Tažení"
 
 msgid "Jitter"
 msgstr "Chvění"
+
+
+msgid "Generated"
+msgstr "Oddělit"
 
 
 msgid "Grease Pencil Layer"
@@ -8630,6 +8626,10 @@ msgid "Pose Markers"
 msgstr "Předchozí klíč"
 
 
+msgid "Feature Set"
+msgstr "Sada Funkcí"
+
+
 msgid "Octahedral"
 msgstr "Osmistěn"
 
@@ -8664,6 +8664,10 @@ msgstr "Zobrazit armaturu v pózovém stavu"
 
 msgid "Rest Position"
 msgstr "Klidová poloha"
+
+
+msgid "Theme"
+msgstr "Motiv"
 
 
 msgid "X-Axis Mirror"
@@ -10094,16 +10098,8 @@ msgid "Where the image comes from"
 msgstr "Odkud obrázek pochází"
 
 
-msgid "Single Image"
-msgstr "Samostatná vrstva"
-
-
 msgid "Single image file"
 msgstr "Ukáže soubory obrázků"
-
-
-msgid "Movie"
-msgstr "Animace"
 
 
 msgid "Movie file"
@@ -10112,10 +10108,6 @@ msgstr "Přidat action strip"
 
 msgid "Generated image"
 msgstr "Oddělit"
-
-
-msgid "Viewer"
-msgstr "Prohlížeč"
 
 
 msgid "Compositing node viewer"
@@ -13907,6 +13899,10 @@ msgid "Name of the modifier"
 msgstr "Název modifikátoru"
 
 
+msgid "Mapping"
+msgstr "Mapování"
+
+
 msgid "Use linear mapping"
 msgstr "Použít lineární mapování"
 
@@ -14282,6 +14278,10 @@ msgstr "Odstranit označené Objekt(y)"
 
 msgid "Material slot name"
 msgstr "Název okénka materiálu"
+
+
+msgid "Basic"
+msgstr "Základní"
 
 
 msgctxt "MovieClip"
@@ -17808,6 +17808,10 @@ msgid "Min Speed"
 msgstr "Osa Zrcadlení"
 
 
+msgid "Viewer"
+msgstr "Prohlížeč"
+
+
 msgid "Z Combine"
 msgstr "Kužel"
 
@@ -19649,6 +19653,10 @@ msgid "Reveal Hidden"
 msgstr "Odkryje označené plošky"
 
 
+msgid "(undocumented operator)"
+msgstr "(nezdokumentovaný operátor)"
+
+
 msgctxt "Operator"
 msgid "(De)select All"
 msgstr "O(d)značit vše"
@@ -20418,10 +20426,6 @@ msgstr "Vytvořit sledování"
 
 msgid "Select markers using lasso selection"
 msgstr "Vybere předměty použitím volného výběru"
-
-
-msgid "(undocumented operator)"
-msgstr "(nezdokumentovaný operátor)"
 
 
 msgctxt "Operator"
@@ -25369,6 +25373,10 @@ msgid "Copy color to all selected nodes"
 msgstr "Odstranit označené Objekt(y)"
 
 
+msgid "Option"
+msgstr "Možnost"
+
+
 msgid "Current"
 msgstr "Aktuální"
 
@@ -26402,6 +26410,11 @@ msgstr "Náhodná změna měřítka"
 
 msgid "Randomize the scale values"
 msgstr "Náhodná změna hodnot pro změnu velikosti"
+
+
+msgctxt "Operator"
+msgid "New"
+msgstr "Nový"
 
 
 msgctxt "Operator"
@@ -27903,6 +27916,10 @@ msgid "Reveal Selected"
 msgstr "Vše označené"
 
 
+msgid "Property Name"
+msgstr "Název Vlastnosti"
+
+
 msgctxt "Operator"
 msgid "Clear Pose Rotation"
 msgstr "Původni rotace"
@@ -28613,10 +28630,6 @@ msgstr "Upravit uživatelské předvolby a systémové nastavení"
 
 msgid "Editing"
 msgstr "Úpravy"
-
-
-msgid "Extensions"
-msgstr "Rozšíření"
 
 
 msgid "Keymap"
@@ -31310,10 +31323,6 @@ msgid "Edit Property"
 msgstr "Upravit Vlastnost"
 
 
-msgid "Property Name"
-msgstr "Název Vlastnosti"
-
-
 msgctxt "Operator"
 msgid "Remove Property"
 msgstr "Odstranit Vlastnost"
@@ -31805,6 +31814,10 @@ msgstr "Chybí UVs"
 
 msgid "A UV layer is missing on the mesh"
 msgstr "Chybí UV vrstva na síti"
+
+
+msgid "Single Image"
+msgstr "Samostatná vrstva"
 
 
 msgid "Size to capture the image for re-projecting"
@@ -32524,6 +32537,10 @@ msgid "Prototypes"
 msgstr "Prototypy"
 
 
+msgid "Extensions"
+msgstr "Rozšíření"
+
+
 msgid "Applications"
 msgstr "Aplikace"
 
@@ -32626,10 +32643,6 @@ msgstr "Styly"
 
 msgid "Menu Item"
 msgstr "Položka nabídky"
-
-
-msgid "Option"
-msgstr "Možnost"
 
 
 msgid "Progress Bar"
@@ -34606,10 +34619,6 @@ msgstr "GPU Výpočet"
 
 msgid "Diffuse Bounces"
 msgstr "Difúzní odrazy"
-
-
-msgid "Feature Set"
-msgstr "Sada Funkcí"
 
 
 msgid "Feature set to use for rendering"
@@ -37619,10 +37628,6 @@ msgid "Use UV coordinates for texture coordinates"
 msgstr "Použít souřadnice označených vertexů i pro souřadnice uv mapování"
 
 
-msgid "Strand / Particle"
-msgstr "Mřížka"
-
-
 msgid "Emission Time Factor"
 msgstr "Komprimovat soubor"
 
@@ -38971,10 +38976,6 @@ msgid "Method to display/shade objects in the 3D View"
 msgstr "Metoda zobrazení/stínování objektů ve 3D zobrazení"
 
 
-msgid "Theme"
-msgstr "Motiv"
-
-
 msgid "View layer"
 msgstr "Zobrazit vrstvu"
 
@@ -39286,6 +39287,11 @@ msgid "Animation Channels"
 msgstr "Animační kanály"
 
 
+msgctxt "Operator"
+msgid "None"
+msgstr "Žádný"
+
+
 msgid "Warning"
 msgstr "Varování"
 
@@ -39393,6 +39399,44 @@ msgid "Deselect"
 msgstr "Odznačit"
 
 
+msgid "Description:"
+msgstr "Popis:"
+
+
+msgid "Internet:"
+msgstr "Internet:"
+
+
+msgid "Author:"
+msgstr "Autor:"
+
+
+msgid "Version:"
+msgstr "Verze:"
+
+
+msgid "Warning:"
+msgstr "Varování:"
+
+
+msgctxt "Operator"
+msgid "Documentation"
+msgstr "Dokumentace"
+
+
+msgid "File:"
+msgstr "Soubor:"
+
+
+msgctxt "Operator"
+msgid "Apply"
+msgstr "Použít"
+
+
+msgid "Options:"
+msgstr "Nastavení:"
+
+
 msgid "Labels:"
 msgstr "Štítky:"
 
@@ -39456,11 +39500,6 @@ msgstr "Sledování"
 
 msgid "Note:"
 msgstr "Poznámka:"
-
-
-msgctxt "Operator"
-msgid "New"
-msgstr "Nový"
 
 
 msgid "3D View"
@@ -39921,11 +39960,6 @@ msgstr "Odstranit značku"
 msgctxt "Operator"
 msgid "Hide Unselected"
 msgstr "Skrýt nevybrané"
-
-
-msgctxt "Operator"
-msgid "None"
-msgstr "Žádný"
 
 
 msgctxt "Operator"
@@ -40634,10 +40668,6 @@ msgstr "Zpět v Historii"
 msgctxt "Operator"
 msgid "Forward in History"
 msgstr "Dopředu v Historii"
-
-
-msgid "Options:"
-msgstr "Nastavení:"
 
 
 msgid "Snap To"
@@ -41694,37 +41724,8 @@ msgid "Fly/Walk"
 msgstr "Létat/Chodit"
 
 
-msgid "Description:"
-msgstr "Popis:"
-
-
 msgid "Location:"
 msgstr "Umístění:"
-
-
-msgid "File:"
-msgstr "Soubor:"
-
-
-msgid "Author:"
-msgstr "Autor:"
-
-
-msgid "Version:"
-msgstr "Verze:"
-
-
-msgid "Warning:"
-msgstr "Varování:"
-
-
-msgid "Internet:"
-msgstr "Internet:"
-
-
-msgctxt "Operator"
-msgid "Documentation"
-msgstr "Dokumentace"
 
 
 msgctxt "Operator"
@@ -42693,11 +42694,6 @@ msgstr "Rychlá úprava"
 
 
 msgctxt "Operator"
-msgid "Apply"
-msgstr "Použít"
-
-
-msgctxt "Operator"
 msgid "Apply Camera Image"
 msgstr "Použít obrázek kamery"
 
@@ -42883,10 +42879,6 @@ msgstr "Nelze otevřít soubor %s pro psaní %s"
 
 msgid "Closed loops unsupported"
 msgstr "Uzavřené smyčky nepodporované"
-
-
-msgid "Basic"
-msgstr "Základní"
 
 
 msgid "UV/Image"
@@ -43302,6 +43294,14 @@ msgstr "Aktivní tlačítko nebylo nalezeno"
 
 msgid "%d items"
 msgstr "%d předměty"
+
+
+msgid "OK"
+msgstr "OK"
+
+
+msgid "Cancel"
+msgstr "Zrušit"
 
 
 msgid "Menu \"%s\" not found"
@@ -43817,10 +43817,6 @@ msgstr "Koule"
 msgctxt "Mesh"
 msgid "Icosphere"
 msgstr "IcoKoule"
-
-
-msgid "Cancel"
-msgstr "Zrušit"
 
 
 msgid "Outer"
@@ -44491,10 +44487,6 @@ msgstr "Odstranit skupinu vertexů"
 
 msgid "Warning!"
 msgstr "Upozornění!"
-
-
-msgid "OK"
-msgstr "OK"
 
 
 msgid "edge data"
@@ -45281,6 +45273,10 @@ msgstr "Zarovnaný"
 
 msgid "Bad vertex index in list"
 msgstr "Přidat značku"
+
+
+msgid "Movie"
+msgstr "Animace"
 
 
 msgid "Keying set could not be added"

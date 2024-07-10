@@ -78,9 +78,8 @@ typedef enum eFModifier_Types {
   FMODIFIER_TYPE_ENVELOPE = 3,
   FMODIFIER_TYPE_CYCLES = 4,
   FMODIFIER_TYPE_NOISE = 5,
-  /** Unimplemented - for applying: FFT, high/low pass filters, etc. */
-  FMODIFIER_TYPE_FILTER = 6,
-  FMODIFIER_TYPE_PYTHON = 7,
+  FMODIFIER_TYPE_FILTER = 6, /* Was never implemented, removed in #123906. */
+  FMODIFIER_TYPE_PYTHON = 7, /* Was never implemented, removed in #123906. */
   FMODIFIER_TYPE_LIMITS = 8,
   FMODIFIER_TYPE_STEPPED = 9,
 
@@ -222,14 +221,6 @@ typedef enum eFMod_Cycling_Modes {
   /** alternate between forward and reverse playback of keyframe range */
   FCM_EXTRAPOLATE_MIRROR,
 } eFMod_Cycling_Modes;
-
-/* Python-script modifier data */
-typedef struct FMod_Python {
-  /** Text buffer containing script to execute. */
-  struct Text *script;
-  /** ID-properties to provide 'custom' settings. */
-  IDProperty *prop;
-} FMod_Python;
 
 /* limits modifier data */
 typedef struct FMod_Limits {
@@ -1123,19 +1114,19 @@ typedef struct AnimData {
   bAction *action;
 
   /**
-   * Identifier for which ActionBinding of the above Animation is actually animating this
+   * Identifier for which ActionSlot of the above Animation is actually animating this
    * data-block.
    *
    * Do not set this directly, use one of the assignment functions in ANIM_action.hh instead.
    */
-  int32_t binding_handle;
+  int32_t slot_handle;
   /**
-   * Binding name, primarily used for mapping to the right binding when assigning
-   * another Animation data-block. Should be the same type as #ActionBinding::name.
+   * Slot name, primarily used for mapping to the right slot when assigning
+   * another Action. Should be the same type as #ActionSlot::name.
    *
-   * \see #ActionBinding::name
+   * \see #ActionSlot::name
    */
-  char binding_name[66]; /* MAX_ID_NAME */
+  char slot_name[66]; /* MAX_ID_NAME */
   uint8_t _pad0[2];
 
   /**
@@ -1186,8 +1177,8 @@ typedef struct AnimData {
 
 #ifdef __cplusplus
 /* Some static assertions that things that should have the same type actually do. */
-static_assert(std::is_same_v<decltype(ActionBinding::handle), decltype(AnimData::binding_handle)>);
-static_assert(std::is_same_v<decltype(ActionBinding::name), decltype(AnimData::binding_name)>);
+static_assert(std::is_same_v<decltype(ActionSlot::handle), decltype(AnimData::slot_handle)>);
+static_assert(std::is_same_v<decltype(ActionSlot::name), decltype(AnimData::slot_name)>);
 #endif
 
 /* Animation Data settings (mostly for NLA) */

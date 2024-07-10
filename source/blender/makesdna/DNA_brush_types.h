@@ -72,8 +72,6 @@ typedef struct BrushGpencilSettings {
   int fill_draw_mode;
   /** Type of gap filling extension to use. */
   int fill_extend_mode;
-  /** Icon identifier. */
-  int icon_id;
 
   /** Maximum distance before generate new point for very fast mouse movements. */
   int input_samples;

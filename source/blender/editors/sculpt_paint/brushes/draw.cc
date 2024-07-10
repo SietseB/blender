@@ -36,15 +36,6 @@ struct LocalData {
   Vector<float3> translations;
 };
 
-BLI_NOINLINE static void translations_from_offset_factors(const float3 &offset,
-                                                          const Span<float> factors,
-                                                          const MutableSpan<float3> r_translations)
-{
-  for (const int i : factors.index_range()) {
-    r_translations[i] = offset * factors[i];
-  }
-}
-
 static void calc_faces(const Sculpt &sd,
                        const Brush &brush,
                        const float3 &offset,
@@ -71,8 +62,9 @@ static void calc_faces(const Sculpt &sd,
 
   tls.distances.reinitialize(verts.size());
   const MutableSpan<float> distances = tls.distances;
-  calc_distance_falloff(
-      ss, positions_eval, verts, eBrushFalloffShape(brush.falloff_shape), distances, factors);
+  calc_brush_distances(
+      ss, positions_eval, verts, eBrushFalloffShape(brush.falloff_shape), distances);
+  filter_distances_with_radius(cache.radius, distances, factors);
   apply_hardness_to_distances(cache, distances);
   calc_brush_strength_factors(cache, brush, distances, factors);
 
@@ -84,7 +76,7 @@ static void calc_faces(const Sculpt &sd,
 
   tls.translations.reinitialize(verts.size());
   const MutableSpan<float3> translations = tls.translations;
-  translations_from_offset_factors(offset, factors, translations);
+  translations_from_offset_and_factors(offset, factors, translations);
 
   write_translations(sd, object, positions_eval, verts, translations, positions_orig);
 }
@@ -105,7 +97,7 @@ static void calc_grids(const Sculpt &sd,
   const int grid_verts_num = grids.size() * key.grid_area;
 
   tls.positions.reinitialize(grid_verts_num);
-  MutableSpan<float3> positions = tls.positions;
+  const MutableSpan<float3> positions = tls.positions;
   gather_grids_positions(subdiv_ccg, grids, positions);
 
   tls.factors.reinitialize(grid_verts_num);
@@ -118,8 +110,8 @@ static void calc_grids(const Sculpt &sd,
 
   tls.distances.reinitialize(grid_verts_num);
   const MutableSpan<float> distances = tls.distances;
-  calc_distance_falloff(
-      ss, positions, eBrushFalloffShape(brush.falloff_shape), distances, factors);
+  calc_brush_distances(ss, positions, eBrushFalloffShape(brush.falloff_shape), distances);
+  filter_distances_with_radius(cache.radius, distances, factors);
   apply_hardness_to_distances(cache, distances);
   calc_brush_strength_factors(cache, brush, distances, factors);
 
@@ -131,7 +123,7 @@ static void calc_grids(const Sculpt &sd,
 
   tls.translations.reinitialize(grid_verts_num);
   const MutableSpan<float3> translations = tls.translations;
-  translations_from_offset_factors(offset, factors, translations);
+  translations_from_offset_and_factors(offset, factors, translations);
 
   clip_and_lock_translations(sd, ss, positions, translations);
   apply_translations(translations, grids, subdiv_ccg);
@@ -150,7 +142,7 @@ static void calc_bmesh(const Sculpt &sd,
   const Set<BMVert *, 0> &verts = BKE_pbvh_bmesh_node_unique_verts(&node);
 
   tls.positions.reinitialize(verts.size());
-  MutableSpan<float3> positions = tls.positions;
+  const MutableSpan<float3> positions = tls.positions;
   gather_bmesh_positions(verts, positions);
 
   tls.factors.reinitialize(verts.size());
@@ -163,8 +155,8 @@ static void calc_bmesh(const Sculpt &sd,
 
   tls.distances.reinitialize(verts.size());
   const MutableSpan<float> distances = tls.distances;
-  calc_distance_falloff(
-      ss, positions, eBrushFalloffShape(brush.falloff_shape), distances, factors);
+  calc_brush_distances(ss, positions, eBrushFalloffShape(brush.falloff_shape), distances);
+  filter_distances_with_radius(cache.radius, distances, factors);
   apply_hardness_to_distances(cache, distances);
   calc_brush_strength_factors(cache, brush, distances, factors);
 
@@ -176,7 +168,7 @@ static void calc_bmesh(const Sculpt &sd,
 
   tls.translations.reinitialize(verts.size());
   const MutableSpan<float3> translations = tls.translations;
-  translations_from_offset_factors(offset, factors, translations);
+  translations_from_offset_and_factors(offset, factors, translations);
 
   clip_and_lock_translations(sd, ss, positions, translations);
   apply_translations(translations, verts);
@@ -259,6 +251,16 @@ void do_nudge_brush(const Sculpt &sd, Object &object, Span<PBVHNode *> nodes)
       ss.cache->sculpt_normal_symm);
 
   offset_positions(sd, object, offset * ss.cache->bstrength, nodes);
+}
+
+void do_gravity_brush(const Sculpt &sd, Object &object, Span<PBVHNode *> nodes)
+{
+  const SculptSession &ss = *object.sculpt;
+
+  const float3 offset = ss.cache->gravity_direction * -ss.cache->radius_squared * ss.cache->scale *
+                        sd.gravity_factor;
+
+  offset_positions(sd, object, offset, nodes);
 }
 
 }  // namespace blender::ed::sculpt_paint
