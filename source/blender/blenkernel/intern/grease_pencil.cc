@@ -12,6 +12,7 @@
 #include "BKE_action.h"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
+#include "BKE_bake_data_block_id.hh"
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
@@ -161,6 +162,11 @@ static void grease_pencil_copy_data(Main * /*bmain*/,
 
   /* Make sure the runtime pointer exists. */
   grease_pencil_dst->runtime = MEM_new<bke::GreasePencilRuntime>(__func__);
+
+  if (grease_pencil_src->runtime->bake_materials) {
+    grease_pencil_dst->runtime->bake_materials = std::make_unique<bke::bake::BakeMaterialsList>(
+        *grease_pencil_src->runtime->bake_materials);
+  }
 
   /* Ondine. */
   grease_pencil_dst->ondine_flag = grease_pencil_src->ondine_flag;
@@ -1228,7 +1234,7 @@ Layer::SortedKeysIterator Layer::sorted_keys_iterator_at(const int frame_number)
   if (frame_number < sorted_keys.first()) {
     return nullptr;
   }
-  /* After or at the the last frame, return iterator to last. */
+  /* After or at the last frame, return iterator to last. */
   if (frame_number >= sorted_keys.last()) {
     return std::prev(sorted_keys.end());
   }
@@ -1809,6 +1815,9 @@ void LayerGroup::update_from_dna_read()
 }  // namespace blender::bke::greasepencil
 
 namespace blender::bke {
+
+GreasePencilRuntime::GreasePencilRuntime() = default;
+GreasePencilRuntime::~GreasePencilRuntime() = default;
 
 std::optional<Span<float3>> GreasePencilDrawingEditHints::positions() const
 {

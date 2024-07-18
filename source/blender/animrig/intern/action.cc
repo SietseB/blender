@@ -29,7 +29,7 @@
 
 #include "RNA_access.hh"
 #include "RNA_path.hh"
-#include "RNA_prototypes.h"
+#include "RNA_prototypes.hh"
 
 #include "ED_keyframing.hh"
 
@@ -413,6 +413,23 @@ Slot &Action::slot_ensure_for_id(const ID &animated_id)
   return this->slot_add_for_id(animated_id);
 }
 
+void Action::slot_active_set(const slot_handle_t slot_handle)
+{
+  for (Slot *slot : slots()) {
+    slot->set_active(slot->handle == slot_handle);
+  }
+}
+
+Slot *Action::slot_active_get()
+{
+  for (Slot *slot : slots()) {
+    if (slot->is_active()) {
+      return slot;
+    }
+  }
+  return nullptr;
+}
+
 Slot *Action::find_suitable_slot_for(const ID &animated_id)
 {
   AnimData *adt = BKE_animdata_from_id(&animated_id);
@@ -711,6 +728,20 @@ void Slot::set_selected(const bool selected)
   }
 }
 
+bool Slot::is_active() const
+{
+  return this->slot_flags & uint8_t(Flags::Active);
+}
+void Slot::set_active(const bool active)
+{
+  if (active) {
+    this->slot_flags |= uint8_t(Flags::Active);
+  }
+  else {
+    this->slot_flags &= ~(uint8_t(Flags::Active));
+  }
+}
+
 Span<ID *> Slot::users(Main &bmain) const
 {
   if (bmain.is_action_slot_to_id_map_dirty) {
@@ -946,11 +977,11 @@ KeyframeStrip::KeyframeStrip(const KeyframeStrip &other)
 {
   memcpy(this, &other, sizeof(*this));
 
-  this->channelbags_array = MEM_cnew_array<ActionChannelBag *>(other.channelbags_array_num,
-                                                               __func__);
+  this->channelbag_array = MEM_cnew_array<ActionChannelBag *>(other.channelbag_array_num,
+                                                              __func__);
   Span<const ChannelBag *> channelbags_src = other.channelbags();
   for (int i : channelbags_src.index_range()) {
-    this->channelbags_array[i] = MEM_new<animrig::ChannelBag>(__func__, *other.channelbag(i));
+    this->channelbag_array[i] = MEM_new<animrig::ChannelBag>(__func__, *other.channelbag(i));
   }
 }
 
@@ -959,8 +990,8 @@ KeyframeStrip::~KeyframeStrip()
   for (ChannelBag *channelbag_for_slot : this->channelbags()) {
     MEM_delete(channelbag_for_slot);
   }
-  MEM_SAFE_FREE(this->channelbags_array);
-  this->channelbags_array_num = 0;
+  MEM_SAFE_FREE(this->channelbag_array);
+  this->channelbag_array_num = 0;
 }
 
 template<> bool Strip::is<KeyframeStrip>() const
@@ -987,21 +1018,21 @@ KeyframeStrip::operator Strip &()
 
 blender::Span<const ChannelBag *> KeyframeStrip::channelbags() const
 {
-  return blender::Span<ChannelBag *>{reinterpret_cast<ChannelBag **>(this->channelbags_array),
-                                     this->channelbags_array_num};
+  return blender::Span<ChannelBag *>{reinterpret_cast<ChannelBag **>(this->channelbag_array),
+                                     this->channelbag_array_num};
 }
 blender::MutableSpan<ChannelBag *> KeyframeStrip::channelbags()
 {
   return blender::MutableSpan<ChannelBag *>{
-      reinterpret_cast<ChannelBag **>(this->channelbags_array), this->channelbags_array_num};
+      reinterpret_cast<ChannelBag **>(this->channelbag_array), this->channelbag_array_num};
 }
 const ChannelBag *KeyframeStrip::channelbag(const int64_t index) const
 {
-  return &this->channelbags_array[index]->wrap();
+  return &this->channelbag_array[index]->wrap();
 }
 ChannelBag *KeyframeStrip::channelbag(const int64_t index)
 {
-  return &this->channelbags_array[index]->wrap();
+  return &this->channelbag_array[index]->wrap();
 }
 const ChannelBag *KeyframeStrip::channelbag_for_slot(const slot_handle_t slot_handle) const
 {
@@ -1011,6 +1042,15 @@ const ChannelBag *KeyframeStrip::channelbag_for_slot(const slot_handle_t slot_ha
     }
   }
   return nullptr;
+}
+int64_t KeyframeStrip::find_channelbag_index(const ChannelBag &channelbag_to_remove) const
+{
+  for (int64_t index = 0; index < this->channelbag_array_num; index++) {
+    if (this->channelbag(index) == &channelbag_to_remove) {
+      return index;
+    }
+  }
+  return -1;
 }
 ChannelBag *KeyframeStrip::channelbag_for_slot(const slot_handle_t slot_handle)
 {
@@ -1036,53 +1076,103 @@ ChannelBag &KeyframeStrip::channelbag_for_slot_add(const Slot &slot)
   channels.slot_handle = slot.handle;
 
   grow_array_and_append<ActionChannelBag *>(
-      &this->channelbags_array, &this->channelbags_array_num, &channels);
+      &this->channelbag_array, &this->channelbag_array_num, &channels);
 
   return channels;
 }
 
-FCurve *KeyframeStrip::fcurve_find(const Slot &slot, const FCurveDescriptor fcurve_descriptor)
+ChannelBag &KeyframeStrip::channelbag_for_slot_ensure(const Slot &slot)
 {
-  ChannelBag *channels = this->channelbag_for_slot(slot);
-  if (channels == nullptr) {
-    return nullptr;
+  ChannelBag *channel_bag = this->channelbag_for_slot(slot);
+  if (channel_bag != nullptr) {
+    return *channel_bag;
   }
-
-  /* Copy of the logic in BKE_fcurve_find(), but then compatible with our array-of-FCurves
-   * instead of ListBase. */
-
-  for (FCurve *fcu : channels->fcurves()) {
-    /* Check indices first, much cheaper than a string comparison. */
-    /* Simple string-compare (this assumes that they have the same root...) */
-    if (fcu->array_index == fcurve_descriptor.array_index && fcu->rna_path &&
-        StringRef(fcu->rna_path) == fcurve_descriptor.rna_path)
-    {
-      return fcu;
-    }
-  }
-  return nullptr;
+  return this->channelbag_for_slot_add(slot);
 }
 
-FCurve &KeyframeStrip::fcurve_find_or_create(const Slot &slot,
-                                             const FCurveDescriptor fcurve_descriptor)
+static void channelbag_ptr_destructor(ActionChannelBag **dna_channelbag_ptr)
 {
-  if (FCurve *existing_fcurve = this->fcurve_find(slot, fcurve_descriptor)) {
+  ChannelBag &channelbag = (*dna_channelbag_ptr)->wrap();
+  MEM_delete(&channelbag);
+};
+
+bool KeyframeStrip::channelbag_remove(ChannelBag &channelbag_to_remove)
+{
+  const int64_t channelbag_index = this->find_channelbag_index(channelbag_to_remove);
+  if (channelbag_index < 0) {
+    return false;
+  }
+
+  dna::array::remove_index(&this->channelbag_array,
+                           &this->channelbag_array_num,
+                           nullptr,
+                           channelbag_index,
+                           channelbag_ptr_destructor);
+
+  return true;
+}
+
+const FCurve *ChannelBag::fcurve_find(const FCurveDescriptor fcurve_descriptor) const
+{
+  return animrig::fcurve_find(this->fcurves(), fcurve_descriptor);
+}
+
+FCurve *ChannelBag::fcurve_find(const FCurveDescriptor fcurve_descriptor)
+{
+  /* Intermediate variable needed to disambiguate const/non-const overloads. */
+  Span<FCurve *> fcurves = this->fcurves();
+  return animrig::fcurve_find(fcurves, fcurve_descriptor);
+}
+
+FCurve &ChannelBag::fcurve_ensure(const FCurveDescriptor fcurve_descriptor)
+{
+  if (FCurve *existing_fcurve = this->fcurve_find(fcurve_descriptor)) {
     return *existing_fcurve;
   }
+  return this->fcurve_create(fcurve_descriptor);
+}
 
+FCurve *ChannelBag::fcurve_create_unique(FCurveDescriptor fcurve_descriptor)
+{
+  if (this->fcurve_find(fcurve_descriptor)) {
+    return nullptr;
+  }
+  return &this->fcurve_create(fcurve_descriptor);
+}
+
+FCurve &ChannelBag::fcurve_create(FCurveDescriptor fcurve_descriptor)
+{
   FCurve *new_fcurve = create_fcurve_for_channel(fcurve_descriptor);
 
-  ChannelBag *channels = this->channelbag_for_slot(slot);
-  if (channels == nullptr) {
-    channels = &this->channelbag_for_slot_add(slot);
-  }
-
-  if (channels->fcurve_array_num == 0) {
+  if (this->fcurve_array_num == 0) {
     new_fcurve->flag |= FCURVE_ACTIVE; /* First curve is added active. */
   }
 
-  grow_array_and_append(&channels->fcurve_array, &channels->fcurve_array_num, new_fcurve);
+  grow_array_and_append(&this->fcurve_array, &this->fcurve_array_num, new_fcurve);
   return *new_fcurve;
+}
+
+static void fcurve_ptr_destructor(FCurve **fcurve_ptr)
+{
+  BKE_fcurve_free(*fcurve_ptr);
+};
+
+bool ChannelBag::fcurve_remove(FCurve &fcurve_to_remove)
+{
+  const int64_t fcurve_index = this->fcurves().as_span().first_index_try(&fcurve_to_remove);
+  if (fcurve_index < 0) {
+    return false;
+  }
+
+  dna::array::remove_index(
+      &this->fcurve_array, &this->fcurve_array_num, nullptr, fcurve_index, fcurve_ptr_destructor);
+
+  return true;
+}
+
+void ChannelBag::fcurves_clear()
+{
+  dna::array::clear(&this->fcurve_array, &this->fcurve_array_num, nullptr, fcurve_ptr_destructor);
 }
 
 SingleKeyingResult KeyframeStrip::keyframe_insert(const Slot &slot,
@@ -1093,9 +1183,17 @@ SingleKeyingResult KeyframeStrip::keyframe_insert(const Slot &slot,
 {
   /* Get the fcurve, or create one if it doesn't exist and the keying flags
    * allow. */
-  FCurve *fcurve = key_insertion_may_create_fcurve(insert_key_flags) ?
-                       &this->fcurve_find_or_create(slot, fcurve_descriptor) :
-                       this->fcurve_find(slot, fcurve_descriptor);
+  FCurve *fcurve = nullptr;
+  if (key_insertion_may_create_fcurve(insert_key_flags)) {
+    fcurve = &this->channelbag_for_slot_ensure(slot).fcurve_ensure(fcurve_descriptor);
+  }
+  else {
+    ChannelBag *channels = this->channelbag_for_slot(slot);
+    if (channels != nullptr) {
+      fcurve = channels->fcurve_find(fcurve_descriptor);
+    }
+  }
+
   if (!fcurve) {
     std::fprintf(stderr,
                  "FCurve %s[%d] for slot %s was not created due to either the Only Insert "
@@ -1171,17 +1269,6 @@ FCurve *ChannelBag::fcurve(const int64_t index)
   return this->fcurve_array[index];
 }
 
-const FCurve *ChannelBag::fcurve_find(const StringRefNull rna_path, const int array_index) const
-{
-  for (const FCurve *fcu : this->fcurves()) {
-    /* Check indices first, much cheaper than a string comparison. */
-    if (fcu->array_index == array_index && fcu->rna_path && StringRef(fcu->rna_path) == rna_path) {
-      return fcu;
-    }
-  }
-  return nullptr;
-}
-
 /* Utility function implementations. */
 
 static const animrig::ChannelBag *channelbag_for_action_slot(const Action &action,
@@ -1218,6 +1305,7 @@ static animrig::ChannelBag *channelbag_for_action_slot(Action &action,
 
 Span<FCurve *> fcurves_for_action_slot(Action &action, const slot_handle_t slot_handle)
 {
+  assert_baklava_phase_1_invariants(action);
   animrig::ChannelBag *bag = channelbag_for_action_slot(action, slot_handle);
   if (!bag) {
     return {};
@@ -1227,6 +1315,7 @@ Span<FCurve *> fcurves_for_action_slot(Action &action, const slot_handle_t slot_
 
 Span<const FCurve *> fcurves_for_action_slot(const Action &action, const slot_handle_t slot_handle)
 {
+  assert_baklava_phase_1_invariants(action);
   const animrig::ChannelBag *bag = channelbag_for_action_slot(action, slot_handle);
   if (!bag) {
     return {};
@@ -1310,6 +1399,46 @@ FCurve *action_fcurve_ensure(Main *bmain,
 {
   if (act == nullptr) {
     return nullptr;
+  }
+  Action &action = act->wrap();
+
+  if (USER_EXPERIMENTAL_TEST(&U, use_animation_baklava) && action.is_action_layered()) {
+    /* NOTE: for layered actions we require the following:
+     *
+     * - `ptr` is non-null.
+     * - `ptr` has an `owner_id` that already uses `act`.
+     *
+     * This isn't for any principled reason, but rather is because adding
+     * support for layered actions to this function was a fix to make Follow
+     * Path animation work properly with layered actions (see PR #124353), and
+     * those are the requirements the Follow Path code conveniently met.
+     * Moreover those requirements were also already met by the other call sites
+     * that potentially call this function with layered actions.
+     *
+     * Trying to puzzle out what "should" happen when these requirements don't
+     * hold, or if this is even the best place to handle the layered action
+     * cases at all, was leading to discussion of larger changes than made sense
+     * to tackle at that point. */
+    BLI_assert(ptr != nullptr);
+    if (ptr == nullptr) {
+      return nullptr;
+    }
+    AnimData *adt = BKE_animdata_from_id(ptr->owner_id);
+    BLI_assert(adt != nullptr && adt->action == act);
+    if (adt == nullptr || adt->action != act) {
+      return nullptr;
+    }
+
+    /* Ensure the id has an assigned slot. */
+    Slot &slot = action.slot_ensure_for_id(*ptr->owner_id);
+    action.assign_id(&slot, *ptr->owner_id);
+
+    action.layer_ensure_at_least_one();
+
+    assert_baklava_phase_1_invariants(action);
+    KeyframeStrip &strip = action.layer(0)->strip(0)->as<KeyframeStrip>();
+
+    return &strip.channelbag_for_slot_ensure(slot).fcurve_ensure(fcurve_descriptor);
   }
 
   /* Try to find f-curve matching for this setting.
@@ -1407,6 +1536,18 @@ ID *action_slot_get_id_for_keying(Main &bmain,
   return nullptr;
 }
 
+ID *action_slot_get_id_best_guess(Main &bmain, Slot &slot, ID *primary_id)
+{
+  blender::Span<ID *> users = slot.users(bmain);
+  if (users.is_empty()) {
+    return 0;
+  }
+  if (users.contains(primary_id)) {
+    return primary_id;
+  }
+  return users[0];
+}
+
 void assert_baklava_phase_1_invariants(const Action &action)
 {
   if (action.is_action_legacy()) {
@@ -1436,6 +1577,40 @@ void assert_baklava_phase_1_invariants(const Strip &strip)
   BLI_assert(strip.type() == Strip::Type::Keyframe);
   BLI_assert(strip.is_infinite());
   BLI_assert(strip.frame_offset == 0.0);
+}
+
+Action *convert_to_layered_action(Main &bmain, const Action &legacy_action)
+{
+  if (!legacy_action.is_action_legacy()) {
+    return nullptr;
+  }
+
+  std::string suffix = "_layered";
+  /* In case the legacy action has a long name it is shortened to make space for the suffix. */
+  char legacy_name[MAX_ID_NAME - 10];
+  /* Offsetting the id.name to remove the ID prefix (AC) which gets added back later. */
+  STRNCPY_UTF8(legacy_name, legacy_action.id.name + 2);
+
+  const std::string layered_action_name = std::string(legacy_name) + suffix;
+  bAction *dna_action = BKE_action_add(&bmain, layered_action_name.c_str());
+
+  Action &converted_action = dna_action->wrap();
+  Slot &slot = converted_action.slot_add();
+  Layer &layer = converted_action.layer_add(legacy_action.id.name);
+  KeyframeStrip &strip = layer.strip_add<KeyframeStrip>();
+  BLI_assert(strip.channelbag_array_num == 0);
+  ChannelBag *bag = &strip.channelbag_for_slot_add(slot);
+
+  const int fcu_count = BLI_listbase_count(&legacy_action.curves);
+  bag->fcurve_array = MEM_cnew_array<FCurve *>(fcu_count, "Convert to layered action");
+  bag->fcurve_array_num = fcu_count;
+
+  int i = 0;
+  LISTBASE_FOREACH_INDEX (FCurve *, fcu, &legacy_action.curves, i) {
+    bag->fcurve_array[i] = BKE_fcurve_copy(fcu);
+  }
+
+  return &converted_action;
 }
 
 }  // namespace blender::animrig

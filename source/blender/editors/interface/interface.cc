@@ -1244,7 +1244,7 @@ static std::optional<std::string> ui_but_event_operator_string_from_operator(
     const bContext *C, wmOperatorCallParams *op_call_params)
 {
   BLI_assert(op_call_params->optype != nullptr);
-  IDProperty *prop = reinterpret_cast<IDProperty *>(op_call_params->opptr) ?
+  IDProperty *prop = op_call_params->opptr ?
                          static_cast<IDProperty *>(op_call_params->opptr->data) :
                          nullptr;
 
@@ -5645,6 +5645,11 @@ void UI_but_operator_set(uiBut *but,
   if (op_props) {
     but->opptr = MEM_cnew<PointerRNA>(__func__, *op_props);
   }
+}
+
+void UI_but_operator_set_never_call(uiBut *but)
+{
+  but->operator_never_call = true;
 }
 
 /* END Button containing both string label and icon */

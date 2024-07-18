@@ -1763,6 +1763,7 @@ static void gwl_registry_entry_update_all(GWL_Display *display, const int interf
 /** \name Private Utility Functions
  * \{ */
 
+#ifdef WITH_GHOST_WAYLAND_LIBDECOR
 static const char *strchr_or_end(const char *str, const char ch)
 {
   const char *p = str;
@@ -1791,6 +1792,7 @@ static bool string_elem_split_by_delim(const char *haystack, const char delim, c
   }
   return false;
 }
+#endif /* WITH_GHOST_WAYLAND_LIBDECOR */
 
 static uint64_t sub_abs_u64(const uint64_t a, const uint64_t b)
 {
@@ -3394,7 +3396,7 @@ static void data_device_handle_drop(void *data, wl_data_device * /*wl_data_devic
   std::lock_guard lock{seat->data_offer_dnd_mutex};
 
   /* No need to check this for null (as other callbacks do).
-   * because the the data-offer has not been accepted (actions set... etc). */
+   * because the data-offer has not been accepted (actions set... etc). */
   GWL_DataOffer *data_offer = seat->data_offer_dnd;
 
   /* Use a blank string for  `mime_receive` to prevent crashes, although could also be `nullptr`.
@@ -4871,7 +4873,7 @@ static void keyboard_handle_keymap(void *data,
 
   CLOG_INFO(LOG, 2, "keymap");
 
-  /* Reset in case there was a previous non-zero active layout for the the last key-map.
+  /* Reset in case there was a previous non-zero active layout for the last key-map.
    * Note that this is set later by `wl_keyboard_listener::modifiers`, it's possible that handling
    * the first modifier will run #xkb_state_update_mask again (if the active layout is non-zero)
    * however as this is only done when the layout changed, it's harmless.

@@ -82,9 +82,10 @@
 #include "UI_view2d.hh"
 
 #include "RNA_access.hh"
-#include "RNA_prototypes.h"
+#include "RNA_prototypes.hh"
 
 #include "NOD_geometry_exec.hh"
+#include "NOD_geometry_nodes_gizmos.hh"
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_node_declaration.hh"
 #include "NOD_node_extra_info.hh"
@@ -824,6 +825,7 @@ static void add_panel_items_recursive(const bContext &C,
       }
     }
     else if (item.is_valid_socket()) {
+      bool need_socket_spacing = false;
       if (item.input) {
         /* Draw buttons before the first input. */
         if (!state.buttons_drawn) {
@@ -838,7 +840,7 @@ static void add_panel_items_recursive(const bContext &C,
         else {
           /* Space between items. */
           if (!state.is_first && item.input->is_visible()) {
-            locy -= NODE_ITEM_SPACING_Y;
+            need_socket_spacing = true;
           }
         }
       }
@@ -850,9 +852,12 @@ static void add_panel_items_recursive(const bContext &C,
         else {
           /* Space between items. */
           if (!state.is_first && item.output->is_visible()) {
-            locy -= NODE_ITEM_SPACING_Y;
+            need_socket_spacing = true;
           }
         }
+      }
+      if (need_socket_spacing) {
+        locy -= NODE_ITEM_SPACING_Y;
       }
 
       if (!is_parent_collapsed &&
@@ -1547,10 +1552,11 @@ static void create_inspection_string_for_geometry_info(const geo_log::GeometryIn
         if (value_log.edit_data_info.has_value()) {
           const geo_log::GeometryInfoLog::EditDataInfo &edit_info = *value_log.edit_data_info;
           fmt::format_to(fmt::appender(buf),
-                         TIP_("\u2022 Edit Curves: {}, {}"),
+                         TIP_("\u2022 Edit: {}, {}, {}"),
                          edit_info.has_deformed_positions ? TIP_("positions") :
                                                             TIP_("no positions"),
-                         edit_info.has_deform_matrices ? TIP_("matrices") : TIP_("no matrices"));
+                         edit_info.has_deform_matrices ? TIP_("matrices") : TIP_("no matrices"),
+                         edit_info.gizmo_transforms_num > 0 ? TIP_("gizmos") : TIP_("no gizmos"));
         }
         break;
       }
@@ -4165,6 +4171,64 @@ static void frame_node_draw(const bContext &C,
   UI_block_draw(&C, &block);
 }
 
+static Set<const bNodeSocket *> find_sockets_on_active_gizmo_paths(const bContext &C,
+                                                                   const SpaceNode &snode)
+{
+  const std::optional<ed::space_node::ObjectAndModifier> object_and_modifier =
+      ed::space_node::get_modifier_for_node_editor(snode);
+  if (!object_and_modifier) {
+    return {};
+  }
+  snode.edittree->ensure_topology_cache();
+
+  /* Compute the compute context hash for the current node tree path. */
+  std::optional<ComputeContextHash> current_compute_context_hash =
+      [&]() -> std::optional<ComputeContextHash> {
+    ComputeContextBuilder compute_context_builder;
+    compute_context_builder.push<bke::ModifierComputeContext>(
+        object_and_modifier->nmd->modifier.name);
+    if (!ed::space_node::push_compute_context_for_tree_path(snode, compute_context_builder)) {
+      return std::nullopt;
+    }
+    return compute_context_builder.current()->hash();
+  }();
+  if (!current_compute_context_hash) {
+    return {};
+  }
+
+  Set<const bNodeSocket *> sockets_on_gizmo_paths;
+
+  ComputeContextBuilder compute_context_builder;
+  nodes::gizmos::foreach_active_gizmo(
+      C,
+      compute_context_builder,
+      [&](const Object &gizmo_object,
+          const NodesModifierData &gizmo_nmd,
+          const ComputeContext &gizmo_context,
+          const bNode &gizmo_node,
+          const bNodeSocket &gizmo_socket) {
+        if (&gizmo_object != object_and_modifier->object) {
+          return;
+        }
+        if (&gizmo_nmd != object_and_modifier->nmd) {
+          return;
+        }
+        nodes::gizmos::foreach_socket_on_gizmo_path(
+            gizmo_context,
+            gizmo_node,
+            gizmo_socket,
+            [&](const ComputeContext &compute_context,
+                const bNodeSocket &socket,
+                const nodes::inverse_eval::ElemVariant & /*elem*/) {
+              if (compute_context.hash() == *current_compute_context_hash) {
+                sockets_on_gizmo_paths.add(&socket);
+              }
+            });
+      });
+
+  return sockets_on_gizmo_paths;
+}
+
 /**
  * Returns the reroute node linked to the input of the given reroute, if there is one.
  */
@@ -4685,6 +4749,8 @@ static void draw_nodetree(const bContext &C,
   Array<uiBlock *> blocks = node_uiblocks_init(C, nodes);
 
   TreeDrawContext tree_draw_ctx;
+
+  BLI_SCOPED_DEFER([&]() { ntree.runtime->sockets_on_active_gizmo_paths.clear(); });
   if (ntree.type == NTREE_GEOMETRY) {
     tree_draw_ctx.geo_log_by_zone = geo_log::GeoModifierLog::get_tree_log_by_zone_for_node_editor(
         *snode);
@@ -4695,6 +4761,10 @@ static void draw_nodetree(const bContext &C,
     const WorkSpace *workspace = CTX_wm_workspace(&C);
     tree_draw_ctx.active_geometry_nodes_viewer = viewer_path::find_geometry_nodes_viewer(
         workspace->viewer_path, *snode);
+
+    /* This set of socket is used when drawing links to determine which links should use the
+     * special gizmo drawing. */
+    ntree.runtime->sockets_on_active_gizmo_paths = find_sockets_on_active_gizmo_paths(C, *snode);
   }
   else if (ntree.type == NTREE_COMPOSIT) {
     const Scene *scene = CTX_data_scene(&C);

@@ -67,7 +67,6 @@
 #endif
 
 #include "GHOST_C-api.h"
-#include "GHOST_Path-api.hh"
 
 #include "RNA_define.hh"
 
@@ -206,8 +205,6 @@ void WM_init(bContext *C, int argc, const char **argv)
     wm_init_cursor_data();
     BKE_sound_jack_sync_callback_set(sound_jack_sync_callback);
   }
-
-  GHOST_CreateSystemPaths();
 
   BKE_addon_pref_type_init();
   BKE_keyconfig_pref_type_init();
@@ -682,8 +679,6 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   if (C) {
     CTX_free(C);
   }
-
-  GHOST_DisposeSystemPaths();
 
   DNA_sdna_current_free();
 

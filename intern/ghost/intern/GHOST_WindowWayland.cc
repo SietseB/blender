@@ -1650,6 +1650,7 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
     : GHOST_Window(width, height, state, stereoVisual, exclusive),
       system_(system),
       window_(new GWL_Window),
+      valid_setup_(false),
       is_debug_context_(is_debug)
 {
 #ifdef USE_EVENT_BACKGROUND_THREAD
@@ -1906,11 +1907,22 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
 
   /* Drawing context. */
   if (setDrawingContextType(type) == GHOST_kFailure) {
+    /* This can happen when repeatedly creating windows, see #123096.
+     * In this case #GHOST_WindowWayland::getValid will return false. */
     GHOST_PRINT("Failed to create drawing context" << std::endl);
   }
+  else {
+    valid_setup_ = true;
+  }
 
+  if (valid_setup_ == false) {
+    /* Don't attempt to setup the window if there is no context.
+     * This window is considered invalid and will be removed. */
+  }
+  else
 #ifdef WITH_GHOST_WAYLAND_LIBDECOR
-  if (use_libdecor) {
+      if (use_libdecor)
+  {
     /* Commit needed so the top-level callbacks run (and `toplevel` can be accessed). */
     wl_surface_commit(window_->wl.surface);
     GWL_LibDecor_Window &decor = *window_->libdecor;
@@ -2141,6 +2153,11 @@ GHOST_TSuccess GHOST_WindowWayland::getCursorBitmap(GHOST_CursorBitmapRef *bitma
   std::lock_guard lock_server_guard{*system_->server_mutex};
 #endif
   return system_->cursor_bitmap_get(bitmap);
+}
+
+bool GHOST_WindowWayland::getValid() const
+{
+  return GHOST_Window::getValid() && valid_setup_;
 }
 
 void GHOST_WindowWayland::setTitle(const char *title)
@@ -2605,7 +2622,7 @@ bool GHOST_WindowWayland::outputs_changed_update_scale()
        * each with different fractional scale, see: #109194.
        *
        * Note that the window will show larger, then resize to be smaller soon
-       * after opening. This would be nice to avoid but but would require DPI
+       * after opening. This would be nice to avoid but would require DPI
        * to be stored in the window (as noted above). */
       int size_next[2] = {0, 0};
       int size_orig[2] = {0, 0};

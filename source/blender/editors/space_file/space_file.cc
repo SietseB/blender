@@ -148,6 +148,7 @@ static void file_init(wmWindowManager * /*wm*/, ScrArea *area)
   }
   /* Validate the params right after file read. */
   fileselect_refresh_params(sfile);
+  ED_fileselect_set_params_from_userdef(sfile);
 }
 
 static void file_exit(wmWindowManager *wm, ScrArea *area)
@@ -831,6 +832,22 @@ static void file_space_subtype_item_extend(bContext * /*C*/, EnumPropertyItem **
   RNA_enum_items_add(item, totitem, rna_enum_space_file_browse_mode_items);
 }
 
+static blender::StringRefNull file_space_name_get(const ScrArea *area)
+{
+  SpaceFile *sfile = static_cast<SpaceFile *>(area->spacedata.first);
+  const int index = RNA_enum_from_value(rna_enum_space_file_browse_mode_items, sfile->browse_mode);
+  const EnumPropertyItem item = rna_enum_space_file_browse_mode_items[index];
+  return item.name;
+}
+
+static int file_space_icon_get(const ScrArea *area)
+{
+  SpaceFile *sfile = static_cast<SpaceFile *>(area->spacedata.first);
+  const int index = RNA_enum_from_value(rna_enum_space_file_browse_mode_items, sfile->browse_mode);
+  const EnumPropertyItem item = rna_enum_space_file_browse_mode_items[index];
+  return item.icon;
+}
+
 static void file_id_remap(ScrArea *area,
                           SpaceLink *sl,
                           const blender::bke::id::IDRemapper & /*mappings*/)
@@ -926,6 +943,8 @@ void ED_spacetype_file()
   st->space_subtype_item_extend = file_space_subtype_item_extend;
   st->space_subtype_get = file_space_subtype_get;
   st->space_subtype_set = file_space_subtype_set;
+  st->space_name_get = file_space_name_get;
+  st->space_icon_get = file_space_icon_get;
   st->context = file_context;
   st->id_remap = file_id_remap;
   st->foreach_id = file_foreach_id;

@@ -1442,6 +1442,7 @@ class _defs_sculpt:
             label="Box Mask",
             icon="ops.sculpt.border_mask",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1467,6 +1468,7 @@ class _defs_sculpt:
             label="Lasso Mask",
             icon="ops.sculpt.lasso_mask",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1483,6 +1485,7 @@ class _defs_sculpt:
             label="Line Mask",
             icon="ops.sculpt.line_mask",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1498,6 +1501,7 @@ class _defs_sculpt:
             label="Polyline Mask",
             icon="ops.sculpt.polyline_mask",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1513,6 +1517,7 @@ class _defs_sculpt:
             label="Box Hide",
             icon="ops.sculpt.border_hide",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1538,6 +1543,7 @@ class _defs_sculpt:
             label="Lasso Hide",
             icon="ops.sculpt.lasso_hide",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1553,6 +1559,7 @@ class _defs_sculpt:
             label="Line Hide",
             icon="ops.sculpt.line_hide",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1568,6 +1575,7 @@ class _defs_sculpt:
             label="Polyline Hide",
             icon="ops.sculpt.polyline_hide",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1583,6 +1591,7 @@ class _defs_sculpt:
             label="Box Face Set",
             icon="ops.sculpt.border_face_set",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1608,6 +1617,7 @@ class _defs_sculpt:
             label="Lasso Face Set",
             icon="ops.sculpt.lasso_face_set",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1624,6 +1634,7 @@ class _defs_sculpt:
             label="Line Face Set",
             icon="ops.sculpt.line_face_set",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1639,6 +1650,7 @@ class _defs_sculpt:
             label="Polyline Face Set",
             icon="ops.sculpt.polyline_face_set",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1738,6 +1750,7 @@ class _defs_sculpt:
             label="Line Project",
             icon="ops.sculpt.line_project",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1823,6 +1836,7 @@ class _defs_sculpt:
             label="Mask by Color",
             icon="ops.sculpt.mask_by_color",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -1839,6 +1853,7 @@ class _defs_sculpt:
             label="Edit Face Set",
             icon="ops.sculpt.face_set_edit",
             widget=None,
+            cursor='PAINT_CROSS',
             keymap="3D View Tool: Sculpt, Face Set Edit",
             draw_settings=draw_settings,
         )
@@ -2169,6 +2184,48 @@ class _defs_grease_pencil_paint:
             label="Circle",
             icon="ops.gpencil.primitive_circle",
             cursor='CROSSHAIR',
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def interpolate():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("grease_pencil.interpolate")
+            layout.prop(props, "layers")
+            layout.prop(props, "exclude_breakdowns")
+            layout.prop(props, "flip")
+            layout.prop(props, "smooth_factor")
+            layout.prop(props, "smooth_steps")
+
+        return dict(
+            idname="builtin.interpolate",
+            label="Interpolate",
+            icon="ops.pose.breakdowner",
+            cursor='DEFAULT',
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
+        )
+
+
+class _defs_grease_pencil_edit:
+    @ToolDef.from_fn
+    def interpolate():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("grease_pencil.interpolate")
+            layout.prop(props, "layers")
+            layout.prop(props, "exclude_breakdowns")
+            layout.prop(props, "flip")
+            layout.prop(props, "smooth_factor")
+            layout.prop(props, "smooth_steps")
+
+        return dict(
+            idname="builtin.interpolate",
+            label="Interpolate",
+            icon="ops.pose.breakdowner",
+            cursor='DEFAULT',
             widget=None,
             keymap=(),
             draw_settings=draw_settings,
@@ -2945,17 +3002,23 @@ class _defs_grease_pencil_weight:
 
     @staticmethod
     def generate_from_brushes(context):
-        return generate_from_enum_ex(
-            context,
-            idname_prefix="builtin_brush.",
-            icon_prefix="ops.gpencil.sculpt_",
-            type=bpy.types.Brush,
-            # Uses GPv2 tool settings
-            attr="gpencil_weight_tool",
-            tooldef_keywords=dict(
-                operator="grease_pencil.weight_brush_stroke",
-            ),
-        )
+        # Though `data_block` is conceptually unnecessary with a single brush tool,
+        # it's still used because many areas assume that brush tools have it set #bToolRef.
+        tool = None
+        if context:
+            brush = context.tool_settings.gpencil_weight_paint.brush
+            if brush:
+                tool = brush.gpencil_weight_tool
+        return [
+            ToolDef.from_dict(
+                dict(
+                    idname="builtin.brush",
+                    label="Brush",
+                    icon="brush.sculpt.paint",
+                    data_block=tool
+                )
+            )
+        ]
 
 
 class _defs_curves_sculpt:
@@ -3391,7 +3454,7 @@ class NODE_PT_tools_active(ToolSelectPanelHelper, Panel):
     )
 
     # Private tools dictionary, store data to implement `tools_all` & `tools_from_context`.
-    # The keys is always `None` since nodes don't use use modes to access different tools.
+    # The keys is always `None` since nodes don't use modes to access different tools.
     # The values represent the tools, see `ToolSelectPanelHelper` for details.
     _tools = {
         None: [
@@ -3631,6 +3694,8 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
                 _defs_edit_mesh.tosphere,
             ),
             None,
+            _defs_grease_pencil_edit.interpolate,
+            None,
             *_tools_annotate,
         ],
         'PARTICLE': [
@@ -3746,6 +3811,8 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_grease_pencil_paint.curve,
             _defs_grease_pencil_paint.box,
             _defs_grease_pencil_paint.circle,
+            None,
+            _defs_grease_pencil_paint.interpolate,
         ],
         'PAINT_GPENCIL': [
             _defs_view3d_generic.cursor,
