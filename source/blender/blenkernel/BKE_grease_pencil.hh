@@ -422,12 +422,13 @@ class LayerRuntime {
  */
 class Layer : public ::GreasePencilLayer {
  public:
+  using SortedKeysIterator = const int *;
+
   Layer();
   explicit Layer(StringRefNull name);
   Layer(const Layer &other);
   ~Layer();
 
- public:
   /* Define the common functions for #TreeNode. */
   TREENODE_COMMON_METHODS;
   /**
