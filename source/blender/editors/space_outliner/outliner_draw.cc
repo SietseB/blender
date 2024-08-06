@@ -1203,7 +1203,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                     0,
                                     0,
                                     TIP_("Temporarily hide in viewport\n"
-                                         "* Shift to set children"));
+                                         " \u2022 Shift to set children"));
             UI_but_func_set(
                 bt, outliner__base_set_flag_recursive_fn, base, (void *)"hide_viewport");
             UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
@@ -1228,7 +1228,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   0,
                                   0,
                                   TIP_("Disable selection in viewport\n"
-                                       "* Shift to set children"));
+                                       " \u2022 Shift to set children"));
           UI_but_func_set(bt, outliner__object_set_flag_recursive_fn, ob, (char *)"hide_select");
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (!props_active.object_hide_select) {
@@ -1251,7 +1251,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   0,
                                   0,
                                   TIP_("Globally disable in viewports\n"
-                                       "* Shift to set children"));
+                                       " \u2022 Shift to set children"));
           UI_but_func_set(bt, outliner__object_set_flag_recursive_fn, ob, (void *)"hide_viewport");
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (!props_active.object_hide_viewport) {
@@ -1274,7 +1274,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   0,
                                   0,
                                   TIP_("Globally disable in renders\n"
-                                       "* Shift to set children"));
+                                       " \u2022 Shift to set children"));
           UI_but_func_set(bt, outliner__object_set_flag_recursive_fn, ob, (char *)"hide_render");
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (!props_active.object_hide_render) {
@@ -1378,7 +1378,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   0,
                                   0,
                                   TIP_("Restrict visibility in the 3D View\n"
-                                       "* Shift to set children"));
+                                       " \u2022 Shift to set children"));
           UI_but_func_set(bt, restrictbutton_bone_visibility_fn, bone, nullptr);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           UI_but_drawflag_enable(bt, UI_BUT_ICON_REVERSE);
@@ -1398,7 +1398,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                 0,
                                 0,
                                 TIP_("Restrict selection in the 3D View\n"
-                                     "* Shift to set children"));
+                                     " \u2022 Shift to set children"));
           UI_but_func_set(bt, restrictbutton_bone_select_fn, ob->data, bone);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           UI_but_drawflag_enable(bt, UI_BUT_ICON_REVERSE);
@@ -1422,7 +1422,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                 0,
                                 0,
                                 TIP_("Restrict visibility in the 3D View\n"
-                                     "* Shift to set children"));
+                                     " \u2022 Shift to set children"));
           UI_but_func_set(bt, restrictbutton_ebone_visibility_fn, arm, ebone);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           UI_but_drawflag_enable(bt, UI_BUT_ICON_REVERSE);
@@ -1442,7 +1442,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                 0,
                                 0,
                                 TIP_("Restrict selection in the 3D View\n"
-                                     "* Shift to set children"));
+                                     " \u2022 Shift to set children"));
           UI_but_func_set(bt, restrictbutton_ebone_select_fn, arm, ebone);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           UI_but_drawflag_enable(bt, UI_BUT_ICON_REVERSE);
@@ -1571,8 +1571,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                       0,
                                       0,
                                       TIP_("Temporarily hide in viewport\n"
-                                           "* Ctrl to isolate collection\n"
-                                           "* Shift to set inside collections and objects"));
+                                           " \u2022 Ctrl to isolate collection\n"
+                                           " \u2022 Shift to set inside collections and objects"));
               UI_but_func_set(bt,
                               view_layer__layer_collection_set_flag_recursive_fn,
                               layer_collection,
@@ -1598,8 +1598,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                       0,
                                       0,
                                       TIP_("Mask out objects in collection from view layer\n"
-                                           "* Ctrl to isolate collection\n"
-                                           "* Shift to set inside collections"));
+                                           " \u2022 Ctrl to isolate collection\n"
+                                           " \u2022 Shift to set inside collections"));
               UI_but_func_set(bt,
                               view_layer__layer_collection_set_flag_recursive_fn,
                               layer_collection,
@@ -1627,8 +1627,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                   0,
                   TIP_("Objects in collection only contribute indirectly (through shadows and "
                        "reflections) in the view layer\n"
-                       "* Ctrl to isolate collection\n"
-                       "* Shift to set inside collections"));
+                       " \u2022 Ctrl to isolate collection\n"
+                       " \u2022 Shift to set inside collections"));
               UI_but_func_set(bt,
                               view_layer__layer_collection_set_flag_recursive_fn,
                               layer_collection,
@@ -1657,8 +1657,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                     0,
                                     0,
                                     TIP_("Globally disable in viewports\n"
-                                         "* Ctrl to isolate collection\n"
-                                         "* Shift to set inside collections and objects"));
+                                         " \u2022 Ctrl to isolate collection\n"
+                                         " \u2022 Shift to set inside collections and objects"));
             if (layer_collection != nullptr) {
               UI_but_func_set(bt,
                               view_layer__collection_set_flag_recursive_fn,
@@ -1692,8 +1692,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                     0,
                                     0,
                                     TIP_("Globally disable in renders\n"
-                                         "* Ctrl to isolate collection\n"
-                                         "* Shift to set inside collections and objects"));
+                                         " \u2022 Ctrl to isolate collection\n"
+                                         " \u2022 Shift to set inside collections and objects"));
             if (layer_collection != nullptr) {
               UI_but_func_set(bt,
                               view_layer__collection_set_flag_recursive_fn,
@@ -1760,8 +1760,8 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                     0,
                                     0,
                                     TIP_("Disable selection in viewport\n"
-                                         "* Ctrl to isolate collection\n"
-                                         "* Shift to set inside collections and objects"));
+                                         " \u2022 Ctrl to isolate collection\n"
+                                         " \u2022 Shift to set inside collections and objects"));
             if (layer_collection != nullptr) {
               UI_but_func_set(bt,
                               view_layer__collection_set_flag_recursive_fn,
@@ -2284,7 +2284,7 @@ static void outliner_draw_mode_column_toggle(uiBlock *block,
     icon = ICON_DOT;
     tip = TIP_(
         "Change the object in the current mode\n"
-        "* Ctrl to add to the current mode");
+        " \u2022 Ctrl to add to the current mode");
   }
   UI_block_emboss_set(block, UI_EMBOSS_NONE_OR_STATUS);
   uiBut *but = uiDefIconBut(block,

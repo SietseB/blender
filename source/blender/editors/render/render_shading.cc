@@ -52,6 +52,7 @@
 #include "BKE_main.hh"
 #include "BKE_material.h"
 #include "BKE_node.hh"
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
@@ -396,7 +397,8 @@ static int material_slot_de_select(bContext *C, bool select)
       continue;
     }
 
-    short mat_nr_active = BKE_object_material_index_get(ob, mat_active);
+    const short mat_nr_active = BKE_object_material_index_get_with_hint(
+        ob, mat_active, obact ? obact->actcol - 1 : -1);
 
     if (mat_nr_active == -1) {
       continue;
@@ -2832,6 +2834,10 @@ static int paste_material_exec(bContext *C, wmOperator *op)
    * This also applies to animation data which is likely to be stored in the depsgraph.
    * Always call instead of checking when it *might* be needed. */
   DEG_relations_tag_update(bmain);
+
+  /* There are some custom updates to the node tree above, better do a full update pass. */
+  BKE_ntree_update_tag_all(ma->nodetree);
+  ED_node_tree_propagate_change(C, bmain, nullptr);
 
   DEG_id_tag_update(&ma->id, ID_RECALC_SYNC_TO_EVAL);
   WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_LINKS, ma);

@@ -76,7 +76,7 @@ using blender::Vector;
 
 /* prototypes. */
 static void ui_def_but_rna__menu(bContext *C, uiLayout *layout, void *but_p);
-static void ui_def_but_rna__panel_type(bContext * /*C*/, uiLayout *layout, void *but_p);
+static void ui_def_but_rna__panel_type(bContext * /*C*/, uiLayout *layout, void *arg);
 static void ui_def_but_rna__menu_type(bContext * /*C*/, uiLayout *layout, void *but_p);
 
 /* avoid unneeded calls to ui_but_value_get */
@@ -762,6 +762,9 @@ static bool ui_but_equals_old(const uiBut *but, const uiBut *oldbut)
     return false;
   }
   if (!ELEM(oldbut->func_arg2, oldbut, but->func_arg2)) {
+    return false;
+  }
+  if (but->block_create_func != oldbut->block_create_func) {
     return false;
   }
   if (!but->funcN && ((but->poin != oldbut->poin && (uiBut *)oldbut->poin != oldbut) ||
@@ -2045,6 +2048,7 @@ void UI_block_draw(const bContext *C, uiBlock *block)
   ui_fontscale(&style.paneltitle.points, block->aspect);
   ui_fontscale(&style.grouplabel.points, block->aspect);
   ui_fontscale(&style.widget.points, block->aspect);
+  ui_fontscale(&style.tooltip.points, block->aspect);
 
   /* scale block min/max to rect */
   rcti rect;
@@ -5634,15 +5638,15 @@ uiBut *uiDefIconTextButO(uiBlock *block,
 void UI_but_operator_set(uiBut *but,
                          wmOperatorType *optype,
                          wmOperatorCallContext opcontext,
-                         const PointerRNA *op_props)
+                         const PointerRNA *opptr)
 {
   but->optype = optype;
   but->opcontext = opcontext;
   but->flag &= ~UI_BUT_UNDO; /* no need for ui_but_is_rna_undo(), we never need undo here */
 
   MEM_SAFE_FREE(but->opptr);
-  if (op_props) {
-    but->opptr = MEM_cnew<PointerRNA>(__func__, *op_props);
+  if (opptr) {
+    but->opptr = MEM_cnew<PointerRNA>(__func__, *opptr);
   }
 }
 
@@ -6660,6 +6664,7 @@ void UI_update_text_styles()
   style->paneltitle.character_weight = weight;
   style->grouplabel.character_weight = weight;
   style->widget.character_weight = weight;
+  style->tooltip.character_weight = weight;
 }
 
 void UI_exit()

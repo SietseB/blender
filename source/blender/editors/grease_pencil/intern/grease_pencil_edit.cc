@@ -2227,8 +2227,13 @@ static struct Clipboard {
   int materials_in_source_num;
 } *grease_pencil_clipboard = nullptr;
 
+/** The clone brush accesses the clipboard from multiple threads. Protect from parallel access. */
+std::mutex grease_pencil_clipboard_lock;
+
 static Clipboard &ensure_grease_pencil_clipboard()
 {
+  std::scoped_lock lock(grease_pencil_clipboard_lock);
+
   if (grease_pencil_clipboard == nullptr) {
     grease_pencil_clipboard = MEM_new<Clipboard>(__func__);
   }
@@ -2378,6 +2383,7 @@ static bool grease_pencil_paste_strokes_poll(bContext *C)
     return false;
   }
 
+  std::scoped_lock lock(grease_pencil_clipboard_lock);
   /* Check for curves in the Grease Pencil clipboard. */
   return (grease_pencil_clipboard && grease_pencil_clipboard->curves.curves_num() > 0);
 }
@@ -2419,6 +2425,8 @@ static void GREASE_PENCIL_OT_copy(wmOperatorType *ot)
 
 void clipboard_free()
 {
+  std::scoped_lock lock(grease_pencil_clipboard_lock);
+
   if (grease_pencil_clipboard) {
     MEM_delete(grease_pencil_clipboard);
     grease_pencil_clipboard = nullptr;
@@ -2469,6 +2477,9 @@ IndexRange clipboard_paste_strokes(Main &bmain,
                                    const bool paste_back)
 {
   const bke::CurvesGeometry &clipboard_curves = ed::greasepencil::clipboard_curves();
+  if (clipboard_curves.curves_num() <= 0) {
+    return {};
+  }
 
   /* Get a list of all materials in the scene. */
   const Array<int> clipboard_material_remap = ed::greasepencil::clipboard_materials_remap(bmain,
@@ -3138,6 +3149,72 @@ static void GREASE_PENCIL_OT_set_handle_type(wmOperatorType *ot)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name Set Curve Resolution Operator
+ * \{ */
+
+static int grease_pencil_set_curve_resolution_exec(bContext *C, wmOperator *op)
+{
+  const Scene *scene = CTX_data_scene(C);
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+
+  const int resolution = RNA_int_get(op->ptr, "resolution");
+
+  bool changed = false;
+  const Vector<MutableDrawingInfo> drawings = retrieve_editable_drawings(*scene, grease_pencil);
+  threading::parallel_for_each(drawings, [&](const MutableDrawingInfo &info) {
+    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
+    IndexMaskMemory memory;
+    const IndexMask editable_strokes = ed::greasepencil::retrieve_editable_and_selected_strokes(
+        *object, info.drawing, info.layer_index, memory);
+    if (editable_strokes.is_empty()) {
+      return;
+    }
+
+    if (curves.is_single_type(CURVE_TYPE_POLY)) {
+      return;
+    }
+
+    index_mask::masked_fill(curves.resolution_for_write(), resolution, editable_strokes);
+    info.drawing.tag_positions_changed();
+    changed = true;
+  });
+
+  if (changed) {
+    DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_set_curve_resolution(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Set Curve Resolution";
+  ot->idname = "GREASE_PENCIL_OT_set_curve_resolution";
+  ot->description = "Set resolution of selected curves";
+
+  /* Callbacks. */
+  ot->exec = grease_pencil_set_curve_resolution_exec;
+  ot->poll = editable_grease_pencil_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_int(ot->srna,
+              "resolution",
+              12,
+              0,
+              10000,
+              "Resolution",
+              "The resolution to use for each curve segment",
+              1,
+              64);
+}
+
+/** \} */
+
 }  // namespace blender::ed::greasepencil
 
 void ED_operatortypes_grease_pencil_edit()
@@ -3171,5 +3248,6 @@ void ED_operatortypes_grease_pencil_edit()
   WM_operatortype_append(GREASE_PENCIL_OT_snap_to_cursor);
   WM_operatortype_append(GREASE_PENCIL_OT_snap_cursor_to_selected);
   WM_operatortype_append(GREASE_PENCIL_OT_set_curve_type);
+  WM_operatortype_append(GREASE_PENCIL_OT_set_curve_resolution);
   WM_operatortype_append(GREASE_PENCIL_OT_set_handle_type);
 }

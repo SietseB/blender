@@ -116,19 +116,19 @@ set(SRC
   engines/eevee_next/eevee_film.cc
   engines/eevee_next/eevee_hizbuffer.cc
   engines/eevee_next/eevee_instance.cc
-  engines/eevee_next/eevee_lightprobe_volume.cc
   engines/eevee_next/eevee_light.cc
   engines/eevee_next/eevee_lightcache.cc
   engines/eevee_next/eevee_lightprobe.cc
+  engines/eevee_next/eevee_lightprobe_planar.cc
+  engines/eevee_next/eevee_lightprobe_sphere.cc
+  engines/eevee_next/eevee_lightprobe_volume.cc
   engines/eevee_next/eevee_lookdev.cc
   engines/eevee_next/eevee_lut.cc
   engines/eevee_next/eevee_material.cc
   engines/eevee_next/eevee_motion_blur.cc
   engines/eevee_next/eevee_pipeline.cc
-  engines/eevee_next/eevee_lightprobe_planar.cc
   engines/eevee_next/eevee_precompute.cc
   engines/eevee_next/eevee_raytrace.cc
-  engines/eevee_next/eevee_lightprobe_sphere.cc
   engines/eevee_next/eevee_renderbuffers.cc
   engines/eevee_next/eevee_sampling.cc
   engines/eevee_next/eevee_shader.cc
@@ -249,19 +249,19 @@ set(SRC
   engines/eevee_next/eevee_gbuffer.hh
   engines/eevee_next/eevee_hizbuffer.hh
   engines/eevee_next/eevee_instance.hh
-  engines/eevee_next/eevee_lightprobe_volume.hh
   engines/eevee_next/eevee_light.hh
   engines/eevee_next/eevee_lightcache.hh
   engines/eevee_next/eevee_lightprobe.hh
+  engines/eevee_next/eevee_lightprobe_planar.hh
+  engines/eevee_next/eevee_lightprobe_sphere.hh
+  engines/eevee_next/eevee_lightprobe_volume.hh
   engines/eevee_next/eevee_lookdev.hh
   engines/eevee_next/eevee_lut.hh
   engines/eevee_next/eevee_material.hh
   engines/eevee_next/eevee_motion_blur.hh
   engines/eevee_next/eevee_pipeline.hh
-  engines/eevee_next/eevee_lightprobe_planar.hh
   engines/eevee_next/eevee_precompute.hh
   engines/eevee_next/eevee_raytrace.hh
-  engines/eevee_next/eevee_lightprobe_sphere.hh
   engines/eevee_next/eevee_renderbuffers.hh
   engines/eevee_next/eevee_sampling.hh
   engines/eevee_next/eevee_shader.hh
@@ -290,9 +290,14 @@ set(SRC
   engines/image/image_usage.hh
   engines/overlay/overlay_engine.h
   engines/overlay/overlay_next_background.hh
+  engines/overlay/overlay_next_bounds.hh
   engines/overlay/overlay_next_empty.hh
+  engines/overlay/overlay_next_camera.hh
   engines/overlay/overlay_next_grid.hh
   engines/overlay/overlay_next_instance.hh
+  engines/overlay/overlay_next_lattice.hh
+  engines/overlay/overlay_next_light.hh
+  engines/overlay/overlay_next_lightprobe.hh
   engines/overlay/overlay_next_metaball.hh
   engines/overlay/overlay_next_prepass.hh
   engines/overlay/overlay_next_private.hh
@@ -521,13 +526,11 @@ set(GLSL_SRC
   engines/workbench/shaders/workbench_prepass_hair_vert.glsl
   engines/workbench/shaders/workbench_prepass_pointcloud_vert.glsl
   engines/workbench/shaders/workbench_prepass_vert.glsl
-  engines/workbench/shaders/workbench_shadow_caps_geom.glsl
-  engines/workbench/shaders/workbench_shadow_caps_vert_no_geom.glsl
+  engines/workbench/shaders/workbench_shadow_caps_vert.glsl
   engines/workbench/shaders/workbench_shadow_debug_frag.glsl
-  engines/workbench/shaders/workbench_shadow_geom.glsl
+  engines/workbench/shaders/workbench_shadow_lib.glsl
   engines/workbench/shaders/workbench_shadow_vert.glsl
   engines/workbench/shaders/workbench_shadow_visibility_comp.glsl
-  engines/workbench/shaders/workbench_shadow_vert_no_geom.glsl
   engines/workbench/shaders/workbench_transparent_accum_frag.glsl
   engines/workbench/shaders/workbench_transparent_resolve_frag.glsl
   engines/workbench/shaders/workbench_volume_frag.glsl
@@ -605,6 +608,7 @@ set(GLSL_SRC
   engines/select/shaders/select_id_vert.glsl
   engines/select/shaders/select_id_frag.glsl
   engines/select/shaders/select_lib.glsl
+  engines/select/shaders/select_debug_frag.glsl
 
   engines/select/select_shader_shared.hh
 

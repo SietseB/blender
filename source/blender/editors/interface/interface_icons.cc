@@ -559,6 +559,9 @@ int UI_icon_from_event_type(short event_type, short event_value)
   } while ((di = di->data.input.next));
 
   if (event_type == LEFTMOUSE) {
+    if (event_value == KM_DBL_CLICK) {
+      return ICON_MOUSE_LMB_2X;
+    }
     return (event_value == KM_CLICK_DRAG) ? ICON_MOUSE_LMB_DRAG : ICON_MOUSE_LMB;
   }
   if (event_type == MIDDLEMOUSE) {
@@ -740,6 +743,9 @@ static void init_event_icons()
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_V1, NDOF_BUTTON_V1, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_V2, NDOF_BUTTON_V2, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_V3, NDOF_BUTTON_V3, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_SAVE_V1, NDOF_BUTTON_SAVE_V1, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_SAVE_V2, NDOF_BUTTON_SAVE_V2, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_SAVE_V3, NDOF_BUTTON_SAVE_V3, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_1, NDOF_BUTTON_1, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_2, NDOF_BUTTON_2, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_3, NDOF_BUTTON_3, KM_ANY);
@@ -750,9 +756,8 @@ static void init_event_icons()
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_8, NDOF_BUTTON_8, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_9, NDOF_BUTTON_9, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_10, NDOF_BUTTON_10, KM_ANY);
-  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_A, NDOF_BUTTON_A, KM_ANY);
-  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_B, NDOF_BUTTON_B, KM_ANY);
-  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_C, NDOF_BUTTON_C, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_11, NDOF_BUTTON_11, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_12, NDOF_BUTTON_12, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_MENU, NDOF_BUTTON_MENU, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_FIT, NDOF_BUTTON_FIT, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_NDOF_BUTTON_TOP, NDOF_BUTTON_TOP, KM_ANY);
@@ -1377,9 +1382,7 @@ static void icon_draw_size(float x,
     GPU_blend(GPU_BLEND_ALPHA);
   }
   else if (di->type == ICON_TYPE_EVENT) {
-    const short event_type = di->data.input.event_type;
-    const short event_value = di->data.input.event_value;
-    icon_draw_rect_input(x, y, w, h, alpha, event_type, event_value, inverted);
+    icon_draw_rect_input(x, y, w, h, icon_id, aspect, alpha, inverted);
   }
   else if (ELEM(di->type, ICON_TYPE_SVG_MONO, ICON_TYPE_SVG_COLOR)) {
     /* Monochrome icon that uses text or theme color. */

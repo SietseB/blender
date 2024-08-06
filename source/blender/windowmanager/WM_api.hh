@@ -275,6 +275,7 @@ bool WM_window_pixels_read_sample(bContext *C, wmWindow *win, const int pos[2], 
  */
 int WM_window_pixels_x(const wmWindow *win);
 int WM_window_pixels_y(const wmWindow *win);
+void WM_window_pixels_coords(const wmWindow *win, int *x, int *y);
 
 /**
  * Store the size and position of a window (so it can be restored in the same state when
@@ -381,14 +382,6 @@ wmWindow *WM_window_open(bContext *C,
                          void (*area_setup_fn)(bScreen *screen, ScrArea *area, void *user_data),
                          void *area_setup_user_data) ATTR_NONNULL(1, 3);
 
-struct wmWindow *WM_window_open_temp(struct bContext *C,
-                                     const char *title,
-                                     struct UserDef_WinState *state,
-                                     int def_sizex,
-                                     int def_sizey,
-                                     int space_type,
-                                     bool dialog);
-
 void WM_window_set_dpi(const wmWindow *win);
 
 /**
@@ -397,7 +390,7 @@ void WM_window_set_dpi(const wmWindow *win);
  */
 void WM_window_title(wmWindowManager *wm, wmWindow *win, const char *title = nullptr);
 
-bool WM_stereo3d_enabled(wmWindow *win, bool only_fullscreen_test);
+bool WM_stereo3d_enabled(wmWindow *win, bool skip_stereo3d_check);
 
 /* `wm_files.cc`. */
 
@@ -1890,7 +1883,7 @@ bool WM_event_consecutive_gesture_test_break(const wmWindow *win, const wmEvent 
 
 int WM_event_drag_threshold(const wmEvent *event);
 bool WM_event_drag_test(const wmEvent *event, const int prev_xy[2]);
-bool WM_event_drag_test_with_delta(const wmEvent *event, const int delta[2]);
+bool WM_event_drag_test_with_delta(const wmEvent *event, const int drag_delta[2]);
 void WM_event_drag_start_mval(const wmEvent *event, const ARegion *region, int r_mval[2]);
 void WM_event_drag_start_mval_fl(const wmEvent *event, const ARegion *region, float r_mval[2]);
 void WM_event_drag_start_xy(const wmEvent *event, int r_xy[2]);

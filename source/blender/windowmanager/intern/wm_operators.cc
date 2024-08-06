@@ -610,6 +610,15 @@ static const char *wm_context_member_from_ptr(const bContext *C,
               TEST_PTR_DATA_TYPE("space_data.overlay", RNA_SpaceNodeOverlay, ptr, snode);
               break;
             }
+            case SPACE_SEQ: {
+              const SpaceSeq *sseq = (SpaceSeq *)space_data;
+              TEST_PTR_DATA_TYPE(
+                  "space_data.preview_overlay", RNA_SequencerPreviewOverlay, ptr, sseq);
+              TEST_PTR_DATA_TYPE(
+                  "space_data.timeline_overlay", RNA_SequencerTimelineOverlay, ptr, sseq);
+              TEST_PTR_DATA_TYPE("space_data.cache_overlay", RNA_SequencerCacheOverlay, ptr, sseq);
+              break;
+            }
           }
         }
 
@@ -1892,7 +1901,7 @@ int WM_operator_redo_popup(bContext *C, wmOperator *op)
 static int wm_debug_menu_exec(bContext *C, wmOperator *op)
 {
   G.debug_value = RNA_int_get(op->ptr, "debug_value");
-  ED_screen_refresh(CTX_wm_manager(C), CTX_wm_window(C));
+  ED_screen_refresh(C, CTX_wm_manager(C), CTX_wm_window(C));
   WM_event_add_notifier(C, NC_WINDOW, nullptr);
 
   return OPERATOR_FINISHED;

@@ -245,6 +245,18 @@ class DOPESHEET_HT_editor_buttons:
 
             layout.template_ID(st, "action", new="action.new", unlink="action.unlink")
 
+            # Show slot selector.
+            if context.preferences.experimental.use_animation_baklava:
+                # context.space_data.action comes from the active object.
+                adt = context.object and context.object.animation_data
+                if adt and st.action and st.action.is_action_layered:
+                    layout.template_search(
+                        adt, "action_slot",
+                        adt, "action_slots",
+                        new="",
+                        unlink="anim.slot_unassign_object",
+                    )
+
         # Layer management
         if st.mode == 'GPENCIL':
             ob = context.active_object
@@ -644,6 +656,8 @@ class DOPESHEET_PT_action_slot(Panel):
 
     @classmethod
     def poll(cls, context):
+        if not context.preferences.experimental.use_animation_baklava:
+            return False
         action = context.active_action
         return bool(action and action.slots.active)
 
@@ -870,7 +884,7 @@ class GreasePencilLayersDopeSheetPanel:
             return False
 
         grease_pencil = ob.data
-        active_layer = grease_pencil.layers.active_layer
+        active_layer = grease_pencil.layers.active
         if active_layer:
             return True
 
@@ -987,7 +1001,7 @@ class DOPESHEET_PT_grease_pencil_mode(GreasePencilLayersDopeSheetPanel, Panel):
 
         ob = context.object
         grease_pencil = ob.data
-        active_layer = grease_pencil.layers.active_layer
+        active_layer = grease_pencil.layers.active
 
         if active_layer:
             row = layout.row(align=True)

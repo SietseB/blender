@@ -92,6 +92,7 @@ const EnumPropertyItem rna_enum_strip_type_items[] = {
 
 #  include "DEG_depsgraph.hh"
 
+#  include "ANIM_action_legacy.hh"
 #  include "ANIM_keyframing.hh"
 
 #  include <fmt/format.h>
@@ -703,6 +704,80 @@ static void rna_Action_groups_remove(bAction *act, ReportList *reports, PointerR
   WM_main_add_notifier(NC_ANIMATION | ND_KEYFRAME | NA_EDITED, nullptr);
 }
 
+/* Use the backward-compatible API only when the experimental feature is
+ * enabled OR if the Action is already a layered Action. */
+static bool use_backward_compatible_api(animrig::Action &action)
+{
+  /* action.is_action_layered() returns 'true' on empty Actions, but that case must be protected by
+   * the experimental flag, hence the expression below uses !action.is_action_legacy(). */
+  return (USER_EXPERIMENTAL_TEST(&U, use_animation_baklava) && action.is_empty()) ||
+         !action.is_action_legacy();
+}
+
+#  ifdef WITH_ANIM_BAKLAVA
+static void rna_iterator_Action_fcurves_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+  animrig::Action &action = rna_action(ptr);
+
+  if (use_backward_compatible_api(action)) {
+    animrig::ChannelBag *channelbag = animrig::legacy::channelbag_get(action);
+    if (!channelbag) {
+      return;
+    }
+    rna_iterator_array_begin(iter, channelbag->fcurves());
+  }
+  else {
+    rna_iterator_listbase_begin(iter, &action.curves, nullptr);
+  }
+}
+static void rna_iterator_Action_fcurves_next(CollectionPropertyIterator *iter)
+{
+  animrig::Action &action = rna_action(&iter->parent);
+  if (use_backward_compatible_api(action)) {
+    rna_iterator_array_next(iter);
+  }
+  else {
+    rna_iterator_listbase_next(iter);
+  }
+}
+static void rna_iterator_Action_fcurves_end(CollectionPropertyIterator *iter)
+{
+  animrig::Action &action = rna_action(&iter->parent);
+  if (use_backward_compatible_api(action)) {
+    rna_iterator_array_end(iter);
+  }
+  else {
+    rna_iterator_listbase_end(iter);
+  }
+}
+static PointerRNA rna_iterator_Action_fcurves_get(CollectionPropertyIterator *iter)
+{
+  animrig::Action &action = rna_action(&iter->parent);
+  FCurve *fcurve;
+  if (use_backward_compatible_api(action)) {
+    fcurve = static_cast<FCurve *>(rna_iterator_array_dereference_get(iter));
+  }
+  else {
+    fcurve = static_cast<FCurve *>(rna_iterator_listbase_get(iter));
+  }
+
+  return RNA_pointer_create(&action.id, &RNA_FCurve, fcurve);
+}
+static int rna_iterator_Action_fcurves_length(PointerRNA *ptr)
+{
+  animrig::Action &action = rna_action(ptr);
+  if (use_backward_compatible_api(action)) {
+    animrig::ChannelBag *channelbag = animrig::legacy::channelbag_get(action);
+    if (!channelbag) {
+      return 0;
+    }
+    return channelbag->fcurves().size();
+  }
+  return BLI_listbase_count(&action.curves);
+}
+
+#  endif  // WITH_ANIM_BAKLAVA
+
 static FCurve *rna_Action_fcurve_new(bAction *act,
                                      Main *bmain,
                                      ReportList *reports,
@@ -710,23 +785,37 @@ static FCurve *rna_Action_fcurve_new(bAction *act,
                                      int index,
                                      const char *group)
 {
-  if (!act->wrap().is_action_legacy()) {
-    BKE_reportf(reports,
-                RPT_ERROR,
-                "Cannot add legacy F-Curves to a layered Action '%s'. Convert it to a legacy "
-                "Action first.",
-                act->id.name + 2);
-    return nullptr;
-  }
-
-  if (group && group[0] == '\0') {
-    group = nullptr;
-  }
-
   BLI_assert(data_path != nullptr);
   if (data_path[0] == '\0') {
     BKE_report(reports, RPT_ERROR, "F-Curve data path empty, invalid argument");
     return nullptr;
+  }
+
+  animrig::Action &action = act->wrap();
+  if (use_backward_compatible_api(action)) {
+    /* Add the F-Curve to the channelbag for the first slot. */
+    animrig::ChannelBag &channelbag = animrig::legacy::channelbag_ensure(action);
+    FCurve *fcurve = channelbag.fcurve_create_unique(bmain, {data_path, index});
+    if (!fcurve) {
+      /* The only reason fcurve_create_unique() returns nullptr is when the curve
+       * already exists. */
+
+      /* This is using the same error as below, as this is mimicking the legacy API. */
+      BKE_reportf(reports,
+                  RPT_ERROR,
+                  "F-Curve '%s[%d]' already exists in action '%s'",
+                  data_path,
+                  index,
+                  act->id.name + 2);
+      return nullptr;
+    }
+
+    /* TODO: handle the groups. */
+    return fcurve;
+  }
+
+  if (group && group[0] == '\0') {
+    group = nullptr;
   }
 
   /* Annoying, check if this exists. */
@@ -752,6 +841,15 @@ static FCurve *rna_Action_fcurve_find(bAction *act,
     return nullptr;
   }
 
+  animrig::Action &action = act->wrap();
+  if (use_backward_compatible_api(action)) {
+    animrig::ChannelBag *channelbag = animrig::legacy::channelbag_get(action);
+    if (!channelbag) {
+      return nullptr;
+    }
+    return channelbag->fcurve_find({data_path, index});
+  }
+
   /* Returns nullptr if not found. */
   return BKE_fcurve_find(&act->curves, data_path, index);
 }
@@ -759,6 +857,26 @@ static FCurve *rna_Action_fcurve_find(bAction *act,
 static void rna_Action_fcurve_remove(bAction *act, ReportList *reports, PointerRNA *fcu_ptr)
 {
   FCurve *fcu = static_cast<FCurve *>(fcu_ptr->data);
+
+  animrig::Action &action = act->wrap();
+  if (use_backward_compatible_api(action)) {
+    animrig::ChannelBag *channelbag = animrig::legacy::channelbag_get(action);
+    if (!channelbag) {
+      BKE_reportf(reports, RPT_ERROR, "F-Curve not found in action '%s'", act->id.name + 2);
+      return;
+    }
+    if (!channelbag->fcurve_remove(*fcu)) {
+      BKE_reportf(reports, RPT_ERROR, "F-Curve not found in action '%s'", act->id.name + 2);
+      return;
+    }
+    RNA_POINTER_INVALIDATE(fcu_ptr);
+
+    DEG_id_tag_update(&act->id, ID_RECALC_ANIMATION_NO_FLUSH);
+    WM_main_add_notifier(NC_ANIMATION | ND_KEYFRAME | NA_EDITED, nullptr);
+
+    return;
+  }
+
   if (fcu->grp) {
     if (BLI_findindex(&act->groups, fcu->grp) == -1) {
       BKE_reportf(reports,
@@ -790,7 +908,19 @@ static void rna_Action_fcurve_remove(bAction *act, ReportList *reports, PointerR
 
 static void rna_Action_fcurve_clear(bAction *act)
 {
-  BKE_action_fcurves_clear(act);
+  animrig::Action &action = act->wrap();
+  if (use_backward_compatible_api(action)) {
+    animrig::ChannelBag *channelbag = animrig::legacy::channelbag_get(action);
+    if (!channelbag) {
+      /* Nothing to clear, so the post-condition of not having F-Curves is fulfilled. */
+      return;
+    }
+    channelbag->fcurves_clear();
+  }
+  else {
+    BKE_action_fcurves_clear(act);
+  }
+
   WM_main_add_notifier(NC_ANIMATION | ND_KEYFRAME | NA_EDITED, nullptr);
 }
 
@@ -1371,7 +1501,7 @@ static void rna_def_action_slots(BlenderRNA *brna, PropertyRNA *cprop)
       "Data-Block",
       "If given, the new slot will be named after this data-block, and limited to animating "
       "data-blocks of its type. If ommitted, limiting the ID type will happen as soon as the "
-      "slot is assigned");
+      "slot is assigned.");
   /* Clear out the PARM_REQUIRED flag, which is set by default for pointer parameters. */
   RNA_def_parameter_flags(parm, PropertyFlag(0), ParameterFlag(0));
 
@@ -1396,7 +1526,7 @@ static void rna_def_action_layers(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
   RNA_def_function_ui_description(
       func,
-      "Add a layer to the Animation. Currently an Animation can only have at most one layer");
+      "Add a layer to the Animation. Currently an Animation can only have at most one layer.");
   parm = RNA_def_string(func,
                         "name",
                         nullptr,
@@ -1454,7 +1584,7 @@ static void rna_def_action_slot(BlenderRNA *brna)
       prop,
       "Slot Display Name",
       "Name of the slot for showing in the interface. It is the name, without the first two "
-      "characters that identify what kind of data-block it animates");
+      "characters that identify what kind of data-block it animates.");
 
   prop = RNA_def_property(srna, "handle", PROP_INT, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1505,7 +1635,7 @@ static void rna_def_ActionLayer_strips(BlenderRNA *brna, PropertyRNA *cprop)
   func = RNA_def_function(srna, "new", "rna_ActionStrips_new");
   RNA_def_function_ui_description(func,
                                   "Add a new strip to the layer. Currently a layer can only have "
-                                  "one strip, with infinite boundaries");
+                                  "one strip, with infinite boundaries.");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
   parm = RNA_def_enum(func,
                       "type",
@@ -1945,6 +2075,17 @@ static void rna_def_action_fcurves(BlenderRNA *brna, PropertyRNA *cprop)
   srna = RNA_def_struct(brna, "ActionFCurves", nullptr);
   RNA_def_struct_sdna(srna, "bAction");
   RNA_def_struct_ui_text(srna, "Action F-Curves", "Collection of action F-Curves");
+#  ifdef WITH_ANIM_BAKLAVA
+  RNA_def_property_collection_funcs(cprop,
+                                    "rna_iterator_Action_fcurves_begin",
+                                    "rna_iterator_Action_fcurves_next",
+                                    "rna_iterator_Action_fcurves_end",
+                                    "rna_iterator_Action_fcurves_get",
+                                    "rna_iterator_Action_fcurves_length",
+                                    nullptr,
+                                    nullptr,
+                                    nullptr);
+#  endif
 
   /* Action.fcurves.new(...) */
   func = RNA_def_function(srna, "new", "rna_Action_fcurve_new");
@@ -2092,7 +2233,7 @@ static void rna_def_action(BlenderRNA *brna)
       prop,
       "Is Legacy Action",
       "Return whether this is a legacy Action. Legacy Actions have no layers or slots. An "
-      "empty Action considered as both a 'legacy' and a 'layered' Action");
+      "empty Action considered as both a 'legacy' and a 'layered' Action.");
   RNA_def_property_boolean_funcs(prop, "rna_Action_is_action_legacy_get", nullptr);
 
   prop = RNA_def_property(srna, "is_action_layered", PROP_BOOLEAN, PROP_NONE);
@@ -2100,7 +2241,7 @@ static void rna_def_action(BlenderRNA *brna)
   RNA_def_property_ui_text(prop,
                            "Is Layered Action",
                            "Return whether this is a layered Action. An empty Action considered "
-                           "as both a 'layered' and a 'layered' Action");
+                           "as both a 'layered' and a 'layered' Action.");
   RNA_def_property_boolean_funcs(prop, "rna_Action_is_action_layered_get", nullptr);
 #  endif  // WITH_ANIM_BAKLAVA
 
@@ -2218,7 +2359,7 @@ static void rna_def_action(BlenderRNA *brna)
 
   FunctionRNA *func = RNA_def_function(srna, "deselect_keys", "rna_Action_deselect_keys");
   RNA_def_function_ui_description(
-      func, "Deselects all keys of the Action. The selection status of F-Curves is unchanged");
+      func, "Deselects all keys of the Action. The selection status of F-Curves is unchanged.");
 
   rna_def_action_legacy(brna, srna);
 

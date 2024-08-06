@@ -165,7 +165,7 @@ enum ModSide {
  * \{ */
 
 static void wm_window_set_drawable(wmWindowManager *wm, wmWindow *win, bool activate);
-static bool wm_window_timers_process(const bContext *C, int *sleep_us);
+static bool wm_window_timers_process(const bContext *C, int *sleep_us_p);
 static uint8_t wm_ghost_modifier_query(const enum ModSide side);
 
 bool wm_get_screensize(int *r_width, int *r_height)
@@ -544,7 +544,7 @@ void WM_window_title(wmWindowManager *wm, wmWindow *win, const char *title)
   }
 
   str += " - Blender ";
-  str += BKE_blender_version_string_compact();
+  str += BKE_blender_version_string();
 
   GHOST_SetTitle(handle, str.c_str());
 
@@ -1098,7 +1098,7 @@ wmWindow *WM_window_open(bContext *C,
   }
 
   /* Refresh screen dimensions, after the effective window size is known. */
-  ED_screen_refresh(wm, win);
+  ED_screen_refresh(C, wm, win);
 
   if (win->ghostwin) {
     wm_window_raise(win);
@@ -2677,15 +2677,23 @@ void WM_cursor_warp(wmWindow *win, int x, int y)
 
 int WM_window_pixels_x(const wmWindow *win)
 {
-  float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
+  const float fac = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
 
-  return int(f * float(win->sizex));
+  return int(fac * float(win->sizex));
 }
 int WM_window_pixels_y(const wmWindow *win)
 {
-  float f = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
+  const float fac = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
 
-  return int(f * float(win->sizey));
+  return int(fac * float(win->sizey));
+}
+
+void WM_window_pixels_coords(const wmWindow *win, int *x, int *y)
+{
+  const float fac = GHOST_GetNativePixelSize(static_cast<GHOST_WindowHandle>(win->ghostwin));
+
+  *x *= fac;
+  *y *= fac;
 }
 
 void WM_window_store_position(wmWindow *win, const wmWindow *parent)

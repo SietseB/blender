@@ -54,6 +54,9 @@ class Context {
   /* True if the compositor should write file outputs, false otherwise. */
   virtual bool use_file_output() const = 0;
 
+  /* True if the compositor should compute node previews, false otherwise. */
+  virtual bool should_compute_node_previews() const = 0;
+
   /* True if the compositor should write the composite output, otherwise, the compositor is assumed
    * to not support the composite output and just displays its viewer output. In that case, the
    * composite output will be used as a fallback viewer if no other viewer exists */
@@ -160,18 +163,18 @@ class Context {
   /* Get a GPU shader with the given info name and context's precision. */
   GPUShader *get_shader(const char *info_name);
 
-  /* Create a result of the given type and precision using the context's texture pool. */
+  /* Create a result of the given type and precision. */
   Result create_result(ResultType type, ResultPrecision precision);
 
-  /* Create a result of the given type using the context's texture pool and precision. */
+  /* Create a result of the given type using the context's precision. */
   Result create_result(ResultType type);
 
-  /* Create a temporary result of the given type and precision using the context's texture pool.
-   * See Result::Temporary for more information. */
+  /* Create a temporary result of the given type and precision; See Result::Temporary for more
+   * information. */
   Result create_temporary_result(ResultType type, ResultPrecision precision);
 
-  /* Create a temporary result of the given type using the context's texture pool and precision.
-   * See Result::Temporary for more information. */
+  /* Create a temporary result of the given type using the context's precision. See
+   * Result::Temporary for more information. */
   Result create_temporary_result(ResultType type);
 
   /* Get a reference to the texture pool of this context. */

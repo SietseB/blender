@@ -1105,7 +1105,7 @@ static int actionzone_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     return OPERATOR_FINISHED;
   }
 
-  if (U.experimental.use_docking && sad->az->type == AZONE_AREA) {
+  if (U.experimental.use_docking && sad->az->type == AZONE_AREA && sad->modifier == 0) {
     actionzone_apply(C, op, sad->az->type);
     actionzone_exit(op);
     return OPERATOR_FINISHED;
@@ -1357,6 +1357,7 @@ static void area_swap_exit(bContext *C, wmOperator *op)
 {
   WM_cursor_modal_restore(CTX_wm_window(C));
   MEM_SAFE_FREE(op->customdata);
+  ED_workspace_status_text(C, nullptr);
 }
 
 static void area_swap_cancel(bContext *C, wmOperator *op)
@@ -1382,11 +1383,15 @@ static int area_swap_modal(bContext *C, wmOperator *op, const wmEvent *event)
   sActionzoneData *sad = static_cast<sActionzoneData *>(op->customdata);
 
   switch (event->type) {
-    case MOUSEMOVE:
+    case MOUSEMOVE: {
       /* Second area to swap with. */
       sad->sa2 = ED_area_find_under_cursor(C, SPACE_TYPE_ANY, event->xy);
       WM_cursor_set(CTX_wm_window(C), (sad->sa2) ? WM_CURSOR_SWAP_AREA : WM_CURSOR_STOP);
+      WorkspaceStatus status(C);
+      status.item(IFACE_("Select Area"), ICON_MOUSE_LMB);
+      status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
       break;
+    }
     case LEFTMOUSE: /* release LMB */
       if (event->val == KM_RELEASE) {
         if (!sad->sa2 || sad->sa1 == sad->sa2) {
@@ -1886,7 +1891,7 @@ static int area_snap_calc_location(const bScreen *screen,
 }
 
 /* moves selected screen edge amount of delta, used by split & move */
-static void area_move_apply_do(const bContext *C,
+static void area_move_apply_do(bContext *C,
                                int delta,
                                const int origval,
                                const eScreenAxis dir_axis,
@@ -1894,6 +1899,11 @@ static void area_move_apply_do(const bContext *C,
                                const int smaller,
                                const enum AreaMoveSnapType snap_type)
 {
+  WorkspaceStatus status(C);
+  status.item(IFACE_("Confirm"), ICON_MOUSE_LMB);
+  status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
+  status.item_bool(IFACE_("Snap"), snap_type == SNAP_FRACTION_AND_ADJACENT, ICON_EVENT_CTRL);
+
   wmWindow *win = CTX_wm_window(C);
   bScreen *screen = CTX_wm_screen(C);
   short final_loc = -1;
@@ -1978,7 +1988,7 @@ static void area_move_exit(bContext *C, wmOperator *op)
   /* this makes sure aligned edges will result in aligned grabbing */
   BKE_screen_remove_double_scrverts(CTX_wm_screen(C));
   BKE_screen_remove_double_scredges(CTX_wm_screen(C));
-
+  ED_workspace_status_text(C, nullptr);
   G.moving &= ~G_TRANSFORM_WM;
 }
 
@@ -2003,6 +2013,11 @@ static int area_move_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   if (!area_move_init(C, op)) {
     return OPERATOR_PASS_THROUGH;
   }
+
+  WorkspaceStatus status(C);
+  status.item(IFACE_("Confirm"), ICON_MOUSE_LMB);
+  status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
+  status.item(IFACE_("Snap"), ICON_EVENT_CTRL);
 
   /* add temp handler */
   G.moving |= G_TRANSFORM_WM;
@@ -2058,6 +2073,11 @@ static int area_move_modal(bContext *C, wmOperator *op, const wmEvent *event)
           }
           break;
       }
+      WorkspaceStatus status(C);
+      status.item(IFACE_("Confirm"), ICON_MOUSE_LMB);
+      status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
+      status.item_bool(
+          IFACE_("Snap"), md->snap_type == SNAP_FRACTION_AND_ADJACENT, ICON_EVENT_CTRL);
       break;
     }
   }
@@ -2314,6 +2334,7 @@ static void area_split_exit(bContext *C, wmOperator *op)
 
   WM_cursor_modal_restore(CTX_wm_window(C));
   WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, nullptr);
+  ED_workspace_status_text(C, nullptr);
 
   /* this makes sure aligned edges will result in aligned grabbing */
   BKE_screen_remove_double_scrverts(CTX_wm_screen(C));
@@ -2579,8 +2600,18 @@ static int area_split_modal(bContext *C, wmOperator *op, const wmEvent *event)
                                                      sd->bigger,
                                                      sd->smaller);
         sd->delta = snap_loc - sd->origval;
+        area_move_apply_do(C,
+                           sd->delta,
+                           sd->origval,
+                           dir_axis,
+                           sd->bigger,
+                           sd->smaller,
+                           SNAP_FRACTION_AND_ADJACENT);
       }
-      area_move_apply_do(C, sd->delta, sd->origval, dir_axis, sd->bigger, sd->smaller, SNAP_NONE);
+      else {
+        area_move_apply_do(
+            C, sd->delta, sd->origval, dir_axis, sd->bigger, sd->smaller, SNAP_NONE);
+      }
     }
     else {
       if (sd->sarea) {
@@ -3658,6 +3689,8 @@ static void area_join_exit(bContext *C, wmOperator *op)
   BKE_screen_remove_unused_scredges(CTX_wm_screen(C));
   BKE_screen_remove_unused_scrverts(CTX_wm_screen(C));
 
+  ED_workspace_status_text(C, nullptr);
+
   G.moving &= ~G_TRANSFORM_WM;
 }
 
@@ -3808,8 +3841,15 @@ static AreaDockTarget area_docking_target(sAreaJoinData *jd, const wmEvent *even
   }
 
   /* Convert to local coordinates in sa2. */
-  const int x = event->xy[0] + jd->win1->posx - jd->win2->posx - jd->sa2->totrct.xmin;
-  const int y = event->xy[1] + jd->win1->posy - jd->win2->posy - jd->sa2->totrct.ymin;
+  int win1_posx = jd->win1->posx;
+  int win1_posy = jd->win1->posy;
+  int win2_posx = jd->win2->posx;
+  int win2_posy = jd->win2->posy;
+  WM_window_pixels_coords(jd->win1, &win1_posx, &win1_posy);
+  WM_window_pixels_coords(jd->win2, &win2_posx, &win2_posy);
+
+  const int x = event->xy[0] + win1_posx - win2_posx - jd->sa2->totrct.xmin;
+  const int y = event->xy[1] + win1_posy - win2_posy - jd->sa2->totrct.ymin;
 
   const float fac_x = float(x) / float(jd->sa2->winx);
   const float fac_y = float(y) / float(jd->sa2->winy);
@@ -3987,6 +4027,18 @@ static int area_join_modal(bContext *C, wmOperator *op, const wmEvent *event)
       area_join_dock_cb_window(jd, op);
       WM_cursor_set(jd->win1, area_join_cursor(jd, event));
       WM_event_add_notifier(C, NC_WINDOW, nullptr);
+
+      WorkspaceStatus status(C);
+      if (jd->sa1 && jd->sa1 == jd->sa2) {
+        status.item(IFACE_("Select Split"), ICON_MOUSE_LMB);
+      }
+      else if (jd->dock_target == AreaDockTarget::None) {
+        status.item(IFACE_("Select Area"), ICON_MOUSE_LMB);
+      }
+      else {
+        status.item(IFACE_("Select Location"), ICON_MOUSE_LMB);
+      }
+      status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
       break;
     }
     case LEFTMOUSE:
@@ -4017,13 +4069,36 @@ static int area_join_modal(bContext *C, wmOperator *op, const wmEvent *event)
         else if (jd->sa1 && jd->sa1 == jd->sa2) {
           /* Same area so split. */
           if (area_split_allowed(jd->sa1, jd->split_dir) && jd->split_fac > 0.0001) {
-            jd->sa1 = area_split(jd->win2,
+            jd->sa2 = area_split(jd->win2,
                                  WM_window_get_active_screen(jd->win1),
                                  jd->sa1,
                                  jd->split_dir,
                                  jd->split_fac,
                                  true);
+
+            const bool large_v = jd->split_dir == SCREEN_AXIS_V &&
+                                 ((jd->x < event->xy[0] && jd->split_fac > 0.5f) ||
+                                  (jd->x > event->xy[0] && jd->split_fac < 0.5f));
+
+            const bool large_h = jd->split_dir == SCREEN_AXIS_H &&
+                                 ((jd->y < event->xy[1] && jd->split_fac > 0.5f) ||
+                                  (jd->y > event->xy[1] && jd->split_fac < 0.5f));
+
+            if (large_v || large_h) {
+              /* Swap areas to follow old behavior of new area added based on starting location. If
+               * from above the new area is above, if from below the new area is below, etc. Note
+               * that this preserves runtime data, unlike ED_area_swapspace. */
+              std::swap(jd->sa1->v1, jd->sa2->v1);
+              std::swap(jd->sa1->v2, jd->sa2->v2);
+              std::swap(jd->sa1->v3, jd->sa2->v3);
+              std::swap(jd->sa1->v4, jd->sa2->v4);
+              std::swap(jd->sa1->totrct, jd->sa2->totrct);
+              std::swap(jd->sa1->winx, jd->sa2->winx);
+              std::swap(jd->sa1->winy, jd->sa2->winy);
+            }
+
             ED_area_tag_redraw(jd->sa1);
+            ED_area_tag_redraw(jd->sa2);
           }
         }
         else if (U.experimental.use_docking && jd->sa1 && jd->sa2 &&

@@ -156,7 +156,7 @@ if(WITH_BLENDER)
   if(NOT WITH_HEADLESS)
     # Blender UI only.
 
-    set(SVG_SRC
+    set(SVG_FILENAMES_NOEXT
       action
       action_tweak
       add
@@ -355,6 +355,7 @@ if(WITH_BLENDER)
       fullscreen_exit
       fund
       geometry_nodes
+      geometry_set
       ghost_disabled
       ghost_enabled
       gizmo
@@ -426,8 +427,34 @@ if(WITH_BLENDER)
       keyframe
       keyframe_hlt
       keyingset
+	    key_backspace
+      key_backspace_filled
+      key_command
+      key_command_filled
+      key_control
+      key_control_filled
       key_dehlt
+      key_empty1
+      key_empty1_filled
+      key_empty2
+      key_empty2_filled
+      key_empty3
+      key_empty3_filled
       key_hlt
+      key_menu
+      key_menu_filled
+      key_option
+      key_option_filled
+      key_return
+      key_return_filled
+      key_ring
+      key_ring_filled
+      key_shift
+      key_shift_filled
+      key_tab
+      key_tab_filled
+      key_windows
+      key_windows_filled
       lattice_data
       layer_active
       layer_used
@@ -548,9 +575,11 @@ if(WITH_BLENDER)
       mod_wireframe
       monkey
       mouse_lmb
+      mouse_lmb_2x
       mouse_lmb_drag
       mouse_mmb
       mouse_mmb_drag
+      mouse_mmb_scroll
       mouse_move
       mouse_rmb
       mouse_rmb_drag
@@ -863,14 +892,23 @@ if(WITH_BLENDER)
       zoom_previous
       zoom_selected
     )
-    set(SVGHCONTENTS )
-    set(SVGCCCONTENTS )
-    foreach(svg ${SVG_SRC})
+    set(SVG_CONTENTS_H)
+    set(SVG_CONTENTS_C)
+    foreach(svg ${SVG_FILENAMES_NOEXT})
       data_to_c_simple(../../../../release/datafiles/icons_svg/${svg}.svg SRC)
       string(TOUPPER ${svg} svg_name_upper)
-      set(SVGHCONTENTS "${SVGHCONTENTS}extern const char datatoc_${svg}_svg[];\n")
-      set(SVGCCCONTENTS "${SVGCCCONTENTS}case ICON_${svg_name_upper}: return datatoc_${svg}_svg;\n")
+      list(APPEND SVG_CONTENTS_H
+        "extern const char datatoc_${svg}_svg[]\;\n"
+      )
+      list(APPEND SVG_CONTENTS_C
+        "case ICON_${svg_name_upper}: return datatoc_${svg}_svg\;\n"
+      )
     endforeach()
+    unset(svg_name_upper)
+
+    list(JOIN SVG_CONTENTS_C "" SVG_CONTENTS_C)
+    list(JOIN SVG_CONTENTS_H "" SVG_CONTENTS_H)
+
     configure_file(
       "svg_icons.h.in"
       "${CMAKE_CURRENT_BINARY_DIR}/svg_icons.h"
@@ -883,6 +921,7 @@ if(WITH_BLENDER)
       ESCAPE_QUOTES
       @ONLY
     )
+
     list(APPEND SRC ${CMAKE_CURRENT_BINARY_DIR}/svg_icons.h)
     list(APPEND SRC ${CMAKE_CURRENT_BINARY_DIR}/svg_icons.cc)
     # Blend files.
@@ -892,6 +931,10 @@ if(WITH_BLENDER)
 
     # Images.
     data_to_c_simple(../../../../release/datafiles/splash.png SRC)
+
+    unset(SVG_CONTENTS_H)
+    unset(SVG_CONTENTS_C)
+    unset(SVG_FILENAMES_NOEXT)
 
   endif()
 

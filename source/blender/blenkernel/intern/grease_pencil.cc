@@ -71,6 +71,8 @@ using blender::Span;
 using blender::uint3;
 using blender::VectorSet;
 
+static const char *ATTR_POSITION = "position";
+
 /* Forward declarations. */
 static void read_drawing_array(GreasePencil &grease_pencil, BlendDataReader *reader);
 static void write_drawing_array(GreasePencil &grease_pencil, BlendWriter *writer);
@@ -263,7 +265,9 @@ static void grease_pencil_blend_read_data(BlendDataReader *reader, ID *id)
   CustomData_blend_read(reader, &grease_pencil->layers_data, grease_pencil->layers().size());
 
   /* Read materials. */
-  BLO_read_pointer_array(reader, reinterpret_cast<void **>(&grease_pencil->material_array));
+  BLO_read_pointer_array(reader,
+                         grease_pencil->material_array_num,
+                         reinterpret_cast<void **>(&grease_pencil->material_array));
   /* Read vertex group names. */
   BLO_read_struct_list(reader, bDeformGroup, &grease_pencil->vertex_group_names);
 
@@ -832,6 +836,7 @@ void Drawing::tag_positions_changed()
 void Drawing::tag_topology_changed()
 {
   this->tag_positions_changed();
+  this->strokes_for_write().tag_topology_changed();
 }
 
 DrawingReference::DrawingReference()
@@ -1855,6 +1860,12 @@ std::optional<MutableSpan<float3>> GreasePencilDrawingEditHints::positions_for_w
 /** \name Grease Pencil kernel functions
  * \{ */
 
+bool BKE_grease_pencil_drawing_attribute_required(const GreasePencilDrawing * /*drawing*/,
+                                                  const char *name)
+{
+  return STREQ(name, ATTR_POSITION);
+}
+
 void *BKE_grease_pencil_add(Main *bmain, const char *name)
 {
   GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(BKE_id_new(bmain, ID_GP, name));
@@ -2587,7 +2598,10 @@ void GreasePencil::remove_drawings_with_no_users()
   }
 
   /* Tail range of unused drawings that can be removed. */
-  const IndexRange drawings_to_remove = drawings.index_range().drop_front(last_used_drawing + 1);
+  const IndexRange drawings_to_remove = (first_unused_drawing > 0) ?
+                                            drawings.index_range().drop_front(last_used_drawing +
+                                                                              1) :
+                                            drawings.index_range();
   if (drawings_to_remove.is_empty()) {
     return;
   }
@@ -3502,7 +3516,9 @@ void GreasePencil::print_layer_tree()
 
 static void read_drawing_array(GreasePencil &grease_pencil, BlendDataReader *reader)
 {
-  BLO_read_pointer_array(reader, reinterpret_cast<void **>(&grease_pencil.drawing_array));
+  BLO_read_pointer_array(reader,
+                         grease_pencil.drawing_array_num,
+                         reinterpret_cast<void **>(&grease_pencil.drawing_array));
   for (int i = 0; i < grease_pencil.drawing_array_num; i++) {
     BLO_read_struct(reader, GreasePencilDrawingBase, &grease_pencil.drawing_array[i]);
     GreasePencilDrawingBase *drawing_base = grease_pencil.drawing_array[i];

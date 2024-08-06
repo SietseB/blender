@@ -793,7 +793,8 @@ void ED_region_search_filter_update(const ScrArea *area, ARegion *region)
 
   const char *search_filter = ED_area_region_search_filter_get(area, region);
   SET_FLAG_FROM_TEST(region->flag,
-                     region->regiontype == RGN_TYPE_WINDOW && search_filter[0] != '\0',
+                     region->regiontype == RGN_TYPE_WINDOW && search_filter &&
+                         search_filter[0] != '\0',
                      RGN_FLAG_SEARCH_FILTER_ACTIVE);
 }
 
@@ -876,7 +877,7 @@ WorkspaceStatus::WorkspaceStatus(bContext *C)
 
 static constexpr float STATUS_AFTER_TEXT = 0.7f;
 static constexpr float STATUS_BEFORE_TEXT = 0.3f;
-static constexpr float STATUS_MOUSE_ICON_PAD = -0.5f;
+static constexpr float STATUS_MOUSE_ICON_PAD = -0.9f;
 
 static void ed_workspace_status_text_item(WorkSpace *workspace, std::string text)
 {
@@ -887,18 +888,14 @@ static void ed_workspace_status_text_item(WorkSpace *workspace, std::string text
   }
 }
 
-static void ed_workspace_status_mouse_item(WorkSpace *workspace,
-                                           const int icon,
-                                           const bool inverted = false)
+static void ed_workspace_status_icon_item(WorkSpace *workspace,
+                                          const int icon,
+                                          const bool inverted = false)
 {
   if (icon) {
-    if (icon >= ICON_MOUSE_LMB && icon <= ICON_MOUSE_RMB_DRAG) {
-      /* Negative space before all narrow mice icons. */
-      ed_workspace_status_space(workspace, STATUS_MOUSE_ICON_PAD);
-    }
     ed_workspace_status_item(workspace, {}, icon, 0.0f, inverted);
-    if (icon >= ICON_MOUSE_LMB && icon <= ICON_MOUSE_RMB) {
-      /* Negative space after non-drag mice icons. */
+    if (icon >= ICON_MOUSE_LMB && icon <= ICON_MOUSE_MMB_SCROLL) {
+      /* Negative space after narrow mice icons. */
       ed_workspace_status_space(workspace, STATUS_MOUSE_ICON_PAD);
     }
   }
@@ -912,8 +909,8 @@ static void ed_workspace_status_mouse_item(WorkSpace *workspace,
 
 void WorkspaceStatus::item(std::string text, const int icon1, const int icon2)
 {
-  ed_workspace_status_mouse_item(workspace_, icon1);
-  ed_workspace_status_mouse_item(workspace_, icon2);
+  ed_workspace_status_icon_item(workspace_, icon1);
+  ed_workspace_status_icon_item(workspace_, icon2);
   ed_workspace_status_text_item(workspace_, std::move(text));
 }
 
@@ -931,8 +928,8 @@ void WorkspaceStatus::item_bool(std::string text,
                                 const int icon1,
                                 const int icon2)
 {
-  ed_workspace_status_mouse_item(workspace_, icon1, inverted);
-  ed_workspace_status_mouse_item(workspace_, icon2, inverted);
+  ed_workspace_status_icon_item(workspace_, icon1, inverted);
+  ed_workspace_status_icon_item(workspace_, icon2, inverted);
   ed_workspace_status_text_item(workspace_, std::move(text));
 }
 
@@ -962,11 +959,7 @@ void WorkspaceStatus::opmodal(std::string text,
       if (!ELEM(kmi->oskey, KM_NOTHING, KM_ANY)) {
         ed_workspace_status_item(workspace_, {}, ICON_EVENT_OS, 0.0f, inverted);
       }
-      if (kmi->val == KM_DBL_CLICK) {
-        ed_workspace_status_item(workspace_, "2" BLI_STR_UTF8_MULTIPLICATION_SIGN, ICON_NONE);
-        ed_workspace_status_space(workspace_, -0.7f);
-      }
-      ed_workspace_status_mouse_item(workspace_, icon, inverted);
+      ed_workspace_status_icon_item(workspace_, icon, inverted);
       ed_workspace_status_text_item(workspace_, std::move(text));
     }
   }

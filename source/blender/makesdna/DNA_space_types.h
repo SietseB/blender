@@ -1954,6 +1954,10 @@ typedef struct SpreadsheetColumn {
   char *display_name;
 } SpreadsheetColumn;
 
+typedef struct SpreadsheetInstanceID {
+  int reference_index;
+} SpreadsheetInstanceID;
+
 typedef struct SpaceSpreadsheet {
   SpaceLink *next, *prev;
   /** Storage of regions for inactive spaces. */
@@ -1976,6 +1980,13 @@ typedef struct SpaceSpreadsheet {
    */
   ViewerPath viewer_path;
 
+  /**
+   * The "path" to the currently active instance reference. This is needed when viewing nested
+   * instances.
+   */
+  SpreadsheetInstanceID *instance_ids;
+  int instance_ids_num;
+
   /* eSpaceSpreadsheet_FilterFlag. */
   uint8_t filter_flag;
 
@@ -1990,7 +2001,6 @@ typedef struct SpaceSpreadsheet {
 
   /* eSpaceSpreadsheet_Flag. */
   uint32_t flag;
-  char _pad1[4];
 
   SpaceSpreadsheet_Runtime *runtime;
 } SpaceSpreadsheet;
