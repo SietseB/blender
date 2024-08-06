@@ -884,7 +884,8 @@ class GreasePencilRuntime {
   /**
    * Temporarily enable the eraser. Used by the draw tool.
    */
-  bool use_eraser_temp = false;
+  bool temp_use_eraser = false;
+  float temp_eraser_size = 0.0f;
   /* Ondine: z-depth of object. */
   float render_zdepth;
 
