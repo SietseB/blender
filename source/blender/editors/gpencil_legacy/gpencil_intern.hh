@@ -664,16 +664,6 @@ void GPENCIL_OT_material_set(wmOperatorType *ot);
 void GPENCIL_OT_set_active_material(wmOperatorType *ot);
 void GPENCIL_OT_materials_copy_to_object(wmOperatorType *ot);
 
-/* morph targets */
-void GPENCIL_OT_morph_target_add(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_remove(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_edit(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_edit_finish(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_move(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_duplicate(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_remove_all(wmOperatorType *ot);
-void GPENCIL_OT_morph_target_apply_all(wmOperatorType *ot);
-
 /* convert old 2.7 files to 2.8 */
 void GPENCIL_OT_convert_old_files(wmOperatorType *ot);
 

@@ -745,16 +745,6 @@ void ED_operatortypes_gpencil_legacy()
   WM_operatortype_append(GPENCIL_OT_material_select);
   WM_operatortype_append(GPENCIL_OT_material_set);
 
-  /* morph targets */
-  WM_operatortype_append(GPENCIL_OT_morph_target_add);
-  WM_operatortype_append(GPENCIL_OT_morph_target_remove);
-  WM_operatortype_append(GPENCIL_OT_morph_target_edit);
-  WM_operatortype_append(GPENCIL_OT_morph_target_edit_finish);
-  WM_operatortype_append(GPENCIL_OT_morph_target_move);
-  WM_operatortype_append(GPENCIL_OT_morph_target_duplicate);
-  WM_operatortype_append(GPENCIL_OT_morph_target_remove_all);
-  WM_operatortype_append(GPENCIL_OT_morph_target_apply_all);
-
   /* Editing (Time) --------------- */
 
   /* Interpolation */

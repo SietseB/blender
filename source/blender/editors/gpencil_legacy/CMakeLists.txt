@@ -38,7 +38,6 @@ set(SRC
   gpencil_interpolate.cc
   gpencil_merge.cc
   gpencil_mesh.cc
-  gpencil_morph_targets.cc
   gpencil_ops.cc
   gpencil_ops_versioning.cc
   gpencil_paint.cc

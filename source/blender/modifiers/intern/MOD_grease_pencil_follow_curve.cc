@@ -107,9 +107,9 @@ static void frame_init(GreasePencilFollowCurveModifierData *mmd,
   /* Get animated speed and speed variation. */
   mmd->speed_per_frame_len = 0;
   FCurve *speed_fcurve = id_data_find_fcurve(
-      &ctx->object->id, mmd, &RNA_FollowCurveGpencilModifier, "speed", 0, nullptr);
+      &ctx->object->id, mmd, &RNA_GreasePencilFollowCurveModifier, "speed", 0, nullptr);
   FCurve *speed_var_fcurve = id_data_find_fcurve(
-      &ctx->object->id, mmd, &RNA_FollowCurveGpencilModifier, "speed_var", 0, nullptr);
+      &ctx->object->id, mmd, &RNA_GreasePencilFollowCurveModifier, "speed_variation", 0, nullptr);
   if (speed_fcurve != nullptr || speed_var_fcurve != nullptr) {
     mmd->speed_per_frame_len = mmd->cfra;
   }

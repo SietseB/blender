@@ -91,6 +91,12 @@ static const char *gpencil_modifier_struct_name(const GpencilModifierType type)
       return "EnvelopeGpencilModifierData";
     case eGpencilModifierType_Outline:
       return "OutlineGpencilModifierData";
+    case eGpencilModifierType_None1:
+      return "";
+    case eGpencilModifierType_MorphTargets:
+      return "MorphTargetsGpencilModifierData";
+    case eGpencilModifierType_FollowCurve:
+      return "FollowCurveGpencilModifierData";
     case NUM_GREASEPENCIL_MODIFIER_TYPES:
       BLI_assert_unreachable();
       return "";
@@ -217,6 +223,9 @@ static void gpencil_modifier_free_data(struct GpencilModifierData *md)
     case eGpencilModifierType_Envelope:
     case eGpencilModifierType_Outline:
     case eGpencilModifierType_Armature:
+    case eGpencilModifierType_None1:
+    case eGpencilModifierType_MorphTargets:
+    case eGpencilModifierType_FollowCurve:
       break;
     case NUM_GREASEPENCIL_MODIFIER_TYPES:
       BLI_assert_unreachable();
@@ -407,6 +416,19 @@ static void gpencil_modifier_foreach_ID_link(struct GpencilModifierData *md,
 
       walk(user_data, ob, (ID **)&mmd->material, IDWALK_CB_USER);
       walk(user_data, ob, (ID **)&mmd->outline_material, IDWALK_CB_USER);
+      walk(user_data, ob, (ID **)&mmd->object, IDWALK_CB_NOP);
+      break;
+    }
+    case eGpencilModifierType_None1: {
+      break;
+    }
+    case eGpencilModifierType_MorphTargets: {
+      break;
+    }
+    case eGpencilModifierType_FollowCurve: {
+      FollowCurveGpencilModifierData *mmd = (FollowCurveGpencilModifierData *)md;
+
+      walk(user_data, ob, (ID **)&mmd->material, IDWALK_CB_USER);
       walk(user_data, ob, (ID **)&mmd->object, IDWALK_CB_NOP);
       break;
     }
