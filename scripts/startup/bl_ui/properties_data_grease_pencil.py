@@ -31,7 +31,7 @@ class GreasePencilLayerEdgeDarkeningPanel:
     def draw(self, context):
         ob = context.object
         grease_pencil = ob.data
-        layer = grease_pencil.layers.active_layer
+        layer = grease_pencil.layers.active
 
         layout = self.layout
         layout.use_property_split = True
@@ -330,7 +330,7 @@ class DATA_PT_grease_pencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePe
         if context.object.type != 'GREASEPENCIL':
             return False
         grease_pencil = context.object.data
-        return grease_pencil.layers.active_layer and grease_pencil.watercolor
+        return grease_pencil.layers.active and grease_pencil.watercolor
 
 
 class DATA_PT_grease_pencil_layer_masks(LayerDataButtonsPanel, GreasePencil_LayerMaskPanel, Panel):
