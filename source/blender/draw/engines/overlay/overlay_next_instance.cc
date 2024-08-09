@@ -67,6 +67,14 @@ void Instance::init()
   resources.globals_buf = G_draw.block_ubo;
   resources.theme_settings = G_draw.block;
   resources.weight_ramp_tx.wrap(G_draw.weight_ramp);
+  {
+    eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ;
+    if (resources.dummy_depth_tx.ensure_2d(GPU_DEPTH24_STENCIL8, int2(1, 1), usage)) {
+      uint32_t data = 0;
+      GPU_texture_update_sub(
+          resources.dummy_depth_tx, GPU_DATA_UINT_24_8, &data, 0, 0, 0, 1, 1, 1);
+    }
+  }
 }
 
 void Instance::begin_sync()
@@ -82,17 +90,22 @@ void Instance::begin_sync()
     layer.bounds.begin_sync();
     layer.cameras.begin_sync();
     layer.empties.begin_sync();
+    layer.force_fields.begin_sync();
     layer.lattices.begin_sync(resources, state);
     layer.lights.begin_sync();
     layer.light_probes.begin_sync(resources, state);
     layer.metaballs.begin_sync();
+    layer.meshes.begin_sync(resources, state, view);
     layer.prepass.begin_sync(resources, state);
+    layer.relations.begin_sync();
     layer.speakers.begin_sync();
   };
   begin_sync_layer(regular);
   begin_sync_layer(infront);
 
   grid.begin_sync(resources, state, view);
+
+  anti_aliasing.begin_sync(resources);
 }
 
 void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
@@ -117,6 +130,7 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
   if (in_edit_mode && !state.hide_overlays) {
     switch (ob_ref.object->type) {
       case OB_MESH:
+        layer.meshes.edit_object_sync(manager, ob_ref, resources);
         break;
       case OB_ARMATURE:
         break;
@@ -169,7 +183,11 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
         layer.speakers.object_sync(ob_ref, resources, state);
         break;
     }
+    if (ob_ref.object->pd && ob_ref.object->pd->forcefield) {
+      layer.force_fields.object_sync(ob_ref, resources, state);
+    }
     layer.bounds.object_sync(ob_ref, resources, state);
+    layer.relations.object_sync(ob_ref, resources, state);
   }
 }
 
@@ -181,13 +199,30 @@ void Instance::end_sync()
     layer.bounds.end_sync(resources, shapes, state);
     layer.cameras.end_sync(resources, shapes, state);
     layer.empties.end_sync(resources, shapes, state);
+    layer.force_fields.end_sync(resources, shapes, state);
     layer.lights.end_sync(resources, shapes, state);
     layer.light_probes.end_sync(resources, shapes, state);
     layer.metaballs.end_sync(resources, shapes, state);
+    layer.relations.end_sync(resources, state);
     layer.speakers.end_sync(resources, shapes, state);
   };
   end_sync_layer(regular);
   end_sync_layer(infront);
+
+  /* WORKAROUND: This prevents bad frame-buffer config inside workbench when xray is enabled.
+   * Better find a solution to this chicken-egg problem. */
+  {
+    /* HACK we allocate the in front depth here to avoid the overhead when if is not needed. */
+    DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+    DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+
+    DRW_texture_ensure_fullscreen_2d(
+        &dtxl->depth_in_front, GPU_DEPTH24_STENCIL8, DRWTextureFlag(0));
+
+    GPU_framebuffer_ensure_config(
+        &dfbl->in_front_fb,
+        {GPU_ATTACHMENT_TEXTURE(dtxl->depth_in_front), GPU_ATTACHMENT_TEXTURE(dtxl->color)});
+  }
 }
 
 void Instance::draw(Manager &manager)
@@ -202,77 +237,93 @@ void Instance::draw(Manager &manager)
   const DRWView *view_legacy = DRW_view_default_get();
   View view("OverlayView", view_legacy);
 
-  /* TODO: Better semantics using a switch? */
-  if (!resources.color_overlay_tx.is_valid()) {
-    /* Likely to be the selection case. Allocate dummy texture and bind only depth buffer. */
-    resources.line_tx.acquire(int2(1, 1), GPU_RGBA8);
-    resources.color_overlay_alloc_tx.acquire(int2(1, 1), GPU_SRGB8_A8);
-    resources.color_render_alloc_tx.acquire(int2(1, 1), GPU_SRGB8_A8);
-
-    resources.color_overlay_tx.wrap(resources.color_overlay_alloc_tx);
-    resources.color_render_tx.wrap(resources.color_render_alloc_tx);
-
-    resources.overlay_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
-    resources.overlay_line_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
-    /* Create it but shouldn't even be used. */
-    resources.overlay_color_only_fb.ensure(GPU_ATTACHMENT_NONE,
-                                           GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
-  }
-  else {
-    resources.line_tx.acquire(render_size, GPU_RGBA8);
-
-    resources.overlay_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx),
-                                GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
-    resources.overlay_line_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx),
-                                     GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx),
-                                     GPU_ATTACHMENT_TEXTURE(resources.line_tx));
-    resources.overlay_color_only_fb.ensure(GPU_ATTACHMENT_NONE,
-                                           GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
-  }
-
   /* TODO(fclem): Remove mandatory allocation. */
   if (!resources.depth_in_front_tx.is_valid()) {
     resources.depth_in_front_alloc_tx.acquire(render_size, GPU_DEPTH_COMPONENT24);
     resources.depth_in_front_tx.wrap(resources.depth_in_front_alloc_tx);
   }
 
-  resources.overlay_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_in_front_tx),
-                                       GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
-  resources.overlay_line_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_in_front_tx),
-                                            GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx),
-                                            GPU_ATTACHMENT_TEXTURE(resources.line_tx));
+  /* TODO: Better semantics using a switch? */
+  if (!resources.color_overlay_tx.is_valid()) {
+    /* Likely to be the selection case. Allocate dummy texture and bind only depth buffer. */
+    resources.color_overlay_alloc_tx.acquire(int2(1, 1), GPU_SRGB8_A8);
+    resources.color_render_alloc_tx.acquire(int2(1, 1), GPU_SRGB8_A8);
 
-  GPU_framebuffer_bind(resources.overlay_color_only_fb);
+    resources.color_overlay_tx.wrap(resources.color_overlay_alloc_tx);
+    resources.color_render_tx.wrap(resources.color_render_alloc_tx);
+
+    resources.line_tx.acquire(int2(1, 1), GPU_RGBA8);
+    resources.overlay_tx.acquire(int2(1, 1), GPU_SRGB8_A8);
+
+    resources.overlay_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
+    resources.overlay_line_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
+    resources.overlay_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
+    resources.overlay_line_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx));
+  }
+  else {
+    eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_SHADER_WRITE |
+                             GPU_TEXTURE_USAGE_ATTACHMENT;
+    resources.line_tx.acquire(render_size, GPU_RGBA8, usage);
+    resources.overlay_tx.acquire(render_size, GPU_SRGB8_A8, usage);
+
+    resources.overlay_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx),
+                                GPU_ATTACHMENT_TEXTURE(resources.overlay_tx));
+    resources.overlay_line_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_tx),
+                                     GPU_ATTACHMENT_TEXTURE(resources.overlay_tx),
+                                     GPU_ATTACHMENT_TEXTURE(resources.line_tx));
+    resources.overlay_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_in_front_tx),
+                                         GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
+    resources.overlay_line_in_front_fb.ensure(GPU_ATTACHMENT_TEXTURE(resources.depth_in_front_tx),
+                                              GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx),
+                                              GPU_ATTACHMENT_TEXTURE(resources.line_tx));
+  }
+
+  resources.overlay_color_only_fb.ensure(GPU_ATTACHMENT_NONE,
+                                         GPU_ATTACHMENT_TEXTURE(resources.overlay_tx));
+  resources.overlay_output_fb.ensure(GPU_ATTACHMENT_NONE,
+                                     GPU_ATTACHMENT_TEXTURE(resources.color_overlay_tx));
 
   float4 clear_color(0.0f);
-  GPU_framebuffer_clear_color(resources.overlay_color_only_fb, clear_color);
+  GPU_framebuffer_bind(resources.overlay_line_fb);
+  GPU_framebuffer_clear_color(resources.overlay_line_fb, clear_color);
 
   regular.prepass.draw(resources.overlay_line_fb, manager, view);
   infront.prepass.draw(resources.overlay_line_in_front_fb, manager, view);
-
-  background.draw(resources, manager);
 
   auto draw_layer = [&](OverlayLayer &layer, Framebuffer &framebuffer) {
     layer.bounds.draw(framebuffer, manager, view);
     layer.cameras.draw(framebuffer, manager, view);
     layer.empties.draw(framebuffer, manager, view);
+    layer.force_fields.draw(framebuffer, manager, view);
     layer.lights.draw(framebuffer, manager, view);
     layer.light_probes.draw(framebuffer, manager, view);
     layer.speakers.draw(framebuffer, manager, view);
     layer.lattices.draw(framebuffer, manager, view);
     layer.metaballs.draw(framebuffer, manager, view);
+    layer.relations.draw(framebuffer, manager, view);
+    layer.meshes.draw(framebuffer, manager, view);
   };
 
   draw_layer(regular, resources.overlay_line_fb);
+
+  auto draw_layer_color_only = [&](OverlayLayer &layer, Framebuffer &framebuffer) {
+    layer.light_probes.draw_color_only(framebuffer, manager, view);
+    layer.meshes.draw_color_only(framebuffer, manager, view);
+  };
+
+  draw_layer_color_only(regular, resources.overlay_color_only_fb);
 
   grid.draw(resources, manager, view);
 
   /* TODO(: Breaks selection on M1 Max. */
   // infront.lattices.draw(resources.overlay_line_in_front_fb, manager, view);
 
-  // anti_aliasing.draw(resources, manager, view);
+  /* Drawn onto the output framebuffer. */
+  background.draw(manager);
+  anti_aliasing.draw(manager);
 
   resources.line_tx.release();
+  resources.overlay_tx.release();
   resources.depth_in_front_alloc_tx.release();
   resources.color_overlay_alloc_tx.release();
   resources.color_render_alloc_tx.release();

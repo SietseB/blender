@@ -273,9 +273,9 @@ bool WM_window_pixels_read_sample(bContext *C, wmWindow *win, const int pos[2], 
  *
  * \note macOS retina opens window in size X, but it has up to 2 x more pixels.
  */
-int WM_window_pixels_x(const wmWindow *win);
-int WM_window_pixels_y(const wmWindow *win);
-void WM_window_pixels_coords(const wmWindow *win, int *x, int *y);
+int WM_window_native_pixel_x(const wmWindow *win);
+int WM_window_native_pixel_y(const wmWindow *win);
+void WM_window_native_pixel_coords(const wmWindow *win, int *x, int *y);
 
 /**
  * Store the size and position of a window (so it can be restored in the same state when
@@ -322,7 +322,7 @@ Scene *WM_window_get_active_scene(const wmWindow *win) ATTR_NONNULL() ATTR_WARN_
 /**
  * \warning Only call outside of area/region loops.
  */
-void WM_window_set_active_scene(Main *bmain, bContext *C, wmWindow *win, Scene *scene_new)
+void WM_window_set_active_scene(Main *bmain, bContext *C, wmWindow *win, Scene *scene)
     ATTR_NONNULL();
 WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
     ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
