@@ -1224,6 +1224,11 @@ static std::optional<std::string> rna_SceneGpencil_path(const PointerRNA * /*ptr
   return "grease_pencil_settings";
 }
 
+static std::optional<std::string> rna_SceneOndine_path(const PointerRNA * /*ptr*/)
+{
+  return "ondine_watercolor";
+}
+
 static std::optional<std::string> rna_SceneHydra_path(const PointerRNA * /*ptr*/)
 {
   return "hydra";

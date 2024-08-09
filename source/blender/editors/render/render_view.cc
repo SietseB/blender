@@ -162,8 +162,8 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports, cons
     if (!WM_window_restore_position(
             &U.render_space_data, parent_win, &posx, &posy, &sizex, &sizey))
     {
-      posx = WM_window_pixels_x(parent_win) / 2;
-      posy = WM_window_pixels_y(parent_win) / 2;
+      posx = WM_window_native_pixel_x(parent_win) / 2;
+      posy = WM_window_native_pixel_y(parent_win) / 2;
 
       /* arbitrary... miniature image window views don't make much sense */
       BKE_render_resolution(&scene->r, false, &sizex, &sizey);
