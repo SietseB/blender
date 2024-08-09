@@ -178,6 +178,10 @@ static int grease_pencil_layer_reorder_exec(bContext *C, wmOperator *op)
 
   MEM_SAFE_FREE(target_layer_name);
 
+  if (grease_pencil.flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
+    grease_pencil.autolock_inactive_layer_groups();
+  }
+
   DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
 

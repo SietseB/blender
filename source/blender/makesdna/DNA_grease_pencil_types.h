@@ -433,6 +433,7 @@ typedef enum GreasePencilFlag {
   GREASE_PENCIL_ANIM_CHANNEL_EXPANDED = (1 << 0),
   GREASE_PENCIL_AUTOLOCK_LAYERS = (1 << 1),
   GREASE_PENCIL_STROKE_ORDER_3D = (1 << 2),
+  GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS = (1 << 3),
 } GreasePencilFlag;
 
 /**
@@ -615,6 +616,7 @@ typedef struct GreasePencil {
   void set_active_layer(blender::bke::greasepencil::Layer *layer);
   bool is_layer_active(const blender::bke::greasepencil::Layer *layer) const;
   void autolock_inactive_layers();
+  void autolock_inactive_layer_groups();
 
   /* Active group functions. */
   bool has_active_group() const;

@@ -2885,6 +2885,9 @@ void GreasePencil::set_active_layer(blender::bke::greasepencil::Layer *layer)
   if (this->flag & GREASE_PENCIL_AUTOLOCK_LAYERS) {
     this->autolock_inactive_layers();
   }
+  else if (this->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
+    this->autolock_inactive_layer_groups();
+  }
 }
 
 bool GreasePencil::is_layer_active(const blender::bke::greasepencil::Layer *layer) const
@@ -2905,6 +2908,53 @@ void GreasePencil::autolock_inactive_layers()
       continue;
     }
     layer->set_locked(true);
+  }
+}
+
+void GreasePencil::autolock_inactive_layer_groups()
+{
+  using namespace blender::bke::greasepencil;
+
+  if (this->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
+    /* Get active layer group. */
+    LayerGroup *active_layer_group = nullptr;
+    TreeNode *active_node = this->get_active_node();
+    if (active_node) {
+      active_layer_group = active_node->is_group() ? &active_node->as_group() :
+                                                     &active_node->as_layer().parent_group();
+    }
+    /* Lock all layers that are not part of the active layer group. */
+    for (Layer *layer : this->layers_for_write()) {
+      if (&layer->parent_group() == active_layer_group) {
+        layer->set_locked(false);
+        continue;
+      }
+      layer->set_locked(true);
+    }
+    /* Lock all inactive layer groups. */
+    for (LayerGroup *layer_group : this->layer_groups_for_write()) {
+      if (layer_group == active_layer_group) {
+        layer_group->set_locked(false);
+        continue;
+      }
+      layer_group->set_locked(true);
+    }
+    /* But unlock the parent layer groups of the active group. So the chain of layer groups from
+     * the root up to the active group is unlocked. */
+    for (LayerGroup *layer_group = active_layer_group; layer_group;
+         layer_group = layer_group->as_node().parent_group())
+    {
+      layer_group->set_locked(false);
+    }
+  }
+  else {
+    /* Unlock all layers and layer groups. */
+    for (Layer *layer : this->layers_for_write()) {
+      layer->set_locked(false);
+    }
+    for (LayerGroup *layer_group : this->layer_groups_for_write()) {
+      layer_group->set_locked(false);
+    }
   }
 }
 
@@ -2954,6 +3004,9 @@ void GreasePencil::set_active_node(blender::bke::greasepencil::TreeNode *node)
 
   if (this->flag & GREASE_PENCIL_AUTOLOCK_LAYERS) {
     this->autolock_inactive_layers();
+  }
+  else if (this->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
+    this->autolock_inactive_layer_groups();
   }
 }
 

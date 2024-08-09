@@ -47,11 +47,17 @@ static void rna_grease_pencil_update(Main * /*bmain*/, Scene * /*scene*/, Pointe
   WM_main_add_notifier(NC_GPENCIL | NA_EDITED, rna_grease_pencil(ptr));
 }
 
-static void rna_grease_pencil_autolock(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
+static void rna_grease_pencil_autolock_layers(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
 {
   using namespace blender::bke::greasepencil;
   GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
   if (grease_pencil->flag & GREASE_PENCIL_AUTOLOCK_LAYERS) {
+    /* Disable autolock inactive layer groups. */
+    if (grease_pencil->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
+      grease_pencil->flag &= ~GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS;
+      grease_pencil->autolock_inactive_layer_groups();
+    }
     grease_pencil->autolock_inactive_layers();
   }
   else {
@@ -59,6 +65,24 @@ static void rna_grease_pencil_autolock(Main * /*bmain*/, Scene * /*scene*/, Poin
       layer->set_locked(false);
     }
   }
+
+  rna_grease_pencil_update(nullptr, nullptr, ptr);
+}
+
+static void rna_grease_pencil_autolock_layer_groups(Main * /*bmain*/,
+                                                    Scene * /*scene*/,
+                                                    PointerRNA *ptr)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
+  /* Disable autolock inactive layers. */
+  if ((grease_pencil->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) &&
+      (grease_pencil->flag & GREASE_PENCIL_AUTOLOCK_LAYERS))
+  {
+    grease_pencil->flag &= ~GREASE_PENCIL_AUTOLOCK_LAYERS;
+  }
+  grease_pencil->autolock_inactive_layer_groups();
 
   rna_grease_pencil_update(nullptr, nullptr, ptr);
 }
@@ -1360,7 +1384,15 @@ static void rna_def_grease_pencil_data(BlenderRNA *brna)
       prop,
       "Auto-Lock Layers",
       "Automatically lock all layers except the active one to avoid accidental changes");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_autolock");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_autolock_layers");
+
+  prop = RNA_def_property(srna, "use_autolock_layer_groups", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS);
+  RNA_def_property_ui_text(
+      prop,
+      "Auto-Lock Layer Groups",
+      "Automatically lock all layer groups except the active one to avoid accidental changes");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_autolock_layer_groups");
 
   /* Uses a single flag, because the depth order can only be 2D or 3D. */
   prop = RNA_def_property(srna, "stroke_depth_order", PROP_ENUM, PROP_NONE);
