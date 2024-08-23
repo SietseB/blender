@@ -1339,7 +1339,7 @@ int ui_id_icon_get(const bContext *C, ID *id, bool big);
 
 /* interface_icons_event.cc */
 
-float ui_event_icon_offset(const int icon);
+float ui_event_icon_offset(int icon_id);
 
 void icon_draw_rect_input(
     float x, float y, int w, int h, int icon_id, float aspect, float alpha, bool inverted);
@@ -1554,6 +1554,10 @@ void UI_OT_eyedropper_driver(wmOperatorType *ot);
 /* interface_eyedropper_gpencil_color.c */
 
 void UI_OT_eyedropper_gpencil_color(wmOperatorType *ot);
+
+/* eyedropper_grease_pencil_color.cc */
+
+void UI_OT_eyedropper_grease_pencil_color(wmOperatorType *ot);
 
 /* interface_template_asset_shelf_popover.cc */
 std::optional<blender::StringRefNull> UI_asset_shelf_idname_from_button_context(const uiBut *but);

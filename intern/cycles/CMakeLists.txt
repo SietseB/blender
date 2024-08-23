@@ -124,7 +124,7 @@ elseif(CMAKE_COMPILER_IS_GNUCC OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
   # Assume no signal trapping for better code generation.
   # We need to omit or modify specific flags to pass through clang-cl to prevent
   # unknown flag errors
-  if (WIN32 AND MSVC)
+  if(WIN32 AND MSVC)
     # Pass clang flags directly to clang otherwise. Clang-cl doesn't recognize
     # these flags by default
     set(CYCLES_KERNEL_FLAGS " /clang:-fno-trapping-math")
@@ -132,7 +132,7 @@ elseif(CMAKE_COMPILER_IS_GNUCC OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     string(APPEND CYCLES_KERNEL_FLAGS " /clang:-fno-math-errno")
     # Let compiler optimize 0.0 - x without worrying about signed zeros.
     string(APPEND CYCLES_KERNEL_FLAGS " /clang:-fno-signed-zeros")
-  else ()
+  else()
     set(CYCLES_KERNEL_FLAGS " -fno-trapping-math")
     # Avoid overhead of setting errno for NaNs.
     string(APPEND CYCLES_KERNEL_FLAGS " -fno-math-errno")
@@ -446,6 +446,8 @@ endif()
 if(WITH_CYCLES_BLENDER)
   # Not needed to make cycles automated tests pass with -march=native.
   # However Blender itself needs this flag.
+  # Note: the clang-cl style removal must go first, to avoid a dangling "/clang:"
+  remove_cc_flag("/clang:-ffp-contract=off")
   remove_cc_flag("-ffp-contract=off")
   add_definitions(-DWITH_BLENDER_GUARDEDALLOC)
   add_subdirectory(blender)

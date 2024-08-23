@@ -17,19 +17,40 @@ namespace blender::draw::overlay {
 
 class Prepass {
  private:
+  const SelectionType selection_type_;
+
   PassMain ps_ = {"prepass"};
 
+  bool enabled = false;
+
  public:
+  Prepass(const SelectionType selection_type) : selection_type_(selection_type){};
+
   void begin_sync(Resources &res, const State &state)
   {
+    enabled = !state.xray_enabled || (selection_type_ != SelectionType::DISABLED);
+    if (!enabled) {
+      /* Not used. But release the data. */
+      ps_.init();
+      return;
+    }
+
+    const View3DShading &shading = state.v3d->shading;
+    bool use_cull = ((shading.type == OB_SOLID) && (shading.flag & V3D_SHADING_BACKFACE_CULLING));
+    DRWState backface_cull_state = use_cull ? DRW_STATE_CULL_BACK : DRWState(0);
+
     ps_.init();
-    ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | state.clipping_state);
+    ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | state.clipping_state |
+                  backface_cull_state);
     ps_.shader_set(res.shaders.depth_mesh.get());
     res.select_bind(ps_);
   }
 
   void object_sync(Manager &manager, const ObjectRef &ob_ref, Resources &res)
   {
+    if (!enabled) {
+      return;
+    }
     /* TODO(fclem) This function should contain what `basic_cache_populate` contained. */
 
     gpu::Batch *geom = DRW_cache_object_surface_get(ob_ref.object);
@@ -41,6 +62,9 @@ class Prepass {
 
   void draw(Framebuffer &framebuffer, Manager &manager, View &view)
   {
+    if (!enabled) {
+      return;
+    }
     /* Should be fine to use the line buffer since the prepass only writes to the depth buffer. */
     GPU_framebuffer_bind(framebuffer);
     manager.submit(ps_, view);

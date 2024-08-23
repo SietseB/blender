@@ -181,6 +181,12 @@ class ShaderModule {
   ShaderPtr mesh_face_normal, mesh_face_normal_subdiv;
   ShaderPtr mesh_loop_normal, mesh_loop_normal_subdiv;
   ShaderPtr mesh_vert_normal;
+  ShaderPtr outline_prepass_mesh;
+  ShaderPtr outline_prepass_wire;
+  ShaderPtr outline_prepass_curves;
+  ShaderPtr outline_prepass_pointcloud;
+  ShaderPtr outline_prepass_gpencil;
+  ShaderPtr outline_detect = shader("overlay_outline_detect");
 
   /** Selectable Shaders */
   ShaderPtr armature_sphere_outline;
@@ -191,8 +197,15 @@ class ShaderModule {
   ShaderPtr extra_wire;
   ShaderPtr extra_loose_points;
   ShaderPtr extra_ground_line;
+  ShaderPtr facing;
   ShaderPtr lattice_points;
   ShaderPtr lattice_wire;
+  ShaderPtr particle_dot;
+  ShaderPtr particle_shape;
+  ShaderPtr particle_hair;
+  ShaderPtr wireframe_mesh;
+  ShaderPtr wireframe_curve;
+  ShaderPtr wireframe_points; /* Draw objects without edges for the wireframe overlay. */
 
   ShaderModule(const SelectionType selection_type, const bool clipping_enabled);
 
@@ -216,17 +229,28 @@ class ShaderModule {
 struct Resources : public select::SelectMap {
   ShaderModule &shaders;
 
-  Framebuffer overlay_fb = {"overlay_fb"};
-  Framebuffer overlay_in_front_fb = {"overlay_in_front_fb"};
+  /* Overlay Color. */
   Framebuffer overlay_color_only_fb = {"overlay_color_only_fb"};
+  /* Overlay Color, Line Data. */
+  Framebuffer overlay_line_only_fb = {"overlay_line_only_fb"};
+  /* Depth, Overlay Color. */
+  Framebuffer overlay_fb = {"overlay_fb"};
+  /* Depth, Overlay Color, Line Data. */
   Framebuffer overlay_line_fb = {"overlay_line_fb"};
+  /* Depth In-Front, Overlay Color. */
+  Framebuffer overlay_in_front_fb = {"overlay_in_front_fb"};
+  /* Depth In-Front, Overlay Color, Line Data. */
   Framebuffer overlay_line_in_front_fb = {"overlay_line_in_front_fb"};
+
+  /* Output Color. */
   Framebuffer overlay_output_fb = {"overlay_output_fb"};
 
   /* Target containing line direction and data for line expansion and anti-aliasing. */
   TextureFromPool line_tx = {"line_tx"};
   /* Target containing overlay color before anti-aliasing. */
   TextureFromPool overlay_tx = {"overlay_tx"};
+  /* Target containing depth of overlays when xray is enabled. */
+  TextureFromPool xray_depth_tx = {"xray_depth_tx"};
 
   /* Texture that are usually allocated inside. These are fallback when they aren't.
    * They are then wrapped inside the #TextureRefs below. */
@@ -243,10 +267,23 @@ struct Resources : public select::SelectMap {
   GPUUniformBuf *globals_buf;
   TextureRef weight_ramp_tx;
   /* Wrappers around #DefaultTextureList members. */
-  TextureRef depth_tx;
   TextureRef depth_in_front_tx;
   TextureRef color_overlay_tx;
   TextureRef color_render_tx;
+  /**
+   * Scene depth buffer that can also be used as render target for overlays.
+   *
+   * Can only be bound as a texture if either:
+   * - the current frame-buffer has no depth buffer attached.
+   * - `state.xray_enabled` is true.
+   */
+  TextureRef depth_tx;
+  /**
+   * Depth target.
+   * Can either be default depth buffer texture from #DefaultTextureList
+   * or `xray_depth_tx` if X-ray is enabled.
+   */
+  TextureRef depth_target_tx;
 
   Resources(const SelectionType selection_type_, ShaderModule &shader_module)
       : select::SelectMap(selection_type_), shaders(shader_module){};
