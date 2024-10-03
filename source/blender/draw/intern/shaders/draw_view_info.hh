@@ -107,6 +107,8 @@ GPU_SHADER_CREATE_INFO(draw_globals)
 
 GPU_SHADER_CREATE_INFO(draw_mesh).additional_info("draw_modelmat", "draw_resource_id");
 
+GPU_SHADER_CREATE_INFO(draw_mesh_new).additional_info("draw_modelmat_new", "draw_resource_id");
+
 GPU_SHADER_CREATE_INFO(draw_hair)
     .define("HAIR_SHADER")
     .define("DRW_HAIR_INFO")
@@ -176,10 +178,7 @@ GPU_SHADER_CREATE_INFO(draw_gpencil_new)
     .define("gpThicknessIsScreenSpace", "(gpThicknessWorldScale < 0.0)")
     /* Per Layer */
     .push_constant(Type::FLOAT, "gpThicknessOffset")
-    .additional_info("draw_modelmat_new",
-                     "draw_resource_id_varying",
-                     "draw_view",
-                     "draw_object_infos_new");
+    .additional_info("draw_resource_id_varying", "draw_view", "draw_object_infos_new");
 
 /** \} */
 

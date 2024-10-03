@@ -414,14 +414,12 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
                              bGPDstroke *gps,
                              int pt_index,
                              const int radius,
-                             const int co[2],
-                             const bool mode_stroke)
+                             const int co[2])
 {
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co, mode_stroke) *
-               brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -572,7 +570,7 @@ static bool brush_average_apply(tGP_BrushVertexpaintData *gso,
                                 int pt_index,
                                 const int radius,
                                 const int co[2],
-                                float average_color[3])
+                                const float average_color[3])
 {
   Brush *brush = gso->brush;
 
@@ -818,48 +816,13 @@ static void gpencil_save_selected_point(tGP_BrushVertexpaintData *gso,
   gso->pbuffer_used++;
 }
 
-/* Select points of an entire stroke */
-static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
-                                       bGPDstroke *gps,
-                                       const float diff_mat[4][4])
-{
-  GP_SpaceConversion *gsc = &gso->gsc;
-  bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
-  bGPDspoint *pt1, *pt2;
-  bGPDspoint *pt = nullptr;
-  int pc1[2] = {0};
-  int pc2[2] = {0};
-  int i;
-
-  if (gps->totpoints == 1) {
-    return;
-  }
-
-  for (i = 0; i < gps->totpoints; i++) {
-    /* Get points to work with */
-    pt1 = gps->points + i;
-    pt2 = gps->points + i + 1;
-
-    bGPDspoint npt;
-    gpencil_point_to_world_space(pt1, diff_mat, &npt);
-    gpencil_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
-
-    gpencil_point_to_world_space(pt2, diff_mat, &npt);
-    gpencil_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
-
-    pt = &gps->points[i];
-    gpencil_save_selected_point(gso, gps_active, i, pc1);
-  }
-}
-
 /* Select points in this stroke and add to an array to be used later.
  * Returns true if any point was hit and got saved */
 static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
                                               bGPDstroke *gps,
                                               const char tool,
                                               const float diff_mat[4][4],
-                                              const float bound_mat[4][4],
-                                              const bool mode_stroke)
+                                              const float bound_mat[4][4])
 {
   GP_SpaceConversion *gsc = &gso->gsc;
   const rcti *rect = &gso->brush_rect;
@@ -906,9 +869,7 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
       if (len_v2v2_int(mval_i, pc1) <= radius) {
         /* apply operation to this point */
         if (pt_active != nullptr) {
-          if (!mode_stroke) {
-            gpencil_save_selected_point(gso, gps_active, 0, pc1);
-          }
+          gpencil_save_selected_point(gso, gps_active, 0, pc1);
           saved = true;
         }
       }
@@ -961,9 +922,7 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
             }
             index = (pt->runtime.pt_orig) ? pt->runtime.idx_orig : i;
             hit = true;
-            if (!mode_stroke) {
-              gpencil_save_selected_point(gso, gps_active, index, pc1);
-            }
+            gpencil_save_selected_point(gso, gps_active, index, pc1);
             saved = true;
           }
 
@@ -1014,7 +973,7 @@ static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
     }
 
     /* If nothing hit, check if the mouse is inside any filled stroke. */
-    if ((!hit) && ELEM(tool, GPAINT_TOOL_TINT, GPVERTEX_TOOL_DRAW)) {
+    if ((!hit) && ELEM(tool, GPAINT_BRUSH_TYPE_TINT, GPVERTEX_BRUSH_TYPE_DRAW)) {
       MaterialGPencilStyle *gp_style = BKE_gpencil_material_settings(gso->object,
                                                                      gps_active->mat_nr + 1);
       if (gp_style->flag & GP_MATERIAL_FILL_SHOW) {
@@ -1045,8 +1004,9 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
                                                const float bound_mat[4][4])
 {
   Object *ob = CTX_data_active_object(C);
-  const char tool = ob->mode == OB_MODE_VERTEX_GPENCIL_LEGACY ? gso->brush->gpencil_vertex_tool :
-                                                                gso->brush->gpencil_tool;
+  const char tool = ob->mode == OB_MODE_VERTEX_GPENCIL_LEGACY ?
+                        gso->brush->gpencil_vertex_brush_type :
+                        gso->brush->gpencil_brush_type;
   const int radius = (gso->brush->flag & GP_BRUSH_USE_PRESSURE) ?
                          gso->brush->size * gso->pressure :
                          gso->brush->size;
@@ -1072,7 +1032,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     /* Check points below the brush. */
     bool hit = gpencil_vertexpaint_select_stroke(gso, gps, tool, diff_mat, bound_mat, mode_stroke);
 
-    /* If stroke was hit and brush mode is 'stroke', add all points of the stroke */
+    /* If stroke was hit and brush mode is 'stroke', add all points of the stroke. */
     if (hit && mode_stroke) {
       gpencil_save_entire_stroke(gso, gps, diff_mat);
     }
@@ -1088,7 +1048,7 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
    * under the brush. */
   float average_color[3] = {0};
   int totcol = 0;
-  if ((tool == GPVERTEX_TOOL_AVERAGE) && (gso->pbuffer_used > 0)) {
+  if ((tool == GPVERTEX_BRUSH_TYPE_AVERAGE) && (gso->pbuffer_used > 0)) {
     for (i = 0; i < gso->pbuffer_used; i++) {
       selected = &gso->pbuffer[i];
       bGPDstroke *gps = selected->gps;
@@ -1122,30 +1082,30 @@ static bool gpencil_vertexpaint_brush_do_frame(bContext *C,
     selected = &gso->pbuffer[i];
 
     switch (tool) {
-      case GPAINT_TOOL_TINT:
-      case GPVERTEX_TOOL_DRAW: {
+      case GPAINT_BRUSH_TYPE_TINT:
+      case GPVERTEX_BRUSH_TYPE_DRAW: {
         brush_tint_apply(
             gso, selected->gps, selected->pt_index, radius, selected->pc, mode_stroke);
         changed |= true;
         break;
       }
-      case GPVERTEX_TOOL_BLUR: {
+      case GPVERTEX_BRUSH_TYPE_BLUR: {
         brush_blur_apply(gso, selected->gps, selected->pt_index, radius, selected->pc);
         changed |= true;
         break;
       }
-      case GPVERTEX_TOOL_AVERAGE: {
+      case GPVERTEX_BRUSH_TYPE_AVERAGE: {
         brush_average_apply(
             gso, selected->gps, selected->pt_index, radius, selected->pc, average_color);
         changed |= true;
         break;
       }
-      case GPVERTEX_TOOL_SMEAR: {
+      case GPVERTEX_BRUSH_TYPE_SMEAR: {
         brush_smear_apply(gso, selected->gps, selected->pt_index, selected);
         changed |= true;
         break;
       }
-      case GPVERTEX_TOOL_REPLACE: {
+      case GPVERTEX_BRUSH_TYPE_REPLACE: {
         brush_replace_apply(gso, selected->gps, selected->pt_index);
         changed |= true;
         break;

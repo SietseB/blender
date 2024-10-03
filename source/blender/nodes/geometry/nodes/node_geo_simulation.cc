@@ -8,6 +8,7 @@
 #include "BLI_string_utils.hh"
 #include "BLI_task.hh"
 
+#include "BKE_anonymous_attribute_make.hh"
 #include "BKE_attribute_math.hh"
 #include "BKE_bake_geometry_nodes_modifier.hh"
 #include "BKE_bake_items_socket.hh"
@@ -101,16 +102,19 @@ static bke::bake::BakeSocketConfig make_bake_socket_config(
   return config;
 }
 
-static std::shared_ptr<AnonymousAttributeFieldInput> make_attribute_field(
+static std::shared_ptr<AttributeFieldInput> make_attribute_field(
     const Object &self_object,
     const ComputeContext &compute_context,
     const bNode &node,
     const NodeSimulationItem &item,
     const CPPType &type)
 {
-  AnonymousAttributeIDPtr attribute_id = AnonymousAttributeIDPtr(MEM_new<NodeAnonymousAttributeID>(
-      __func__, self_object, compute_context, node, std::to_string(item.identifier), item.name));
-  return std::make_shared<AnonymousAttributeFieldInput>(attribute_id, type, node.label_or_name());
+  std::string attribute_name = bke::hash_to_anonymous_attribute_name(
+      self_object.id.name, compute_context.hash(), node.identifier, item.identifier);
+  std::string socket_inspection_name = make_anonymous_attribute_socket_inspection_string(
+      node.label_or_name(), item.name);
+  return std::make_shared<AttributeFieldInput>(
+      std::move(attribute_name), type, std::move(socket_inspection_name));
 }
 
 static void move_simulation_state_to_values(const Span<NodeSimulationItem> node_simulation_items,
@@ -323,12 +327,13 @@ static void node_layout_ex(uiLayout *layout, bContext *C, PointerRNA *current_no
 
   {
     uiLayout *col = uiLayoutColumn(layout, false);
-    draw_bake_button(ctx, col);
+    draw_bake_button_row(ctx, col, true);
     if (const std::optional<std::string> bake_state_str = get_bake_state_string(ctx)) {
-      uiItemL(col, bake_state_str->c_str(), ICON_NONE);
+      uiLayout *row = uiLayoutRow(col, true);
+      uiItemL(row, bake_state_str->c_str(), ICON_NONE);
     }
   }
-  draw_common_bake_settings(ctx, layout);
+  draw_common_bake_settings(C, ctx, layout);
   draw_data_blocks(C, layout, ctx.bake_rna);
 }
 
@@ -514,6 +519,9 @@ static void node_declare(NodeDeclarationBuilder &b)
   for (const int i : IndexRange(output_storage.items_num)) {
     const NodeSimulationItem &item = output_storage.items[i];
     const eNodeSocketDatatype socket_type = eNodeSocketDatatype(item.socket_type);
+    if (socket_type == SOCK_GEOMETRY && i > 0) {
+      b.add_separator();
+    }
     const StringRef name = item.name;
     const std::string identifier = SimulationItemsAccessor::socket_identifier_for_item(item);
     auto &input_decl = b.add_input(socket_type, name, identifier)
@@ -841,7 +849,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.use_custom_socket_order();
   b.allow_any_socket_order();
-  b.add_input<decl::Bool>("Skip").description(
+  b.add_input<decl::Bool>("Skip").hide_value().description(
       "Forward the output of the simulation input node directly to the output node and ignore "
       "the nodes in the simulation zone");
 
@@ -856,6 +864,9 @@ static void node_declare(NodeDeclarationBuilder &b)
   for (const int i : IndexRange(storage.items_num)) {
     const NodeSimulationItem &item = storage.items[i];
     const eNodeSocketDatatype socket_type = eNodeSocketDatatype(item.socket_type);
+    if (socket_type == SOCK_GEOMETRY && i > 0) {
+      b.add_separator();
+    }
     const StringRef name = item.name;
     const std::string identifier = SimulationItemsAccessor::socket_identifier_for_item(item);
     auto &input_decl = b.add_input(socket_type, name, identifier)

@@ -23,7 +23,6 @@ struct ImagePool;
 struct Main;
 struct MTex;
 struct Scene;
-struct ToolSettings;
 struct UnifiedPaintSettings;
 
 // enum eCurveMappingPreset;
@@ -52,8 +51,6 @@ void BKE_brush_init_gpencil_settings(Brush *brush);
 void BKE_brush_init_curves_sculpt_settings(Brush *brush);
 
 Brush *BKE_brush_first_search(Main *bmain, eObjectMode ob_mode);
-
-void BKE_brush_sculpt_reset(Brush *brush);
 
 void BKE_brush_jitter_pos(const Scene &scene,
                           const Brush &brush,

@@ -229,9 +229,12 @@ struct ShaderSpecialization {
 
 /**
  * Request the compilation of multiple specialization constant variations at once,
- * allowing the backend to use multithreaded compilation.
+ * allowing the backend to use multi-threaded compilation.
  * Returns a handle that can be used to poll if all variations have been compiled.
- * NOTE: This function is asynchronous on OpenGL, and a no-op on Vulkan and Metal.
+ * A NULL handle indicates no compilation of any variant was possible (likely due to
+ * some state being currently available) and so no batch was created. Compilation
+ * of the specialized variant will instead occur at draw/dispatch time.
+ * NOTE: This function is asynchronous on OpenGL and Metal and a no-op on Vulkan.
  * Batches are processed one by one in FIFO order.
  * WARNING: Binding a specialization before the batch finishes will fail.
  */
@@ -387,6 +390,8 @@ int GPU_shader_get_builtin_uniform(GPUShader *shader, int builtin);
  * This is used for platform support, where bug reports can list all failing shaders.
  */
 void GPU_shader_compile_static();
+
+void GPU_shader_cache_dir_clear_old();
 
 /** DEPRECATED: Use hard-coded buffer location instead. */
 enum GPUUniformBlockBuiltin {

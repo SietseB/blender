@@ -52,7 +52,7 @@ static float get_average(const Span<float> values)
 static ColorGeometry4f get_average(const Span<ColorGeometry4f> values)
 {
   if (values.is_empty()) {
-    return ColorGeometry4f(0);
+    return ColorGeometry4f(nullptr);
   }
   /* ColorGeometry4f does not support arithmetic directly. */
   Span<float4> rgba_values = values.cast<float4>();
@@ -326,8 +326,8 @@ void GreasePencilExporter::prepare_render_params(Scene &scene, const int frame_n
                                  context_.region,
                                  context_.v3d,
                                  context_.rv3d,
-                                 &camera_rect,
-                                 true);
+                                 true,
+                                 &camera_rect);
     render_rect_ = {{camera_rect.xmin, camera_rect.ymin}, {camera_rect.xmax, camera_rect.ymax}};
     camera_persmat_ = persmat_from_camera_object(scene);
   }

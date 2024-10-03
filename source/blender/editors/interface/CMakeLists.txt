@@ -29,6 +29,7 @@ set(INC_SYS
 )
 
 set(SRC
+  eyedroppers/eyedropper_bone.cc
   eyedroppers/eyedropper_color.cc
   eyedroppers/eyedropper_colorband.cc
   eyedroppers/eyedropper_datablock.cc
@@ -106,6 +107,7 @@ set(LIB
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_editor_datafiles
+  bf_editor_id_management
   PRIVATE bf::extern::fmtlib
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::animrig

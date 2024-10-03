@@ -188,7 +188,7 @@ void SEQ_edit_remove_flagged_sequences(Scene *scene, ListBase *seqbase)
       SEQ_free_animdata(scene, seq);
       BLI_remlink(seqbase, seq);
       SEQ_sequence_free(scene, seq);
-      SEQ_sequence_lookup_tag(scene, SEQ_LOOKUP_TAG_INVALID);
+      SEQ_sequence_lookup_invalidate(scene);
     }
   }
 }
@@ -367,13 +367,6 @@ static bool seq_edit_split_effect_inputs_intersect(const Scene *scene,
           scene, seq->seq2, timeline_frame);
     }
   }
-  if (seq->seq3) {
-    input_does_intersect |= seq_edit_split_intersect_check(scene, seq->seq3, timeline_frame);
-    if ((seq->seq1->type & SEQ_TYPE_EFFECT) != 0) {
-      input_does_intersect |= seq_edit_split_effect_inputs_intersect(
-          scene, seq->seq3, timeline_frame);
-    }
-  }
   return input_does_intersect;
 }
 
@@ -524,5 +517,5 @@ void SEQ_edit_sequence_name_set(Scene *scene, Sequence *seq, const char *new_nam
 {
   BLI_strncpy_utf8(seq->name + 2, new_name, MAX_NAME - 2);
   BLI_str_utf8_invalid_strip(seq->name + 2, strlen(seq->name + 2));
-  SEQ_sequence_lookup_tag(scene, SEQ_LOOKUP_TAG_INVALID);
+  SEQ_sequence_lookup_invalidate(scene);
 }

@@ -27,15 +27,15 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "BPY_extern.h"
-#include "BPY_extern_clog.h"
+#include "BPY_extern.hh"
+#include "BPY_extern_clog.hh"
 
-#include "bpy_capi_utils.h"
-#include "bpy_intern_string.h"
-#include "bpy_props.h"
-#include "bpy_rna.h"
-#include "bpy_rna_anim.h"
-#include "bpy_rna_callback.h"
+#include "bpy_capi_utils.hh"
+#include "bpy_intern_string.hh"
+#include "bpy_props.hh"
+#include "bpy_rna.hh"
+#include "bpy_rna_anim.hh"
+#include "bpy_rna_callback.hh"
 
 #ifdef USE_PYRNA_INVALIDATE_WEAKREF
 #  include "BLI_ghash.h"
@@ -62,12 +62,12 @@
 
 #include "DEG_depsgraph_query.hh"
 
-#include "../generic/idprop_py_api.h" /* For IDprop lookups. */
-#include "../generic/idprop_py_ui_api.h"
-#include "../generic/py_capi_rna.h"
-#include "../generic/py_capi_utils.h"
-#include "../generic/python_compat.h"
-#include "../generic/python_utildefines.h"
+#include "../generic/idprop_py_api.hh" /* For IDprop lookups. */
+#include "../generic/idprop_py_ui_api.hh"
+#include "../generic/py_capi_rna.hh"
+#include "../generic/py_capi_utils.hh"
+#include "../generic/python_compat.hh"
+#include "../generic/python_utildefines.hh"
 
 #define USE_PEDANTIC_WRITE
 #define USE_MATHUTILS
@@ -90,11 +90,18 @@
 
 BPy_StructRNA *bpy_context_module = nullptr; /* for fast access */
 
+static PyObject *pyrna_struct_CreatePyObject_from_type(const PointerRNA *ptr,
+                                                       PyTypeObject *tp,
+                                                       void **instance);
+
+static PyObject *pyrna_srna_Subtype(StructRNA *srna);
 static PyObject *pyrna_struct_Subtype(PointerRNA *ptr);
 static PyObject *pyrna_prop_collection_values(BPy_PropertyRNA *self);
 
 static PyObject *pyrna_register_class(PyObject *self, PyObject *py_class);
 static PyObject *pyrna_unregister_class(PyObject *self, PyObject *py_class);
+
+static StructRNA *srna_from_ptr(PointerRNA *ptr);
 
 #define BPY_DOC_ID_PROP_TYPE_NOTE \
   "   .. note::\n" \
@@ -386,7 +393,7 @@ static int pyrna_py_to_prop(
 static int deferred_register_prop(StructRNA *srna, PyObject *key, PyObject *item);
 
 #ifdef USE_MATHUTILS
-#  include "../mathutils/mathutils.h" /* So we can have mathutils callbacks. */
+#  include "../mathutils/mathutils.hh" /* So we can have mathutils callbacks. */
 
 static PyObject *pyrna_prop_array_subscript_slice(BPy_PropertyArrayRNA *self,
                                                   PointerRNA *ptr,
@@ -6493,7 +6500,7 @@ static PyObject *pyrna_func_call(BPy_FunctionRNA *self, PyObject *args, PyObject
 
   /* enable this so all strings are copied and freed after calling.
    * this exposes bugs where the pointer to the string is held and re-used */
-  /* #define DEBUG_STRING_FREE */
+  // #define DEBUG_STRING_FREE
 
 #ifdef DEBUG_STRING_FREE
   PyObject *string_free_ls = PyList_New(0);
@@ -7347,16 +7354,12 @@ static void pyrna_prop_collection_iter_dealloc(BPy_PropertyCollectionIterRNA *se
 
 static void pyrna_subtype_set_rna(PyObject *newclass, StructRNA *srna)
 {
-  PyObject *item;
-
   Py_INCREF(newclass);
 
-  if (RNA_struct_py_type_get(srna)) {
-    PyC_ObSpit("RNA WAS SET - ", static_cast<PyObject *>(RNA_struct_py_type_get(srna)));
+  if (PyObject *oldclass = static_cast<PyObject *>(RNA_struct_py_type_get(srna))) {
+    PyC_ObSpit("RNA WAS SET - ", oldclass);
+    Py_DECREF(oldclass);
   }
-
-  Py_XDECREF((PyObject *)RNA_struct_py_type_get(srna));
-
   RNA_struct_py_type_set(srna, (void *)newclass); /* Store for later use */
 
   /* Not 100% needed, but useful,
@@ -7364,12 +7367,25 @@ static void pyrna_subtype_set_rna(PyObject *newclass, StructRNA *srna)
 
   /* Python deals with the circular reference. */
   PointerRNA ptr = RNA_pointer_create(nullptr, &RNA_Struct, srna);
-  item = pyrna_struct_CreatePyObject(&ptr);
 
-  /* NOTE: must set the class not the __dict__ else the internal slots are not updated correctly.
-   */
-  PyObject_SetAttr(newclass, bpy_intern_str_bl_rna, item);
-  Py_DECREF(item);
+  /* NOTE: using `pyrna_struct_CreatePyObject(&ptr)` is close to what is needed,
+   * however the it isn't correct because the result of:
+   * `type(bpy.types.Object.bl_rna) == bpy.types.Object`.
+   * In this case the type of `bl_rna` should be `bpy.types.Struct`.
+   * This is passed in explicitly, while #pyrna_struct_CreatePyObject could
+   * take this as an argument it's such a corner case that using a lower level
+   * function that takes the type is preferable. */
+  {
+    BLI_assert(RNA_struct_instance(&ptr) == nullptr);
+    PyTypeObject *tp = (PyTypeObject *)pyrna_srna_Subtype(&RNA_Struct);
+    PyObject *item = pyrna_struct_CreatePyObject_from_type(&ptr, tp, nullptr);
+    Py_DECREF(tp); /* `srna` owns, can't hold a reference. */
+
+    /* NOTE: must set the class not the `__dict__`
+     * else the internal slots are not updated correctly. */
+    PyObject_SetAttr(newclass, bpy_intern_str_bl_rna, item);
+    Py_DECREF(item);
+  }
 
   /* Add `staticmethod` and `classmethod` functions. */
   {
@@ -7393,8 +7409,6 @@ static void pyrna_subtype_set_rna(PyObject *newclass, StructRNA *srna)
 
   /* Done with RNA instance. */
 }
-
-static PyObject *pyrna_srna_Subtype(StructRNA *srna);
 
 /* Return a borrowed reference. */
 static PyObject *pyrna_srna_PyBase(StructRNA *srna)  //, PyObject *bpy_types_dict)
@@ -7606,6 +7620,77 @@ static PyObject *pyrna_struct_Subtype(PointerRNA *ptr)
 
 /*-----------------------CreatePyObject---------------------------------*/
 
+/**
+ * A lower level version of #pyrna_struct_CreatePyObject,
+ * use this when type (`tp`) needs to be set to a non-standard value.
+ */
+static PyObject *pyrna_struct_CreatePyObject_from_type(const PointerRNA *ptr,
+                                                       PyTypeObject *tp,
+                                                       void **instance)
+{
+  BPy_StructRNA *pyrna = nullptr;
+  if (tp) {
+    pyrna = (BPy_StructRNA *)tp->tp_alloc(tp, 0);
+#ifdef USE_PYRNA_STRUCT_REFERENCE
+    /* #PyType_GenericAlloc will have set tracking.
+     * We only want tracking when `StructRNA.reference` has been set. */
+    if (pyrna != nullptr) {
+      PyObject_GC_UnTrack(pyrna);
+    }
+#endif
+  }
+  else {
+    CLOG_WARN(BPY_LOG_RNA, "could not make type '%s'", RNA_struct_identifier(ptr->type));
+
+#ifdef USE_PYRNA_STRUCT_REFERENCE
+    pyrna = (BPy_StructRNA *)PyObject_GC_New(BPy_StructRNA, &pyrna_struct_Type);
+#else
+    pyrna = (BPy_StructRNA *)PyObject_New(BPy_StructRNA, &pyrna_struct_Type);
+#endif
+
+#ifdef USE_PYRNA_STRUCT_REFERENCE
+    /* #PyType_GenericAlloc will have set tracking.
+     * We only want tracking when `StructRNA.reference` has been set. */
+    PyObject_GC_UnTrack(pyrna);
+#endif
+
+#ifdef USE_WEAKREFS
+    if (pyrna != nullptr) {
+      pyrna->in_weakreflist = nullptr;
+    }
+#endif
+  }
+
+  if (pyrna == nullptr) {
+    PyErr_SetString(PyExc_MemoryError, "couldn't create bpy_struct object");
+    return nullptr;
+  }
+
+  /* Blender's instance owns a reference (to avoid Python freeing it). */
+  if (instance) {
+    *instance = pyrna;
+    Py_INCREF(pyrna);
+  }
+
+  pyrna->ptr = *ptr;
+#ifdef PYRNA_FREE_SUPPORT
+  pyrna->freeptr = false;
+#endif
+
+#ifdef USE_PYRNA_STRUCT_REFERENCE
+  pyrna->reference = nullptr;
+#endif
+
+  // PyC_ObSpit("NewStructRNA: ", (PyObject *)pyrna);
+
+#ifdef USE_PYRNA_INVALIDATE_WEAKREF
+  if (ptr->owner_id) {
+    id_weakref_pool_add(ptr->owner_id, (BPy_DummyPointerRNA *)pyrna);
+  }
+#endif
+  return (PyObject *)pyrna;
+}
+
 PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr)
 {
   BPy_StructRNA *pyrna = nullptr;
@@ -7637,70 +7722,9 @@ PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr)
 #endif
   }
 
-  {
-    PyTypeObject *tp = (PyTypeObject *)pyrna_struct_Subtype(ptr);
-
-    if (tp) {
-      pyrna = (BPy_StructRNA *)tp->tp_alloc(tp, 0);
-#ifdef USE_PYRNA_STRUCT_REFERENCE
-      /* #PyType_GenericAlloc will have set tracking.
-       * We only want tracking when `StructRNA.reference` has been set. */
-      if (pyrna != nullptr) {
-        PyObject_GC_UnTrack(pyrna);
-      }
-#endif
-      Py_DECREF(tp); /* srna owns, can't hold a reference. */
-    }
-    else {
-      CLOG_WARN(BPY_LOG_RNA, "could not make type '%s'", RNA_struct_identifier(ptr->type));
-
-#ifdef USE_PYRNA_STRUCT_REFERENCE
-      pyrna = (BPy_StructRNA *)PyObject_GC_New(BPy_StructRNA, &pyrna_struct_Type);
-#else
-      pyrna = (BPy_StructRNA *)PyObject_New(BPy_StructRNA, &pyrna_struct_Type);
-#endif
-
-#ifdef USE_PYRNA_STRUCT_REFERENCE
-      /* #PyType_GenericAlloc will have set tracking.
-       * We only want tracking when `StructRNA.reference` has been set. */
-      PyObject_GC_UnTrack(pyrna);
-#endif
-
-#ifdef USE_WEAKREFS
-      if (pyrna != nullptr) {
-        pyrna->in_weakreflist = nullptr;
-      }
-#endif
-    }
-  }
-
-  if (pyrna == nullptr) {
-    PyErr_SetString(PyExc_MemoryError, "couldn't create bpy_struct object");
-    return nullptr;
-  }
-
-  /* Blender's instance owns a reference (to avoid Python freeing it). */
-  if (instance) {
-    *instance = pyrna;
-    Py_INCREF(pyrna);
-  }
-
-  pyrna->ptr = *ptr;
-#ifdef PYRNA_FREE_SUPPORT
-  pyrna->freeptr = false;
-#endif
-
-#ifdef USE_PYRNA_STRUCT_REFERENCE
-  pyrna->reference = nullptr;
-#endif
-
-  // PyC_ObSpit("NewStructRNA: ", (PyObject *)pyrna);
-
-#ifdef USE_PYRNA_INVALIDATE_WEAKREF
-  if (ptr->owner_id) {
-    id_weakref_pool_add(ptr->owner_id, (BPy_DummyPointerRNA *)pyrna);
-  }
-#endif
+  PyTypeObject *tp = (PyTypeObject *)pyrna_struct_Subtype(ptr);
+  pyrna = (BPy_StructRNA *)pyrna_struct_CreatePyObject_from_type(ptr, tp, instance);
+  Py_XDECREF(tp); /* `srna` owns, can't hold a reference. */
   return (PyObject *)pyrna;
 }
 
@@ -8042,6 +8066,57 @@ PyObject *BPY_rna_types()
   }
 
   return submodule;
+}
+
+void BPY_rna_types_finalize_external_types(PyObject *submodule)
+{
+  /* NOTE: Blender is generally functional without running this logic
+   * however failure set the classes `bl_rna` (via `pyrna_subtype_set_rna`)
+   * means *partially* initialized classes exist.
+   * It's simpler to avoid this altogether as it's a corner case Python developers should
+   * not have to concern themselves with as it could cause errors with RNA introspection.
+   *
+   * If the classes are accessed via `bpy.types` they will be initialized correctly
+   * however classes can also be accessed via `bpy.types.ID.__subclasses__()`
+   * which doesn't ensure the `bl_rna` is set. See: #127127. */
+
+  BPy_TypesModule_State *state = static_cast<BPy_TypesModule_State *>(
+      PyModule_GetState(submodule));
+
+  PyObject *arg_key, *arg_value;
+  Py_ssize_t arg_pos = 0;
+  while (PyDict_Next(bpy_types_dict, &arg_pos, &arg_key, &arg_value)) {
+    const char *key_str = PyUnicode_AsUTF8(arg_key);
+    if (key_str[0] == '_') {
+      continue;
+    }
+
+    BLI_assert_msg(
+        PyObject_IsSubclass(arg_value, (PyObject *)&pyrna_struct_Type),
+        "Members of bpy_types.py which are not StructRNA sub-classes must use a \"_\" prefix!");
+
+    PointerRNA newptr;
+    if (RNA_property_collection_lookup_string(&state->ptr, state->prop, key_str, &newptr)) {
+      StructRNA *srna = srna_from_ptr(&newptr);
+      /* Within the Python logic of `./scripts/modules/bpy_types.py`
+       * it's possible this was already initialized. */
+      if (RNA_struct_py_type_get(srna) == nullptr) {
+        pyrna_subtype_set_rna(arg_value, srna);
+      }
+    }
+#ifndef NDEBUG
+    else {
+      /* Avoid noisy warnings based on build-options. */
+#  ifndef WITH_USD
+      if (STREQ(key_str, "USDHook")) {
+        continue;
+      }
+#  endif
+      CLOG_WARN(
+          BPY_LOG_RNA, "bpy_types.py defines \"%.200s\" which is not a known RNA type!", key_str);
+    }
+#endif
+  }
 }
 
 /** \} */
@@ -8967,8 +9042,10 @@ static void bpy_class_free(void *pyob_ptr)
   // PyDict_Clear(((PyTypeObject *)self)->tp_dict);
 
   /* Remove the RNA attribute instead. */
-  PyDict_DelItem(((PyTypeObject *)self)->tp_dict, bpy_intern_str_bl_rna);
-  if (PyErr_Occurred()) {
+
+  /* NOTE: it's important to use `delattr` instead of `PyDict_DelItem`
+   * to ensure the internal slots are updated (which is also used for assignment). */
+  if (PyObject_DelAttr(self, bpy_intern_str_bl_rna) == -1) {
     PyErr_Clear();
   }
 
@@ -9158,6 +9235,7 @@ static PyObject *pyrna_register_class(PyObject * /*self*/, PyObject *py_class)
   if (!BLI_listbase_is_empty(&reports.list)) {
     const bool has_error = (BPy_reports_to_error(&reports, PyExc_RuntimeError, false) == -1);
     if (!has_error) {
+      BKE_report_print_level_set(&reports, G.quiet ? RPT_WARNING : RPT_DEBUG);
       BPy_reports_write_stdout(&reports, error_prefix);
     }
     if (has_error) {
@@ -9363,9 +9441,11 @@ static PyObject *pyrna_unregister_class(PyObject * /*self*/, PyObject *py_class)
   /* Call unregister. */
   unreg(CTX_data_main(C), srna); /* Calls bpy_class_free, this decref's py_class. */
 
-  PyDict_DelItem(((PyTypeObject *)py_class)->tp_dict, bpy_intern_str_bl_rna);
-  if (PyErr_Occurred()) {
-    PyErr_Clear();  // return nullptr;
+  /* Typically `bpy_class_free` will have removed, remove here just in case. */
+  if (UNLIKELY(PyDict_Contains(((PyTypeObject *)py_class)->tp_dict, bpy_intern_str_bl_rna))) {
+    if (PyDict_DelItem(((PyTypeObject *)py_class)->tp_dict, bpy_intern_str_bl_rna) == -1) {
+      PyErr_Clear();
+    }
   }
 
   Py_RETURN_NONE;

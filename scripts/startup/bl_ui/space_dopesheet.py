@@ -225,8 +225,8 @@ class DOPESHEET_HT_header(Header):
 # Header for "normal" dopesheet editor modes (e.g. Dope Sheet, Action, Shape Keys, etc.)
 class DOPESHEET_HT_editor_buttons:
 
-    @staticmethod
-    def draw_header(context, layout):
+    @classmethod
+    def draw_header(cls, context, layout):
         st = context.space_data
         tool_settings = context.tool_settings
 
@@ -241,21 +241,9 @@ class DOPESHEET_HT_editor_buttons:
             row.operator("action.push_down", text="Push Down", icon='NLA_PUSHDOWN')
             row.operator("action.stash", text="Stash", icon='FREEZE')
 
-            layout.separator_spacer()
-
-            layout.template_action(context.object, new="action.new", unlink="action.unlink")
-
-            # Show slot selector.
-            if context.preferences.experimental.use_animation_baklava:
-                # context.space_data.action comes from the active object.
-                adt = context.object and context.object.animation_data
-                if adt and st.action and st.action.is_action_layered:
-                    layout.template_search(
-                        adt, "action_slot",
-                        adt, "action_slots",
-                        new="",
-                        unlink="anim.slot_unassign_object",
-                    )
+            if context.object:
+                layout.separator_spacer()
+                cls._draw_action_selector(context, layout)
 
         # Layer management
         if st.mode == 'GPENCIL':
@@ -318,6 +306,47 @@ class DOPESHEET_HT_editor_buttons:
             panel="DOPESHEET_PT_proportional_edit",
         )
 
+    @classmethod
+    def _draw_action_selector(cls, context, layout):
+        animated_id = cls._get_animated_id(context)
+        if not animated_id:
+            return
+
+        row = layout.row()
+        if animated_id.animation_data and animated_id.animation_data.use_tweak_mode:
+            row.enabled = False
+
+        row.template_action(animated_id, new="action.new", unlink="action.unlink")
+
+        if not context.preferences.experimental.use_animation_baklava:
+            return
+
+        adt = animated_id and animated_id.animation_data
+        if not adt or not adt.action or not adt.action.is_action_layered:
+            return
+
+        # Store the animated ID in the context, so that the new/unlink operators
+        # have access to it.
+        row.context_pointer_set("animated_id", animated_id)
+        row.template_search(
+            adt, "action_slot",
+            adt, "action_slots",
+            new="anim.slot_new_for_id",
+            unlink="anim.slot_unassign_from_id",
+        )
+
+    @staticmethod
+    def _get_animated_id(context):
+        st = context.space_data
+        match st.mode:
+            case 'ACTION':
+                return context.object
+            case 'SHAPEKEY':
+                return getattr(context.object.data, "shape_keys", None)
+            case _:
+                print("Dope Sheet mode '{:s}' not expected to have an Action selector".format(st.mode))
+                return context.object
+
 
 class DOPESHEET_PT_snapping(Panel):
     bl_space_type = 'DOPESHEET_EDITOR'
@@ -372,6 +401,10 @@ class DOPESHEET_MT_editor_menus(Menu):
             layout.menu("DOPESHEET_MT_key")
         else:
             layout.menu("DOPESHEET_MT_gpencil_key")
+
+        if st.mode in {'ACTION', 'SHAPEKEY'} and st.action is not None:
+            if context.preferences.experimental.use_animation_baklava:
+                layout.menu("DOPESHEET_MT_action")
 
 
 class DOPESHEET_MT_view(Menu):
@@ -552,6 +585,18 @@ class DOPESHEET_MT_channel(Menu):
         layout.operator("anim.channels_view_selected")
 
 
+class DOPESHEET_MT_action(Menu):
+    bl_label = "Action"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("anim.merge_animation")
+        layout.operator("anim.separate_slots")
+
+        layout.separator()
+        layout.operator("anim.slot_channels_move_to_new_action")
+
+
 class DOPESHEET_MT_key(Menu):
     bl_label = "Key"
 
@@ -669,7 +714,21 @@ class DOPESHEET_PT_action_slot(Panel):
         action = context.active_action
         slot = action.slots.active
 
-        layout.prop(slot, "name_display", text="Name", icon_value=slot.idtype_icon)
+        layout.prop(slot, "name_display", text="Name")
+
+        # Draw the ID type of the slot.
+        try:
+            enum_items = slot.bl_rna.properties['id_root'].enum_items
+            idtype_label = enum_items[slot.id_root].name
+        except (KeyError, IndexError, AttributeError) as ex:
+            idtype_label = str(ex)
+
+        split = layout.split(factor=0.4)
+        split.alignment = 'RIGHT'
+        split.label(text="Type")
+        split.alignment = 'LEFT'
+
+        split.label(text=idtype_label, icon_value=slot.id_root_icon)
 
 
 #######################################
@@ -1046,6 +1105,7 @@ classes = (
     DOPESHEET_MT_select,
     DOPESHEET_MT_marker,
     DOPESHEET_MT_channel,
+    DOPESHEET_MT_action,
     DOPESHEET_MT_key,
     DOPESHEET_MT_key_transform,
     DOPESHEET_MT_gpencil_channel,

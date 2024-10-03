@@ -325,7 +325,7 @@ Vector<bke::greasepencil::Drawing *> get_drawings_for_write(GreasePencil &grease
   using namespace blender::bke::greasepencil;
   VectorSet<Drawing *> drawings;
   layer_mask.foreach_index([&](const int64_t layer_i) {
-    const Layer &layer = *grease_pencil.layer(layer_i);
+    const Layer &layer = grease_pencil.layer(layer_i);
     if (!layer.is_visible()) {
       return;
     }
@@ -345,7 +345,7 @@ Vector<LayerDrawingInfo> get_drawing_infos_by_layer(GreasePencil &grease_pencil,
   Set<Drawing *> drawings;
   Vector<LayerDrawingInfo> drawing_infos;
   layer_mask.foreach_index([&](const int64_t layer_i) {
-    const Layer &layer = *grease_pencil.layer(layer_i);
+    const Layer &layer = grease_pencil.layer(layer_i);
     if (!layer.is_visible()) {
       return;
     }
@@ -370,7 +370,7 @@ Vector<FrameDrawingInfo> get_drawing_infos_by_frame(GreasePencil &grease_pencil,
   Set<Drawing *> drawings;
   Vector<FrameDrawingInfo> drawing_infos;
   layer_mask.foreach_index([&](const int64_t layer_i) {
-    const Layer &layer = *grease_pencil.layer(layer_i);
+    const Layer &layer = grease_pencil.layer(layer_i);
     if (!layer.is_visible()) {
       return;
     }

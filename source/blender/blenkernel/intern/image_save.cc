@@ -12,7 +12,7 @@
 #include "BLI_fileops.h"
 #include "BLI_index_range.hh"
 #include "BLI_listbase.h"
-#include "BLI_path_util.h"
+#include "BLI_path_utils.hh"
 #include "BLI_string.h"
 #include "BLI_task.hh"
 #include "BLI_vector.hh"
@@ -1038,15 +1038,15 @@ static void image_render_print_save_message(ReportList *reports,
   }
 }
 
-static int image_render_write_stamp_test(ReportList *reports,
-                                         const Scene *scene,
-                                         const RenderResult *rr,
-                                         ImBuf *ibuf,
-                                         const char *filepath,
-                                         const ImageFormatData *imf,
-                                         const bool stamp)
+static bool image_render_write_stamp_test(ReportList *reports,
+                                          const Scene *scene,
+                                          const RenderResult *rr,
+                                          ImBuf *ibuf,
+                                          const char *filepath,
+                                          const ImageFormatData *imf,
+                                          const bool stamp)
 {
-  int ok;
+  bool ok;
 
   if (stamp) {
     /* writes the name of the individual cameras */

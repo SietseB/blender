@@ -52,7 +52,7 @@
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
 
-#include "BKE_action.h"
+#include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
 #include "BKE_armature.hh"
@@ -856,6 +856,10 @@ void DepsgraphNodeBuilder::build_object(int base_index,
   OperationNode *instance_node = add_operation_node(
       &object->id, NodeType::INSTANCING, OperationCode::INSTANCE);
   instance_node->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
+
+  OperationNode *instance_geometry_node = add_operation_node(
+      &object->id, NodeType::INSTANCING, OperationCode::INSTANCE_GEOMETRY);
+  instance_geometry_node->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
 
   build_object_light_linking(object);
 

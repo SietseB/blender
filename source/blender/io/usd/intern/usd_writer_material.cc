@@ -23,7 +23,7 @@
 #include "BLI_listbase.h"
 #include "BLI_map.hh"
 #include "BLI_memory_utils.hh"
-#include "BLI_path_util.h"
+#include "BLI_path_utils.hh"
 #include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_string_utils.hh"
@@ -437,7 +437,7 @@ static const InputSpecMap &preview_surface_input_map()
     map.add_new("IOR", {usdtokens::ior, pxr::SdfValueTypeNames->Float, true});
 
     /* Note that for the Normal input set_default_value is false. */
-    map.add_new("Normal", {usdtokens::normal, pxr::SdfValueTypeNames->Float3, false});
+    map.add_new("Normal", {usdtokens::normal, pxr::SdfValueTypeNames->Normal3f, false});
     map.add_new("Coat Weight", {usdtokens::clearcoat, pxr::SdfValueTypeNames->Float, true});
     map.add_new("Coat Roughness",
                 {usdtokens::clearcoatRoughness, pxr::SdfValueTypeNames->Float, true});
@@ -698,7 +698,7 @@ static void export_in_memory_texture(Image *ima,
 
   CLOG_INFO(&LOG, 2, "Exporting in-memory texture to '%s'", export_path);
 
-  if (BKE_imbuf_write_as(imbuf, export_path, &imageFormat, true) == 0) {
+  if (BKE_imbuf_write_as(imbuf, export_path, &imageFormat, true) == false) {
     BKE_reportf(
         reports, RPT_WARNING, "USD export: couldn't export in-memory texture to %s", export_path);
   }
@@ -1276,7 +1276,8 @@ static void create_usd_materialx_material(const USDExporterContext &usd_export_c
     }
 
     temp_used_names.add(target_name);
-    const std::string &original_path = temp_material_child.GetPath().GetString();
+    const pxr::SdfPath &temp_material_child_path = temp_material_child.GetPath();
+    const std::string &original_path = temp_material_child_path.GetString();
     const std::string new_path =
         temp_material_child.GetPath().ReplaceName(pxr::TfToken(target_name)).GetString();
 

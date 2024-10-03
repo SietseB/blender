@@ -286,11 +286,6 @@ static void eyedropper_set_brush_color(bContext *C, const float3 &col_conv)
   Scene *scene = CTX_data_scene(C);
   ToolSettings *ts = scene->toolsettings;
   Paint *paint = &ts->gp_paint->paint;
-
-  if (paint == nullptr) {
-    return;
-  }
-
   Brush *brush = BKE_paint_brush(paint);
   if (brush == nullptr) {
     return;
@@ -323,7 +318,7 @@ static void eyedropper_gpencil_color_set(bContext *C,
   /* Convert from linear rgb space to display space because palette and brush colors are in display
    *  space, and this conversion is needed to undo the conversion to linear performed by
    *  eyedropper_color_sample_fl. */
-  if ((eye->display) && (eye->mode == EyeMode::Palette || eye->mode == EyeMode::Brush)) {
+  if (eye->display && ELEM(eye->mode, EyeMode::Palette, EyeMode::Brush)) {
     IMB_colormanagement_scene_linear_to_display_v3(col_conv, eye->display);
   }
 

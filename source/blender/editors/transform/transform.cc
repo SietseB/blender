@@ -31,6 +31,7 @@
 #include "ED_node.hh"
 #include "ED_screen.hh"
 #include "ED_space_api.hh"
+#include "ED_uvedit.hh"
 
 #include "ANIM_keyframing.hh"
 
@@ -60,7 +61,7 @@
 
 /* Disabling, since when you type you know what you are doing,
  * and being able to set it to zero is handy. */
-/* #define USE_NUM_NO_ZERO. */
+// #define USE_NUM_NO_ZERO.
 
 using namespace blender;
 
@@ -1002,6 +1003,11 @@ int transformEvent(TransInfo *t, wmOperator *op, const wmEvent *event)
   {
     t->redraw |= TREDRAW_HARD;
     handled = true;
+  }
+  else if (event->type == TIMER) {
+    if (ED_uvedit_live_unwrap_timer_check(static_cast<const wmTimer *>(event->customdata))) {
+      t->redraw |= TREDRAW_HARD;
+    }
   }
   else if (!is_navigating && event->type == MOUSEMOVE) {
     t->mval = float2(event->mval);

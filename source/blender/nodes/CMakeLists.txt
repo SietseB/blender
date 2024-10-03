@@ -146,6 +146,7 @@ set(LIB
   bf_nodes_shader
   bf_nodes_texture
   PRIVATE bf::extern::fmtlib
+  PRIVATE bf::extern::xxhash
 )
 
 if(WITH_BULLET)
@@ -162,7 +163,7 @@ endif()
 if(WITH_TBB)
   if(WIN32)
     # TBB includes Windows.h which will define min/max macros
-    # that will collide with the stl versions.
+    # that will collide with the STL versions.
     add_definitions(-DNOMINMAX)
   endif()
 endif()

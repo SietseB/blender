@@ -211,7 +211,7 @@ static std::optional<wmOperatorCallParams> create_activate_operator_params(
     return {};
   }
 
-  PointerRNA *op_props = MEM_cnew<PointerRNA>(__func__);
+  PointerRNA *op_props = MEM_new<PointerRNA>(__func__);
   WM_operator_properties_create_ptr(op_props, ot);
   asset::operator_asset_reference_props_set(asset, *op_props);
   return wmOperatorCallParams{ot, op_props, WM_OP_INVOKE_REGION_WIN};
@@ -232,17 +232,22 @@ void AssetViewItem::build_grid_tile(uiLayout &layout) const
                          "active_file",
                          &file_ptr);
 
+  uiBut *item_but = reinterpret_cast<uiBut *>(this->view_item_button());
   if (std::optional<wmOperatorCallParams> activate_op = create_activate_operator_params(
           shelf_type.activate_operator, *handle_get_representation(&asset_)))
   {
-    uiBut *item_but = reinterpret_cast<uiBut *>(this->view_item_button());
     /* Attach the operator, but don't call it through the button. We call it using
      * #on_activate(). */
     UI_but_operator_set(item_but, activate_op->optype, activate_op->opcontext, activate_op->opptr);
     UI_but_operator_set_never_call(item_but);
 
-    MEM_freeN(activate_op->opptr);
+    MEM_delete(activate_op->opptr);
   }
+  const ui::GridViewStyle &style = this->get_view().get_style();
+  /* Increase background draw size slightly, so highlights are well visible behind previews with an
+   * opaque background. */
+  UI_but_view_item_draw_size_set(
+      item_but, style.tile_width + 2 * U.pixelsize, style.tile_height + 2 * U.pixelsize);
 
   ui::PreviewGridItem::build_grid_tile_button(layout);
 }
@@ -285,7 +290,7 @@ void AssetViewItem::on_activate(bContext &C)
     WM_operator_name_call_ptr(
         &C, activate_op->optype, activate_op->opcontext, activate_op->opptr, nullptr);
     WM_operator_properties_free(activate_op->opptr);
-    MEM_freeN(activate_op->opptr);
+    MEM_delete(activate_op->opptr);
   }
 }
 

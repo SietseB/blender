@@ -6,6 +6,7 @@ import bpy
 from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 from bl_ui.utils import PresetPanel
+from .space_properties import PropertiesAnimationMixin
 
 from bl_ui.properties_grease_pencil_common import (
     GreasePencilMaterialsPanel,
@@ -309,6 +310,10 @@ class MATERIAL_PT_gpencil_preview(GPMaterialButtonsPanel, Panel):
         self.layout.template_preview(ma)
 
 
+class MATERIAL_PT_gpencil_animation(GPMaterialButtonsPanel, PropertiesAnimationMixin, PropertyPanel, Panel):
+    _animated_id_context_property = "material"
+
+
 class MATERIAL_PT_gpencil_custom_props(GPMaterialButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "object.active_material"
@@ -349,6 +354,7 @@ classes = (
     MATERIAL_PT_gpencil_fillcolor_ondine,
     MATERIAL_PT_gpencil_fillcolor_default,
     MATERIAL_PT_gpencil_settings,
+    MATERIAL_PT_gpencil_animation,
     MATERIAL_PT_gpencil_custom_props,
 )
 

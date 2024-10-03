@@ -18,7 +18,7 @@
 #include "DNA_sound_types.h"
 
 #include "BLI_listbase.h"
-#include "BLI_path_util.h"
+#include "BLI_path_utils.hh"
 
 #include "BKE_fcurve.hh"
 #include "BKE_idprop.hh"
@@ -43,6 +43,7 @@
 #include "SEQ_select.hh"
 #include "SEQ_sequencer.hh"
 #include "SEQ_sound.hh"
+#include "SEQ_thumbnail_cache.hh"
 #include "SEQ_time.hh"
 #include "SEQ_utils.hh"
 
@@ -298,6 +299,7 @@ void SEQ_editing_free(Scene *scene, const bool do_id_user)
   BLI_freelistN(&ed->metastack);
   SEQ_sequence_lookup_free(scene);
   blender::seq::media_presence_free(scene);
+  blender::seq::thumbnail_cache_destroy(scene);
   SEQ_channels_free(&ed->channels);
 
   MEM_freeN(ed);
@@ -313,9 +315,6 @@ static void seq_new_fix_links_recursive(Sequence *seq)
     }
     if (seq->seq2 && seq->seq2->tmp) {
       seq->seq2 = static_cast<Sequence *>(seq->seq2->tmp);
-    }
-    if (seq->seq3 && seq->seq3->tmp) {
-      seq->seq3 = static_cast<Sequence *>(seq->seq3->tmp);
     }
   }
   else if (seq->type == SEQ_TYPE_META) {
@@ -693,15 +692,9 @@ void SEQ_sequence_base_dupli_recursive(const Scene *scene_src,
   }
 }
 
-bool SEQ_valid_strip_channel(Sequence *seq)
+bool SEQ_is_valid_strip_channel(const Sequence *seq)
 {
-  if (seq->machine < 1) {
-    return false;
-  }
-  if (seq->machine > MAXSEQ) {
-    return false;
-  }
-  return true;
+  return seq->machine >= 1 && seq->machine <= SEQ_MAX_CHANNELS;
 }
 
 SequencerToolSettings *SEQ_tool_settings_copy(SequencerToolSettings *tool_settings)
@@ -821,19 +814,12 @@ static bool seq_read_data_cb(Sequence *seq, void *user_data)
   /* Runtime data cleanup. */
   seq->scene_sound = nullptr;
   BLI_listbase_clear(&seq->anims);
-  seq->flag &= ~SEQ_FLAG_SKIP_THUMBNAILS;
 
   /* Do as early as possible, so that other parts of reading can rely on valid session UID. */
   SEQ_relations_session_uid_generate(seq);
 
   BLO_read_struct(reader, Sequence, &seq->seq1);
   BLO_read_struct(reader, Sequence, &seq->seq2);
-  BLO_read_struct(reader, Sequence, &seq->seq3);
-
-  /* a patch: after introduction of effects with 3 input strips */
-  if (seq->seq3 == nullptr) {
-    seq->seq3 = seq->seq2;
-  }
 
   if (seq->effectdata) {
     switch (seq->type) {

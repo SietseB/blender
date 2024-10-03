@@ -369,6 +369,33 @@ GPU_SHADER_CREATE_INFO(overlay_edit_uv_edges_select)
     .define("USE_EDGE_SELECT")
     .additional_info("overlay_edit_uv_edges");
 
+GPU_SHADER_INTERFACE_INFO(overlay_edit_uv_next_iface, "")
+    .smooth(Type::FLOAT, "selectionFac")
+    .flat(Type::VEC2, "stippleStart")
+    .no_perspective(Type::FLOAT, "edgeCoord")
+    .no_perspective(Type::VEC2, "stipplePos");
+
+GPU_SHADER_CREATE_INFO(overlay_edit_uv_edges_next)
+    .do_static_compilation(true)
+    .storage_buf(0, Qualifier::READ, "float", "au[]", Frequency::GEOMETRY)
+    .storage_buf(1, Qualifier::READ, "uint", "data[]", Frequency::GEOMETRY)
+    .push_constant(Type::IVEC2, "gpu_attr_0")
+    .push_constant(Type::IVEC2, "gpu_attr_1")
+    .push_constant(Type::INT, "lineStyle")
+    .push_constant(Type::BOOL, "doSmoothWire")
+    .push_constant(Type::FLOAT, "alpha")
+    .push_constant(Type::FLOAT, "dashLength")
+    .specialization_constant(Type::BOOL, "use_edge_select", false)
+    .vertex_out(overlay_edit_uv_next_iface)
+    .fragment_out(0, Type::VEC4, "fragColor")
+    .vertex_source("overlay_edit_uv_edges_next_vert.glsl")
+    .fragment_source("overlay_edit_uv_edges_next_frag.glsl")
+    .additional_info("draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new",
+                     "gpu_index_load",
+                     "draw_globals");
+
 GPU_SHADER_CREATE_INFO(overlay_edit_uv_faces)
     .do_static_compilation(true)
     .vertex_in(0, Type::VEC2, "au")
@@ -439,6 +466,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_uv_mask_image)
     .vertex_out(edit_uv_image_iface)
     .sampler(0, ImageType::FLOAT_2D, "imgTexture")
     .push_constant(Type::VEC4, "color")
+    .push_constant(Type::FLOAT, "opacity")
     .fragment_out(0, Type::VEC4, "fragColor")
     .vertex_source("overlay_edit_uv_image_vert.glsl")
     .fragment_source("overlay_edit_uv_image_mask_frag.glsl")
@@ -458,20 +486,20 @@ GPU_SHADER_CREATE_INFO(overlay_edit_uv_stretching)
     .fragment_out(0, Type::VEC4, "fragColor")
     .vertex_source("overlay_edit_uv_stretching_vert.glsl")
     .fragment_source("overlay_varying_color.glsl")
-    .additional_info("draw_mesh", "draw_globals");
+    .push_constant(Type::FLOAT, "totalAreaRatio");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_uv_stretching_area)
     .do_static_compilation(true)
     .vertex_in(1, Type::FLOAT, "ratio")
     .push_constant(Type::FLOAT, "totalAreaRatio")
-    .additional_info("overlay_edit_uv_stretching");
+    .additional_info("overlay_edit_uv_stretching", "draw_mesh", "draw_globals");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_uv_stretching_angle)
     .do_static_compilation(true)
     .define("STRETCH_ANGLE")
     .vertex_in(1, Type::VEC2, "uv_angles")
     .vertex_in(2, Type::FLOAT, "angle")
-    .additional_info("overlay_edit_uv_stretching");
+    .additional_info("overlay_edit_uv_stretching", "draw_mesh", "draw_globals");
 
 /** \} */
 
@@ -505,7 +533,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_curve_handle_no_geom)
     /* NOTE: Color already in Linear space. Which is what we want. */
     .define("srgbTarget", "false")
     .vertex_in(0, Type::VEC3, "pos")
-    .vertex_in(1, Type::UCHAR, "data")
+    .vertex_in(1, Type::UINT, "data")
     .vertex_out(overlay_edit_smooth_color_iface)
     .push_constant(Type::BOOL, "showCurveHandles")
     .push_constant(Type::INT, "curveHandleDisplay")
@@ -514,6 +542,47 @@ GPU_SHADER_CREATE_INFO(overlay_edit_curve_handle_no_geom)
     .fragment_source("overlay_varying_color.glsl")
     .additional_info("draw_mesh", "draw_globals");
 #endif
+
+GPU_SHADER_CREATE_INFO(overlay_edit_curve_handle_next)
+    .do_static_compilation(true)
+    .typedef_source("overlay_shader_shared.h")
+    .storage_buf(0, Qualifier::READ, "float", "pos[]", Frequency::GEOMETRY)
+    .storage_buf(1, Qualifier::READ, "uint", "data[]", Frequency::GEOMETRY)
+    .push_constant(Type::IVEC2, "gpu_attr_0")
+    .push_constant(Type::IVEC2, "gpu_attr_1")
+    .vertex_out(overlay_edit_smooth_color_iface)
+    .push_constant(Type::BOOL, "showCurveHandles")
+    .push_constant(Type::INT, "curveHandleDisplay")
+    .push_constant(Type::FLOAT, "alpha")
+    .fragment_out(0, Type::VEC4, "fragColor")
+    .vertex_source("overlay_edit_curve_handle_next_vert.glsl")
+    .fragment_source("overlay_varying_color.glsl")
+    .additional_info("draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new",
+                     "gpu_index_load",
+                     "draw_globals");
+
+GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle_next)
+    .do_static_compilation(true)
+    .typedef_source("overlay_shader_shared.h")
+    .storage_buf(0, Qualifier::READ, "float", "pos[]", Frequency::GEOMETRY)
+    .storage_buf(1, Qualifier::READ, "uint", "data[]", Frequency::GEOMETRY)
+    .storage_buf(2, Qualifier::READ, "float", "selection[]", Frequency::GEOMETRY)
+    .push_constant(Type::IVEC2, "gpu_attr_0")
+    .push_constant(Type::IVEC2, "gpu_attr_1")
+    .push_constant(Type::IVEC2, "gpu_attr_2")
+    .vertex_out(overlay_edit_smooth_color_iface)
+    .push_constant(Type::BOOL, "showCurveHandles")
+    .push_constant(Type::INT, "curveHandleDisplay")
+    .fragment_out(0, Type::VEC4, "fragColor")
+    .vertex_source("overlay_edit_curves_handle_next_vert.glsl")
+    .fragment_source("overlay_varying_color.glsl")
+    .additional_info("draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new",
+                     "gpu_index_load",
+                     "draw_globals");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_curve_handle_clipped)
     .do_static_compilation(true)
@@ -560,15 +629,37 @@ GPU_SHADER_CREATE_INFO(overlay_edit_curve_wire_clipped)
     .do_static_compilation(true)
     .additional_info("overlay_edit_curve_wire", "drw_clipped");
 
+GPU_SHADER_CREATE_INFO(overlay_edit_curve_normals)
+    .do_static_compilation(true)
+    .storage_buf(0, Qualifier::READ, "float", "pos[]", Frequency::GEOMETRY)
+    .storage_buf(1, Qualifier::READ, "float", "rad[]", Frequency::GEOMETRY)
+    .storage_buf(2, Qualifier::READ, "uint", "nor[]", Frequency::GEOMETRY)
+    .storage_buf(3, Qualifier::READ, "uint", "tan[]", Frequency::GEOMETRY)
+    .push_constant(Type::IVEC2, "gpu_attr_0")
+    .push_constant(Type::IVEC2, "gpu_attr_1")
+    .push_constant(Type::IVEC2, "gpu_attr_2")
+    .push_constant(Type::IVEC2, "gpu_attr_3")
+    .push_constant(Type::FLOAT, "normalSize")
+    .push_constant(Type::BOOL, "use_hq_normals")
+    .vertex_out(overlay_edit_flat_color_iface)
+    .fragment_out(0, Type::VEC4, "fragColor")
+    .vertex_source("overlay_edit_curve_wire_next_vert.glsl")
+    .fragment_source("overlay_varying_color.glsl")
+    .additional_info("draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new",
+                     "gpu_index_load",
+                     "draw_globals");
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name Edit Curves
  * \{ */
 
-GPU_SHADER_INTERFACE_INFO(overlay_edit_curves_handle_iface, "")
-    .smooth(Type::VEC4, "finalColor")
-    .smooth(Type::VEC4, "leftColor");
+GPU_SHADER_INTERFACE_INFO(overlay_edit_curves_handle_iface, "vert")
+    .flat(Type::UINT, "flag")
+    .flat(Type::FLOAT, "selection");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle)
     .do_static_compilation(true)
@@ -577,15 +668,37 @@ GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle)
     .vertex_in(1, Type::UINT, "data")
     .vertex_in(2, Type::FLOAT, "selection")
     .vertex_out(overlay_edit_curves_handle_iface)
-    .uniform_buf(0, "int", "curvesInfoBlock[4]")
+    .geometry_layout(PrimitiveIn::LINES, PrimitiveOut::TRIANGLE_STRIP, 10)
+    .geometry_out(overlay_edit_smooth_color_iface)
     .fragment_out(0, Type::VEC4, "fragColor")
     .vertex_source("overlay_edit_curves_handle_vert.glsl")
-    .fragment_source("overlay_edit_curves_handle_frag.glsl")
+    .geometry_source("overlay_edit_curves_handle_geom.glsl")
+    .fragment_source("overlay_varying_color.glsl")
     .additional_info("draw_mesh", "draw_globals");
 
 GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle_clipped)
     .do_static_compilation(true)
     .additional_info("overlay_edit_curves_handle", "drw_clipped");
+
+#ifdef WITH_METAL_BACKEND
+GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle_no_geom)
+    .metal_backend_only(true)
+    .do_static_compilation(true)
+    .typedef_source("overlay_shader_shared.h")
+    .vertex_in(0, Type::VEC3, "pos")
+    .vertex_in(1, Type::UINT, "data")
+    .vertex_in(2, Type::FLOAT, "selection")
+    .vertex_out(overlay_edit_smooth_color_iface)
+    .fragment_out(0, Type::VEC4, "fragColor")
+    .vertex_source("overlay_edit_curves_handle_vert_no_geom.glsl")
+    .fragment_source("overlay_varying_color.glsl")
+    .additional_info("draw_mesh", "draw_globals");
+
+GPU_SHADER_CREATE_INFO(overlay_edit_curves_handle_clipped_no_geom)
+    .metal_backend_only(true)
+    .do_static_compilation(true)
+    .additional_info("overlay_edit_curves_handle_no_geom", "drw_clipped");
+#endif
 
 /** \} */
 
@@ -634,6 +747,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_particle_strand)
     .vertex_in(1, Type::FLOAT, "selection")
     .sampler(0, ImageType::FLOAT_1D, "weightTex")
     .push_constant(Type::BOOL, "useWeight")
+    .push_constant(Type::BOOL, "useGreasePencil")
     .vertex_out(overlay_edit_smooth_color_iface)
     .fragment_out(0, Type::VEC4, "fragColor")
     .vertex_source("overlay_edit_particle_strand_vert.glsl")
@@ -651,6 +765,7 @@ GPU_SHADER_CREATE_INFO(overlay_edit_particle_point)
     .vertex_out(overlay_edit_flat_color_iface)
     .sampler(0, ImageType::FLOAT_1D, "weightTex")
     .push_constant(Type::BOOL, "useWeight")
+    .push_constant(Type::BOOL, "useGreasePencil")
     .fragment_out(0, Type::VEC4, "fragColor")
     .vertex_source("overlay_edit_particle_point_vert.glsl")
     .fragment_source("overlay_point_varying_color_frag.glsl")
@@ -741,6 +856,70 @@ GPU_SHADER_CREATE_INFO(overlay_depth_only)
 GPU_SHADER_CREATE_INFO(overlay_depth_only_clipped)
     .do_static_compilation(true)
     .additional_info("overlay_depth_only", "drw_clipped");
+
+GPU_SHADER_CREATE_INFO(overlay_depth_mesh)
+    .do_static_compilation(true)
+    .vertex_in(0, Type::VEC3, "pos")
+    .vertex_source("basic_depth_vert.glsl")
+    .fragment_source("overlay_depth_only_frag.glsl")
+    .additional_info("draw_globals", "draw_view", "draw_modelmat_new", "draw_resource_handle_new");
+
+GPU_SHADER_CREATE_INFO(overlay_depth_mesh_conservative)
+    .do_static_compilation(true)
+    .storage_buf(0, Qualifier::READ, "float", "pos[]", Frequency::GEOMETRY)
+    .push_constant(Type::IVEC2, "gpu_attr_0")
+    .vertex_source("overlay_depth_only_mesh_conservative_vert.glsl")
+    .fragment_source("overlay_depth_only_frag.glsl")
+    .additional_info("draw_globals",
+                     "draw_view",
+                     "draw_modelmat_new",
+                     "gpu_index_load",
+                     "draw_resource_handle_new");
+
+GPU_SHADER_INTERFACE_INFO(overlay_depth_only_gpencil_flat_iface, "gp_interp_flat")
+    .flat(Type::VEC2, "aspect")
+    .flat(Type::VEC4, "sspos");
+GPU_SHADER_INTERFACE_INFO(overlay_depth_only_gpencil_noperspective_iface,
+                          "gp_interp_noperspective")
+    .no_perspective(Type::VEC2, "thickness")
+    .no_perspective(Type::FLOAT, "hardness");
+
+GPU_SHADER_CREATE_INFO(overlay_depth_gpencil)
+    .do_static_compilation(true)
+    .typedef_source("gpencil_shader_shared.h")
+    .vertex_out(overlay_depth_only_gpencil_flat_iface)
+    .vertex_out(overlay_depth_only_gpencil_noperspective_iface)
+    .vertex_source("overlay_depth_only_gpencil_vert.glsl")
+    .fragment_source("overlay_depth_only_gpencil_frag.glsl")
+    .depth_write(DepthWrite::ANY)
+    .push_constant(Type::BOOL, "gpStrokeOrder3d") /* TODO(fclem): Move to a GPencil object UBO. */
+    .push_constant(Type::VEC4, "gpDepthPlane")    /* TODO(fclem): Move to a GPencil object UBO. */
+    .additional_info("draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new",
+                     "draw_globals",
+                     "draw_gpencil_new",
+                     "draw_object_infos_new");
+
+GPU_SHADER_CREATE_INFO(overlay_depth_pointcloud)
+    .do_static_compilation(true)
+    .vertex_source("basic_depth_pointcloud_vert.glsl")
+    .fragment_source("overlay_depth_only_frag.glsl")
+    .additional_info("draw_pointcloud_new",
+                     "draw_globals",
+                     "draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new");
+
+GPU_SHADER_CREATE_INFO(overlay_depth_curves)
+    .do_static_compilation(true)
+    .vertex_source("basic_depth_curves_vert.glsl")
+    .fragment_source("overlay_depth_only_frag.glsl")
+    .additional_info("draw_hair_new",
+                     "draw_globals",
+                     "draw_view",
+                     "draw_modelmat_new",
+                     "draw_resource_handle_new");
 
 /** \} */
 

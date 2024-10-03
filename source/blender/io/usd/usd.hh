@@ -113,6 +113,7 @@ struct USDExportParams {
   bool export_lights = true;
   bool export_cameras = true;
   bool export_curves = true;
+  bool export_points = true;
   bool export_volumes = true;
   bool export_hair = true;
   bool export_uvmaps = true;
@@ -283,7 +284,6 @@ CacheReader *CacheReader_open_usd_object(CacheArchiveHandle *handle,
                                          Object *object,
                                          const char *object_path);
 
-void USD_CacheReader_incref(CacheReader *reader);
 void USD_CacheReader_free(CacheReader *reader);
 
 /** Data for registering USD IO hooks. */

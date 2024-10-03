@@ -50,6 +50,7 @@
 #include "SEQ_select.hh"
 #include "SEQ_sequencer.hh"
 #include "SEQ_sound.hh"
+#include "SEQ_thumbnail_cache.hh"
 #include "SEQ_time.hh"
 #include "SEQ_transform.hh"
 #include "SEQ_utils.hh"
@@ -1518,30 +1519,13 @@ static void rna_Sequence_separate(ID *id, Sequence *seqm, Main *bmain)
   WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, scene);
 }
 
-/* Find channel owner. If nullptr, owner is `Editing`, otherwise it's `Sequence`. */
-static Sequence *rna_SeqTimelineChannel_owner_get(const Editing *ed,
-                                                  const SeqTimelineChannel *channel)
-{
-  blender::VectorSet strips = SEQ_query_all_meta_strips_recursive(&ed->seqbase);
-
-  Sequence *channel_owner = nullptr;
-  for (Sequence *seq : strips) {
-    if (BLI_findindex(&seq->channels, channel) != -1) {
-      channel_owner = seq;
-      break;
-    }
-  }
-
-  return channel_owner;
-}
-
 static void rna_SequenceTimelineChannel_name_set(PointerRNA *ptr, const char *value)
 {
   SeqTimelineChannel *channel = (SeqTimelineChannel *)ptr->data;
   Scene *scene = (Scene *)ptr->owner_id;
   Editing *ed = SEQ_editing_get(scene);
 
-  Sequence *channel_owner = rna_SeqTimelineChannel_owner_get(ed, channel);
+  Sequence *channel_owner = SEQ_sequence_lookup_owner_by_channel(scene, channel);
   ListBase *channels_base = &ed->channels;
 
   if (channel_owner != nullptr) {
@@ -1565,7 +1549,7 @@ static void rna_SequenceTimelineChannel_mute_update(Main *bmain,
   Editing *ed = SEQ_editing_get(scene);
   SeqTimelineChannel *channel = (SeqTimelineChannel *)ptr;
 
-  Sequence *channel_owner = rna_SeqTimelineChannel_owner_get(ed, channel);
+  Sequence *channel_owner = SEQ_sequence_lookup_owner_by_channel(scene, channel);
   ListBase *seqbase;
   if (channel_owner == nullptr) {
     seqbase = &ed->seqbase;
@@ -1584,10 +1568,9 @@ static void rna_SequenceTimelineChannel_mute_update(Main *bmain,
 static std::optional<std::string> rna_SeqTimelineChannel_path(const PointerRNA *ptr)
 {
   Scene *scene = (Scene *)ptr->owner_id;
-  Editing *ed = SEQ_editing_get(scene);
   SeqTimelineChannel *channel = (SeqTimelineChannel *)ptr->data;
 
-  Sequence *channel_owner = rna_SeqTimelineChannel_owner_get(ed, channel);
+  Sequence *channel_owner = SEQ_sequence_lookup_owner_by_channel(scene, channel);
 
   char channel_name_esc[(sizeof(channel->name)) * 2];
   BLI_str_escape(channel_name_esc, channel->name, sizeof(channel_name_esc));
@@ -2257,7 +2240,7 @@ static void rna_def_sequence(BlenderRNA *brna)
   prop = RNA_def_property(srna, "channel", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "machine");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_range(prop, 1, MAXSEQ);
+  RNA_def_property_range(prop, 1, SEQ_MAX_CHANNELS);
   RNA_def_property_ui_text(prop, "Channel", "Y position of the sequence strip");
   RNA_def_property_int_funcs(
       prop, nullptr, "rna_Sequence_channel_set", nullptr); /* overlap test */
@@ -2695,16 +2678,6 @@ static void rna_def_effect_inputs(StructRNA *srna, int count)
     RNA_def_property_pointer_funcs(prop, nullptr, "rna_Sequence_input_2_set", nullptr, nullptr);
     RNA_def_property_ui_text(prop, "Input 2", "Second input for the effect strip");
   }
-
-#  if 0
-  if (count == 3) {
-    /* Not used by any effects (perhaps one day plugins?). */
-    prop = RNA_def_property(srna, "input_3", PROP_POINTER, PROP_NONE);
-    RNA_def_property_pointer_sdna(prop, nullptr, "seq3");
-    RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
-    RNA_def_property_ui_text(prop, "Input 3", "Third input for the effect strip");
-  }
-#  endif
 }
 
 static void rna_def_color_management(StructRNA *srna)
@@ -3092,7 +3065,7 @@ static void rna_def_multicam(StructRNA *srna)
 
   prop = RNA_def_property(srna, "multicam_source", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "multicam_source");
-  RNA_def_property_range(prop, 0, MAXSEQ - 1);
+  RNA_def_property_range(prop, 0, SEQ_MAX_CHANNELS - 1);
   RNA_def_property_ui_text(prop, "Multicam Source Channel", "");
   RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_raw_update");
 

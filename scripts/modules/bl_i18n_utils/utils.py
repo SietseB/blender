@@ -239,7 +239,7 @@ def enable_addons(addons=None, support=None, disable=False, check_only=False):
                         continue
                     print("    Enabling module ", addon_module_name)
                     bpy.ops.preferences.addon_enable(module=addon_module_name)
-            except BaseException as ex:  # XXX TEMP WORKAROUND
+            except Exception as ex:  # XXX TEMP WORKAROUND
                 print(ex)
 
         # XXX There are currently some problems with bpy/rna...
@@ -1270,7 +1270,7 @@ class I18nMessages:
                        "Cleaned up {} commented messages.\n".format(lng['name'], lng['uid'], po.clean_commented()) +
                        ("Errors in this po, solved as best as possible!\n\t" + "\n\t".join(errs) if errs else ""))
         if lng['uid'] in settings.IMPORT_LANGUAGES_RTL:
-            if platform.system not in {'Linux'}:
+            if platform.system() not in {'Linux'}:
                 reports.append("Skipping RtL processing of {} language ({}), "
                                "this is only supported on Linux currently.".format(lng['name'], lng['uid']))
             else:

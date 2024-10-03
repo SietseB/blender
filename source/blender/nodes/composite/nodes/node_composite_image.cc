@@ -462,7 +462,7 @@ class ImageOperation : public NodeOperation {
         context(), get_image(), get_image_user(), get_pass_name(identifier));
 
     Result &result = get_result(identifier);
-    if (!cached_image) {
+    if (!cached_image || !cached_image->is_allocated()) {
       result.allocate_invalid();
       return;
     }
@@ -623,16 +623,7 @@ static void node_composit_buts_viewlayers(uiLayout *layout, bContext *C, Pointer
   bNode *node = (bNode *)ptr->data;
   uiLayout *col, *row;
 
-  uiTemplateID(layout,
-               C,
-               ptr,
-               "scene",
-               nullptr,
-               nullptr,
-               nullptr,
-               UI_TEMPLATE_ID_FILTER_ALL,
-               false,
-               nullptr);
+  uiTemplateID(layout, C, ptr, "scene", nullptr, nullptr, nullptr);
 
   if (!node->id) {
     return;

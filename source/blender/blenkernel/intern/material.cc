@@ -102,8 +102,10 @@ static void material_copy_data(Main *bmain,
   const Material *material_src = (const Material *)id_src;
 
   const bool is_localized = (flag & LIB_ID_CREATE_LOCAL) != 0;
-  /* We always need allocation of our private ID data. */
-  const int flag_private_id_data = flag & ~LIB_ID_CREATE_NO_ALLOCATE;
+  /* Never handle user-count here for own sub-data. */
+  const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
+  /* Always need allocation of the embedded ID data. */
+  const int flag_embedded_id_data = flag_subdata & ~LIB_ID_CREATE_NO_ALLOCATE;
 
   if (material_src->nodetree != nullptr) {
     if (is_localized) {
@@ -116,7 +118,7 @@ static void material_copy_data(Main *bmain,
                          &material_src->nodetree->id,
                          &material_dst->id,
                          reinterpret_cast<ID **>(&material_dst->nodetree),
-                         flag_private_id_data);
+                         flag_embedded_id_data);
     }
   }
 
@@ -728,6 +730,14 @@ Material **BKE_object_material_get_p(Object *ob, short act)
 Material *BKE_object_material_get(Object *ob, short act)
 {
   Material **ma_p = BKE_object_material_get_p(ob, act);
+  /* Grease Pencil objects currently make the assumption that the returned material has Grease
+   * Pencil settings. Ensure that this is the case otherwise return `nullptr`. */
+  if (ob->type == OB_GREASE_PENCIL && ma_p != nullptr) {
+    Material *ma = *ma_p;
+    if (ma != nullptr) {
+      return ma->gp_style != nullptr ? ma : nullptr;
+    }
+  }
   return ma_p ? *ma_p : nullptr;
 }
 

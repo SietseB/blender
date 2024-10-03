@@ -36,8 +36,6 @@ class VKContext : public Context, NonCopyable {
   /* Reusable data. Stored inside context to limit reallocations. */
   render_graph::VKResourceAccessInfo access_info_ = {};
 
-  bool is_init_ = false;
-
   VKThreadData &thread_data_;
 
  public:
@@ -82,7 +80,7 @@ class VKContext : public Context, NonCopyable {
    */
   void rendering_end();
 
-  render_graph::VKResourceAccessInfo &update_and_get_access_info();
+  render_graph::VKResourceAccessInfo &reset_and_get_access_info();
 
   /**
    * Update the give shader data with the current state of the context.

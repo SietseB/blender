@@ -634,7 +634,7 @@ static void gpencil_stroke_to_path(bContext *C,
                                    bGPDlayer *gpl,
                                    bGPDstroke *gps,
                                    Curve *cu,
-                                   rctf *subrect,
+                                   const rctf *subrect,
                                    Nurb **curnu,
                                    float minmax_weights[2],
                                    const float rad_fac,
@@ -1228,7 +1228,7 @@ static void gpencil_stroke_norm_curve_weights(Curve *cu, const float minmax_weig
   }
 }
 
-static int gpencil_camera_view_subrect(bContext *C, rctf *subrect)
+static bool gpencil_camera_view_subrect(bContext *C, rctf *r_subrect)
 {
   View3D *v3d = CTX_wm_view3d(C);
   ARegion *region = CTX_wm_region(C);
@@ -1238,14 +1238,14 @@ static int gpencil_camera_view_subrect(bContext *C, rctf *subrect)
 
     /* for camera view set the subrect */
     if (rv3d->persp == RV3D_CAMOB) {
-      Scene *scene = CTX_data_scene(C);
+      const Scene *scene = CTX_data_scene(C);
       Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-      ED_view3d_calc_camera_border(scene, depsgraph, region, v3d, rv3d, subrect, true);
-      return 1;
+      ED_view3d_calc_camera_border(scene, depsgraph, region, v3d, rv3d, true, r_subrect);
+      return true;
     }
   }
 
-  return 0;
+  return false;
 }
 
 /* convert a given grease-pencil layer to a 3d-curve representation
