@@ -8,10 +8,12 @@
 
 #include "BKE_armature.hh"
 #include "BKE_brush.hh"
+#include "BKE_colortools.hh"
 #include "BKE_context.hh"
 #include "BKE_crazyspace.hh"
 #include "BKE_deform.hh"
 #include "BKE_grease_pencil.hh"
+#include "BKE_grease_pencil_vertex_groups.hh"
 #include "BKE_modifier.hh"
 #include "BKE_object_deform.h"
 #include "BKE_paint.hh"
@@ -588,7 +590,8 @@ static bool toggle_weight_tool_direction_poll(bContext *C)
   if (brush == nullptr) {
     return false;
   }
-  return ELEM(brush->gpencil_weight_brush_type, GPWEIGHT_BRUSH_TYPE_DRAW, GPWEIGHT_BRUSH_TYPE_GRADIENT);
+  return ELEM(
+      brush->gpencil_weight_brush_type, GPWEIGHT_BRUSH_TYPE_DRAW, GPWEIGHT_BRUSH_TYPE_GRADIENT);
 }
 
 static void GREASE_PENCIL_OT_weight_toggle_direction(wmOperatorType *ot)

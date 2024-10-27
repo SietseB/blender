@@ -292,6 +292,7 @@ bool editable_grease_pencil_point_selection_poll(bContext *C);
 bool grease_pencil_painting_poll(bContext *C);
 bool grease_pencil_sculpting_poll(bContext *C);
 bool grease_pencil_weight_painting_poll(bContext *C);
+bool grease_pencil_weight_gradient_poll(bContext *C);
 bool grease_pencil_vertex_painting_poll(bContext *C);
 
 float opacity_from_input_sample(const float pressure,

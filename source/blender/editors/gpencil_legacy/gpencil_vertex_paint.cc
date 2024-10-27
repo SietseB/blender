@@ -414,12 +414,14 @@ static bool brush_tint_apply(tGP_BrushVertexpaintData *gso,
                              bGPDstroke *gps,
                              int pt_index,
                              const int radius,
-                             const int co[2])
+                             const int co[2],
+                             const bool mode_stroke)
 {
   Brush *brush = gso->brush;
 
   /* Attenuate factor to get a smoother tinting. */
-  float inf = (brush_influence_calc(gso, radius, co) * brush->gpencil_settings->draw_strength) /
+  float inf = (brush_influence_calc(gso, radius, co, mode_stroke) *
+               brush->gpencil_settings->draw_strength) /
               100.0f;
   float inf_fill = (gso->pressure * brush->gpencil_settings->draw_strength) / 1000.0f;
 
@@ -816,13 +818,48 @@ static void gpencil_save_selected_point(tGP_BrushVertexpaintData *gso,
   gso->pbuffer_used++;
 }
 
+/* Select points of an entire stroke */
+static void gpencil_save_entire_stroke(tGP_BrushVertexpaintData *gso,
+                                       bGPDstroke *gps,
+                                       const float diff_mat[4][4])
+{
+  GP_SpaceConversion *gsc = &gso->gsc;
+  bGPDstroke *gps_active = (gps->runtime.gps_orig) ? gps->runtime.gps_orig : gps;
+  bGPDspoint *pt1, *pt2;
+  bGPDspoint *pt = nullptr;
+  int pc1[2] = {0};
+  int pc2[2] = {0};
+  int i;
+
+  if (gps->totpoints == 1) {
+    return;
+  }
+
+  for (i = 0; i < gps->totpoints; i++) {
+    /* Get points to work with */
+    pt1 = gps->points + i;
+    pt2 = gps->points + i + 1;
+
+    bGPDspoint npt;
+    gpencil_point_to_world_space(pt1, diff_mat, &npt);
+    gpencil_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
+
+    gpencil_point_to_world_space(pt2, diff_mat, &npt);
+    gpencil_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
+
+    pt = &gps->points[i];
+    gpencil_save_selected_point(gso, gps_active, i, pc1);
+  }
+}
+
 /* Select points in this stroke and add to an array to be used later.
  * Returns true if any point was hit and got saved */
 static bool gpencil_vertexpaint_select_stroke(tGP_BrushVertexpaintData *gso,
                                               bGPDstroke *gps,
                                               const char tool,
                                               const float diff_mat[4][4],
-                                              const float bound_mat[4][4])
+                                              const float bound_mat[4][4],
+                                              const bool mode_stroke)
 {
   GP_SpaceConversion *gsc = &gso->gsc;
   const rcti *rect = &gso->brush_rect;
