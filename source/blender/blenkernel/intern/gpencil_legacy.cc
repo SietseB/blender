@@ -880,8 +880,7 @@ void BKE_gpencil_stroke_weights_duplicate(bGPDstroke *gps_src, bGPDstroke *gps_d
 
 bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
                                          const bool dup_points,
-                                         const bool /*dup_curve*/,
-                                         const bool /*dup_seed*/)
+                                         const bool /*dup_curve*/)
 {
   bGPDstroke *gps_dst = nullptr;
 
@@ -945,7 +944,7 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src, const bool dup_
   if (dup_strokes) {
     LISTBASE_FOREACH (bGPDstroke *, gps_src, &gpf_src->strokes) {
       /* make copy of source stroke */
-      gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true, true);
+      gps_dst = BKE_gpencil_stroke_duplicate(gps_src, true, true);
       BLI_addtail(&gpf_dst->strokes, gps_dst);
     }
   }
