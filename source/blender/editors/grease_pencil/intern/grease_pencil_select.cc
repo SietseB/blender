@@ -265,13 +265,9 @@ bool selection_update(const ViewContext *vc,
 
         /* Modes that un-set all elements not in the mask. */
         if (ELEM(sel_op, SEL_OP_SET, SEL_OP_AND)) {
-          ed::curves::foreach_selection_attribute_writer(
-              curves, selection_domain, [&](bke::GSpanAttributeWriter &writer) {
-                for (const int element_i : IndexRange(writer.span.size())) {
-                  ed::curves::apply_selection_operation_at_index(
-                      writer.span, element_i, SEL_OP_SUB);
-                }
-              });
+          bke::GSpanAttributeWriter selection =
+              curves.attributes_for_write().lookup_for_write_span(attribute_name);
+          ed::curves::fill_selection_false(selection.span);
         }
 
         if (use_segment_selection) {
@@ -1047,10 +1043,10 @@ blender::bke::AttrDomain ED_grease_pencil_selection_domain_get(const ToolSetting
   if (object->mode & OB_MODE_EDIT) {
     return ED_grease_pencil_edit_selection_domain_get(tool_settings);
   }
-  if (object->mode & OB_MODE_SCULPT_GPENCIL_LEGACY) {
+  if (object->mode & OB_MODE_SCULPT_GREASE_PENCIL) {
     return ED_grease_pencil_sculpt_selection_domain_get(tool_settings);
   }
-  if (object->mode & OB_MODE_VERTEX_GPENCIL_LEGACY) {
+  if (object->mode & OB_MODE_VERTEX_GREASE_PENCIL) {
     return ED_grease_pencil_vertex_selection_domain_get(tool_settings);
   }
   return blender::bke::AttrDomain::Point;
@@ -1077,10 +1073,10 @@ bool ED_grease_pencil_segment_selection_enabled(const ToolSettings *tool_setting
   if (object->mode & OB_MODE_EDIT) {
     return ED_grease_pencil_edit_segment_selection_enabled(tool_settings);
   }
-  if (object->mode & OB_MODE_SCULPT_GPENCIL_LEGACY) {
+  if (object->mode & OB_MODE_SCULPT_GREASE_PENCIL) {
     return ED_grease_pencil_sculpt_segment_selection_enabled(tool_settings);
   }
-  if (object->mode & OB_MODE_VERTEX_GPENCIL_LEGACY) {
+  if (object->mode & OB_MODE_VERTEX_GREASE_PENCIL) {
     return ED_grease_pencil_vertex_segment_selection_enabled(tool_settings);
   }
   return false;

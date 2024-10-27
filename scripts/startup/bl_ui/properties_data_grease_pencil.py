@@ -59,16 +59,14 @@ class GREASE_PENCIL_UL_masks(UIList):
 
 class GreasePencil_LayerMaskPanel:
     def draw_header(self, context):
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
 
         self.layout.prop(layer, "use_masks", text="", toggle=0)
 
     def draw(self, context):
         layout = self.layout
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
 
         layout = self.layout
@@ -117,8 +115,7 @@ class GreasePencil_LayerTransformPanel:
         layout = self.layout
         layout.use_property_split = True
 
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
         layout.active = not layer.lock
 
@@ -137,8 +134,7 @@ class GreasePencil_LayerAdjustmentsPanel:
         layout = self.layout
         layout.use_property_split = True
 
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
         layout.active = not layer.lock
 
@@ -157,8 +153,7 @@ class GreasPencil_LayerRelationsPanel:
         layout = self.layout
         layout.use_property_split = True
 
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
         layout.active = not layer.lock
 
@@ -225,8 +220,7 @@ class GREASE_PENCIL_MT_grease_pencil_add_layer_extra(Menu):
 
     def draw(self, context):
         layout = self.layout
-        ob = context.object
-        grease_pencil = ob.data
+        grease_pencil = context.grease_pencil
         layer = grease_pencil.layers.active
 
         layout.separator()

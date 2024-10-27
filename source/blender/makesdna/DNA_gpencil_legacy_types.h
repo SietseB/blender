@@ -494,9 +494,6 @@ typedef struct bGPDframe {
   /** Keyframe type (eBezTriple_KeyframeType). */
   short key_type;
 
-  /* NOTE: When adding new members, make sure to add them to BKE_gpencil_frame_copy_settings as
-   * well! */
-
   bGPDframe_Runtime runtime;
 } bGPDframe;
 
@@ -664,9 +661,6 @@ typedef struct bGPDlayer {
   float brush_jitter;
   float watercolor_color_variation;
   float watercolor_alpha_variation;
-
-  /* NOTE: When adding new members, make sure to add them to BKE_gpencil_layer_copy_settings as
-   * well! */
 
   bGPDlayer_Runtime runtime;
 } bGPDlayer;
@@ -927,9 +921,6 @@ typedef struct bGPdata {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
-
-  /* NOTE: When adding new members, make sure to add them to BKE_gpencil_data_copy_settings as
-   * well! */
 
   bGPdata_Runtime runtime;
 } bGPdata;
