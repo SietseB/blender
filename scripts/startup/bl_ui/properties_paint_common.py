@@ -1802,16 +1802,14 @@ def brush_basic_gpencil_sculpt_settings(layout, _context, brush, *, compact=Fals
         layout.use_property_split = use_property_split_prev
 
 
-def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=False, gradient_tool=False):
-    if not gradient_tool:
-        layout.prop(brush, "size", slider=True)
+def brush_basic_gpencil_weight_settings(layout, _context, brush, *, compact=False):
+    layout.prop(brush, "size", slider=True)
 
     row = layout.row(align=True)
     row.prop(brush, "strength", slider=True)
-    if not gradient_tool:
-        row.prop(brush, "use_pressure_strength", text="")
+    row.prop(brush, "use_pressure_strength", text="")
 
-    if brush.gpencil_weight_tool in {'WEIGHT'} or gradient_tool:
+    if brush.gpencil_weight_tool in {'WEIGHT'}:
         layout.prop(brush, "weight", slider=True)
 
         layout.prop(brush, "direction", expand=True, text="" if compact else "Direction")
@@ -1839,18 +1837,17 @@ def brush_basic_gpencil_vertex_settings(layout, _context, brush, *, compact=Fals
 
 def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact=False):
     # Brush radius
-    if brush.gpencil_weight_tool != 'GRADIENT':
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "size",
-            pressure_name="use_pressure_size",
-            unified_name="use_unified_size",
-            text="Radius",
-            slider=True,
-            header=compact,
-        )
+    UnifiedPaintPanel.prop_unified(
+        layout,
+        context,
+        brush,
+        "size",
+        pressure_name="use_pressure_size",
+        unified_name="use_unified_size",
+        text="Radius",
+        slider=True,
+        header=compact,
+    )
 
     # Strength
     capabilities = brush.sculpt_capabilities
@@ -1867,7 +1864,7 @@ def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact
     )
 
     # Weight
-    if brush.gpencil_weight_tool in {'WEIGHT', 'GRADIENT'}:
+    if brush.gpencil_weight_tool in {'WEIGHT'}:
         UnifiedPaintPanel.prop_unified(
             layout,
             context,
@@ -1881,11 +1878,6 @@ def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact
 
         # Direction: add/subtract
         layout.prop(brush, "direction", expand=True, text="" if compact else "Direction")
-
-        # Gradient type: linear/radial
-        if brush.gpencil_weight_tool == 'GRADIENT':
-            # Bit of a trick, but the only working way to expose the operator property `type`
-            layout.prop(WindowManager.operator_properties_last("grease_pencil.weight_gradient"), "type", expand=True)
 
 
 def brush_basic_grease_pencil_vertex_settings(layout, context, brush, *, compact=False):

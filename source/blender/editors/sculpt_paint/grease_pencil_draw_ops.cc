@@ -148,9 +148,6 @@ static std::unique_ptr<GreasePencilStrokeOperation> get_stroke_operation(bContex
         return greasepencil::new_weight_paint_average_operation();
       case GPWEIGHT_BRUSH_TYPE_SMEAR:
         return greasepencil::new_weight_paint_smear_operation();
-      case GPWEIGHT_BRUSH_TYPE_GRADIENT:
-        /* Weight gradient tool is handled by another keymap, so we never get at this point. */
-        return nullptr;
     }
   }
   else if (mode == PaintMode::VertexGPencil) {

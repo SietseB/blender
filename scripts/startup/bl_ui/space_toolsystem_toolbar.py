@@ -2730,33 +2730,6 @@ class _defs_grease_pencil_weight:
             brush_type='SMEAR',
         )
 
-    @ToolDef.from_fn
-    def gradient():
-        def draw_settings(context, layout, tool):
-            # The brush of the gradient tool isn't automatically activated
-            # by the window manager, so we select it here manually.
-            brush = bpy.data.brushes["Weight Gradient"]
-            props = tool.operator_properties("gpencil.weight_gradient")
-            compact = context.region.type == 'TOOL_HEADER'
-            
-            layout.prop(brush, "strength", expand=True)
-            layout.prop(brush, "weight", expand=True)
-            layout.prop(props, "type", expand=True)
-            layout.prop(brush.gpencil_settings, "direction", expand=True, text="" if compact else "Direction")
-            
-            if compact:
-                layout.popover("VIEW3D_PT_tools_grease_pencil_weight_options", text="Options")
-                layout.popover("VIEW3D_PT_tools_grease_pencil_weight_gradient_falloff", text="Falloff")
-        
-        return dict(
-            idname="builtin_brush.gradient",
-            label="Gradient",
-            icon="ops.gpencil.weight_gradient",
-            options={'USE_BRUSHES'},
-            brush_type='GRADIENT',
-            draw_settings=draw_settings,
-        )
-
 
 class _defs_grease_pencil_vertex:
 
@@ -3631,7 +3604,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_grease_pencil_weight.blur,
             _defs_grease_pencil_weight.average,
             _defs_grease_pencil_weight.smear,
-            _defs_gpencil_weight.gradient,
+            _defs_grease_pencil_weight.gradient,
             None,
             *_tools_annotate,
         ],
