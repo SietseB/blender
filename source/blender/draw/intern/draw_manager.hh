@@ -14,9 +14,6 @@
  * \note It is currently work in progress and should replace the old global draw manager.
  */
 
-#include "BKE_paint.hh"
-#include "BKE_pbvh_api.hh"
-
 #include "BLI_map.hh"
 #include "BLI_sys_types.h"
 
@@ -132,12 +129,12 @@ class Manager {
    * Create a unique resource handle for the given object.
    * Returns the existing handle if it exists.
    */
-  ResourceHandle unique_handle(const ObjectRef &ref);
+  ResourceHandleRange unique_handle(const ObjectRef &ref);
   /**
    * Create a new resource handle for the given object.
    */
   /* WORKAROUND: Instead of breaking const correctness everywhere, we only break it for this. */
-  ResourceHandle resource_handle(const ObjectRef &ref, float inflate_bounds = 0.0f);
+  ResourceHandleRange resource_handle(const ObjectRef &ref, float inflate_bounds = 0.0f);
   /**
    * Create a new resource handle for the given object, but optionally override model matrix and
    * bounds.
@@ -165,14 +162,7 @@ class Manager {
    */
   ResourceHandle resource_handle_for_psys(const ObjectRef &ref, const float4x4 &model_matrix);
 
-  ResourceHandle resource_handle_for_sculpt(const ObjectRef &ref)
-  {
-    /* TODO(fclem): Deduplicate with other engine. */
-    const blender::Bounds<float3> bounds = bke::pbvh::bounds_get(*ref.object->sculpt->pbvh);
-    const float3 center = math::midpoint(bounds.min, bounds.max);
-    const float3 half_extent = bounds.max - center;
-    return resource_handle(ref, nullptr, &center, &half_extent);
-  }
+  ResourceHandleRange resource_handle_for_sculpt(const ObjectRef &ref);
 
   /** Update the bounds of an already created handle. */
   void update_handle_bounds(ResourceHandle handle,
@@ -244,6 +234,10 @@ class Manager {
    */
   void compute_visibility(View &view);
   /**
+   * Same as compute_visibility but only do it if needed.
+   */
+  void ensure_visibility(View &view);
+  /**
    * Generate commands for #ResourceHandle for the given #View and #PassMain.
    * The commands needs to be regenerated for any change inside the #Manager, the #PassMain or in
    * the #View. Avoids just in time command generation.
@@ -252,6 +246,7 @@ class Manager {
    * generated for a previous view.
    */
   void generate_commands(PassMain &pass, View &view);
+  void generate_commands(PassSortable &pass, View &view);
   /**
    * Generate commands on CPU. Doesn't have the GPU compute dispatch overhead.
    */
@@ -319,16 +314,16 @@ class Manager {
   uint64_t fingerprint_get();
 };
 
-inline ResourceHandle Manager::unique_handle(const ObjectRef &ref)
+inline ResourceHandleRange Manager::unique_handle(const ObjectRef &ref)
 {
-  if (ref.handle.raw == 0) {
+  if (ref.handle.handle_first.raw == 0) {
     /* WORKAROUND: Instead of breaking const correctness everywhere, we only break it for this. */
     const_cast<ObjectRef &>(ref).handle = resource_handle(ref);
   }
   return ref.handle;
 }
 
-inline ResourceHandle Manager::resource_handle(const ObjectRef &ref, float inflate_bounds)
+inline ResourceHandleRange Manager::resource_handle(const ObjectRef &ref, float inflate_bounds)
 {
   bool is_active_object = (ref.dupli_object ? ref.dupli_parent : ref.object) == object_active;
   matrix_buf.current().get_or_resize(resource_len_).sync(*ref.object);

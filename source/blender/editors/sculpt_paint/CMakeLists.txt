@@ -9,15 +9,12 @@ set(INC
   ../include
   ../uvedit
   ../../asset_system
-  ../../blenkernel
   ../../blenlib
   ../../blenloader
   ../../blentranslation
-  ../../bmesh
   ../../draw
   ../../functions
   ../../geometry
-  ../../gpu
   ../../imbuf
   ../../makesrna
   ../../nodes
@@ -180,12 +177,14 @@ set(SRC
 )
 
 set(LIB
-  bf_blenkernel
+  PRIVATE bf::blenkernel
   PRIVATE bf::animrig
   PRIVATE bf::blenlib
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::extern::fmtlib
+  PRIVATE bf::gpu
   PRIVATE bf::intern::atomic
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc

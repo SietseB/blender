@@ -25,6 +25,8 @@
 #include "BLI_compiler_attrs.h"
 #include "BLI_sys_types.h"
 
+#include "BKE_lib_query.hh" /* For LibraryForeachIDCallbackFlag. */
+
 struct BLI_mempool;
 struct BlendThumbnail;
 struct GHash;
@@ -59,7 +61,7 @@ struct MainIDRelationsEntryItem {
   /* Session uid of the `id_pointer`. */
   uint session_uid;
 
-  int usage_flag; /* Using IDWALK_ enums, defined in BKE_lib_query.hh */
+  LibraryForeachIDCallbackFlag usage_flag; /* Using IDWALK_ enums, defined in BKE_lib_query.hh */
 };
 
 struct MainIDRelationsEntry {
@@ -204,9 +206,23 @@ struct Main {
    */
   bool is_action_slot_to_id_map_dirty;
 
+  /**
+   * The blend-file thumbnail. If set, it will show as image preview of the blend-file in the
+   * system's file-browser.
+   */
   BlendThumbnail *blen_thumb;
 
+  /**
+   * The library matching the current Main.
+   *
+   * Typically `nullptr` (for the `G_MAIN` representing the currently opened blend-file).
+   *
+   * Mainly set and used during the blend-file read/write process when 'split' Mains are used to
+   * isolate and process all linked IDs from a single library.
+   */
   Library *curlib;
+
+  /** Listbase for all ID types, containing all IDs for the current Main. */
   ListBase scenes;
   ListBase libraries;
   ListBase objects;
@@ -265,8 +281,10 @@ struct Main {
   /** Used for efficient calculations of unique names. */
   UniqueName_Map *name_map;
 
-  /* Used for efficient calculations of unique names. Covers all names in current Main, including
-   * linked data ones. */
+  /**
+   * Used for efficient calculations of unique names. Covers all names in current Main, including
+   * linked data ones.
+   */
   UniqueName_Map *name_map_global;
 
   MainLock *lock;

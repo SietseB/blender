@@ -4,7 +4,7 @@
 
 #include "node_geometry_util.hh"
 
-#include "BKE_image.h"
+#include "BKE_image.hh"
 
 #include "BLI_math_vector_types.hh"
 #include "BLI_threads.h"
@@ -420,6 +420,7 @@ static void node_register()
   static blender::bke::bNodeType ntype;
 
   geo_node_type_base(&ntype, GEO_NODE_IMAGE_TEXTURE, "Image Texture", NODE_CLASS_TEXTURE);
+  ntype.enum_name_legacy = "IMAGE_TEXTURE";
   ntype.declare = node_declare;
   ntype.draw_buttons = node_layout;
   ntype.initfunc = node_init;

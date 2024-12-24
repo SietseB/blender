@@ -122,7 +122,7 @@ static bool node_insert_link(bNodeTree *ntree, bNode *node, bNodeLink *link)
 
 static const CPPType &get_item_cpp_type(const eNodeSocketDatatype socket_type)
 {
-  const char *socket_idname = bke::node_static_socket_type(socket_type, 0);
+  const StringRefNull socket_idname = *bke::node_static_socket_type(socket_type, 0);
   const bke::bNodeSocketType *typeinfo = bke::node_socket_type_find(socket_idname);
   BLI_assert(typeinfo);
   BLI_assert(typeinfo->geometry_nodes_cpp_type);
@@ -142,10 +142,10 @@ static void draw_bake_items(const bContext *C, uiLayout *layout, PointerRNA node
           const NodeGeometryBakeItem &active_item = storage.items[storage.active_index];
           uiLayoutSetPropSep(panel, true);
           uiLayoutSetPropDecorate(panel, false);
-          uiItemR(panel, item_ptr, "socket_type", UI_ITEM_NONE, nullptr, ICON_NONE);
+          uiItemR(panel, item_ptr, "socket_type", UI_ITEM_NONE, std::nullopt, ICON_NONE);
           if (socket_type_supports_fields(eNodeSocketDatatype(active_item.socket_type))) {
-            uiItemR(panel, item_ptr, "attribute_domain", UI_ITEM_NONE, nullptr, ICON_NONE);
-            uiItemR(panel, item_ptr, "is_attribute", UI_ITEM_NONE, nullptr, ICON_NONE);
+            uiItemR(panel, item_ptr, "attribute_domain", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+            uiItemR(panel, item_ptr, "is_attribute", UI_ITEM_NONE, std::nullopt, ICON_NONE);
           }
         });
   }
@@ -535,7 +535,7 @@ static void node_layout_ex(uiLayout *layout, bContext *C, PointerRNA *ptr)
     draw_bake_button_row(ctx, col, true);
     if (const std::optional<std::string> bake_state_str = get_bake_state_string(ctx)) {
       uiLayout *row = uiLayoutRow(col, true);
-      uiItemL(row, bake_state_str->c_str(), ICON_NONE);
+      uiItemL(row, *bake_state_str, ICON_NONE);
     }
   }
 
@@ -570,6 +570,7 @@ static void node_register()
   static blender::bke::bNodeType ntype;
 
   geo_node_type_base(&ntype, GEO_NODE_BAKE, "Bake", NODE_CLASS_GEOMETRY);
+  ntype.enum_name_legacy = "BAKE";
   ntype.declare = node_declare;
   ntype.draw_buttons = node_layout;
   ntype.initfunc = node_init;
@@ -661,9 +662,10 @@ bool get_bake_draw_context(const bContext *C, const bNode &node, BakeDrawContext
 std::string get_baked_string(const BakeDrawContext &ctx)
 {
   if (ctx.bake_still && ctx.baked_range->size() == 1) {
-    return fmt::format(RPT_("Baked Frame {}"), ctx.baked_range->first());
+    return fmt::format(fmt::runtime(RPT_("Baked Frame {}")), ctx.baked_range->first());
   }
-  return fmt::format(RPT_("Baked {} - {}"), ctx.baked_range->first(), ctx.baked_range->last());
+  return fmt::format(
+      fmt::runtime(RPT_("Baked {} - {}")), ctx.baked_range->first(), ctx.baked_range->last());
 }
 
 std::optional<std::string> get_bake_state_string(const BakeDrawContext &ctx)
@@ -677,14 +679,14 @@ std::optional<std::string> get_bake_state_string(const BakeDrawContext &ctx)
     char size_str[BLI_STR_FORMAT_INT64_BYTE_UNIT_SIZE];
     BLI_str_format_byte_unit(size_str, ctx.bake->bake_size, true);
     if (ctx.bake->packed) {
-      return fmt::format(RPT_("{} ({} packed)"), baked_str, size_str);
+      return fmt::format(fmt::runtime(RPT_("{} ({} packed)")), baked_str, size_str);
     }
-    return fmt::format(RPT_("{} ({} on disk)"), baked_str, size_str);
+    return fmt::format(fmt::runtime(RPT_("{} ({} on disk)")), baked_str, size_str);
   }
   if (ctx.frame_range.has_value()) {
     if (!ctx.bake_still) {
       return fmt::format(
-          RPT_("Frames {} - {}"), ctx.frame_range->first(), ctx.frame_range->last());
+          fmt::runtime(RPT_("Frames {} - {}")), ctx.frame_range->first(), ctx.frame_range->last());
     }
   }
   return std::nullopt;
@@ -749,7 +751,7 @@ void draw_bake_button_row(const BakeDrawContext &ctx, uiLayout *layout, const bo
         }
       }
       else {
-        /* If the data is not yet baked, still show the icon based on the derived bake target.*/
+        /* If the data is not yet baked, still show the icon based on the derived bake target. */
         const int icon = ctx.bake_target == NODES_MODIFIER_BAKE_TARGET_DISK ? ICON_UGLYPACKAGE :
                                                                               ICON_PACKAGE;
         PointerRNA ptr;
@@ -789,7 +791,7 @@ void draw_common_bake_settings(bContext *C, BakeDrawContext &ctx, uiLayout *layo
   uiLayoutSetActive(settings_col, !ctx.is_baked);
   {
     uiLayout *col = uiLayoutColumn(settings_col, true);
-    uiItemR(col, &ctx.bake_rna, "bake_target", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, &ctx.bake_rna, "bake_target", UI_ITEM_NONE, std::nullopt, ICON_NONE);
     uiLayout *subcol = uiLayoutColumn(col, true);
     uiLayoutSetActive(subcol, ctx.bake_target == NODES_MODIFIER_BAKE_TARGET_DISK);
     uiItemR(
@@ -858,7 +860,7 @@ static void draw_bake_data_block_list_item(uiList * /*ui_list*/,
     name = fmt::format("{} [{}]", data_block.id_name, data_block.lib_name);
   }
 
-  uiItemR(row, itemptr, "id", UI_ITEM_NONE, name.c_str(), ICON_NONE);
+  uiItemR(row, itemptr, "id", UI_ITEM_NONE, name, ICON_NONE);
 }
 
 void draw_data_blocks(const bContext *C, uiLayout *layout, PointerRNA &bake_rna)

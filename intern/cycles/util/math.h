@@ -522,36 +522,6 @@ ccl_device_inline int mod(int x, int m)
   return (x % m + m) % m;
 }
 
-ccl_device_inline float3 float2_to_float3(const float2 a)
-{
-  return make_float3(a.x, a.y, 0.0f);
-}
-
-ccl_device_inline float3 float2_to_float3(const float2 a, const float z)
-{
-  return make_float3(a.x, a.y, z);
-}
-
-ccl_device_inline float2 float3_to_float2(const float3 a)
-{
-  return make_float2(a.x, a.y);
-}
-
-ccl_device_inline float3 float4_to_float3(const float4 a)
-{
-  return make_float3(a.x, a.y, a.z);
-}
-
-ccl_device_inline float4 float3_to_float4(const float3 a)
-{
-  return make_float4(a.x, a.y, a.z, 1.0f);
-}
-
-ccl_device_inline float4 float3_to_float4(const float3 a, const float w)
-{
-  return make_float4(a.x, a.y, a.z, w);
-}
-
 ccl_device_inline float inverse_lerp(float a, float b, float x)
 {
   return (x - a) / (b - a);
@@ -634,12 +604,13 @@ ccl_device_inline Spectrum safe_invert_color(Spectrum a)
   return a;
 }
 
-ccl_device_inline Spectrum safe_divide_color(Spectrum a, Spectrum b)
+/* Returns `a/b`, and replace the channel value with `fallback` if `b == 0`. */
+ccl_device_inline Spectrum safe_divide_color(Spectrum a, Spectrum b, const float fallback = 0.0f)
 {
   FOREACH_SPECTRUM_CHANNEL (i) {
     GET_SPECTRUM_CHANNEL(a, i) = (GET_SPECTRUM_CHANNEL(b, i) != 0.0f) ?
                                      GET_SPECTRUM_CHANNEL(a, i) / GET_SPECTRUM_CHANNEL(b, i) :
-                                     0.0f;
+                                     fallback;
   }
 
   return a;
@@ -1055,16 +1026,6 @@ ccl_device_inline uint32_t reverse_integer_bits(uint32_t x)
 #endif
 }
 
-/* Check if intervals (first->x, first->y) and (second.x, second.y) intersect, and replace the
- * first interval with their intersection. */
-ccl_device_inline bool intervals_intersect(ccl_private float2 *first, const float2 second)
-{
-  first->x = fmaxf(first->x, second.x);
-  first->y = fminf(first->y, second.y);
-
-  return first->x < first->y;
-}
-
 /* Solve quadratic equation a*x^2 + b*x + c = 0, adapted from Mitsuba 3
  * The solution is ordered so that x1 <= x2.
  * Returns true if at least one solution is found.  */
@@ -1093,6 +1054,35 @@ ccl_device_inline bool solve_quadratic(
   }
 
   return (valid_linear || valid_quadratic);
+}
+
+/* Defines a closed interval [min, max]. */
+template<typename T> struct Interval {
+  T min;
+  T max;
+
+  ccl_device_inline_method bool is_empty() const
+  {
+    return min >= max;
+  }
+
+  ccl_device_inline_method bool contains(T value) const
+  {
+    return value >= min && value <= max;
+  }
+
+  ccl_device_inline_method T length() const
+  {
+    return max - min;
+  }
+};
+
+/* Computes the intersection of two intervals. */
+template<typename T>
+ccl_device_inline Interval<T> intervals_intersection(ccl_private const Interval<T> &first,
+                                                     ccl_private const Interval<T> &second)
+{
+  return {max(first.min, second.min), min(first.max, second.max)};
 }
 
 CCL_NAMESPACE_END

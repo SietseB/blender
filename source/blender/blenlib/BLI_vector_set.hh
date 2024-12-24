@@ -51,6 +51,7 @@
 #include "BLI_hash.hh"
 #include "BLI_hash_tables.hh"
 #include "BLI_probing_strategies.hh"
+#include "BLI_vector.hh"
 #include "BLI_vector_set_slots.hh"
 
 namespace blender {
@@ -548,9 +549,22 @@ class VectorSet {
   }
 
   /**
-   * Remove all keys from the vector set.
+   * Remove all elements. Under some circumstances #clear_and_keep_capacity may be more efficient.
    */
   void clear()
+  {
+    std::destroy_at(this);
+    new (this) VectorSet(NoExceptConstructor{});
+  }
+
+  /**
+   * Remove all elements, but don't free the underlying memory.
+   *
+   * This can be more efficient than using #clear if approximately the same or more elements are
+   * added again afterwards. If way fewer elements are added instead, the cost of maintaining a
+   * large hash table can lead to very bad worst-case performance.
+   */
+  void clear_and_keep_capacity()
   {
     destruct_n(keys_, this->size());
     for (Slot &slot : slots_) {
@@ -563,21 +577,38 @@ class VectorSet {
   }
 
   /**
-   * Removes all keys from the set and frees any allocated memory.
-   */
-  void clear_and_shrink()
-  {
-    std::destroy_at(this);
-    new (this) VectorSet(NoExceptConstructor{});
-  }
-
-  /**
    * Get the number of collisions that the probing strategy has to go through to find the key or
    * determine that it is not in the set.
    */
   int64_t count_collisions(const Key &key) const
   {
     return this->count_collisions__impl(key, hash_(key));
+  }
+
+  using VectorT = Vector<Key, default_inline_buffer_capacity(sizeof(Key)), Allocator>;
+
+  /**
+   * Extracts all inserted values as a #Vector. The values are removed from the #VectorSet. This
+   * takes O(1) time.
+   *
+   * One can use this to create a #Vector without duplicates efficiently.
+   */
+  VectorT extract_vector()
+  {
+    VectorData<Key, Allocator> data;
+    data.data = keys_;
+    data.size = this->size();
+    data.capacity = usable_slots_;
+
+    /* Reset some values so that the destructor does not free the data that is moved to the
+     * #Vector. */
+    keys_ = nullptr;
+    occupied_and_removed_slots_ = 0;
+    removed_slots_ = 0;
+    std::destroy_at(this);
+    new (this) VectorSet();
+
+    return VectorT(data);
   }
 
  private:

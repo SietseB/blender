@@ -129,6 +129,8 @@ const EnumPropertyItem rna_enum_strip_color_items[] = {
 
 #  include "IMB_imbuf.hh"
 
+#  include "MOV_read.hh"
+
 #  include "SEQ_edit.hh"
 
 struct SequenceSearchData {
@@ -203,8 +205,10 @@ static void rna_Sequence_scene_switch_update(Main *bmain, Scene *scene, PointerR
   DEG_relations_tag_update(bmain);
 }
 
-static void rna_Sequence_use_sequence(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_Sequence_use_sequence(Main *bmain, Scene * /*scene*/, PointerRNA *ptr)
 {
+  Scene *scene = reinterpret_cast<Scene *>(ptr->owner_id);
+
   /* General update callback. */
   rna_Sequence_invalidate_raw_update(bmain, scene, ptr);
   /* Changing recursion changes set of IDs which needs to be remapped by the copy-on-evaluation.
@@ -319,9 +323,9 @@ static int rna_SequenceEditor_elements_length(PointerRNA *ptr)
   Sequence *seq = (Sequence *)ptr->data;
 
   /* Hack? copied from `sequencer.cc`, #reload_sequence_new_file(). */
-  size_t olen = MEM_allocN_len(seq->strip->stripdata) / sizeof(StripElem);
+  size_t olen = MEM_allocN_len(seq->data->stripdata) / sizeof(StripElem);
 
-  /* The problem with `seq->strip->len` and `seq->len` is that it's discounted from the offset
+  /* The problem with `seq->data->len` and `seq->len` is that it's discounted from the offset
    * (hard cut trim). */
   return int(olen);
 }
@@ -330,7 +334,7 @@ static void rna_Sequence_elements_begin(CollectionPropertyIterator *iter, Pointe
 {
   Sequence *seq = (Sequence *)ptr->data;
   rna_iterator_array_begin(iter,
-                           (void *)seq->strip->stripdata,
+                           (void *)seq->data->stripdata,
                            sizeof(StripElem),
                            rna_SequenceEditor_elements_length(ptr),
                            0,
@@ -381,7 +385,7 @@ static void rna_Sequence_retiming_key_remove(ID *id, SeqRetimingKey *key)
     return;
   }
 
-  SEQ_retiming_remove_key(scene, seq, key);
+  SEQ_retiming_remove_key(seq, key);
 
   SEQ_relations_invalidate_cache_raw(scene, seq);
   WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, nullptr);
@@ -620,7 +624,7 @@ static bool transform_seq_cmp_fn(Sequence *seq, void *arg_pt)
 {
   SequenceSearchData *data = static_cast<SequenceSearchData *>(arg_pt);
 
-  if (seq->strip && seq->strip->transform == data->data) {
+  if (seq->data && seq->data->transform == data->data) {
     data->seq = seq;
     return false; /* done so bail out */
   }
@@ -667,7 +671,7 @@ static bool crop_seq_cmp_fn(Sequence *seq, void *arg_pt)
 {
   SequenceSearchData *data = static_cast<SequenceSearchData *>(arg_pt);
 
-  if (seq->strip && seq->strip->crop == data->data) {
+  if (seq->data && seq->data->crop == data->data) {
     data->seq = seq;
     return false; /* done so bail out */
   }
@@ -885,7 +889,7 @@ static PointerRNA rna_MovieSequence_metadata_get(ID *scene_id, Sequence *seq)
     return PointerRNA_NULL;
   }
 
-  IDProperty *metadata = IMB_anim_load_metadata(sanim->anim);
+  IDProperty *metadata = MOV_load_metadata(sanim->anim);
   if (metadata == nullptr) {
     return PointerRNA_NULL;
   }
@@ -907,10 +911,10 @@ static void rna_Sequence_filepath_set(PointerRNA *ptr, const char *value)
 {
   Sequence *seq = (Sequence *)(ptr->data);
   BLI_path_split_dir_file(value,
-                          seq->strip->dirpath,
-                          sizeof(seq->strip->dirpath),
-                          seq->strip->stripdata->filename,
-                          sizeof(seq->strip->stripdata->filename));
+                          seq->data->dirpath,
+                          sizeof(seq->data->dirpath),
+                          seq->data->stripdata->filename,
+                          sizeof(seq->data->stripdata->filename));
 }
 
 static void rna_Sequence_filepath_get(PointerRNA *ptr, char *value)
@@ -918,7 +922,7 @@ static void rna_Sequence_filepath_get(PointerRNA *ptr, char *value)
   Sequence *seq = (Sequence *)(ptr->data);
   char filepath[FILE_MAX];
 
-  BLI_path_join(filepath, sizeof(filepath), seq->strip->dirpath, seq->strip->stripdata->filename);
+  BLI_path_join(filepath, sizeof(filepath), seq->data->dirpath, seq->data->stripdata->filename);
   strcpy(value, filepath);
 }
 
@@ -927,7 +931,7 @@ static int rna_Sequence_filepath_length(PointerRNA *ptr)
   Sequence *seq = (Sequence *)(ptr->data);
   char filepath[FILE_MAX];
 
-  BLI_path_join(filepath, sizeof(filepath), seq->strip->dirpath, seq->strip->stripdata->filename);
+  BLI_path_join(filepath, sizeof(filepath), seq->data->dirpath, seq->data->stripdata->filename);
   return strlen(filepath);
 }
 
@@ -937,7 +941,7 @@ static void rna_Sequence_proxy_filepath_set(PointerRNA *ptr, const char *value)
   BLI_path_split_dir_file(
       value, proxy->dirpath, sizeof(proxy->dirpath), proxy->filename, sizeof(proxy->filename));
   if (proxy->anim) {
-    IMB_free_anim(proxy->anim);
+    MOV_close(proxy->anim);
     proxy->anim = nullptr;
   }
 }
@@ -1021,10 +1025,10 @@ static void rna_SoundSequence_filename_set(PointerRNA *ptr, const char *value)
 {
   Sequence *seq = (Sequence *)(ptr->data);
   BLI_path_split_dir_file(value,
-                          seq->strip->dirpath,
-                          sizeof(seq->strip->dirpath),
-                          seq->strip->stripdata->name,
-                          sizeof(seq->strip->stripdata->name));
+                          seq->data->dirpath,
+                          sizeof(seq->data->dirpath),
+                          seq->data->stripdata->name,
+                          sizeof(seq->data->stripdata->name));
 }
 
 static void rna_SequenceElement_filename_set(PointerRNA *ptr, const char *value)
@@ -1066,7 +1070,7 @@ static bool seqproxy_seq_cmp_fn(Sequence *seq, void *arg_pt)
 {
   SequenceSearchData *data = static_cast<SequenceSearchData *>(arg_pt);
 
-  if (seq->strip && seq->strip->proxy == data->data) {
+  if (seq->data && seq->data->proxy == data->data) {
     data->seq = seq;
     return false; /* done so bail out */
   }
@@ -2604,11 +2608,11 @@ static void rna_def_filter_video(StructRNA *srna)
       prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_preprocessed_update");
 
   prop = RNA_def_property(srna, "transform", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "strip->transform");
+  RNA_def_property_pointer_sdna(prop, nullptr, "data->transform");
   RNA_def_property_ui_text(prop, "Transform", "");
 
   prop = RNA_def_property(srna, "crop", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "strip->crop");
+  RNA_def_property_pointer_sdna(prop, nullptr, "data->crop");
   RNA_def_property_ui_text(prop, "Crop", "");
 }
 
@@ -2625,7 +2629,7 @@ static void rna_def_proxy(StructRNA *srna)
       prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_preprocessed_update");
 
   prop = RNA_def_property(srna, "proxy", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "strip->proxy");
+  RNA_def_property_pointer_sdna(prop, nullptr, "data->proxy");
   RNA_def_property_ui_text(prop, "Proxy", "");
 }
 
@@ -2686,7 +2690,7 @@ static void rna_def_color_management(StructRNA *srna)
   PropertyRNA *prop;
 
   prop = RNA_def_property(srna, "colorspace_settings", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "strip->colorspace_settings");
+  RNA_def_property_pointer_sdna(prop, nullptr, "data->colorspace_settings");
   RNA_def_property_struct_type(prop, "ColorManagedInputColorspaceSettings");
   RNA_def_property_ui_text(prop, "Color Space Settings", "Input color space settings");
 }
@@ -2711,12 +2715,12 @@ static void rna_def_image(BlenderRNA *brna)
   RNA_def_struct_sdna(srna, "Sequence");
 
   prop = RNA_def_property(srna, "directory", PROP_STRING, PROP_DIRPATH);
-  RNA_def_property_string_sdna(prop, nullptr, "strip->dirpath");
+  RNA_def_property_string_sdna(prop, nullptr, "data->dirpath");
   RNA_def_property_ui_text(prop, "Directory", "");
   RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_raw_update");
 
   prop = RNA_def_property(srna, "elements", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, nullptr, "strip->stripdata", nullptr);
+  RNA_def_property_collection_sdna(prop, nullptr, "data->stripdata", nullptr);
   RNA_def_property_struct_type(prop, "SequenceElement");
   RNA_def_property_ui_text(prop, "Elements", "");
   RNA_def_property_collection_funcs(prop,
@@ -2867,7 +2871,7 @@ static void rna_def_movie(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_reopen_files_update");
 
   prop = RNA_def_property(srna, "elements", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, nullptr, "strip->stripdata", nullptr);
+  RNA_def_property_collection_sdna(prop, nullptr, "data->stripdata", nullptr);
   RNA_def_property_struct_type(prop, "SequenceElement");
   RNA_def_property_ui_text(prop, "Elements", "");
   RNA_def_property_collection_funcs(prop,
@@ -3433,6 +3437,12 @@ static void rna_def_text(StructRNA *srna)
   RNA_def_property_range(prop, 0, 1.0);
   RNA_def_property_ui_range(prop, 0.0, 1.0, 1, -1);
   RNA_def_property_float_default(prop, 0.01f);
+  RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_raw_update");
+
+  prop = RNA_def_property(srna, "box_roundness", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "box_roundness");
+  RNA_def_property_ui_text(prop, "Box Roundness", "Box corner radius as a factor of box height");
+  RNA_def_property_range(prop, 0, 1.0);
   RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_invalidate_raw_update");
 
   prop = RNA_def_property(srna, "alignment_x", PROP_ENUM, PROP_NONE);

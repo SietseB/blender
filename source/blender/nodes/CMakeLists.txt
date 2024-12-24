@@ -53,15 +53,13 @@ set(INC
   intern
   shader
   texture
+  ../animrig
   ../editors/include
-  ../blenkernel
   ../blenloader
   ../blentranslation
-  ../bmesh
   ../depsgraph
   ../functions
   ../geometry
-  ../gpu
   ../imbuf
   ../makesrna
   ../modifiers
@@ -77,6 +75,7 @@ set(INC_SYS
 
 set(SRC
   intern/derived_node_tree.cc
+  intern/geometry_nodes_dependencies.cc
   intern/geometry_nodes_execute.cc
   intern/geometry_nodes_foreach_geometry_element_zone.cc
   intern/geometry_nodes_gizmos.cc
@@ -104,6 +103,7 @@ set(SRC
   NOD_derived_node_tree.hh
   NOD_geometry.hh
   NOD_geometry_exec.hh
+  NOD_geometry_nodes_dependencies.hh
   NOD_geometry_nodes_execute.hh
   NOD_geometry_nodes_gizmos.hh
   NOD_geometry_nodes_lazy_function.hh
@@ -138,11 +138,13 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
-  bf_bmesh
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_functions
+  PRIVATE bf::gpu
   PRIVATE bf::intern::guardedalloc
   bf_nodes_composite
   bf_nodes_function

@@ -25,8 +25,7 @@
 namespace blender::geometry {
 
 using blender::bke::AttrDomain;
-using blender::bke::AttributeKind;
-using blender::bke::AttributeMetaData;
+using blender::bke::AttributeDomainAndType;
 using blender::bke::GSpanAttributeWriter;
 using blender::bke::InstanceReference;
 using blender::bke::Instances;
@@ -38,7 +37,7 @@ using blender::bke::SpanAttributeWriter;
  */
 struct OrderedAttributes {
   VectorSet<StringRef> ids;
-  Vector<AttributeKind> kinds;
+  Vector<AttributeDomainAndType> kinds;
 
   int size() const
   {
@@ -237,8 +236,6 @@ struct AllCurvesInfo {
   bool create_id_attribute = false;
   bool create_handle_postion_attributes = false;
   bool create_radius_attribute = false;
-  bool create_resolution_attribute = false;
-  bool create_nurbs_weight_attribute = false;
   bool create_custom_normal_attribute = false;
 };
 
@@ -868,7 +865,7 @@ static void gather_attribute_propagation_components_with_custom_depths(
   }
 }
 
-static Map<StringRef, AttributeKind> gather_attributes_to_propagate(
+static Map<StringRef, AttributeDomainAndType> gather_attributes_to_propagate(
     const bke::GeometrySet &geometry,
     const bke::GeometryComponent::Type component_type,
     const RealizeInstancesOptions &options,
@@ -898,7 +895,7 @@ static Map<StringRef, AttributeKind> gather_attributes_to_propagate(
   }
 
   /* Actually gather the attributes to propagate from the found components. */
-  Map<StringRef, AttributeKind> attributes_to_propagate;
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate;
   for (const bke::GeometryComponentPtr &component : components) {
     const bke::AttributeAccessor attributes = *component->attributes();
     attributes.foreach_attribute([&](const bke::AttributeIter &iter) {
@@ -923,11 +920,11 @@ static Map<StringRef, AttributeKind> gather_attributes_to_propagate(
         /* Instance attributes are realized on the point domain currently. */
         dst_domain = AttrDomain::Point;
       }
-      auto add = [&](AttributeKind *kind) {
+      auto add = [&](AttributeDomainAndType *kind) {
         kind->domain = dst_domain;
         kind->data_type = iter.data_type;
       };
-      auto modify = [&](AttributeKind *kind) {
+      auto modify = [&](AttributeDomainAndType *kind) {
         kind->domain = bke::attribute_domain_highest_priority({kind->domain, dst_domain});
         kind->data_type = bke::attribute_data_type_highest_complexity(
             {kind->data_type, iter.data_type});
@@ -950,7 +947,7 @@ static OrderedAttributes gather_generic_instance_attributes_to_propagate(
     const RealizeInstancesOptions &options,
     const VariedDepthOptions &varied_depth_option)
 {
-  Map<StringRef, AttributeKind> attributes_to_propagate = gather_attributes_to_propagate(
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate = gather_attributes_to_propagate(
       in_geometry_set, bke::GeometryComponent::Type::Instance, options, varied_depth_option);
   attributes_to_propagate.pop_try("id");
   OrderedAttributes ordered_attributes;
@@ -1067,7 +1064,7 @@ static OrderedAttributes gather_generic_pointcloud_attributes_to_propagate(
     bool &r_create_radii,
     bool &r_create_id)
 {
-  Map<StringRef, AttributeKind> attributes_to_propagate = gather_attributes_to_propagate(
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate = gather_attributes_to_propagate(
       in_geometry_set, bke::GeometryComponent::Type::PointCloud, options, varied_depth_option);
   attributes_to_propagate.remove("position");
   r_create_id = attributes_to_propagate.pop_try("id").has_value();
@@ -1296,7 +1293,7 @@ static OrderedAttributes gather_generic_mesh_attributes_to_propagate(
     bool &r_create_id,
     bool &r_create_material_index)
 {
-  Map<StringRef, AttributeKind> attributes_to_propagate = gather_attributes_to_propagate(
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate = gather_attributes_to_propagate(
       in_geometry_set, bke::GeometryComponent::Type::Mesh, options, varied_depth_option);
   attributes_to_propagate.remove("position");
   attributes_to_propagate.remove(".edge_verts");
@@ -1527,6 +1524,25 @@ static void execute_realize_mesh_task(const RealizeInstancesOptions &options,
       dst_attribute_writers);
 }
 
+static void copy_vertex_group_names(Mesh &dst_mesh, const Span<const Mesh *> src_meshes)
+{
+  Set<StringRef> existing_names;
+  LISTBASE_FOREACH (const bDeformGroup *, defgroup, &dst_mesh.vertex_group_names) {
+    existing_names.add(defgroup->name);
+  }
+  for (const Mesh *mesh : src_meshes) {
+    LISTBASE_FOREACH (const bDeformGroup *, src, &mesh->vertex_group_names) {
+      const StringRef src_name = src->name;
+      if (existing_names.contains(src_name)) {
+        continue;
+      }
+      bDeformGroup *dst = MEM_cnew<bDeformGroup>(__func__);
+      src_name.copy(dst->name);
+      BLI_addtail(&dst_mesh.vertex_group_names, dst);
+    }
+  }
+}
+
 static void execute_realize_mesh_tasks(const RealizeInstancesOptions &options,
                                        const AllMeshesInfo &all_meshes_info,
                                        const Span<RealizeMeshTask> tasks,
@@ -1571,9 +1587,11 @@ static void execute_realize_mesh_tasks(const RealizeInstancesOptions &options,
   const RealizeMeshTask &first_task = tasks.first();
   const Mesh &first_mesh = *first_task.mesh_info->mesh;
   BKE_mesh_copy_parameters_for_eval(dst_mesh, &first_mesh);
-  /* The above line also copies vertex group names. We don't want that here because the new
-   * attributes are added explicitly below. */
-  BLI_freelistN(&dst_mesh->vertex_group_names);
+
+  BLI_assert(BLI_listbase_count(&dst_mesh->vertex_group_names) ==
+             BLI_listbase_count(&first_mesh.vertex_group_names));
+  copy_vertex_group_names(*dst_mesh, all_meshes_info.order.as_span().drop_front(1));
+  dst_mesh->vertex_group_active_index = first_mesh.vertex_group_active_index;
 
   /* Add materials. */
   for (const int i : IndexRange(ordered_materials.size())) {
@@ -1667,12 +1685,10 @@ static OrderedAttributes gather_generic_curve_attributes_to_propagate(
     const VariedDepthOptions &varied_depth_option,
     bool &r_create_id)
 {
-  Map<StringRef, AttributeKind> attributes_to_propagate = gather_attributes_to_propagate(
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate = gather_attributes_to_propagate(
       in_geometry_set, bke::GeometryComponent::Type::Curve, options, varied_depth_option);
   attributes_to_propagate.remove("position");
   attributes_to_propagate.remove("radius");
-  attributes_to_propagate.remove("nurbs_weight");
-  attributes_to_propagate.remove("resolution");
   attributes_to_propagate.remove("handle_right");
   attributes_to_propagate.remove("handle_left");
   attributes_to_propagate.remove("custom_normal");
@@ -1740,15 +1756,6 @@ static AllCurvesInfo preprocess_curves(const bke::GeometrySet &geometry_set,
           attributes.lookup<float>("radius", bke::AttrDomain::Point).varray.get_internal_span();
       info.create_radius_attribute = true;
     }
-    if (attributes.contains("nurbs_weight")) {
-      curve_info.nurbs_weight = attributes.lookup<float>("nurbs_weight", bke::AttrDomain::Point)
-                                    .varray.get_internal_span();
-      info.create_nurbs_weight_attribute = true;
-    }
-    curve_info.resolution = curves.resolution();
-    if (attributes.contains("resolution")) {
-      info.create_resolution_attribute = true;
-    }
     if (attributes.contains("handle_right")) {
       curve_info.handle_left = attributes.lookup<float3>("handle_left", bke::AttrDomain::Point)
                                    .varray.get_internal_span();
@@ -1765,6 +1772,23 @@ static AllCurvesInfo preprocess_curves(const bke::GeometrySet &geometry_set,
   return info;
 }
 
+static void initialize_curves_builtin_attribute_defaults(const AllCurvesInfo &all_curves_info,
+                                                         InstanceContext &attribute_fallbacks)
+{
+  if (all_curves_info.order.is_empty()) {
+    return;
+  }
+  const Curves *first = all_curves_info.order[0];
+  const bke::CurvesGeometry &first_curves = first->geometry.wrap();
+  for (const int attribute_i : attribute_fallbacks.curves.array.index_range()) {
+    const StringRef attribute_id = all_curves_info.attributes.ids[attribute_i];
+    if (first_curves.attributes().is_builtin(attribute_id)) {
+      attribute_fallbacks.curves.array[attribute_i] =
+          first_curves.attributes().get_builtin_default(attribute_id).get();
+    }
+  }
+}
+
 static void execute_realize_curve_task(const RealizeInstancesOptions &options,
                                        const AllCurvesInfo &all_curves_info,
                                        const RealizeCurveTask &task,
@@ -1775,8 +1799,6 @@ static void execute_realize_curve_task(const RealizeInstancesOptions &options,
                                        MutableSpan<float3> all_handle_left,
                                        MutableSpan<float3> all_handle_right,
                                        MutableSpan<float> all_radii,
-                                       MutableSpan<float> all_nurbs_weights,
-                                       MutableSpan<int> all_resolutions,
                                        MutableSpan<float3> all_custom_normals)
 {
   const RealizeCurveInfo &curves_info = *task.curve_info;
@@ -1807,24 +1829,13 @@ static void execute_realize_curve_task(const RealizeInstancesOptions &options,
     }
   }
 
-  auto copy_point_span_with_default =
-      [&](const Span<float> src, MutableSpan<float> all_dst, const float value) {
-        if (src.is_empty()) {
-          all_dst.slice(dst_point_range).fill(value);
-        }
-        else {
-          all_dst.slice(dst_point_range).copy_from(src);
-        }
-      };
   if (all_curves_info.create_radius_attribute) {
-    copy_point_span_with_default(curves_info.radius, all_radii, 1.0f);
-  }
-  if (all_curves_info.create_nurbs_weight_attribute) {
-    copy_point_span_with_default(curves_info.nurbs_weight, all_nurbs_weights, 1.0f);
-  }
-
-  if (all_curves_info.create_resolution_attribute) {
-    curves_info.resolution.materialize(all_resolutions.slice(dst_curve_range));
+    if (curves_info.radius.is_empty()) {
+      all_radii.slice(dst_point_range).fill(1.0f);
+    }
+    else {
+      all_radii.slice(dst_point_range).copy_from(curves_info.radius);
+    }
   }
 
   if (all_curves_info.create_custom_normal_attribute) {
@@ -1941,16 +1952,6 @@ static void execute_realize_curve_tasks(const RealizeInstancesOptions &options,
     radius = dst_attributes.lookup_or_add_for_write_only_span<float>("radius",
                                                                      bke::AttrDomain::Point);
   }
-  SpanAttributeWriter<float> nurbs_weight;
-  if (all_curves_info.create_nurbs_weight_attribute) {
-    nurbs_weight = dst_attributes.lookup_or_add_for_write_only_span<float>("nurbs_weight",
-                                                                           bke::AttrDomain::Point);
-  }
-  SpanAttributeWriter<int> resolution;
-  if (all_curves_info.create_resolution_attribute) {
-    resolution = dst_attributes.lookup_or_add_for_write_only_span<int>("resolution",
-                                                                       bke::AttrDomain::Curve);
-  }
   SpanAttributeWriter<float3> custom_normal;
   if (all_curves_info.create_custom_normal_attribute) {
     custom_normal = dst_attributes.lookup_or_add_for_write_only_span<float3>(
@@ -1971,8 +1972,6 @@ static void execute_realize_curve_tasks(const RealizeInstancesOptions &options,
                                  handle_left.span,
                                  handle_right.span,
                                  radius.span,
-                                 nurbs_weight.span,
-                                 resolution.span,
                                  custom_normal.span);
     }
   });
@@ -1992,8 +1991,6 @@ static void execute_realize_curve_tasks(const RealizeInstancesOptions &options,
   }
   point_ids.finish();
   radius.finish();
-  resolution.finish();
-  nurbs_weight.finish();
   handle_left.finish();
   handle_right.finish();
   custom_normal.finish();
@@ -2010,7 +2007,7 @@ static OrderedAttributes gather_generic_grease_pencil_attributes_to_propagate(
     const RealizeInstancesOptions &options,
     const VariedDepthOptions &varied_depth_options)
 {
-  Map<StringRef, AttributeKind> attributes_to_propagate = gather_attributes_to_propagate(
+  Map<StringRef, AttributeDomainAndType> attributes_to_propagate = gather_attributes_to_propagate(
       in_geometry_set, bke::GeometryComponent::Type::GreasePencil, options, varied_depth_options);
   OrderedAttributes ordered_attributes;
   for (auto &&item : attributes_to_propagate.items()) {
@@ -2163,6 +2160,8 @@ static void execute_realize_grease_pencil_tasks(
 
   /* Allocate new grease pencil. */
   GreasePencil *dst_grease_pencil = BKE_grease_pencil_new_nomain();
+  BKE_grease_pencil_copy_parameters(*tasks.first().grease_pencil_info->grease_pencil,
+                                    *dst_grease_pencil);
   r_realized_geometry.replace_grease_pencil(dst_grease_pencil);
 
   /* Allocate all layers. */
@@ -2170,6 +2169,7 @@ static void execute_realize_grease_pencil_tasks(
 
   /* Transfer material pointers. The material indices are updated for each task separately. */
   if (!all_grease_pencils_info.materials.is_empty()) {
+    MEM_SAFE_FREE(dst_grease_pencil->material_array);
     dst_grease_pencil->material_array_num = all_grease_pencils_info.materials.size();
     dst_grease_pencil->material_array = MEM_cnew_array<Material *>(
         dst_grease_pencil->material_array_num, __func__);
@@ -2342,6 +2342,8 @@ bke::GeometrySet realize_instances(bke::GeometrySet geometry_set,
 
   const float4x4 transform = float4x4::identity();
   InstanceContext attribute_fallbacks(gather_info);
+
+  initialize_curves_builtin_attribute_defaults(all_curves_info, attribute_fallbacks);
 
   gather_realize_tasks_recursive(
       gather_info, 0, VariedDepthOptions::MAX_DEPTH, geometry_set, transform, attribute_fallbacks);

@@ -6,6 +6,10 @@
  * Compute light objects lighting contribution using captured Gbuffer data.
  */
 
+#include "infos/eevee_deferred_info.hh"
+
+FRAGMENT_SHADER_CREATE_INFO(eevee_deferred_planar_eval)
+
 #include "draw_view_lib.glsl"
 #include "eevee_gbuffer_lib.glsl"
 #include "eevee_light_eval_lib.glsl"
@@ -22,7 +26,7 @@ void main()
   vec3 albedo_front = vec3(0.0);
   vec3 albedo_back = vec3(0.0);
 
-  for (int i = 0; i < GBUFFER_LAYER_MAX && i < gbuf.closure_count; i++) {
+  for (uchar i = 0; i < GBUFFER_LAYER_MAX && i < gbuf.closure_count; i++) {
     ClosureUndetermined cl = gbuffer_closure_get(gbuf, i);
     switch (cl.type) {
       case CLOSURE_BSSRDF_BURLEY_ID:

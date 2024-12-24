@@ -45,7 +45,7 @@ enum class SingleKeyingResult {
   SUCCESS = 0,
   /* TODO: remove `UNKNOWN_FAILURE` and replace all usages with proper, specific
    * cases. This is needed right now as a stop-gap while progressively moving
-   * the keyframing code over to propagate errors properly.*/
+   * the keyframing code over to propagate errors properly. */
   UNKNOWN_FAILURE,
   CANNOT_CREATE_FCURVE,
   FCURVE_NOT_KEYFRAMEABLE,
@@ -207,6 +207,14 @@ int clear_keyframe(Main *bmain, ReportList *reports, ID *id, const RNAPath &rna_
 bool is_keying_flag(const Scene *scene, eKeying_Flag flag);
 
 /**
+ * Checks whether a keyframe exists for the given ID-block one the given frame.
+ *
+ * \param frame: The frame on which to check for a keyframe. This uses a threshold so the float
+ * doesn't need to match exactly.
+ */
+bool id_frame_has_keyframe(ID *id, float frame);
+
+/**
  * Get the settings for key-framing from the given scene.
  */
 eInsertKeyFlags get_keyframing_flags(Scene *scene);
@@ -239,7 +247,7 @@ bool autokeyframe_cfra_can_key(const Scene *scene, ID *id);
  *
  * \param rna_paths: Only inserts keys on those RNA paths.
  */
-void autokeyframe_object(bContext *C, Scene *scene, Object *ob, Span<RNAPath> rna_paths);
+void autokeyframe_object(bContext *C, const Scene *scene, Object *ob, Span<RNAPath> rna_paths);
 /**
  * Auto-keyframing feature - for objects
  *

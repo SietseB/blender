@@ -71,7 +71,8 @@
 #include "UI_view2d.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_keyframing.hh"
+
+#include "ANIM_fcurve.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -667,8 +668,6 @@ static int acf_object_icon(bAnimListElem *ale)
       return ICON_OUTLINER_OB_VOLUME;
     case OB_EMPTY:
       return ICON_OUTLINER_OB_EMPTY;
-    case OB_GPENCIL_LEGACY:
-      return ICON_OUTLINER_OB_GREASEPENCIL;
     case OB_GREASE_PENCIL:
       return ICON_OUTLINER_OB_GREASEPENCIL;
     default:
@@ -1004,6 +1003,9 @@ static void acf_fcurve_name(bAnimListElem *ale, char *name)
 
   FCurve *fcurve = static_cast<FCurve *>(ale->data);
 
+  /* Clear the error flag. It'll be set again when an error situation is detected. */
+  fcurve->flag &= ~FCURVE_DISABLED;
+
   if (ale->fcurve_owner_id && GS(ale->fcurve_owner_id->name) == ID_AC &&
       ale->slot_handle != Slot::unassigned)
   {
@@ -1018,6 +1020,20 @@ static void acf_fcurve_name(bAnimListElem *ale, char *name)
        * pointer, as it's likely to be wrong anyway. */
       getname_anim_fcurve(name, nullptr, fcurve);
       return;
+    }
+
+    /* If the animated ID this ALE is for is a user of the slot, try to resolve the path on that.
+     * If this fails, mark the F-Curve as problematic. This code is here so that
+     * getname_anim_fcurve_for_slot() can do its best to find a label of the animated property,
+     * independently of the "error line" shown in the dope sheet, at the cost of one extra call to
+     * RNA_path_resolve_property(). See #129490. */
+    if (slot->users(*ale->bmain).contains(ale->id)) {
+      PointerRNA id_ptr = RNA_id_pointer_create(ale->id);
+      PointerRNA ptr;
+      PropertyRNA *prop;
+      if (!RNA_path_resolve_property(&id_ptr, fcurve->rna_path, &ptr, &prop)) {
+        fcurve->flag |= FCURVE_DISABLED;
+      }
     }
 
     BLI_assert(ale->bmain);
@@ -1398,7 +1414,7 @@ static void acf_action_slot_name(bAnimListElem *ale, char *r_name)
 
   BLI_assert(ale->bmain);
   const int num_users = slot->users(*ale->bmain).size();
-  const char *display_name = slot->name_without_prefix().c_str();
+  const char *display_name = slot->identifier_without_prefix().c_str();
 
   BLI_assert(num_users >= 0);
   switch (num_users) {
@@ -3572,7 +3588,7 @@ static void acf_gpd_color(bAnimContext * /*ac*/, bAnimListElem * /*ale*/, float 
 /* TODO: just get this from RNA? */
 static int acf_gpd_icon(bAnimListElem * /*ale*/)
 {
-  return ICON_OUTLINER_OB_GREASEPENCIL;
+  return ICON_OUTLINER_DATA_GREASEPENCIL;
 }
 
 /* check if some setting exists for this channel */
@@ -3887,6 +3903,14 @@ static void *layer_setting_ptr(bAnimListElem *ale,
   return GET_ACF_FLAG_PTR(layer->base.flag, r_type);
 }
 
+static bool layer_channel_color(const bAnimListElem *ale, uint8_t r_color[3])
+{
+  using namespace bke::greasepencil;
+  GreasePencilLayerTreeNode &layer = *static_cast<GreasePencilLayerTreeNode *>(ale->data);
+  rgb_float_to_uchar(r_color, layer.color);
+  return true;
+}
+
 static int layer_group_icon(bAnimListElem *ale)
 {
   using namespace bke::greasepencil;
@@ -3969,7 +3993,7 @@ static bAnimChannelType ACF_GPL = {
     /*channel_role*/ ACHANNEL_ROLE_CHANNEL,
 
     /*get_backdrop_color*/ acf_generic_channel_color,
-    /*get_channel_color*/ acf_gpl_channel_color,
+    /*get_channel_color*/ greasepencil::layer_channel_color,
     /*draw_backdrop*/ acf_generic_channel_backdrop,
     /*get_indent_level*/ acf_generic_indentation_flexible,
     /*get_offset*/ greasepencil::layer_offset,
@@ -5356,7 +5380,7 @@ static void achannel_setting_slider_cb(bContext *C, void *id_poin, void *fcu_poi
   /* try to resolve the path stored in the F-Curve */
   if (RNA_path_resolve_property(&id_ptr, fcu->rna_path, &ptr, &prop)) {
     /* set the special 'replace' flag if on a keyframe */
-    if (fcurve_frame_has_keyframe(fcu, cfra)) {
+    if (blender::animrig::fcurve_frame_has_keyframe(fcu, cfra)) {
       flag |= INSERTKEY_REPLACE;
     }
 
@@ -5446,7 +5470,7 @@ static void achannel_setting_slider_nla_curve_cb(bContext *C, void * /*id_poin*/
 
   if (fcu && prop) {
     /* set the special 'replace' flag if on a keyframe */
-    if (fcurve_frame_has_keyframe(fcu, cfra)) {
+    if (blender::animrig::fcurve_frame_has_keyframe(fcu, cfra)) {
       flag |= INSERTKEY_REPLACE;
     }
 
@@ -5876,7 +5900,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
 
   /* step 4) draw text - check if renaming widget is in use... */
   if (is_being_renamed) {
-    PointerRNA ptr = {nullptr};
+    PointerRNA ptr = {};
     PropertyRNA *prop = nullptr;
 
     /* draw renaming widget if we can get RNA pointer for it

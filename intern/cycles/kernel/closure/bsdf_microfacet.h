@@ -506,13 +506,14 @@ ccl_device_inline float bsdf_G(float alpha2, float cos_NI, float cos_NO)
 template<MicrofacetType m_type> ccl_device_inline float bsdf_D(float alpha2, float cos_NH)
 {
   const float cos_NH2 = min(sqr(cos_NH), 1.0f);
+  const float one_minus_cos_NH2 = 1.0f - cos_NH2;
 
   if (m_type == MicrofacetType::BECKMANN) {
-    return expf((cos_NH2 - 1.0f) / (cos_NH2 * alpha2)) / (M_PI_F * alpha2 * sqr(cos_NH2));
+    return 1.0f / (expf(one_minus_cos_NH2 / (cos_NH2 * alpha2)) * M_PI_F * alpha2 * sqr(cos_NH2));
   }
   else {
     kernel_assert(m_type == MicrofacetType::GGX);
-    return alpha2 / (M_PI_F * sqr((1.0f - cos_NH2) + alpha2 * cos_NH2));
+    return alpha2 / (M_PI_F * sqr(one_minus_cos_NH2 + alpha2 * cos_NH2));
   }
 }
 
@@ -676,11 +677,11 @@ ccl_device int bsdf_microfacet_sample(KernelGlobals kg,
      * space before and after sampling. */
     local_I = make_float3(dot(X, wi), dot(Y, wi), cos_NI);
     if (m_type == MicrofacetType::GGX) {
-      local_H = microfacet_ggx_sample_vndf(local_I, alpha_x, alpha_y, float3_to_float2(rand));
+      local_H = microfacet_ggx_sample_vndf(local_I, alpha_x, alpha_y, make_float2(rand));
     }
     else {
       /* m_type == MicrofacetType::BECKMANN */
-      local_H = microfacet_beckmann_sample_vndf(local_I, alpha_x, alpha_y, float3_to_float2(rand));
+      local_H = microfacet_beckmann_sample_vndf(local_I, alpha_x, alpha_y, make_float2(rand));
     }
 
     H = to_global(local_H, X, Y, N);

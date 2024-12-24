@@ -42,7 +42,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return ob and ob.type != 'GPENCIL'
+        return ob
 
     def draw(self, _context):
         layout = self.layout
@@ -104,7 +104,7 @@ class OBJECT_MT_modifier_add_edit(ModifierAddMenu, Menu):
             self.operator_modifier_add(layout, 'DATA_TRANSFER')
         if ob_type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'LATTICE'}:
             self.operator_modifier_add(layout, 'MESH_CACHE')
-        if ob_type in {'MESH', 'CURVE', 'CURVES', 'FONT', 'SURFACE', 'POINTCLOUD'}:
+        if ob_type in {'MESH', 'CURVE', 'CURVES', 'FONT', 'POINTCLOUD'}:
             self.operator_modifier_add(layout, 'MESH_SEQUENCE_CACHE')
         if ob_type == 'MESH':
             self.operator_modifier_add(layout, 'UV_PROJECT')
@@ -165,12 +165,12 @@ class OBJECT_MT_modifier_add_generate(ModifierAddMenu, Menu):
             self.operator_modifier_add(layout, 'GREASE_PENCIL_DASH')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_ENVELOPE')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_LENGTH')
+            self.operator_modifier_add(layout, 'LINEART')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_MIRROR')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_MULTIPLY')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_OUTLINE')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_SIMPLIFY')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_SUBDIV')
-            self.operator_modifier_add(layout, 'LINEART')
         layout.template_modifier_asset_menu_items(catalog_path=self.bl_label)
 
 
@@ -263,23 +263,9 @@ class OBJECT_MT_modifier_add_color(ModifierAddMenu, Menu):
         ob_type = context.object.type
         if ob_type == 'GREASEPENCIL':
             self.operator_modifier_add(layout, 'GREASE_PENCIL_COLOR')
-            self.operator_modifier_add(layout, 'GREASE_PENCIL_TINT')
             self.operator_modifier_add(layout, 'GREASE_PENCIL_OPACITY')
+            self.operator_modifier_add(layout, 'GREASE_PENCIL_TINT')
         layout.template_modifier_asset_menu_items(catalog_path=self.bl_label)
-
-
-class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
-    bl_label = "Modifiers"
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        return ob and ob.type == 'GPENCIL'
-
-    def draw(self, _context):
-        layout = self.layout
-        layout.operator_menu_enum("object.gpencil_modifier_add", "type")
-        layout.template_grease_pencil_modifiers()
 
 
 class AddModifierMenu(Operator):
@@ -289,13 +275,10 @@ class AddModifierMenu(Operator):
     @classmethod
     def poll(cls, context):
         # NOTE: This operator only exists to add a poll to the add modifier shortcut in the property editor.
-        object = context.object
         space = context.space_data
-        if object and object.type == 'GPENCIL':
-            return False
         return space and space.type == 'PROPERTIES' and space.context == 'MODIFIER'
 
-    def invoke(self, context, event):
+    def invoke(self, _context, _event):
         return bpy.ops.wm.call_menu(name="OBJECT_MT_modifier_add")
 
 
@@ -308,7 +291,6 @@ classes = (
     OBJECT_MT_modifier_add_normals,
     OBJECT_MT_modifier_add_physics,
     OBJECT_MT_modifier_add_color,
-    DATA_PT_gpencil_modifiers,
     AddModifierMenu,
 )
 

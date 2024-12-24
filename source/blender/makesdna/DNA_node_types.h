@@ -16,8 +16,9 @@
 
 /** Workaround to forward-declare C++ type in C header. */
 #ifdef __cplusplus
-#  include <BLI_vector.hh>
 #  include <string>
+
+#  include "BLI_vector.hh"
 
 namespace blender {
 template<typename T> class Span;
@@ -425,15 +426,15 @@ typedef struct bNode {
   /** Parent node (for frame nodes). */
   struct bNode *parent;
 
-  /** Root location in the node canvas (in parent space). */
-  float locx, locy;
+  /** The location of the top left corner of the node on the canvas. */
+  float location[2];
   /**
    * Custom width and height controlled by users. Height is calculate automatically for most
    * nodes.
    */
   float width, height;
-  /** Additional offset from loc. TODO: Redundant with #locx and #locy, remove/deprecate. */
-  float offsetx, offsety;
+  float locx_legacy, locy_legacy;
+  float offsetx_legacy, offsety_legacy;
 
   /** Custom user-defined label, MAX_NAME. */
   char label[64];
@@ -475,9 +476,11 @@ typedef struct bNode {
   /** A span containing all input sockets of the node (including unavailable sockets). */
   blender::Span<bNodeSocket *> input_sockets();
   blender::Span<const bNodeSocket *> input_sockets() const;
+  blender::IndexRange input_socket_indices_in_tree() const;
   /** A span containing all output sockets of the node (including unavailable sockets). */
   blender::Span<bNodeSocket *> output_sockets();
   blender::Span<const bNodeSocket *> output_sockets() const;
+  blender::IndexRange output_socket_indices_in_tree() const;
   /** Utility to get an input socket by its index. */
   bNodeSocket &input_socket(int index);
   const bNodeSocket &input_socket(int index) const;
@@ -847,6 +850,10 @@ typedef struct bNodeTree {
   blender::Span<const bNodeTreeInterfaceSocket *> interface_outputs() const;
   blender::Span<bNodeTreeInterfaceItem *> interface_items();
   blender::Span<const bNodeTreeInterfaceItem *> interface_items() const;
+
+  int interface_input_index(const bNodeTreeInterfaceSocket &io_socket) const;
+  int interface_output_index(const bNodeTreeInterfaceSocket &io_socket) const;
+  int interface_item_index(const bNodeTreeInterfaceItem &io_item) const;
 #endif
 } bNodeTree;
 
@@ -2670,8 +2677,8 @@ typedef enum CMPNodeAlphaConvertMode {
 
 /** Distance Matte Node. Stored in #NodeChroma.channel. */
 typedef enum CMPNodeDistanceMatteColorSpace {
-  CMP_NODE_DISTANCE_MATTE_COLOR_SPACE_YCCA = 0,
   CMP_NODE_DISTANCE_MATTE_COLOR_SPACE_RGBA = 1,
+  CMP_NODE_DISTANCE_MATTE_COLOR_SPACE_YCCA = 2,
 } CMPNodeDistanceMatteColorSpace;
 
 /** Color Spill Node. Stored in `custom2`. */
@@ -2892,19 +2899,6 @@ typedef enum GeometryNodeCurveHandleMode {
   GEO_NODE_CURVE_HANDLE_LEFT = (1 << 0),
   GEO_NODE_CURVE_HANDLE_RIGHT = (1 << 1)
 } GeometryNodeCurveHandleMode;
-
-typedef enum GeometryNodeTriangulateNGons {
-  GEO_NODE_TRIANGULATE_NGON_BEAUTY = 0,
-  GEO_NODE_TRIANGULATE_NGON_EARCLIP = 1,
-} GeometryNodeTriangulateNGons;
-
-typedef enum GeometryNodeTriangulateQuads {
-  GEO_NODE_TRIANGULATE_QUAD_BEAUTY = 0,
-  GEO_NODE_TRIANGULATE_QUAD_FIXED = 1,
-  GEO_NODE_TRIANGULATE_QUAD_ALTERNATE = 2,
-  GEO_NODE_TRIANGULATE_QUAD_SHORTEDGE = 3,
-  GEO_NODE_TRIANGULATE_QUAD_LONGEDGE = 4,
-} GeometryNodeTriangulateQuads;
 
 typedef enum GeometryNodeDistributePointsInVolumeMode {
   GEO_NODE_DISTRIBUTE_POINTS_IN_VOLUME_DENSITY_RANDOM = 0,

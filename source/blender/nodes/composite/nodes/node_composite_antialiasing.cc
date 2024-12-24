@@ -45,12 +45,12 @@ static void node_composit_buts_antialiasing(uiLayout *layout, bContext * /*C*/, 
 
   col = uiLayoutColumn(layout, false);
 
-  uiItemR(col, ptr, "threshold", UI_ITEM_NONE, nullptr, ICON_NONE);
-  uiItemR(col, ptr, "contrast_limit", UI_ITEM_NONE, nullptr, ICON_NONE);
-  uiItemR(col, ptr, "corner_rounding", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "threshold", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+  uiItemR(col, ptr, "contrast_limit", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+  uiItemR(col, ptr, "corner_rounding", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 }
 
-using namespace blender::realtime_compositor;
+using namespace blender::compositor;
 
 class AntiAliasingOperation : public NodeOperation {
  public:
@@ -58,17 +58,6 @@ class AntiAliasingOperation : public NodeOperation {
 
   void execute() override
   {
-    /* Not yet supported on CPU. */
-    if (!context().use_gpu()) {
-      for (const bNodeSocket *output : this->node()->output_sockets()) {
-        Result &output_result = get_result(output->identifier);
-        if (output_result.should_compute()) {
-          output_result.allocate_invalid();
-        }
-      }
-      return;
-    }
-
     smaa(context(),
          get_input("Image"),
          get_result("Image"),
@@ -113,6 +102,7 @@ void register_node_type_cmp_antialiasing()
   static blender::bke::bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_ANTIALIASING, "Anti-Aliasing", NODE_CLASS_OP_FILTER);
+  ntype.enum_name_legacy = "ANTIALIASING";
   ntype.declare = file_ns::cmp_node_antialiasing_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_antialiasing;
   ntype.flag |= NODE_PREVIEW;

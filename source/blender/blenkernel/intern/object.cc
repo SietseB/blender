@@ -96,7 +96,7 @@
 #include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
-#include "BKE_image.h"
+#include "BKE_image.hh"
 #include "BKE_key.hh"
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
@@ -154,6 +154,7 @@
 
 using blender::Bounds;
 using blender::float3;
+using blender::float4x4;
 using blender::MutableSpan;
 using blender::Span;
 using blender::Vector;
@@ -242,7 +243,7 @@ static void object_copy_data(Main *bmain,
 
   BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
-  ob_dst->mode = ob_dst->type != OB_GPENCIL_LEGACY ? OB_MODE_OBJECT : ob_dst->mode;
+  ob_dst->mode = OB_MODE_OBJECT;
   ob_dst->sculpt = nullptr;
 
   if (ob_src->pd) {
@@ -262,9 +263,7 @@ static void object_copy_data(Main *bmain,
   ob_dst->avs = ob_src->avs;
   ob_dst->mpath = animviz_copy_motionpath(ob_src->mpath);
 
-  /* Do not copy object's preview
-   * (mostly due to the fact renderers create temp copy of objects). */
-  if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0 && false) { /* XXX TODO: temp hack. */
+  if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
     BKE_previewimg_id_copy(&ob_dst->id, &ob_src->id);
   }
   else {
@@ -352,17 +351,18 @@ static void object_free_data(ID *id)
 static void library_foreach_modifiersForeachIDLink(void *user_data,
                                                    Object * /*object*/,
                                                    ID **id_pointer,
-                                                   int cb_flag)
+                                                   const LibraryForeachIDCallbackFlag cb_flag)
 {
   LibraryForeachIDData *data = (LibraryForeachIDData *)user_data;
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
       data, BKE_lib_query_foreachid_process(data, id_pointer, cb_flag));
 }
 
-static void library_foreach_gpencil_modifiersForeachIDLink(void *user_data,
-                                                           Object * /*object*/,
-                                                           ID **id_pointer,
-                                                           int cb_flag)
+static void library_foreach_gpencil_modifiersForeachIDLink(
+    void *user_data,
+    Object * /*object*/,
+    ID **id_pointer,
+    const LibraryForeachIDCallbackFlag cb_flag)
 {
   LibraryForeachIDData *data = (LibraryForeachIDData *)user_data;
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
@@ -372,7 +372,7 @@ static void library_foreach_gpencil_modifiersForeachIDLink(void *user_data,
 static void library_foreach_shaderfxForeachIDLink(void *user_data,
                                                   Object * /*object*/,
                                                   ID **id_pointer,
-                                                  int cb_flag)
+                                                  const LibraryForeachIDCallbackFlag cb_flag)
 {
   LibraryForeachIDData *data = (LibraryForeachIDData *)user_data;
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
@@ -385,7 +385,7 @@ static void library_foreach_constraintObjectLooper(bConstraint * /*con*/,
                                                    void *user_data)
 {
   LibraryForeachIDData *data = (LibraryForeachIDData *)user_data;
-  const int cb_flag = is_reference ? IDWALK_CB_USER : IDWALK_CB_NOP;
+  const LibraryForeachIDCallbackFlag cb_flag = is_reference ? IDWALK_CB_USER : IDWALK_CB_NOP;
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
       data, BKE_lib_query_foreachid_process(data, id_pointer, cb_flag));
 }
@@ -393,7 +393,7 @@ static void library_foreach_constraintObjectLooper(bConstraint * /*con*/,
 static void library_foreach_particlesystemsObjectLooper(ParticleSystem * /*psys*/,
                                                         ID **id_pointer,
                                                         void *user_data,
-                                                        int cb_flag)
+                                                        const LibraryForeachIDCallbackFlag cb_flag)
 {
   LibraryForeachIDData *data = (LibraryForeachIDData *)user_data;
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
@@ -615,6 +615,8 @@ static void object_blend_write(BlendWriter *writer, ID *id, const void *id_addre
 
   /* Clean up, important in undo case to reduce false detection of changed data-blocks. */
   ob->runtime = nullptr;
+  /* #Object::sculpt is also a runtime struct that should be stored in #Object::runtime. */
+  ob->sculpt = nullptr;
 
   if (is_undo) {
     /* For undo we stay in object mode during undo presses, so keep edit-mode disabled on save as
@@ -666,7 +668,6 @@ static void object_blend_write(BlendWriter *writer, ID *id, const void *id_addre
 
   BKE_particle_system_blend_write(writer, &ob->particlesystem);
   BKE_modifier_blend_write(writer, &ob->id, &ob->modifiers);
-  BKE_gpencil_modifier_blend_write(writer, &ob->greasepencil_modifiers);
   BKE_shaderfx_blend_write(writer, &ob->shader_fx);
 
   BLO_write_struct_list(writer, LinkData, &ob->pc_ids);
@@ -891,12 +892,14 @@ static void object_blend_read_data(BlendDataReader *reader, ID *id)
   /* in case this value changes in future, clamp else we get undefined behavior */
   CLAMP(ob->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
 
-  if (ob->sculpt) {
-    ob->sculpt = nullptr;
-    /* Only create data on undo, otherwise rely on editor mode switching. */
-    if (BLO_read_data_is_undo(reader) && (ob->mode & OB_MODE_ALL_SCULPT)) {
-      BKE_object_sculpt_data_create(ob);
-    }
+  /* Some files were incorrectly written with a dangling pointer to this runtime data. */
+  ob->sculpt = nullptr;
+
+  /* When loading undo steps, for objects in modes that use `sculpt`, recreate the mode runtime
+   * data. For regular non-undo reading, this is currently handled by mode switching after the
+   * initial file read. */
+  if (BLO_read_data_is_undo(reader) && (ob->mode & OB_MODE_ALL_SCULPT)) {
+    BKE_object_sculpt_data_create(ob);
   }
 
   BLO_read_struct(reader, PreviewImage, &ob->preview);
@@ -1341,8 +1344,6 @@ bool BKE_object_copy_modifier(Main *bmain,
                               const Object *ob_src,
                               const ModifierData *md_src)
 {
-  BLI_assert(ob_dst->type != OB_GPENCIL_LEGACY);
-
   const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md_src->type);
   if (!object_modifier_type_copy_check((ModifierType)md_src->type)) {
     /* We never allow copying those modifiers here. */
@@ -1452,12 +1453,6 @@ bool BKE_object_modifier_stack_copy(Object *ob_dst,
                                     const bool do_copy_all,
                                     const int flag_subdata)
 {
-  if ((ob_dst->type == OB_GPENCIL_LEGACY) != (ob_src->type == OB_GPENCIL_LEGACY)) {
-    BLI_assert_msg(false,
-                   "Trying to copy a modifier stack between a GPencil object and another type.");
-    return false;
-  }
-
   if (!BLI_listbase_is_empty(&ob_dst->modifiers) ||
       !BLI_listbase_is_empty(&ob_dst->greasepencil_modifiers))
   {
@@ -1740,9 +1735,6 @@ bool BKE_object_is_in_editmode(const Object *ob)
     case OB_SURF:
     case OB_CURVES_LEGACY:
       return ((Curve *)ob->data)->editnurb != nullptr;
-    case OB_GPENCIL_LEGACY:
-      /* Grease Pencil object has no edit mode data. */
-      return GPENCIL_EDIT_MODE((bGPdata *)ob->data);
     case OB_CURVES:
     case OB_POINTCLOUD:
     case OB_GREASE_PENCIL:
@@ -1969,8 +1961,6 @@ static const char *get_obdata_defname(int type)
       return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Volume");
     case OB_EMPTY:
       return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Empty");
-    case OB_GPENCIL_LEGACY:
-      return DATA_("GPencil");
     case OB_LIGHTPROBE:
       return DATA_("LightProbe");
     case OB_GREASE_PENCIL:
@@ -2036,8 +2026,6 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
       return BKE_speaker_add(bmain, name);
     case OB_LIGHTPROBE:
       return BKE_lightprobe_add(bmain, name);
-    case OB_GPENCIL_LEGACY:
-      return BKE_gpencil_data_addnew(bmain, name);
     case OB_CURVES:
       return BKE_curves_add(bmain, name);
     case OB_POINTCLOUD:
@@ -2072,8 +2060,6 @@ int BKE_object_obdata_to_type(const ID *id)
       return OB_CAMERA;
     case ID_LT:
       return OB_LATTICE;
-    case ID_GD_LEGACY:
-      return OB_GPENCIL_LEGACY;
     case ID_AR:
       return OB_ARMATURE;
     case ID_LP:
@@ -2625,7 +2611,6 @@ Object *BKE_object_duplicate(Main *bmain,
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
       }
       break;
-    case OB_GPENCIL_LEGACY:
     case OB_GREASE_PENCIL:
       if (dupflag & USER_DUP_GPENCIL) {
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
@@ -3524,16 +3509,11 @@ void BKE_boundbox_init_from_minmax(BoundBox *bb, const float min[3], const float
   bb->vec[1][2] = bb->vec[2][2] = bb->vec[5][2] = bb->vec[6][2] = max[2];
 }
 
-void BKE_boundbox_minmax(const BoundBox *bb,
-                         const float obmat[4][4],
-                         float r_min[3],
-                         float r_max[3])
+void BKE_boundbox_minmax(const BoundBox &bb, const float4x4 &matrix, float3 &r_min, float3 &r_max)
 {
-  int i;
-  for (i = 0; i < 8; i++) {
-    float vec[3];
-    mul_v3_m4v3(vec, obmat, bb->vec[i]);
-    minmax_v3v3_v3(r_min, r_max, vec);
+  using namespace blender;
+  for (const int i : IndexRange(ARRAY_SIZE(bb.vec))) {
+    math::min_max(math::transform_point(matrix, float3(bb.vec[i])), r_min, r_max);
   }
 }
 
@@ -3552,8 +3532,6 @@ std::optional<blender::Bounds<blender::float3>> BKE_object_boundbox_get(const Ob
       return BKE_lattice_minmax(static_cast<const Lattice *>(ob->data));
     case OB_ARMATURE:
       return BKE_armature_min_max(ob);
-    case OB_GPENCIL_LEGACY:
-      return BKE_gpencil_data_minmax(static_cast<const bGPdata *>(ob->data));
     case OB_CURVES:
       return static_cast<const Curves *>(ob->data)->geometry.wrap().bounds_min_max();
     case OB_POINTCLOUD:
@@ -3606,12 +3584,12 @@ static float3 boundbox_to_dimensions(const Object *ob, const std::optional<Bound
   return scale * (bounds->max - bounds->min);
 }
 
-void BKE_object_dimensions_get(Object *ob, float r_vec[3])
+void BKE_object_dimensions_get(const Object *ob, float r_vec[3])
 {
   copy_v3_v3(r_vec, boundbox_to_dimensions(ob, BKE_object_boundbox_get(ob)));
 }
 
-void BKE_object_dimensions_eval_cached_get(Object *ob, float r_vec[3])
+void BKE_object_dimensions_eval_cached_get(const Object *ob, float r_vec[3])
 {
   copy_v3_v3(r_vec, boundbox_to_dimensions(ob, BKE_object_boundbox_eval_cached_get(ob)));
 }
@@ -3649,31 +3627,23 @@ void BKE_object_dimensions_set(Object *ob, const float value[3], int axis_mask)
   BKE_object_dimensions_set_ex(ob, value, axis_mask, nullptr, nullptr);
 }
 
-void BKE_object_minmax(Object *ob, float r_min[3], float r_max[3])
+void BKE_object_minmax(Object *ob, float3 &r_min, float3 &r_max)
 {
   using namespace blender;
+  const float4x4 &object_to_world = ob->object_to_world();
   if (const std::optional<Bounds<float3>> bounds = BKE_object_boundbox_get(ob)) {
-    minmax_v3v3_v3(r_min, r_max, math::transform_point(ob->object_to_world(), bounds->min));
-    minmax_v3v3_v3(r_min, r_max, math::transform_point(ob->object_to_world(), bounds->max));
+    math::min_max(math::transform_point(object_to_world, bounds->min), r_min, r_max);
+    math::min_max(math::transform_point(object_to_world, bounds->max), r_min, r_max);
     return;
   }
-  float3 size = ob->scale;
 
-  copy_v3_v3(size, ob->scale);
+  float3 size = ob->scale;
   if (ob->type == OB_EMPTY) {
     size *= ob->empty_drawsize;
   }
 
-  minmax_v3v3_v3(r_min, r_max, ob->object_to_world().location());
-
-  float3 vec;
-  copy_v3_v3(vec, ob->object_to_world().location());
-  add_v3_v3(vec, size);
-  minmax_v3v3_v3(r_min, r_max, vec);
-
-  copy_v3_v3(vec, ob->object_to_world().location());
-  sub_v3_v3(vec, size);
-  minmax_v3v3_v3(r_min, r_max, vec);
+  math::min_max(object_to_world.location() + size, r_min, r_max);
+  math::min_max(object_to_world.location() - size, r_min, r_max);
 }
 
 void BKE_object_empty_draw_type_set(Object *ob, const int value)
@@ -3818,8 +3788,8 @@ bool BKE_object_minmax_empty_drawtype(const Object *ob, float r_min[3], float r_
 bool BKE_object_minmax_dupli(Depsgraph *depsgraph,
                              Scene *scene,
                              Object *ob,
-                             float r_min[3],
-                             float r_max[3],
+                             float3 &r_min,
+                             float3 &r_max,
                              const bool use_hidden)
 {
   using namespace blender;
@@ -3844,13 +3814,7 @@ bool BKE_object_minmax_dupli(Depsgraph *depsgraph,
       if (const std::optional<Bounds<float3>> bounds = BKE_object_boundbox_get(&temp_ob)) {
         BoundBox bb;
         BKE_boundbox_init_from_minmax(&bb, bounds->min, bounds->max);
-        int i;
-        for (i = 0; i < 8; i++) {
-          float3 vec;
-          mul_v3_m4v3(vec, dob->mat, bb.vec[i]);
-          minmax_v3v3_v3(r_min, r_max, vec);
-        }
-
+        BKE_boundbox_minmax(bb, float4x4(dob->mat), r_min, r_max);
         ok = true;
       }
     }
@@ -3870,7 +3834,7 @@ void BKE_object_foreach_display_point(Object *ob,
   float3 co;
 
   if (mesh_eval != nullptr) {
-    const Span<float3> positions = mesh_eval->vert_positions();
+    const Span<float3> positions = BKE_mesh_wrapper_vert_coords(mesh_eval);
     for (const int i : positions.index_range()) {
       mul_v3_m4v3(co, obmat, positions[i]);
       func_cb(co, user_data);
@@ -4126,12 +4090,7 @@ Mesh *BKE_object_get_evaluated_mesh_unchecked(const Object *object_eval)
   if (!mesh) {
     return nullptr;
   }
-
-  if (object_eval->data && GS(((const ID *)object_eval->data)->name) == ID_ME) {
-    mesh = BKE_mesh_wrapper_ensure_subdivision(mesh);
-  }
-
-  return mesh;
+  return BKE_mesh_wrapper_ensure_subdivision(mesh);
 }
 
 Mesh *BKE_object_get_evaluated_mesh(const Object *object_eval)
@@ -4142,19 +4101,22 @@ Mesh *BKE_object_get_evaluated_mesh(const Object *object_eval)
   return BKE_object_get_evaluated_mesh_unchecked(object_eval);
 }
 
-Mesh *BKE_object_get_pre_modified_mesh(const Object *object)
+const Mesh *BKE_object_get_pre_modified_mesh(const Object *object)
 {
-  if (object->type == OB_MESH && object->runtime->data_orig != nullptr) {
+  BLI_assert(object->type == OB_MESH);
+  if (const ID *data_orig = object->runtime->data_orig) {
     BLI_assert(object->id.tag & ID_TAG_COPIED_ON_EVAL);
     BLI_assert(object->id.orig_id != nullptr);
-    BLI_assert(object->runtime->data_orig->orig_id == ((Object *)object->id.orig_id)->data);
-    Mesh *result = (Mesh *)object->runtime->data_orig;
-    BLI_assert((result->id.tag & ID_TAG_COPIED_ON_EVAL) != 0);
-    BLI_assert((result->id.tag & ID_TAG_COPIED_ON_EVAL_FINAL_RESULT) == 0);
-    return result;
+    BLI_assert(data_orig->orig_id == ((const Object *)object->id.orig_id)->data);
+    BLI_assert((data_orig->tag & ID_TAG_COPIED_ON_EVAL) != 0);
+    BLI_assert((data_orig->tag & ID_TAG_COPIED_ON_EVAL_FINAL_RESULT) == 0);
+    if (GS(data_orig->name) != ID_ME) {
+      return nullptr;
+    }
+    return reinterpret_cast<const Mesh *>(data_orig);
   }
   BLI_assert((object->id.tag & ID_TAG_COPIED_ON_EVAL) == 0);
-  return (Mesh *)object->data;
+  return static_cast<const Mesh *>(object->data);
 }
 
 Mesh *BKE_object_get_original_mesh(const Object *object)
@@ -4192,10 +4154,6 @@ const Mesh *BKE_object_get_editmesh_eval_cage(const Object *object)
 {
   BLI_assert(!DEG_is_original_id(&object->id));
   BLI_assert(object->type == OB_MESH);
-
-  const Mesh *mesh = static_cast<const Mesh *>(object->data);
-  BLI_assert(mesh->runtime->edit_mesh != nullptr);
-  UNUSED_VARS_NDEBUG(mesh);
 
   return object->runtime->editmesh_eval_cage;
 }
@@ -4254,12 +4212,13 @@ static int pc_cmp(const void *a, const void *b)
   return 0;
 }
 
-/* TODO: Review the usages of this function, currently with copy-on-eval it will be called for orig
- * object and then again for evaluated copies of it, think this is bad since there is no guarantee
- * that we get the same stack index in both cases? Order is important since this index is used for
- * filenames on disk. */
 int BKE_object_insert_ptcache(Object *ob)
 {
+  /* TODO: Review the usages of this function, currently with copy-on-eval it will be called for
+   * orig object and then again for evaluated copies of it, think this is bad since there is no
+   * guarantee that we get the same stack index in both cases? Order is important since this index
+   * is used for filenames on disk. */
+
   LinkData *link = nullptr;
   int i = 0;
 
@@ -4823,7 +4782,6 @@ bool BKE_object_supports_material_slots(Object *ob)
               OB_CURVES,
               OB_POINTCLOUD,
               OB_VOLUME,
-              OB_GPENCIL_LEGACY,
               OB_GREASE_PENCIL);
 }
 

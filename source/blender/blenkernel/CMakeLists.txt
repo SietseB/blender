@@ -3,14 +3,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
-  .
+  PUBLIC .
   ../asset_system
   ../blenloader
   ../blentranslation
-  ../bmesh
   ../draw
   ../functions
-  ../gpu
   ../ikplugin
   ../imbuf
   ../makesrna
@@ -113,6 +111,7 @@ set(SRC
   intern/curve_to_mesh_convert.cc
   intern/curveprofile.cc
   intern/curves.cc
+  intern/curves_attributes.cc
   intern/curves_geometry.cc
   intern/curves_utils.cc
   intern/customdata.cc
@@ -134,6 +133,7 @@ set(SRC
   intern/fluid.cc
   intern/fmodifier.cc
   intern/freestyle.cc
+  intern/geometry_compare.cc
   intern/geometry_component_curves.cc
   intern/geometry_component_edit_data.cc
   intern/geometry_component_grease_pencil.cc
@@ -144,12 +144,11 @@ set(SRC
   intern/geometry_fields.cc
   intern/geometry_set.cc
   intern/geometry_set_instances.cc
-  intern/gpencil_curve_legacy.cc
   intern/gpencil_geom_legacy.cc
   intern/gpencil_legacy.cc
   intern/gpencil_modifier_legacy.cc
-  intern/gpencil_update_cache_legacy.cc
   intern/grease_pencil.cc
+  intern/grease_pencil_attributes.cc
   intern/grease_pencil_convert_legacy.cc
   intern/grease_pencil_vertex_groups.cc
   intern/icons.cc
@@ -166,6 +165,7 @@ set(SRC
   intern/image_partial_update.cc
   intern/image_save.cc
   intern/instances.cc
+  intern/instances_attributes.cc
   intern/ipo.cc
   intern/kelvinlet.cc
   intern/key.cc
@@ -197,8 +197,8 @@ set(SRC
   intern/mball.cc
   intern/mball_tessellate.cc
   intern/mesh.cc
+  intern/mesh_attributes.cc
   intern/mesh_calc_edges.cc
-  intern/mesh_compare.cc
   intern/mesh_convert.cc
   intern/mesh_data_update.cc
   intern/mesh_debug.cc
@@ -265,6 +265,7 @@ set(SRC
   intern/pbvh_uv_islands.cc
   intern/pointcache.cc
   intern/pointcloud.cc
+  intern/pointcloud_attributes.cc
   intern/pose_backup.cc
   intern/preferences.cc
   intern/preview_image.cc
@@ -308,6 +309,7 @@ set(SRC
   intern/undo_system.cc
   intern/unit.cc
   intern/vfont.cc
+  intern/vfont_curve.cc
   intern/vfontdata_freetype.cc
   intern/viewer_path.cc
   intern/volume.cc
@@ -318,7 +320,6 @@ set(SRC
   intern/wm_runtime.cc
   intern/workspace.cc
   intern/world.cc
-  intern/writemovie.cc
 
   BKE_action.hh
   BKE_addon.h
@@ -400,17 +401,16 @@ set(SRC
   BKE_file_handler.hh
   BKE_fluid.h
   BKE_freestyle.h
+  BKE_geometry_compare.hh
   BKE_geometry_fields.hh
   BKE_geometry_nodes_gizmos_transforms.hh
   BKE_geometry_nodes_reference_set.hh
   BKE_geometry_set.hh
   BKE_geometry_set_instances.hh
   BKE_global.hh
-  BKE_gpencil_curve_legacy.h
   BKE_gpencil_geom_legacy.h
   BKE_gpencil_legacy.h
   BKE_gpencil_modifier_legacy.h
-  BKE_gpencil_update_cache_legacy.h
   BKE_grease_pencil.h
   BKE_grease_pencil.hh
   BKE_grease_pencil_legacy_convert.hh
@@ -418,10 +418,10 @@ set(SRC
   BKE_icons.h
   BKE_idprop.hh
   BKE_idtype.hh
-  BKE_image.h
-  BKE_image_format.h
+  BKE_image.hh
+  BKE_image_format.hh
   BKE_image_partial_update.hh
-  BKE_image_save.h
+  BKE_image_save.hh
   BKE_image_wrappers.hh
   BKE_instances.hh
   BKE_ipo.h
@@ -448,7 +448,6 @@ set(SRC
   BKE_mball_tessellate.hh
   BKE_mesh.h
   BKE_mesh.hh
-  BKE_mesh_compare.hh
   BKE_mesh_fair.hh
   BKE_mesh_iterators.hh
   BKE_mesh_legacy_convert.hh
@@ -482,10 +481,9 @@ set(SRC
   BKE_outliner_treehash.hh
   BKE_packedFile.hh
   BKE_paint.hh
+  BKE_paint_bvh.hh
+  BKE_paint_bvh_pixels.hh
   BKE_particle.h
-  BKE_pbvh.hh
-  BKE_pbvh_api.hh
-  BKE_pbvh_pixels.hh
   BKE_pointcache.h
   BKE_pointcloud.hh
   BKE_pose_backup.h
@@ -534,7 +532,6 @@ set(SRC
   BKE_wm_runtime.hh
   BKE_workspace.hh
   BKE_world.h
-  BKE_writemovie.hh
 
   nla_private.h
   particle_private.h
@@ -564,15 +561,16 @@ set(LIB
   PRIVATE bf::blenlib
   bf_blenloader
   bf_blentranslation
-  bf_bmesh
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_draw
   PRIVATE bf::extern::curve_fit_nd
   bf_functions
-  bf_gpu
+  PRIVATE bf::gpu
   bf_ikplugin
   bf_imbuf
+  bf::imbuf_movie
   PRIVATE bf::intern::clog
   bf_intern_ghost
   PRIVATE bf::intern::guardedalloc
@@ -653,19 +651,6 @@ if(WITH_IMAGE_WEBP)
 endif()
 
 if(WITH_CODEC_FFMPEG)
-  list(APPEND SRC
-    intern/writeffmpeg.cc
-    BKE_writeffmpeg.hh
-  )
-  list(APPEND INC
-    ../../../intern/ffmpeg
-  )
-  list(APPEND INC_SYS
-    ${FFMPEG_INCLUDE_DIRS}
-  )
-  list(APPEND LIB
-    ${FFMPEG_LIBRARIES}
-  )
   add_definitions(-DWITH_FFMPEG)
 endif()
 
@@ -820,6 +805,7 @@ endif()
 # endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+add_library(bf::blenkernel ALIAS bf_blenkernel)
 
 # RNA_prototypes.hh
 add_dependencies(bf_blenkernel bf_rna)

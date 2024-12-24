@@ -16,7 +16,7 @@
 #include "BKE_attribute.hh"
 #include "BKE_context.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_image.h"
+#include "BKE_image.hh"
 #include "BKE_key.hh"
 #include "BKE_movieclip.h"
 #include "BKE_node.hh"
@@ -355,6 +355,10 @@ static const EnumPropertyItem multiview_camera_items[] = {
 #undef V3D_S3D_CAMERA_S3D
 #undef V3D_S3D_CAMERA_VIEWS
 
+/**
+ * This will be split to give different items in file than in asset browsing mode, see
+ * #rna_FileSelectParams_sort_method_itemf().
+ */
 const EnumPropertyItem rna_enum_fileselect_params_sort_items[] = {
     {FILE_SORT_ALPHA, "FILE_SORT_ALPHA", ICON_NONE, "Name", "Sort the file list alphabetically"},
     {FILE_SORT_EXTENSION,
@@ -368,6 +372,13 @@ const EnumPropertyItem rna_enum_fileselect_params_sort_items[] = {
      "Modified Date",
      "Sort files by modification time"},
     {FILE_SORT_SIZE, "FILE_SORT_SIZE", ICON_NONE, "Size", "Sort files by size"},
+    {FILE_SORT_ASSET_CATALOG,
+     "ASSET_CATALOG",
+     0,
+     "Asset Catalog",
+     "Sort the asset list so that assets in the same catalog are kept together. Within a single "
+     "catalog, assets are ordered by name. The catalogs are in order of the flattened catalog "
+     "hierarchy."},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -951,22 +962,6 @@ static void rna_Space_view2d_sync_update(Main * /*bmain*/, Scene * /*scene*/, Po
   }
 }
 
-static void rna_GPencil_update(Main *bmain, Scene * /*scene*/, PointerRNA * /*ptr*/)
-{
-  bool changed = false;
-  /* need set all caches as dirty to recalculate onion skinning */
-  LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
-    if (ob->type == OB_GPENCIL_LEGACY) {
-      bGPdata *gpd = (bGPdata *)ob->data;
-      DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY);
-      changed = true;
-    }
-  }
-  if (changed) {
-    WM_main_add_notifier(NC_GPENCIL | NA_EDITED, nullptr);
-  }
-}
-
 /* Space 3D View */
 static void rna_SpaceView3D_camera_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
@@ -1206,9 +1201,6 @@ static void rna_3DViewShading_type_update(Main *bmain, Scene *scene, PointerRNA 
       }
     }
   }
-
-  /* Update Gpencil. */
-  rna_GPencil_update(bmain, scene, ptr);
 
   bScreen *screen = (bScreen *)ptr->owner_id;
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
@@ -2456,24 +2448,22 @@ static void seq_build_proxy(bContext *C, PointerRNA *ptr)
   Scene *scene = CTX_data_scene(C);
   ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(scene));
 
-  GSet *file_list = BLI_gset_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, "file list");
+  blender::Set<std::string> processed_paths;
   wmJob *wm_job = ED_seq_proxy_wm_job_get(C);
   ProxyJob *pj = ED_seq_proxy_job_get(C, wm_job);
 
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
-    if (seq->type != SEQ_TYPE_MOVIE || seq->strip == nullptr || seq->strip->proxy == nullptr) {
+    if (seq->type != SEQ_TYPE_MOVIE || seq->data == nullptr || seq->data->proxy == nullptr) {
       continue;
     }
 
     /* Add new proxy size. */
-    seq->strip->proxy->build_size_flags |= SEQ_rendersize_to_proxysize(sseq->render_size);
+    seq->data->proxy->build_size_flags |= SEQ_rendersize_to_proxysize(sseq->render_size);
 
     /* Build proxy. */
     SEQ_proxy_rebuild_context(
-        pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue, true);
+        pj->main, pj->depsgraph, pj->scene, seq, &processed_paths, &pj->queue, true);
   }
-
-  BLI_gset_free(file_list, MEM_freeN);
 
   if (!WM_jobs_is_running(wm_job)) {
     G.is_break = false;
@@ -2918,6 +2908,43 @@ static const EnumPropertyItem *rna_FileSelectParams_recursion_level_itemf(bConte
 
   *r_free = false;
   return fileselectparams_recursion_level_items;
+}
+
+static const EnumPropertyItem *rna_FileSelectParams_sort_method_itemf(bContext * /*C*/,
+                                                                      PointerRNA *ptr,
+                                                                      PropertyRNA * /*prop*/,
+                                                                      bool *r_free)
+{
+  EnumPropertyItem *items = nullptr;
+  int totitem = 0;
+
+  if (RNA_struct_is_a(ptr->type, &RNA_FileAssetSelectParams)) {
+    /* Only expose sorting by name and asset catalog for asset browsing. */
+
+    RNA_enum_items_add_value(
+        &items, &totitem, rna_enum_fileselect_params_sort_items, FILE_SORT_ALPHA);
+    /* Address small annoyance: Tooltip talks about "file list", override to be "asset list"
+     * instead. */
+    items[0].description = N_("Sort the asset list alphabetically");
+
+    RNA_enum_items_add_value(
+        &items, &totitem, rna_enum_fileselect_params_sort_items, FILE_SORT_ASSET_CATALOG);
+  }
+  else {
+    /* Remove asset catalog from the items. */
+    for (const EnumPropertyItem *item = rna_enum_fileselect_params_sort_items; item->identifier;
+         item++)
+    {
+      if (item->value != FILE_SORT_ASSET_CATALOG) {
+        RNA_enum_item_add(&items, &totitem, item);
+      }
+    }
+  }
+
+  RNA_enum_item_end(&items, &totitem);
+
+  *r_free = true;
+  return items;
 }
 
 static void rna_FileSelectPrams_filter_glob_set(PointerRNA *ptr, const char *value)
@@ -4340,8 +4367,7 @@ static void rna_def_space_view3d_shading(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, rna_enum_shading_color_type_items);
   RNA_def_property_ui_text(prop, "Color", "Color Type");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(
-      prop, NC_SPACE | ND_SPACE_VIEW3D | NS_VIEW3D_SHADING, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D | NS_VIEW3D_SHADING, nullptr);
 
   prop = RNA_def_property(srna, "wireframe_color_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "wire_color_type");
@@ -4498,7 +4524,7 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_overlays", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_negative_sdna(prop, nullptr, "flag2", V3D_HIDE_OVERLAYS);
   RNA_def_property_ui_text(prop, "Show Overlays", "Display overlays like gizmos and outlines");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "show_ortho_grid", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gridflag", V3D_SHOW_ORTHO_GRID);
@@ -4641,20 +4667,20 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Opacity", "Strength of the fade effect");
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "show_xray_bone", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "overlay.flag", V3D_OVERLAY_BONE_SELECT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Show Bone X-Ray", "Show the bone selection overlay");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "xray_alpha_bone", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "overlay.xray_alpha_bone");
   RNA_def_property_ui_text(prop, "Opacity", "Opacity to use for bone selection");
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "bone_wire_alpha", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "overlay.bone_wire_alpha");
@@ -4663,7 +4689,7 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_range(prop, 0.0f, FLT_MAX);
   RNA_def_property_ui_range(prop, 0.0f, 1.0f, 1, 2);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "show_motion_paths", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_negative_sdna(
@@ -4883,7 +4909,7 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, rna_enum_curve_display_handle_items);
   RNA_def_property_ui_text(
       prop, "Display Handles", "Limit the display of curve handles in edit mode");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "show_curve_normals", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "overlay.edit_flag", V3D_OVERLAY_EDIT_CU_NORMALS);
@@ -4895,7 +4921,6 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Normal Size", "Display size for normals in the 3D view");
   RNA_def_property_range(prop, 0.00001, 100000.0);
   RNA_def_property_ui_range(prop, 0.01, 2.0, 1, 2);
-  RNA_def_property_float_default(prop, 0.02);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "normals_constant_screen_size", PROP_FLOAT, PROP_PIXEL);
@@ -4992,18 +5017,18 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_FADE_NOACTIVE_LAYERS);
   RNA_def_property_ui_text(
       prop, "Fade Layers", "Toggle fading of Grease Pencil layers except the active one");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "use_gpencil_fade_gp_objects", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_FADE_NOACTIVE_GPENCIL);
   RNA_def_property_ui_text(
       prop, "Fade Grease Pencil Objects", "Fade Grease Pencil Objects, except the active one");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "use_gpencil_canvas_xray", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_GRID_XRAY);
   RNA_def_property_ui_text(prop, "Canvas X-Ray", "Show Canvas grid in front");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "use_gpencil_show_directions", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_STROKE_DIRECTION);
@@ -5011,13 +5036,13 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
                            "Stroke Direction",
                            "Show stroke drawing direction with a bigger green dot (start) "
                            "and smaller red dot (end) points");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "use_gpencil_show_material_name", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_MATERIAL_NAME);
   RNA_def_property_ui_text(
       prop, "Stroke Material Name", "Show material name assigned to each stroke");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "gpencil_grid_opacity", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, nullptr, "overlay.gpencil_grid_opacity");
@@ -5065,25 +5090,25 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_float_default(prop, 0.5f);
   RNA_def_property_ui_text(
       prop, "Opacity", "Fade layer opacity for Grease Pencil layers except the active one");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   /* show edit lines */
   prop = RNA_def_property(srna, "use_gpencil_edit_lines", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_EDIT_LINES);
   RNA_def_property_ui_text(prop, "Show Edit Lines", "Show Edit Lines when editing strokes");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "use_gpencil_multiedit_line_only", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_MULTIEDIT_LINES);
   RNA_def_property_ui_text(prop, "Lines Only", "Show Edit Lines only in multiframe");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   /* main grease pencil onion switch */
   prop = RNA_def_property(srna, "use_gpencil_onion_skin", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "gp_flag", V3D_GP_SHOW_ONION_SKIN);
   RNA_def_property_ui_text(
       prop, "Onion Skins", "Show ghosts of the keyframes before and after the current frame");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   /* vertex opacity */
   prop = RNA_def_property(srna, "vertex_opacity", PROP_FLOAT, PROP_FACTOR);
@@ -5091,14 +5116,14 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_ui_text(prop, "Vertex Opacity", "Opacity for edit vertices");
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, ParameterFlag(0));
-  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 
   /* Vertex Paint opacity factor */
   prop = RNA_def_property(srna, "gpencil_vertex_paint_opacity", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "overlay.gpencil_vertex_paint_opacity");
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_ui_text(prop, "Opacity", "Vertex Paint mix factor");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   /* Developer Debug overlay */
 
@@ -7113,6 +7138,7 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
   prop = RNA_def_property(srna, "sort_method", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "sort");
   RNA_def_property_enum_items(prop, rna_enum_fileselect_params_sort_items);
+  RNA_def_property_enum_funcs(prop, nullptr, nullptr, "rna_FileSelectParams_sort_method_itemf");
   RNA_def_property_ui_text(prop, "Sort", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
 

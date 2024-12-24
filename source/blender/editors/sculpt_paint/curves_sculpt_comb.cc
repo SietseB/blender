@@ -114,7 +114,7 @@ struct CombOperationExecutor {
     curves_ob_orig_ = CTX_data_active_object(&C);
     curves_id_orig_ = static_cast<Curves *>(curves_ob_orig_->data);
     curves_orig_ = &curves_id_orig_->geometry.wrap();
-    if (curves_orig_->curves_num() == 0) {
+    if (curves_orig_->is_empty()) {
       return;
     }
 
@@ -137,7 +137,7 @@ struct CombOperationExecutor {
     brush_pos_diff_re_ = brush_pos_re_ - brush_pos_prev_re_;
 
     if (stroke_extension.is_first) {
-      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
+      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE || (U.uiflag & USER_ORBIT_SELECTION)) {
         this->initialize_spherical_brush_reference_point();
       }
       self_->constraint_solver_.initialize(
@@ -392,6 +392,9 @@ struct CombOperationExecutor {
                                                                    brush_radius_base_re_);
     if (brush_3d.has_value()) {
       self_->brush_3d_ = *brush_3d;
+      remember_stroke_position(
+          *ctx_.scene,
+          math::transform_point(transforms_.curves_to_world, self_->brush_3d_.position_cu));
     }
   }
 };

@@ -77,11 +77,11 @@ static void outliner_main_region_init(wmWindowManager *wm, ARegion *region)
 
   /* own keymap */
   keymap = WM_keymap_ensure(wm->defaultconf, "Outliner", SPACE_OUTLINER, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler_v2d_mask(&region->handlers, keymap);
+  WM_event_add_keymap_handler_v2d_mask(&region->runtime->handlers, keymap);
 
   /* Add dropboxes */
   lb = WM_dropboxmap_find("Outliner", SPACE_OUTLINER, RGN_TYPE_WINDOW);
-  WM_event_add_dropbox_handler(&region->handlers, lb);
+  WM_event_add_dropbox_handler(&region->runtime->handlers, lb);
 }
 
 static void outliner_main_region_draw(const bContext *C, ARegion *region)
@@ -382,14 +382,14 @@ static SpaceLink *outliner_create(const ScrArea * /*area*/, const Scene * /*scen
   space_outliner->filter = SO_FILTER_NO_VIEW_LAYERS;
 
   /* header */
-  region = MEM_cnew<ARegion>("header for outliner");
+  region = BKE_area_region_new();
 
   BLI_addtail(&space_outliner->regionbase, region);
   region->regiontype = RGN_TYPE_HEADER;
   region->alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_BOTTOM : RGN_ALIGN_TOP;
 
   /* main region */
-  region = MEM_cnew<ARegion>("main region for outliner");
+  region = BKE_area_region_new();
 
   BLI_addtail(&space_outliner->regionbase, region);
   region->regiontype = RGN_TYPE_WINDOW;
@@ -503,10 +503,12 @@ static void outliner_foreach_id(SpaceLink *space_link, LibraryForeachIDData *dat
     if (TSE_IS_REAL_ID(tselem)) {
       /* NOTE: Outliner ID pointers are never `IDWALK_CB_DIRECT_WEAK_LINK`, they should never
        * enforce keeping a reference to some linked data. */
-      const int cb_flag = (tselem->id != nullptr && allow_pointer_access &&
-                           (tselem->id->flag & ID_FLAG_EMBEDDED_DATA) != 0) ?
-                              IDWALK_CB_EMBEDDED_NOT_OWNING :
-                              IDWALK_CB_NOP;
+      const LibraryForeachIDCallbackFlag cb_flag = (tselem->id != nullptr &&
+                                                    allow_pointer_access &&
+                                                    (tselem->id->flag & ID_FLAG_EMBEDDED_DATA) !=
+                                                        0) ?
+                                                       IDWALK_CB_EMBEDDED_NOT_OWNING :
+                                                       IDWALK_CB_NOP;
       BKE_LIB_FOREACHID_PROCESS_ID(data, tselem->id, cb_flag);
     }
     else if (!is_readonly) {

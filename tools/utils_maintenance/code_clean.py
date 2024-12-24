@@ -449,7 +449,7 @@ class EditGenerator:
     def edit_list_from_file(_source: str, _data: str, _shared_edit_data: Any) -> list[Edit]:
         # The `__init_subclass__` function ensures this is always overridden.
         raise RuntimeError("This function must be overridden by it's subclass!")
-        return []
+        # return []
 
     @staticmethod
     def setup() -> Any:
@@ -465,7 +465,7 @@ class edit_generators:
 
     class sizeof_fixed_array(EditGenerator):
         """
-        Use fixed size array syntax with `sizeof`:
+        Use fixed size array syntax with ``sizeof``:
 
         Replace:
           sizeof(float) * 4 * 4
@@ -930,7 +930,7 @@ class edit_generators:
 
     class use_const_vars(EditGenerator):
         """
-        Use `const` where possible:
+        Use ``const`` where possible:
 
         Replace:
           float abc[3] = {0, 1, 2};
@@ -1658,7 +1658,7 @@ def test_edit(
         verbose_edit_actions: bool,
 ) -> bool:
     """
-    Return true if `data_test` has the same object output as `data`.
+    Return true if ``data_test`` has the same object output as ``data``.
     """
     if os.path.exists(output):
         os.remove(output)

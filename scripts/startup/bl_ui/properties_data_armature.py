@@ -286,13 +286,11 @@ class DATA_PT_armature_animation(ArmatureButtonsPanel, PropertiesAnimationMixin,
 
 
 class DATA_PT_custom_props_arm(ArmatureButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "object.data"
     _property_type = bpy.types.Armature
 
 
 class DATA_PT_custom_props_bcoll(ArmatureButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "armature.collections.active"
     _property_type = bpy.types.BoneCollection
     bl_parent_id = "DATA_PT_bone_collections"
@@ -376,12 +374,12 @@ class POSE_PT_selection_sets(Panel):
         sub.operator("pose.selection_set_unassign", text="Remove")
 
         sub = row.row(align=True)
-        sub.operator("pose.selection_set_select", text="Select")
+        sub.operator("pose.selection_set_select", text="Select").selection_set_index = -1
         sub.operator("pose.selection_set_deselect", text="Deselect")
 
 
 class POSE_UL_selection_set(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         row = layout.row()
         row.prop(item, "name", text="", emboss=False)
         if self.layout_type in ('DEFAULT', 'COMPACT'):
@@ -391,7 +389,7 @@ class POSE_UL_selection_set(UIList):
 class POSE_MT_selection_set_create(Menu):
     bl_label = "Choose Selection Set"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.operator("pose.selection_set_add_and_assign",
                         text="New Selection Set")

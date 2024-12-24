@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_array_utils.hh"
+
 #include "BKE_curves.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
@@ -131,6 +133,9 @@ static GreasePencil *curve_instances_to_grease_pencil_layers(
     if (iter.is_builtin && !grease_pencil_attributes.is_builtin(iter.name)) {
       return;
     }
+    if (iter.data_type == CD_PROP_STRING) {
+      return;
+    }
     if (ELEM(iter.name, "opacity")) {
       return;
     }
@@ -217,6 +222,7 @@ static void node_register()
   static bke::bNodeType ntype;
   geo_node_type_base(
       &ntype, GEO_NODE_CURVES_TO_GREASE_PENCIL, "Curves to Grease Pencil", NODE_CLASS_GEOMETRY);
+  ntype.enum_name_legacy = "CURVES_TO_GREASE_PENCIL";
   ntype.geometry_node_execute = node_geo_exec;
   ntype.declare = node_declare;
   bke::node_type_size(&ntype, 160, 100, 320);

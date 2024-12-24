@@ -6,6 +6,7 @@
  * \ingroup modifiers
  */
 
+#include "BLI_array_utils.hh"
 #include "BLI_index_range.hh"
 #include "BLI_span.hh"
 #include "BLI_string.h"
@@ -328,6 +329,7 @@ static void modify_drawing(const GreasePencilDashModifierData &dmd,
                            const PatternInfo &pattern_info,
                            bke::greasepencil::Drawing &drawing)
 {
+  modifier::greasepencil::ensure_no_bezier_curves(drawing);
   const bke::CurvesGeometry &src_curves = drawing.strokes();
   if (src_curves.curve_num == 0) {
     return;
@@ -378,7 +380,7 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
-  uiItemR(layout, ptr, "dash_offset", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "dash_offset", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   uiLayout *row = uiLayoutRow(layout, false);
   uiLayoutSetPropSep(row, false);
@@ -419,18 +421,18 @@ static void panel_draw(const bContext *C, Panel *panel)
                                            &dmd->segments()[dmd->segment_active_index]);
 
     sub = uiLayoutColumn(layout, true);
-    uiItemR(sub, &ds_ptr, "dash", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(sub, &ds_ptr, "gap", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "dash", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "gap", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
     sub = uiLayoutColumn(layout, false);
-    uiItemR(sub, &ds_ptr, "radius", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(sub, &ds_ptr, "opacity", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(sub, &ds_ptr, "material_index", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(sub, &ds_ptr, "use_cyclic", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "radius", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "opacity", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "material_index", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(sub, &ds_ptr, "use_cyclic", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
   if (uiLayout *influence_panel = uiLayoutPanelProp(
-          C, layout, ptr, "open_influence_panel", "Influence"))
+          C, layout, ptr, "open_influence_panel", IFACE_("Influence")))
   {
     modifier::greasepencil::draw_layer_filter_settings(C, influence_panel, ptr);
     modifier::greasepencil::draw_material_filter_settings(C, influence_panel, ptr);

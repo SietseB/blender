@@ -41,7 +41,7 @@ static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
   selection_evaluator.evaluate();
   const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
 
-  Map<StringRef, AttributeKind> attributes;
+  Map<StringRef, AttributeDomainAndType> attributes;
   geometry_set.gather_attributes_for_propagation({GeometryComponent::Type::PointCloud},
                                                  GeometryComponent::Type::Mesh,
                                                  false,
@@ -62,7 +62,7 @@ static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
   const AttributeAccessor src_attributes = points->attributes();
   MutableAttributeAccessor dst_attributes = mesh->attributes_for_write();
 
-  for (MapItem<StringRef, AttributeKind> entry : attributes.items()) {
+  for (MapItem<StringRef, AttributeDomainAndType> entry : attributes.items()) {
     const StringRef id = entry.key;
     const eCustomDataType data_type = entry.value.data_type;
     const GAttributeReader src = src_attributes.lookup(id);
@@ -105,6 +105,7 @@ static void node_register()
 
   geo_node_type_base(
       &ntype, GEO_NODE_POINTS_TO_VERTICES, "Points to Vertices", NODE_CLASS_GEOMETRY);
+  ntype.enum_name_legacy = "POINTS_TO_VERTICES";
   ntype.declare = node_declare;
   ntype.geometry_node_execute = node_geo_exec;
   blender::bke::node_register_type(&ntype);

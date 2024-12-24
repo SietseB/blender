@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "gpu_glsl_cpp_stubs.hh"
+
 /* WORKAROUND: to guard against double include in EEVEE. */
 #ifndef GPU_SHADER_UTILDEFINES_GLSL
 #  define GPU_SHADER_UTILDEFINES_GLSL
@@ -12,6 +14,8 @@
 #    define FLT_MAX uintBitsToFloat(0x7F7FFFFFu)
 #    define FLT_MIN uintBitsToFloat(0x00800000u)
 #    define FLT_EPSILON 1.192092896e-07F
+#  endif
+#  ifndef SHRT_MAX
 #    define SHRT_MAX 0x00007FFF
 #    define INT_MAX 0x7FFFFFFF
 #    define USHRT_MAX 0x0000FFFFu

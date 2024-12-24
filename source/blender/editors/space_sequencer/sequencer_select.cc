@@ -251,13 +251,13 @@ void ED_sequencer_select_sequence_single(Scene *scene, Sequence *seq, bool desel
   SEQ_select_active_set(scene, seq);
 
   if (ELEM(seq->type, SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE)) {
-    if (seq->strip) {
-      BLI_strncpy(ed->act_imagedir, seq->strip->dirpath, FILE_MAXDIR);
+    if (seq->data) {
+      BLI_strncpy(ed->act_imagedir, seq->data->dirpath, FILE_MAXDIR);
     }
   }
   else if (seq->type == SEQ_TYPE_SOUND_RAM) {
-    if (seq->strip) {
-      BLI_strncpy(ed->act_sounddir, seq->strip->dirpath, FILE_MAXDIR);
+    if (seq->data) {
+      BLI_strncpy(ed->act_sounddir, seq->data->dirpath, FILE_MAXDIR);
     }
   }
   seq->flag |= SELECT;
@@ -438,12 +438,12 @@ void recurs_sel_seq(Sequence *seq_meta)
   }
 }
 
-static bool seq_point_image_isect(const Scene *scene, const Sequence *seq, float point[2])
+bool seq_point_image_isect(const Scene *scene, const Sequence *seq, float point_view[2])
 {
   float seq_image_quad[4][2];
   SEQ_image_transform_final_quad_get(scene, seq, seq_image_quad);
   return isect_point_quad_v2(
-      point, seq_image_quad[0], seq_image_quad[1], seq_image_quad[2], seq_image_quad[3]);
+      point_view, seq_image_quad[0], seq_image_quad[1], seq_image_quad[2], seq_image_quad[3]);
 }
 
 static void sequencer_select_do_updates(bContext *C, Scene *scene)
@@ -587,13 +587,13 @@ static void sequencer_select_set_active(Scene *scene, Sequence *seq)
   SEQ_select_active_set(scene, seq);
 
   if (ELEM(seq->type, SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE)) {
-    if (seq->strip) {
-      BLI_strncpy(ed->act_imagedir, seq->strip->dirpath, FILE_MAXDIR);
+    if (seq->data) {
+      BLI_strncpy(ed->act_imagedir, seq->data->dirpath, FILE_MAXDIR);
     }
   }
   else if (seq->type == SEQ_TYPE_SOUND_RAM) {
-    if (seq->strip) {
-      BLI_strncpy(ed->act_sounddir, seq->strip->dirpath, FILE_MAXDIR);
+    if (seq->data) {
+      BLI_strncpy(ed->act_sounddir, seq->data->dirpath, FILE_MAXDIR);
     }
   }
   recurs_sel_seq(seq);
@@ -1058,14 +1058,10 @@ static blender::Vector<Sequence *> mouseover_strips_sorted_get(const Scene *scen
     strips.append(seq);
   }
 
-  BLI_assert(strips.size() <= 2);
-
-  /* Ensure that `strips[0]` is the strip closest to the mouse cursor. */
-  if (strips.size() == 2 && strip_to_frame_distance(scene, v2d, strips[0], mouse_co[0]) >
-                                strip_to_frame_distance(scene, v2d, strips[1], mouse_co[0]))
-  {
-    std::swap(strips[0], strips[1]);
-  }
+  std::sort(strips.begin(), strips.end(), [&](const Sequence *seq1, const Sequence *seq2) {
+    return strip_to_frame_distance(scene, v2d, seq1, mouse_co[0]) <
+           strip_to_frame_distance(scene, v2d, seq2, mouse_co[0]);
+  });
 
   return strips;
 }
@@ -1406,11 +1402,6 @@ static int sequencer_select_handle_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
   }
 
-  if (sequencer_retiming_mode_is_active(C) && retiming_keys_can_be_displayed(CTX_wm_space_seq(C)))
-  {
-    return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
-  }
-
   MouseCoords mouse_co(v2d, RNA_int_get(op->ptr, "mouse_x"), RNA_int_get(op->ptr, "mouse_y"));
 
   StripSelection selection = ED_sequencer_pick_strip_and_handle(scene, v2d, mouse_co.view);
@@ -1449,6 +1440,7 @@ static int sequencer_select_handle_exec(bContext *C, wmOperator *op)
     sequencer_select_connected_strips(selection);
   }
 
+  SEQ_retiming_selection_clear(ed);
   sequencer_select_do_updates(C, scene);
   sequencer_select_set_active(scene, selection.seq1);
   return OPERATOR_FINISHED | OPERATOR_PASS_THROUGH;
@@ -2183,15 +2175,19 @@ static int sequencer_box_select_invoke(bContext *C, wmOperator *op, const wmEven
     return OPERATOR_CANCELLED;
   }
 
-  int mval[2];
-  float mouse_co[2];
-  WM_event_drag_start_mval(event, region, mval);
-  UI_view2d_region_to_view(v2d, mval[0], mval[1], &mouse_co[0], &mouse_co[1]);
+  const bool tweak = RNA_boolean_get(op->ptr, "tweak");
 
-  StripSelection selection = ED_sequencer_pick_strip_and_handle(scene, v2d, mouse_co);
+  if (tweak) {
+    int mval[2];
+    float mouse_co[2];
+    WM_event_drag_start_mval(event, region, mval);
+    UI_view2d_region_to_view(v2d, mval[0], mval[1], &mouse_co[0], &mouse_co[1]);
 
-  if (selection.seq1 != nullptr) {
-    return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
+    StripSelection selection = ED_sequencer_pick_strip_and_handle(scene, v2d, mouse_co);
+
+    if (selection.seq1 != nullptr) {
+      return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
+    }
   }
 
   return WM_gesture_box_invoke(C, op, event);
@@ -2220,6 +2216,14 @@ void SEQUENCER_OT_select_box(wmOperatorType *ot)
   /* Properties. */
   WM_operator_properties_gesture_box(ot);
   WM_operator_properties_select_operation_simple(ot);
+
+  prop = RNA_def_boolean(
+      ot->srna,
+      "tweak",
+      false,
+      "Tweak",
+      "Make box select pass through to sequence slide when the cursor is hovering on a strip");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   prop = RNA_def_boolean(
       ot->srna, "include_handles", false, "Select Handles", "Select the strips and their handles");
@@ -2343,7 +2347,7 @@ static bool select_grouped_data(blender::Span<Sequence *> strips,
                                 const int channel)
 {
   bool changed = false;
-  const char *dirpath = actseq->strip ? actseq->strip->dirpath : nullptr;
+  const char *dirpath = actseq->data ? actseq->data->dirpath : nullptr;
 
   if (!SEQ_USE_DATA(actseq)) {
     return changed;
@@ -2351,8 +2355,8 @@ static bool select_grouped_data(blender::Span<Sequence *> strips,
 
   if (SEQ_HAS_PATH(actseq) && dirpath) {
     for (Sequence *seq : strips) {
-      if (SEQ_CHANNEL_CHECK(seq, channel) && SEQ_HAS_PATH(seq) && seq->strip &&
-          STREQ(seq->strip->dirpath, dirpath))
+      if (SEQ_CHANNEL_CHECK(seq, channel) && SEQ_HAS_PATH(seq) && seq->data &&
+          STREQ(seq->data->dirpath, dirpath))
       {
         seq->flag |= SELECT;
         changed = true;

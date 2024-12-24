@@ -4,8 +4,6 @@
  *
  * Author: Sergey Sharybin. */
 
-#include "internal/evaluator/evaluator_impl.h"
-
 #include <cassert>
 #include <cstdio>
 
@@ -26,14 +24,15 @@
 #include "internal/evaluator/eval_output_gpu.h"
 #include "internal/evaluator/evaluator_cache_impl.h"
 #include "internal/evaluator/patch_map.h"
-#include "internal/topology/topology_refiner_impl.h"
+#include "opensubdiv_evaluator.hh"
 #include "opensubdiv_evaluator_capi.hh"
-#include "opensubdiv_topology_refiner_capi.hh"
+#include "opensubdiv_topology_refiner.hh"
 
 using OpenSubdiv::Far::PatchTable;
 using OpenSubdiv::Far::PatchTableFactory;
 using OpenSubdiv::Far::StencilTable;
 using OpenSubdiv::Far::StencilTableFactory;
+using OpenSubdiv::Far::StencilTableReal;
 using OpenSubdiv::Far::TopologyRefiner;
 using OpenSubdiv::Osd::PatchArray;
 using OpenSubdiv::Osd::PatchCoord;
@@ -407,22 +406,22 @@ bool EvalOutputAPI::hasVertexData() const
 
 }  // namespace blender::opensubdiv
 
-OpenSubdiv_EvaluatorImpl::OpenSubdiv_EvaluatorImpl()
+OpenSubdiv_Evaluator::OpenSubdiv_Evaluator()
     : eval_output(NULL), patch_map(NULL), patch_table(NULL)
 {
 }
 
-OpenSubdiv_EvaluatorImpl::~OpenSubdiv_EvaluatorImpl()
+OpenSubdiv_Evaluator::~OpenSubdiv_Evaluator()
 {
   delete eval_output;
   delete patch_map;
   delete patch_table;
 }
 
-OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
+OpenSubdiv_Evaluator *openSubdiv_createEvaluatorFromTopologyRefiner(
     blender::opensubdiv::TopologyRefinerImpl *topology_refiner,
     eOpenSubdivEvaluator evaluator_type,
-    OpenSubdiv_EvaluatorCacheImpl *evaluator_cache_descr)
+    OpenSubdiv_EvaluatorCache *evaluator_cache_descr)
 {
   TopologyRefiner *refiner = topology_refiner->topology_refiner;
   if (refiner == NULL) {
@@ -451,6 +450,14 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
     TopologyRefiner::UniformOptions options(level);
     refiner->RefineUniform(options);
   }
+
+  // Work around ASAN warnings, due to OpenSubdiv pretending to have an actual StencilTable
+  // instance while it's really its base class.
+  auto delete_stencil_table = [](const StencilTable *table) {
+    static_assert(std::is_base_of_v<StencilTableReal<float>, StencilTable>);
+    delete reinterpret_cast<const StencilTableReal<float> *>(table);
+  };
+
   // Generate stencil table to update the bi-cubic patches control vertices
   // after they have been re-posed (both for vertex & varying interpolation).
   //
@@ -499,7 +506,7 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
   if (local_point_stencil_table != NULL) {
     const StencilTable *table = StencilTableFactory::AppendLocalPointStencilTable(
         *refiner, vertex_stencils, local_point_stencil_table);
-    delete vertex_stencils;
+    delete_stencil_table(vertex_stencils);
     vertex_stencils = table;
   }
   // Varying stencils.
@@ -509,7 +516,7 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
     if (local_point_varying_stencil_table != NULL) {
       const StencilTable *table = StencilTableFactory::AppendLocalPointStencilTable(
           *refiner, varying_stencils, local_point_varying_stencil_table);
-      delete varying_stencils;
+      delete_stencil_table(varying_stencils);
       varying_stencils = table;
     }
   }
@@ -522,7 +529,7 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
         patch_table->GetLocalPointFaceVaryingStencilTable(face_varying_channel),
         face_varying_channel);
     if (table != NULL) {
-      delete all_face_varying_stencils[face_varying_channel];
+      delete_stencil_table(all_face_varying_stencils[face_varying_channel]);
       all_face_varying_stencils[face_varying_channel] = table;
     }
   }
@@ -534,7 +541,7 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
     blender::opensubdiv::GpuEvalOutput::EvaluatorCache *evaluator_cache = nullptr;
     if (evaluator_cache_descr) {
       evaluator_cache = static_cast<blender::opensubdiv::GpuEvalOutput::EvaluatorCache *>(
-          evaluator_cache_descr->eval_cache);
+          evaluator_cache_descr->impl->eval_cache);
     }
 
     eval_output = new blender::opensubdiv::GpuEvalOutput(vertex_stencils,
@@ -551,22 +558,18 @@ OpenSubdiv_EvaluatorImpl *openSubdiv_createEvaluatorInternal(
 
   blender::opensubdiv::PatchMap *patch_map = new blender::opensubdiv::PatchMap(*patch_table);
   // Wrap everything we need into an object which we control from our side.
-  OpenSubdiv_EvaluatorImpl *evaluator_descr;
-  evaluator_descr = new OpenSubdiv_EvaluatorImpl();
+  OpenSubdiv_Evaluator *evaluator = new OpenSubdiv_Evaluator();
+  evaluator->type = evaluator_type;
 
-  evaluator_descr->eval_output = new blender::opensubdiv::EvalOutputAPI(eval_output, patch_map);
-  evaluator_descr->patch_map = patch_map;
-  evaluator_descr->patch_table = patch_table;
+  evaluator->eval_output = new blender::opensubdiv::EvalOutputAPI(eval_output, patch_map);
+  evaluator->patch_map = patch_map;
+  evaluator->patch_table = patch_table;
   // TODO(sergey): Look into whether we've got duplicated stencils arrays.
-  delete vertex_stencils;
-  delete varying_stencils;
+  delete_stencil_table(vertex_stencils);
+  delete_stencil_table(varying_stencils);
   for (const StencilTable *table : all_face_varying_stencils) {
-    delete table;
+    delete_stencil_table(table);
   }
-  return evaluator_descr;
-}
 
-void openSubdiv_deleteEvaluatorInternal(OpenSubdiv_EvaluatorImpl *evaluator)
-{
-  delete evaluator;
+  return evaluator;
 }

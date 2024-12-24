@@ -35,17 +35,6 @@
 
 namespace blender::draw {
 
-int mesh_render_mat_len_get(const Object &object, const Mesh &mesh)
-{
-  if (mesh.runtime->edit_mesh != nullptr) {
-    const Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(&object);
-    if (editmesh_eval_final != nullptr) {
-      return std::max<int>(1, editmesh_eval_final->totcol);
-    }
-  }
-  return std::max<int>(1, mesh.totcol);
-}
-
 struct MeshRenderDataUpdateTaskData {
   std::unique_ptr<MeshRenderData> mr;
   MeshBufferCache &cache;
@@ -109,7 +98,6 @@ void mesh_buffer_cache_create_requested(TaskGraph &task_graph,
                                         Mesh &mesh,
                                         const bool is_editmode,
                                         const bool is_paint_mode,
-                                        const bool edit_mode_active,
                                         const float4x4 &object_to_world,
                                         const bool do_final,
                                         const bool do_uvedit,
@@ -186,7 +174,6 @@ void mesh_buffer_cache_create_requested(TaskGraph &task_graph,
                                                                    mesh,
                                                                    is_editmode,
                                                                    is_paint_mode,
-                                                                   edit_mode_active,
                                                                    object_to_world,
                                                                    do_final,
                                                                    do_uvedit,

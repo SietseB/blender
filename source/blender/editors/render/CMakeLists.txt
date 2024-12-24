@@ -4,13 +4,11 @@
 
 set(INC
   ../include
-  ../../blenkernel
   ../../blenloader
   ../../blentranslation
-  ../../bmesh
   ../../draw
-  ../../gpu
   ../../imbuf
+  ../../imbuf/movie
   ../../makesrna
   ../../nodes
   ../../render
@@ -36,10 +34,13 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_draw
+  PRIVATE bf::gpu
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::animrig
 )

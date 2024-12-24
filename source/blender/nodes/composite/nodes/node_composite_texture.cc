@@ -32,7 +32,7 @@ static void cmp_node_texture_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Color>("Color");
 }
 
-using namespace blender::realtime_compositor;
+using namespace blender::compositor;
 
 class TextureOperation : public NodeOperation {
  public:
@@ -40,17 +40,6 @@ class TextureOperation : public NodeOperation {
 
   void execute() override
   {
-    /* Not yet supported on CPU. */
-    if (!context().use_gpu()) {
-      for (const bNodeSocket *output : this->node()->output_sockets()) {
-        Result &output_result = get_result(output->identifier);
-        if (output_result.should_compute()) {
-          output_result.allocate_invalid();
-        }
-      }
-      return;
-    }
-
     Tex *texture = get_texture();
     if (!texture || !context().is_valid_compositing_region()) {
       execute_invalid();
@@ -74,12 +63,12 @@ class TextureOperation : public NodeOperation {
 
     Result &color_result = get_result("Color");
     if (color_result.should_compute()) {
-      color_result.wrap_external(cached_texture.color_texture());
+      color_result.wrap_external(cached_texture.color_result);
     }
 
     Result &value_result = get_result("Value");
     if (value_result.should_compute()) {
-      value_result.wrap_external(cached_texture.value_texture());
+      value_result.wrap_external(cached_texture.value_result);
     }
   }
 
@@ -121,8 +110,9 @@ void register_node_type_cmp_texture()
   static blender::bke::bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_TEXTURE, "Texture", NODE_CLASS_INPUT);
+  ntype.enum_name_legacy = "TEXTURE";
   ntype.declare = file_ns::cmp_node_texture_declare;
-  ntype.realtime_compositor_unsupported_message = N_(
+  ntype.compositor_unsupported_message = N_(
       "Texture nodes not supported in the Viewport compositor");
   ntype.flag |= NODE_PREVIEW;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;

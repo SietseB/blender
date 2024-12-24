@@ -4,10 +4,7 @@
 
 set(INC
   ../include
-  ../../blenkernel
   ../../blentranslation
-  ../../bmesh
-  ../../gpu
   ../../imbuf
   ../../makesrna
   ../../windowmanager
@@ -15,6 +12,7 @@ set(INC
   ../../geometry
   ../sculpt_paint
   ../../modifiers/intern/lineart
+  ../../functions
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -47,12 +45,14 @@ set(SRC
 )
 
 set(LIB
-  bf_blenkernel
+  PRIVATE bf::blenkernel
   PRIVATE bf::animrig
   PRIVATE bf::blenfont
   PRIVATE bf::blenlib
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
+  PRIVATE bf::gpu
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::intern::clog
   extern_curve_fit_nd

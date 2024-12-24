@@ -27,7 +27,11 @@ __all__ = (
     "init",
 )
 
-from collections.abc import (
+from typing import (
+    List,
+    Tuple,
+    Union,
+    # Proxies for `collections.abc`
     Callable,
     Iterator,
 )
@@ -82,7 +86,7 @@ def init(cmake_path: str) -> bool:
 
 def source_list(
         path: str,
-        filename_check: Callable[[str], bool] | None = None,
+        filename_check: Union[Callable[[str], bool], None] = None,
 ) -> Iterator[str]:
     for dirpath, dirnames, filenames in os.walk(path):
         # skip '.git'
@@ -124,19 +128,13 @@ def is_c_any(filename: str) -> bool:
     return is_c(filename) or is_c_header(filename)
 
 
-def is_svn_file(filename: str) -> bool:
-    dn, fn = os.path.split(filename)
-    filename_svn = join(dn, ".svn", "text-base", "%s.svn-base" % fn)
-    return exists(filename_svn)
-
-
 def is_project_file(filename: str) -> bool:
-    return (is_c_any(filename) or is_cmake(filename) or is_glsl(filename))  # and is_svn_file(filename)
+    return (is_c_any(filename) or is_cmake(filename) or is_glsl(filename))
 
 
 def cmake_advanced_info() -> (
-        tuple[list[str], list[tuple[str, str]]] |
-        tuple[None, None]
+        Union[Tuple[List[str], List[Tuple[str, str]]],
+              Tuple[None, None]]
 ):
     """ Extract includes and defines from cmake.
     """
@@ -218,12 +216,15 @@ def cmake_advanced_info() -> (
     return includes, defines
 
 
-def cmake_cache_var(var: str) -> str | None:
+def cmake_cache_var(var: str) -> Union[str, None]:
+    def l_strip_gen(cache_file):
+        for l in cache_file:
+            yield l.strip()
+
     with open(os.path.join(CMAKE_DIR, "CMakeCache.txt"), encoding='utf-8') as cache_file:
         lines = [
-            l_strip for l in cache_file
-            if (l_strip := l.strip())
-            if not l_strip.startswith(("//", "#"))
+            l_strip for l_strip in l_strip_gen(cache_file)
+            if l_strip and not l_strip.startswith(("//", "#"))
         ]
 
     for l in lines:
@@ -232,7 +233,7 @@ def cmake_cache_var(var: str) -> str | None:
     return None
 
 
-def cmake_compiler_defines() -> list[str] | None:
+def cmake_compiler_defines() -> Union[List[str], None]:
     compiler = cmake_cache_var("CMAKE_C_COMPILER")  # could do CXX too
 
     if compiler is None:
@@ -254,5 +255,5 @@ def cmake_compiler_defines() -> list[str] | None:
     return lines
 
 
-def project_name_get() -> str | None:
+def project_name_get() -> Union[str, None]:
     return cmake_cache_var("CMAKE_PROJECT_NAME")

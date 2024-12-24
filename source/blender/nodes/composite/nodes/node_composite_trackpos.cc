@@ -92,18 +92,18 @@ static void node_composit_buts_trackpos(uiLayout *layout, bContext *C, PointerRN
       uiItemR(layout, ptr, "track_name", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_ANIM_DATA);
     }
 
-    uiItemR(layout, ptr, "position", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+    uiItemR(layout, ptr, "position", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
 
     if (ELEM(node->custom1,
              CMP_NODE_TRACK_POSITION_RELATIVE_FRAME,
              CMP_NODE_TRACK_POSITION_ABSOLUTE_FRAME))
     {
-      uiItemR(layout, ptr, "frame_relative", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+      uiItemR(layout, ptr, "frame_relative", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
     }
   }
 }
 
-using namespace blender::realtime_compositor;
+using namespace blender::compositor;
 
 class TrackPositionOperation : public NodeOperation {
  public:
@@ -356,6 +356,7 @@ void register_node_type_cmp_trackpos()
   static blender::bke::bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_TRACKPOS, "Track Position", NODE_CLASS_INPUT);
+  ntype.enum_name_legacy = "TRACKPOS";
   ntype.declare = file_ns::cmp_node_trackpos_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_trackpos;
   ntype.initfunc_api = file_ns::init;

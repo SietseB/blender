@@ -168,6 +168,10 @@ MaterialPass MaterialModule::material_pass_get(Object *ob,
                          default_surface_ntree_.nodetree_get(blender_mat);
 
   bool use_deferred_compilation = inst_.is_viewport() || GPU_use_parallel_compilation();
+  if (inst_.is_viewport_image_render()) {
+    /* We can't defer compilation in viewport image render, since we can't re-sync.(See #130235) */
+    use_deferred_compilation = false;
+  }
 
   MaterialPass matpass = MaterialPass();
   matpass.gpumat = inst_.shaders.material_shader_get(
@@ -206,7 +210,9 @@ MaterialPass MaterialModule::material_pass_get(Object *ob,
 
   const bool is_transparent = GPU_material_flag_get(matpass.gpumat, GPU_MATFLAG_TRANSPARENT);
 
-  if (use_deferred_compilation && GPU_material_recalc_flag_get(matpass.gpumat)) {
+  if (inst_.is_viewport() && use_deferred_compilation &&
+      GPU_material_recalc_flag_get(matpass.gpumat))
+  {
     /* TODO(Miguel Pozo): This is broken, it consumes the flag,
      * but GPUMats can be shared across viewports. */
     inst_.sampling.reset();
@@ -426,7 +432,7 @@ Material &MaterialModule::material_sync(Object *ob,
 
 ::Material *MaterialModule::material_from_slot(Object *ob, int slot)
 {
-  ::Material *ma = BKE_object_material_get(ob, slot + 1);
+  ::Material *ma = BKE_object_material_get_eval(ob, slot + 1);
   if (ma == nullptr) {
     if (ob->type == OB_VOLUME) {
       return BKE_material_default_volume();

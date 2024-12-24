@@ -16,6 +16,7 @@
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 
+#include "BLI_array_utils.hh"
 #include "BLI_math_geom.h"
 #include "BLI_math_numbers.hh"
 #include "BLI_math_vector.hh"
@@ -287,7 +288,7 @@ void DrawingPlacement::cache_viewport_depths(Depsgraph *depsgraph, ARegion *regi
       mode = V3D_DEPTH_NO_GPENCIL;
     }
   }
-  ED_view3d_depth_override(depsgraph, region, view3d, nullptr, mode, &this->depth_cache_);
+  ED_view3d_depth_override(depsgraph, region, view3d, nullptr, mode, false, &this->depth_cache_);
 }
 
 void DrawingPlacement::set_origin_to_nearest_stroke(const float2 co)
@@ -342,6 +343,24 @@ float3 DrawingPlacement::project(const float2 co) const
   return math::transform_point(world_space_to_layer_space_, proj_point);
 }
 
+float3 DrawingPlacement::project_with_shift(const float2 co) const
+{
+  float3 proj_point;
+  if (depth_ == DrawingPlacementDepth::Surface) {
+    /* Project using the viewport depth cache. */
+    proj_point = this->project_depth(co);
+  }
+  else {
+    if (plane_ == DrawingPlacementPlane::View) {
+      ED_view3d_win_to_3d_with_shift(view3d_, region_, placement_loc_, co, proj_point);
+    }
+    else {
+      ED_view3d_win_to_3d_on_plane(region_, placement_plane_, co, false, proj_point);
+    }
+  }
+  return math::transform_point(world_space_to_layer_space_, proj_point);
+}
+
 void DrawingPlacement::project(const Span<float2> src, MutableSpan<float3> dst) const
 {
   threading::parallel_for(src.index_range(), 1024, [&](const IndexRange range) {
@@ -369,26 +388,24 @@ float3 DrawingPlacement::reproject(const float3 pos) const
     /* Reproject the point onto the `placement_plane_` from the current view. */
     RegionView3D *rv3d = static_cast<RegionView3D *>(region_->regiondata);
 
-    float3 ray_co, ray_no;
+    float3 ray_no;
     if (rv3d->is_persp) {
-      ray_co = float3(rv3d->viewinv[3]);
-      ray_no = math::normalize(ray_co - world_pos);
+      ray_no = math::normalize(world_pos - float3(rv3d->viewinv[3]));
     }
     else {
-      ray_co = world_pos;
       ray_no = -float3(rv3d->viewinv[2]);
     }
     float4 plane;
     if (plane_ == DrawingPlacementPlane::View) {
-      plane = float4(rv3d->viewinv[2]);
+      plane_from_point_normal_v3(plane, placement_loc_, rv3d->viewinv[2]);
     }
     else {
       plane = placement_plane_;
     }
 
     float lambda;
-    if (isect_ray_plane_v3(ray_co, ray_no, plane, &lambda, false)) {
-      proj_point = ray_co + ray_no * lambda;
+    if (isect_ray_plane_v3(world_pos, ray_no, plane, &lambda, false)) {
+      proj_point = world_pos + ray_no * lambda;
     }
     else {
       return pos;

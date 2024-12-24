@@ -52,23 +52,25 @@ static void node_composit_buts_mask(uiLayout *layout, bContext *C, PointerRNA *p
   bNode *node = (bNode *)ptr->data;
 
   uiTemplateID(layout, C, ptr, "mask", nullptr, nullptr, nullptr);
-  uiItemR(layout, ptr, "use_feather", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "use_feather", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
 
   uiItemR(layout, ptr, "size_source", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 
   if (node->custom1 & (CMP_NODE_MASK_FLAG_SIZE_FIXED | CMP_NODE_MASK_FLAG_SIZE_FIXED_SCENE)) {
-    uiItemR(layout, ptr, "size_x", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
-    uiItemR(layout, ptr, "size_y", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+    uiItemR(layout, ptr, "size_x", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
+    uiItemR(layout, ptr, "size_y", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
   }
 
-  uiItemR(layout, ptr, "use_motion_blur", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "use_motion_blur", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
   if (node->custom1 & CMP_NODE_MASK_FLAG_MOTION_BLUR) {
-    uiItemR(layout, ptr, "motion_blur_samples", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
-    uiItemR(layout, ptr, "motion_blur_shutter", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+    uiItemR(
+        layout, ptr, "motion_blur_samples", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
+    uiItemR(
+        layout, ptr, "motion_blur_shutter", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
   }
 }
 
-using namespace blender::realtime_compositor;
+using namespace blender::compositor;
 
 class MaskOperation : public NodeOperation {
  public:
@@ -76,17 +78,6 @@ class MaskOperation : public NodeOperation {
 
   void execute() override
   {
-    /* Not yet supported on CPU. */
-    if (!context().use_gpu()) {
-      for (const bNodeSocket *output : this->node()->output_sockets()) {
-        Result &output_result = get_result(output->identifier);
-        if (output_result.should_compute()) {
-          output_result.allocate_invalid();
-        }
-      }
-      return;
-    }
-
     Result &output_mask = get_result("Mask");
     if (!get_mask() || (!is_fixed_size() && !context().is_valid_compositing_region())) {
       output_mask.allocate_invalid();
@@ -94,16 +85,15 @@ class MaskOperation : public NodeOperation {
     }
 
     const Domain domain = compute_domain();
-    CachedMask &cached_mask = context().cache_manager().cached_masks.get(
-        context(),
-        get_mask(),
-        domain.size,
-        get_aspect_ratio(),
-        get_use_feather(),
-        get_motion_blur_samples(),
-        get_motion_blur_shutter());
+    Result &cached_mask = context().cache_manager().cached_masks.get(context(),
+                                                                     get_mask(),
+                                                                     domain.size,
+                                                                     get_aspect_ratio(),
+                                                                     get_use_feather(),
+                                                                     get_motion_blur_samples(),
+                                                                     get_motion_blur_shutter());
 
-    output_mask.wrap_external(cached_mask.texture());
+    output_mask.wrap_external(cached_mask);
   }
 
   Domain compute_domain() override
@@ -188,6 +178,7 @@ void register_node_type_cmp_mask()
   static blender::bke::bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_MASK, "Mask", NODE_CLASS_INPUT);
+  ntype.enum_name_legacy = "MASK";
   ntype.declare = file_ns::cmp_node_mask_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_mask;
   ntype.initfunc = file_ns::node_composit_init_mask;

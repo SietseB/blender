@@ -273,7 +273,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "Simplify stroke reducing number of points"},
     {eModifierType_GreasePencilSubdiv,
      "GREASE_PENCIL_SUBDIV",
-     ICON_MOD_SMOOTH,
+     ICON_MOD_SUBSURF,
      "Subdivide",
      "Grease Pencil subdivide modifier"},
     {eModifierType_GreasePencilEnvelope,
@@ -1401,6 +1401,9 @@ static void rna_BevelModifier_weight_attribute_visit_for_search(
     blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn)
 {
   Object *ob = (Object *)ptr->owner_id;
+  if (ob->type != OB_MESH) {
+    return;
+  }
   PointerRNA mesh_ptr = RNA_id_pointer_create(static_cast<ID *>(ob->data));
   PropertyRNA *attributes_prop = RNA_struct_find_property(&mesh_ptr, "attributes");
   RNA_PROP_BEGIN (&mesh_ptr, itemptr, attributes_prop) {
@@ -8558,6 +8561,7 @@ static void rna_def_modifier_grease_pencil_subdiv(BlenderRNA *brna)
   RNA_def_property_range(prop, 0, 16);
   RNA_def_property_ui_range(prop, 0, 6, 1, 0);
   RNA_def_property_ui_text(prop, "Level", "Level of subdivision");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "subdivision_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "type");

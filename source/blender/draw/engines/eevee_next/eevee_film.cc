@@ -329,9 +329,18 @@ void Film::init(const int2 &extent, const rcti *output_rect)
     data_.overscan = overscan_pixels_get(inst_.camera.overscan(), data_.render_extent);
     data_.render_extent += data_.overscan * 2;
 
-    /* Disable filtering if sample count is 1. */
-    data_.filter_radius = (sampling.sample_count() == 1) ? 0.0f :
-                                                           clamp_f(scene.r.gauss, 0.0f, 100.0f);
+    data_.filter_radius = clamp_f(scene.r.gauss, 0.0f, 100.0f);
+    if (sampling.sample_count() == 1) {
+      /* Disable filtering if sample count is 1. */
+      data_.filter_radius = 0.0f;
+    }
+    if (data_.scaling_factor > 1) {
+      /* Fixes issue when using scaling factor and no filtering.
+       * Without this, the filter becomes a dirac and samples gets only the fallback weight.
+       * This results in a box blur instead of no filtering. */
+      data_.filter_radius = math::max(data_.filter_radius, 0.0001f);
+    }
+
     data_.cryptomatte_samples_len = inst_.view_layer->cryptomatte_levels;
 
     data_.background_opacity = (scene.r.alphamode == R_ALPHAPREMUL) ? 0.0f : 1.0f;
@@ -589,7 +598,7 @@ void Film::end_sync()
   use_reprojection_ = inst_.sampling.interactive_mode();
 
   /* Just bypass the reprojection and reset the accumulation. */
-  if (!use_reprojection_ && inst_.sampling.is_reset()) {
+  if (inst_.is_viewport() && !use_reprojection_ && inst_.sampling.is_reset()) {
     use_reprojection_ = false;
     data_.use_history = false;
   }
@@ -813,7 +822,7 @@ void Film::display()
   data_.display_only = true;
   inst_.uniform_data.push_update();
 
-  draw::View drw_view("MainView", DRW_view_default_get());
+  draw::View &drw_view = draw::View::default_get();
 
   DRW_manager_get()->submit(accumulate_ps_, drw_view);
 
@@ -838,7 +847,8 @@ float *Film::read_pass(eViewLayerEEVEEPassType pass_type, int layer_offset)
   if (pass_is_float3(pass_type)) {
     /* Convert result in place as we cannot do this conversion on GPU. */
     for (const int px : IndexRange(GPU_texture_width(pass_tx) * GPU_texture_height(pass_tx))) {
-      *(reinterpret_cast<float3 *>(result) + px) = *(reinterpret_cast<float3 *>(result + px * 4));
+      float3 tmp = *(reinterpret_cast<float3 *>(result + px * 4));
+      *(reinterpret_cast<float3 *>(result) + px) = tmp;
     }
   }
 

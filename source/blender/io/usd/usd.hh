@@ -136,6 +136,7 @@ struct USDExportParams {
   bool only_deform_bones = false;
 
   bool convert_world_material = true;
+  bool merge_parent_xform = false;
 
   bool use_instancing = false;
   bool export_custom_properties = true;
@@ -212,6 +213,7 @@ struct USDImportParams {
   bool set_material_blend;
 
   bool validate_meshes;
+  bool merge_parent_xform;
 
   eUSDMtlPurpose mtl_purpose;
   eUSDMtlNameCollisionMode mtl_name_collision_mode;

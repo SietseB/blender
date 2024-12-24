@@ -35,7 +35,6 @@ using CreateInfoDictionnary = Map<StringRef, ShaderCreateInfo *>;
 using InterfaceDictionnary = Map<StringRef, StageInterfaceInfo *>;
 
 static CreateInfoDictionnary *g_create_infos = nullptr;
-static CreateInfoDictionnary *g_create_infos_unfinalized = nullptr;
 static InterfaceDictionnary *g_interfaces = nullptr;
 
 /* -------------------------------------------------------------------- */
@@ -153,6 +152,7 @@ void ShaderCreateInfo::finalize(const bool recursive)
 
     if (info.early_fragment_test_) {
       early_fragment_test_ = true;
+      depth_write_ = DepthWrite::UNCHANGED;
     }
     /* Modify depth write if has been changed from default.
      * `UNCHANGED` implies gl_FragDepth is not used at all. */
@@ -287,12 +287,6 @@ std::string ShaderCreateInfo::check_error() const
     return error;
   }
 
-  /*
-   * The next check has been disabled. 'eevee_legacy_surface_common_iface' is known to fail.
-   * The check was added to validate if shader would be able to compile on Vulkan.
-   * TODO(jbakker): Enable the check after EEVEE is replaced by EEVEE-Next.
-   */
-#if 0
   if (bool(this->builtins_ &
            (BuiltinBits::BARYCENTRIC_COORD | BuiltinBits::VIEWPORT_INDEX | BuiltinBits::LAYER)))
   {
@@ -304,7 +298,6 @@ std::string ShaderCreateInfo::check_error() const
       }
     }
   }
-#endif
 
   if (!this->is_vulkan_compatible()) {
     error += this->name_ +
@@ -451,7 +444,6 @@ using namespace blender::gpu::shader;
 void gpu_shader_create_info_init()
 {
   g_create_infos = new CreateInfoDictionnary();
-  g_create_infos_unfinalized = new CreateInfoDictionnary();
   g_interfaces = new InterfaceDictionnary();
 
 #define GPU_SHADER_NAMED_INTERFACE_INFO(_interface, _inst_name) \
@@ -492,63 +484,11 @@ void gpu_shader_create_info_init()
     draw_resource_with_custom_id_new = draw_resource_with_custom_id_fallback;
   }
 
-#ifdef WITH_METAL_BACKEND
-  /* Metal-specific alternatives for Geometry shaders. */
-  if (GPU_type_matches_ex(GPU_DEVICE_ANY, GPU_OS_MAC, GPU_DRIVER_ANY, GPU_BACKEND_METAL)) {
-    /* 3D polyline. */
-    gpu_shader_3D_polyline_uniform_color = gpu_shader_3D_polyline_uniform_color_no_geom;
-    gpu_shader_3D_polyline_flat_color = gpu_shader_3D_polyline_flat_color_no_geom;
-    gpu_shader_3D_polyline_smooth_color = gpu_shader_3D_polyline_smooth_color_no_geom;
-    gpu_shader_3D_polyline_uniform_color_clipped =
-        gpu_shader_3D_polyline_uniform_color_clipped_no_geom;
-
-    /* Overlay Edit Mesh. */
-    overlay_edit_mesh_edge = overlay_edit_mesh_edge_no_geom;
-    overlay_edit_mesh_edge_flat = overlay_edit_mesh_edge_flat_no_geom;
-    overlay_edit_mesh_edge_clipped = overlay_edit_mesh_edge_clipped_no_geom;
-    overlay_edit_mesh_edge_flat_clipped = overlay_edit_mesh_edge_flat_clipped_no_geom;
-    /* Overlay Edit Curve. */
-    overlay_edit_curve_handle = overlay_edit_curve_handle_no_geom;
-    overlay_edit_curve_handle_clipped = overlay_edit_curve_handle_clipped_no_geom;
-    /* Overlay Edit Curves. */
-    overlay_edit_curves_handle = overlay_edit_curves_handle_no_geom;
-    overlay_edit_curves_handle_clipped = overlay_edit_curves_handle_clipped_no_geom;
-
-    /* Overlay Armature Shape outline. */
-    overlay_armature_shape_outline = overlay_armature_shape_outline_no_geom;
-    overlay_armature_shape_outline_clipped = overlay_armature_shape_outline_clipped_no_geom;
-    overlay_armature_shape_wire = overlay_armature_shape_wire_no_geom;
-
-    /* Overlay Motion Path Line. */
-    overlay_motion_path_line = overlay_motion_path_line_no_geom;
-    overlay_motion_path_line_clipped = overlay_motion_path_line_clipped_no_geom;
-
-    /* Conservative rasterization. */
-    basic_depth_mesh_conservative = basic_depth_mesh_conservative_no_geom;
-    basic_depth_mesh_conservative_clipped = basic_depth_mesh_conservative_no_geom_clipped;
-    basic_depth_pointcloud_conservative = basic_depth_pointcloud_conservative_no_geom;
-    basic_depth_pointcloud_conservative_clipped =
-        basic_depth_pointcloud_conservative_no_geom_clipped;
-
-    /* Overlay pre-pass wire. */
-    overlay_outline_prepass_wire = overlay_outline_prepass_wire_no_geom;
-
-    /* Edit UV Edges. */
-    overlay_edit_uv_edges = overlay_edit_uv_edges_no_geom;
-
-    /* NOTE: As atomic data types can alter shader gen if native atomics are unsupported, we need
-     * to use differing create info's to handle the tile optimized check. This does prevent
-     * the shadow techniques from being dynamically switchable. */
-#  if 0
-    /* Temp: Disable TILE_COPY path while efficient solution for parameter buffer overflow is
-     * identified. This path can be re-enabled in future. */
-    const bool is_tile_based_arch = (GPU_platform_architecture() == GPU_ARCHITECTURE_TBDR);
-    if (is_tile_based_arch) {
-      eevee_shadow_data = eevee_shadow_data_non_atomic;
-    }
-#  endif
+  if (GPU_stencil_clasify_buffer_workaround()) {
+    /* WORKAROUND: Adding a dummy buffer that isn't used fixes a bug inside the Qualcomm driver. */
+    eevee_deferred_tile_classify.storage_buf(
+        12, Qualifier::READ_WRITE, "uint", "dummy_workaround_buf[]");
   }
-#endif
 
   for (ShaderCreateInfo *info : g_create_infos->values()) {
     info->builtins_ |= gpu_shader_dependency_get_builtins(info->vertex_source_);
@@ -557,8 +497,9 @@ void gpu_shader_create_info_init()
     info->builtins_ |= gpu_shader_dependency_get_builtins(info->compute_source_);
 
 #if GPU_SHADER_PRINTF_ENABLE
+    const bool is_material_shader = info->name_.startswith("eevee_surf_");
     if ((info->builtins_ & BuiltinBits::USE_PRINTF) == BuiltinBits::USE_PRINTF ||
-        gpu_shader_dependency_force_gpu_print_injection())
+        (gpu_shader_dependency_force_gpu_print_injection() && is_material_shader))
     {
       info->additional_info("gpu_print");
     }
@@ -570,10 +511,6 @@ void gpu_shader_create_info_init()
       info->additional_info("draw_debug_draw");
     }
 #endif
-  }
-
-  for (auto [key, info] : g_create_infos->items()) {
-    g_create_infos_unfinalized->add_new(key, new ShaderCreateInfo(*info));
   }
 
   for (ShaderCreateInfo *info : g_create_infos->values()) {
@@ -594,11 +531,6 @@ void gpu_shader_create_info_exit()
   }
   delete g_create_infos;
 
-  for (auto *value : g_create_infos_unfinalized->values()) {
-    delete value;
-  }
-  delete g_create_infos_unfinalized;
-
   for (auto *value : g_interfaces->values()) {
     delete value;
   }
@@ -607,11 +539,15 @@ void gpu_shader_create_info_exit()
 
 bool gpu_shader_create_info_compile(const char *name_starts_with_filter)
 {
+  using namespace blender;
   using namespace blender::gpu;
   int success = 0;
   int skipped_filter = 0;
   int skipped = 0;
   int total = 0;
+
+  Vector<const GPUShaderCreateInfo *> infos;
+
   for (ShaderCreateInfo *info : g_create_infos->values()) {
     info->finalize();
     if (info->do_static_compilation_) {
@@ -629,14 +565,29 @@ bool gpu_shader_create_info_compile(const char *name_starts_with_filter)
         continue;
       }
       total++;
-      GPUShader *shader = GPU_shader_create_from_info(
-          reinterpret_cast<const GPUShaderCreateInfo *>(info));
-      if (shader == nullptr) {
-        std::cerr << "Compilation " << info->name_.c_str() << " Failed\n";
-      }
-      else {
-        success++;
 
+      infos.append(reinterpret_cast<const GPUShaderCreateInfo *>(info));
+    }
+  }
+
+  Vector<GPUShader *> result;
+  if (GPU_use_parallel_compilation() == false) {
+    for (const GPUShaderCreateInfo *info : infos) {
+      result.append(GPU_shader_create_from_info(info));
+    }
+  }
+  else {
+    BatchHandle batch = GPU_shader_batch_create_from_infos(infos);
+    result = GPU_shader_batch_finalize(batch);
+  }
+
+  for (int i : result.index_range()) {
+    const ShaderCreateInfo *info = reinterpret_cast<const ShaderCreateInfo *>(infos[i]);
+    if (result[i] == nullptr) {
+      std::cerr << "Compilation " << info->name_.c_str() << " Failed\n";
+    }
+    else {
+      success++;
 #if 0 /* TODO(fclem): This is too verbose for now. Make it a cmake option. */
         /* Test if any resource is optimized out and print a warning if that's the case. */
         /* TODO(fclem): Limit this to OpenGL backend. */
@@ -677,10 +628,10 @@ bool gpu_shader_create_info_compile(const char *name_starts_with_filter)
           }
         }
 #endif
-      }
-      GPU_shader_free(shader);
+      GPU_shader_free(result[i]);
     }
   }
+
   printf("Shader Test compilation result: %d / %d passed", success, total);
   if (skipped_filter > 0) {
     printf(" (skipped %d when filtering)", skipped_filter);
@@ -700,19 +651,4 @@ const GPUShaderCreateInfo *gpu_shader_create_info_get(const char *info_name)
   }
   ShaderCreateInfo *info = g_create_infos->lookup(info_name);
   return reinterpret_cast<const GPUShaderCreateInfo *>(info);
-}
-
-void gpu_shader_create_info_get_unfinalized_copy(const char *info_name,
-                                                 GPUShaderCreateInfo &r_info)
-{
-  if (g_create_infos_unfinalized->contains(info_name) == false) {
-    std::string msg = std::string("Error: Cannot find shader create info named \"") + info_name +
-                      "\"\n";
-    BLI_assert_msg(0, msg.c_str());
-  }
-  else {
-    ShaderCreateInfo &info = reinterpret_cast<ShaderCreateInfo &>(r_info);
-    info = *g_create_infos_unfinalized->lookup(info_name);
-    BLI_assert(!info.finalized_);
-  }
 }

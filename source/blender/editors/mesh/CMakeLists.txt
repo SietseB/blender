@@ -5,13 +5,10 @@
 set(INC
   ../include
   ../uvedit
-  ../../blenkernel
   ../../blentranslation
-  ../../bmesh
   ../../draw
   ../../functions
   ../../geometry
-  ../../gpu
   ../../imbuf
   ../../makesrna
   ../../render
@@ -63,11 +60,13 @@ set(SRC
 
 set(LIB
   PRIVATE bf::blenfont
-  bf_blenkernel
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::extern::fmtlib
+  PRIVATE bf::gpu
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
   bf_windowmanager

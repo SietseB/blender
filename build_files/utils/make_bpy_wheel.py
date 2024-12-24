@@ -18,6 +18,14 @@ The command to package it as a wheel is:
    ./build_files/utils/make_bpy_wheel.py ../build_linux_bpy_lite/bin --output-dir=./
 
 This will create a `*.whl` file in the current directory.
+
+WARNING:
+Python 3.9 is used on the built-bot.
+Take care *not* to use features from the Python version used by Blender!
+
+NOTE:
+Some type annotations are quoted to avoid errors in Python 3.9.
+These can be unquoted eventually.
 """
 
 import argparse
@@ -29,7 +37,9 @@ import string
 import setuptools
 import sys
 
-from collections.abc import (
+from typing import (
+    Tuple,
+    # Proxies for `collections.abc`
     Iterator,
     Sequence,
 )
@@ -87,7 +97,7 @@ def find_dominating_file(
 # ------------------------------------------------------------------------------
 # CMake Cache Access
 
-def cmake_cache_var_iter(filepath_cmake_cache: str) -> Iterator[tuple[str, str, str]]:
+def cmake_cache_var_iter(filepath_cmake_cache: str) -> Iterator[Tuple[str, str, str]]:
     re_cache = re.compile(r"([A-Za-z0-9_\-]+)?:?([A-Za-z0-9_\-]+)?=(.*)$")
     with open(filepath_cmake_cache, "r", encoding="utf-8") as cache_file:
         for l in cache_file:
@@ -97,8 +107,8 @@ def cmake_cache_var_iter(filepath_cmake_cache: str) -> Iterator[tuple[str, str, 
                 yield (var, type_ or "", val)
 
 
-def cmake_cache_var(filepath_cmake_cache: str, var: str) -> str | None:
-    for var_iter, type_iter, value_iter in cmake_cache_var_iter(filepath_cmake_cache):
+def cmake_cache_var(filepath_cmake_cache: str, var: str) -> "str | None":
+    for var_iter, _type_iter, value_iter in cmake_cache_var_iter(filepath_cmake_cache):
         if var == var_iter:
             return value_iter
     return None

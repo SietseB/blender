@@ -265,15 +265,16 @@ bool selection_update(const ViewContext *vc,
 
         /* Modes that un-set all elements not in the mask. */
         if (ELEM(sel_op, SEL_OP_SET, SEL_OP_AND)) {
-          bke::GSpanAttributeWriter selection =
-              curves.attributes_for_write().lookup_for_write_span(attribute_name);
+          bke::SpanAttributeWriter<bool> selection =
+              curves.attributes_for_write().lookup_or_add_for_write_span<bool>(attribute_name,
+                                                                               selection_domain);
           ed::curves::fill_selection_false(selection.span);
+          selection.finish();
         }
 
         if (use_segment_selection) {
           /* Range of points in tree data matching this curve, for re-using screen space
-           * positions.
-           */
+           * positions. */
           const IndexRange tree_data_range = tree_data_by_drawing[i_drawing];
           changed |= ed::greasepencil::apply_mask_as_segment_selection(curves,
                                                                        changed_element_mask,
@@ -775,12 +776,13 @@ static void GREASE_PENCIL_OT_select_similar(wmOperatorType *ot)
   ot->idname = "GREASE_PENCIL_OT_select_similar";
   ot->description = "Select all strokes with similar characteristics";
 
+  ot->invoke = WM_menu_invoke;
   ot->exec = select_similar_exec;
   ot->poll = editable_grease_pencil_point_selection_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  RNA_def_enum(
+  ot->prop = RNA_def_enum(
       ot->srna, "mode", select_similar_mode_items, int(SelectSimilarMode::LAYER), "Mode", "");
 
   RNA_def_float(ot->srna, "threshold", 0.1f, 0.0f, FLT_MAX, "Threshold", "", 0.0f, 10.0f);
@@ -871,7 +873,7 @@ static int select_set_mode_exec(bContext *C, wmOperator *op)
 
     GreasePencilDrawing *drawing = reinterpret_cast<GreasePencilDrawing *>(drawing_base);
     bke::CurvesGeometry &curves = drawing->wrap().strokes_for_write();
-    if (curves.points_num() == 0) {
+    if (curves.is_empty()) {
       continue;
     }
 
@@ -946,9 +948,11 @@ static int grease_pencil_material_select_exec(bContext *C, wmOperator *op)
 {
   const Scene *scene = CTX_data_scene(C);
   Object *object = CTX_data_active_object(C);
+  ToolSettings *ts = CTX_data_tool_settings(C);
   GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
   const bool select = !RNA_boolean_get(op->ptr, "deselect");
   const int material_index = object->actcol - 1;
+  const bke::AttrDomain domain = ED_grease_pencil_selection_domain_get(ts, object);
 
   if (material_index == -1) {
     return OPERATOR_CANCELLED;
@@ -965,8 +969,24 @@ static int grease_pencil_material_select_exec(bContext *C, wmOperator *op)
       return;
     }
     bke::GSpanAttributeWriter selection = ed::curves::ensure_selection_attribute(
-        curves, bke::AttrDomain::Curve, CD_PROP_BOOL);
-    index_mask::masked_fill(selection.span.typed<bool>(), select, strokes);
+        curves, domain, CD_PROP_BOOL);
+
+    switch (domain) {
+      case bke::AttrDomain::Curve: {
+        index_mask::masked_fill(selection.span.typed<bool>(), select, strokes);
+        break;
+      }
+      case bke::AttrDomain::Point: {
+        const OffsetIndices<int> points_by_curve = curves.points_by_curve();
+        strokes.foreach_index([&](const int curve_index) {
+          const IndexRange points = points_by_curve[curve_index];
+          ed::curves::fill_selection(selection.span.slice(points), select);
+        });
+        break;
+      }
+      default:
+        BLI_assert_unreachable();
+    }
     selection.finish();
   });
 

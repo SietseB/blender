@@ -68,6 +68,8 @@
 #include "IMB_imbuf_types.hh"
 #include "IMB_thumbs.hh"
 
+#include "MOV_util.hh"
+
 #include "WM_api.hh"
 #include "WM_types.hh"
 
@@ -303,6 +305,12 @@ enum {
   FL_NEED_SORTING = 1 << 4,
   FL_NEED_FILTERING = 1 << 5,
   FL_SORT_INVERT = 1 << 6,
+  /**
+   * By default, #filelist_file_cache_block() will attempt to load previews around the visible
+   * "window" of visible files. When this flag is set it won't do so, and each preview has to be
+   * queried through a #filelist_cache_previews_push() call.
+   */
+  FL_PREVIEWS_NO_AUTO_CACHE = 1 << 7,
 };
 
 /** #FileList.tags */
@@ -353,6 +361,8 @@ static int groupname_to_code(const char *group);
 
 static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size);
 static bool filelist_intern_entry_is_main_file(const FileListInternEntry *intern_entry);
+static bool filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry, const int index);
+static bool filelist_file_preview_load_poll(const FileDirEntry *entry);
 
 /* ********** Sort helpers ********** */
 
@@ -625,7 +635,7 @@ static int compare_asset_catalog(void *user_data, const void *a1, const void *a2
     order = -1;
   }
   else if (catalog1 && catalog2) {
-    order = BLI_strcasecmp_natural(catalog1->path.name().c_str(), catalog2->path.name().c_str());
+    order = BLI_strcasecmp_natural(catalog1->path.c_str(), catalog2->path.c_str());
   }
 
   if (!order) {
@@ -1157,6 +1167,35 @@ bool filelist_file_is_preview_pending(const FileList *filelist, const FileDirEnt
   return !filelist_ready || file->flags & FILE_ENTRY_PREVIEW_LOADING;
 }
 
+bool filelist_file_ensure_preview_requested(FileList *filelist, FileDirEntry *file)
+{
+  if (file->preview_icon_id) {
+    /* Already loaded. */
+    return false;
+  }
+
+  /* Wait with requests until file list reading is done, and previews may be loaded. */
+  if (!filelist_cache_previews_enabled(filelist)) {
+    return false;
+  }
+  /* #filelist_cache_previews_push() will repeat this, do here already to avoid lookup below. */
+  if (!filelist_file_preview_load_poll(file)) {
+    return false;
+  }
+
+  const int numfiles = filelist_files_ensure(filelist);
+  for (int i = 0; i < numfiles; i++) {
+    if (filelist->filelist_intern.filtered[i]->uid == file->uid) {
+      if (filelist_cache_previews_push(filelist, file, i)) {
+        return true;
+      }
+      break;
+    }
+  }
+
+  return false;
+}
+
 static FileDirEntry *filelist_geticon_get_file(FileList *filelist, const int index)
 {
   BLI_assert(G.background == false);
@@ -1164,14 +1203,14 @@ static FileDirEntry *filelist_geticon_get_file(FileList *filelist, const int ind
   return filelist_file(filelist, index);
 }
 
-ImBuf *filelist_getimage(FileList *filelist, const int index)
+ImBuf *filelist_get_preview_image(FileList *filelist, const int index)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
 
   return file->preview_icon_id ? BKE_icon_imbuf_get_buffer(file->preview_icon_id) : nullptr;
 }
 
-ImBuf *filelist_file_getimage(const FileDirEntry *file)
+ImBuf *filelist_file_get_preview_image(const FileDirEntry *file)
 {
   return file->preview_icon_id ? BKE_icon_imbuf_get_buffer(file->preview_icon_id) : nullptr;
 }
@@ -1185,7 +1224,7 @@ static ImBuf *filelist_ensure_special_file_image(SpecialFileImages image, int ic
   return gSpecialFileImages[int(image)] = UI_svg_icon_bitmap(icon, 256.0f, false);
 }
 
-ImBuf *filelist_geticon_image_ex(const FileDirEntry *file)
+ImBuf *filelist_geticon_special_file_image_ex(const FileDirEntry *file)
 {
   ImBuf *ibuf = nullptr;
 
@@ -1204,16 +1243,16 @@ ImBuf *filelist_geticon_image_ex(const FileDirEntry *file)
   return ibuf;
 }
 
-ImBuf *filelist_geticon_image(FileList *filelist, const int index)
+ImBuf *filelist_geticon_special_file_image(FileList *filelist, const int index)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
-  return filelist_geticon_image_ex(file);
+  return filelist_geticon_special_file_image_ex(file);
 }
 
-static int filelist_geticon_ex(const FileList *filelist,
-                               const FileDirEntry *file,
-                               const bool is_main,
-                               const bool ignore_libdir)
+static int filelist_geticon_file_type_ex(const FileList *filelist,
+                                         const FileDirEntry *file,
+                                         const bool is_main,
+                                         const bool ignore_libdir)
 {
   const eFileSel_File_Types typeflag = (eFileSel_File_Types)file->typeflag;
 
@@ -1327,17 +1366,17 @@ static int filelist_geticon_ex(const FileList *filelist,
   return is_main ? ICON_FILE_BLANK : ICON_NONE;
 }
 
-int filelist_geticon(FileList *filelist, const int index, const bool is_main)
+int filelist_geticon_file_type(FileList *filelist, const int index, const bool is_main)
 {
   FileDirEntry *file = filelist_geticon_get_file(filelist, index);
 
-  return filelist_geticon_ex(filelist, file, is_main, false);
+  return filelist_geticon_file_type_ex(filelist, file, is_main, false);
 }
 
 int ED_file_icon(const FileDirEntry *file)
 {
   return file->preview_icon_id ? file->preview_icon_id :
-                                 filelist_geticon_ex(nullptr, file, false, false);
+                                 filelist_geticon_file_type_ex(nullptr, file, false, false);
 }
 
 static bool filelist_intern_entry_is_main_file(const FileListInternEntry *intern_entry)
@@ -1620,25 +1659,22 @@ static void filelist_cache_previews_free(FileListEntryCache *cache)
   cache->flags &= ~FLC_PREVIEWS_ACTIVE;
 }
 
-static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry, const int index)
+/**
+ * Check if a preview for \a entry may be requested. Further conditions may apply, this just helps
+ * to skip plenty of entries where it's easy to tell that no valid preview will be available or is
+ * being loaded already.
+ */
+static bool filelist_file_preview_load_poll(const FileDirEntry *entry)
 {
-  FileListEntryCache *cache = &filelist->filelist_cache;
-
-  BLI_assert(cache->flags & FLC_PREVIEWS_ACTIVE);
-
-  if (entry->preview_icon_id) {
-    return;
-  }
-
   if (entry->flags & (FILE_ENTRY_INVALID_PREVIEW | FILE_ENTRY_PREVIEW_LOADING)) {
-    return;
+    return false;
   }
 
   if (!(entry->typeflag &
         (FILE_TYPE_IMAGE | FILE_TYPE_MOVIE | FILE_TYPE_FTFONT | FILE_TYPE_OBJECT_IO |
          FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB)))
   {
-    return;
+    return false;
   }
 
   /* If we know this is an external ID without a preview, skip loading the preview. Can save quite
@@ -1647,21 +1683,42 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
   if ((entry->typeflag & FILE_TYPE_BLENDERLIB) &&
       (entry->flags & FILE_ENTRY_BLENDERLIB_NO_PREVIEW))
   {
-    return;
+    return false;
   }
 
   /* External ID that is also a directory is never previewed. */
   if ((entry->typeflag & (FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR)) ==
       (FILE_TYPE_BLENDERLIB | FILE_TYPE_DIR))
   {
-    return;
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * \return True if a new preview request was pushed, false otherwise (e.g. because the preview is
+ * already loaded, invalid or not supported).
+ */
+static bool filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry, const int index)
+{
+  FileListEntryCache *cache = &filelist->filelist_cache;
+
+  BLI_assert(cache->flags & FLC_PREVIEWS_ACTIVE);
+
+  if (entry->preview_icon_id) {
+    return false;
+  }
+
+  if (!filelist_file_preview_load_poll(entry)) {
+    return false;
   }
 
   FileListInternEntry *intern_entry = filelist->filelist_intern.filtered[index];
   PreviewImage *preview_in_memory = intern_entry->local_data.preview_image;
   if (preview_in_memory && !BKE_previewimg_is_finished(preview_in_memory, ICON_SIZE_PREVIEW)) {
     /* Nothing to set yet. Wait for next call. */
-    return;
+    return false;
   }
 
   filelist_cache_preview_ensure_running(cache);
@@ -1701,6 +1758,8 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
                        filelist_cache_preview_freef);
   }
   cache->previews_todo_count++;
+
+  return true;
 }
 
 static void filelist_cache_init(FileListEntryCache *cache, size_t cache_size)
@@ -2055,6 +2114,11 @@ void filelist_setrecursion(FileList *filelist, const int recursion_level)
     filelist->max_recursion = recursion_level;
     filelist->flags |= FL_FORCE_RESET;
   }
+}
+
+void filelist_set_no_preview_auto_cache(FileList *filelist)
+{
+  filelist->flags |= FL_PREVIEWS_NO_AUTO_CACHE;
 }
 
 bool filelist_needs_force_reset(const FileList *filelist)
@@ -2555,7 +2619,7 @@ bool filelist_file_cache_block(FileList *filelist, const int index)
 
   //  printf("Re-queueing previews...\n");
 
-  if (cache->flags & FLC_PREVIEWS_ACTIVE) {
+  if ((cache->flags & FLC_PREVIEWS_ACTIVE) && !(filelist->flags & FL_PREVIEWS_NO_AUTO_CACHE)) {
     /* Note we try to preview first images around given index - i.e. assumed visible ones. */
     int block_index = cache->block_cursor + (index - start_index);
     int offs_max = max_ii(end_index - index, index - start_index);
@@ -2576,6 +2640,11 @@ bool filelist_file_cache_block(FileList *filelist, const int index)
   //  printf("%s Finished!\n", __func__);
 
   return true;
+}
+
+bool filelist_cache_previews_enabled(const FileList *filelist)
+{
+  return (filelist->filelist_cache.flags & FLC_PREVIEWS_ACTIVE) != 0;
 }
 
 void filelist_cache_previews_set(FileList *filelist, const bool use_previews)
@@ -2601,6 +2670,11 @@ void filelist_cache_previews_set(FileList *filelist, const bool use_previews)
 
     filelist_cache_previews_free(cache);
   }
+}
+
+void filelist_cache_previews_ensure_running(FileList *filelist)
+{
+  filelist_cache_preview_ensure_running(&filelist->filelist_cache);
 }
 
 bool filelist_cache_previews_update(FileList *filelist)
@@ -2780,7 +2854,7 @@ int ED_path_extension_type(const char *path)
     return FILE_TYPE_IMAGE;
   }
   if (BLI_path_extension_check(path, ".ogg")) {
-    if (IMB_isanim(path)) {
+    if (MOV_is_movie_file(path)) {
       return FILE_TYPE_MOVIE;
     }
     return FILE_TYPE_SOUND;

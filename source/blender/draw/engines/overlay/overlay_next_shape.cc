@@ -965,7 +965,7 @@ ShapeCache::ShapeCache()
   /* camera tria */
   {
     const Vector<float2> triangle = {{-1.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f}};
-    Vector<Vertex> verts(2 * 3);
+    Vector<Vertex> verts;
     /* Wire */
     append_line_loop(verts, triangle, 1.0f, VCLASS_CAMERA_FRAME);
     camera_tria_wire = BatchPtr(
@@ -996,7 +996,7 @@ ShapeCache::ShapeCache()
   }
   /* camera volume wire */
   {
-    Vector<Vertex> verts(bone_box_wire_lines.size());
+    Vector<Vertex> verts;
     for (int i : bone_box_wire_lines) {
       const float x = bone_box_verts[i][2];
       const float y = bone_box_verts[i][0];
@@ -1026,6 +1026,16 @@ ShapeCache::ShapeCache()
 
     ground_line = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
+  }
+  /* image_quad */
+  {
+    const Array<float2> quad = {{0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f}};
+    Vector<Vertex> verts;
+    for (const float2 &point : quad) {
+      verts.append({{point, 0.75f}, VCLASS_NONE});
+    }
+    image_quad = BatchPtr(GPU_batch_create_ex(
+        GPU_PRIM_TRI_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
   }
   /* light spot volume */
   {

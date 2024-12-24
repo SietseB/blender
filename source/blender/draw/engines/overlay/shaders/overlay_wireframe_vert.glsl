@@ -95,7 +95,9 @@ void main()
   /* Noop */
 #else
   bool no_attr = all(equal(nor, vec3(0)));
-  vec3 wnor = no_attr ? drw_view.viewinv[2].xyz : normalize(normal_object_to_world(nor));
+  /* If no attribute is available, use a direction perpendicular
+   * to the view to have full brightness. */
+  vec3 wnor = no_attr ? drw_view.viewinv[1].xyz : normalize(normal_object_to_world(nor));
 
   if (isHair) {
     mat4 obmat = hairDupliMatrix;
@@ -155,7 +157,7 @@ void main()
 
 #  if defined(CURVES)
   finalColor.rgb = rim_col;
-#  elif !defined(SELECT_EDGES)
+#  elif !defined(SELECT_ENABLE)
   facing = clamp(abs(facing), 0.0, 1.0);
   /* Do interpolation in a non-linear space to have a better visual result. */
   rim_col = pow(rim_col, vec3(1.0 / 2.2));
@@ -175,7 +177,7 @@ void main()
   }
 #  endif
 
-#  ifdef SELECT_EDGES
+#  if defined(SELECT_ENABLE)
   /* HACK: to avoid losing sub-pixel object in selections, we add a bit of randomness to the
    * wire to at least create one fragment that will pass the occlusion query. */
   gl_Position.xy += sizeViewportInv * gl_Position.w * ((gl_VertexID % 2 == 0) ? -1.0 : 1.0);

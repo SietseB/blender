@@ -4,7 +4,7 @@
 
 set(INC
   ../include
-  ../../blenkernel
+  ../../asset_system
   ../../blenloader
   ../../blentranslation
   ../../makesrna
@@ -26,6 +26,7 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
   PRIVATE bf::dna
   PRIVATE bf::extern::fmtlib

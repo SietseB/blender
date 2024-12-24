@@ -141,7 +141,6 @@ _km_hierarchy = [
         ('NLA Tracks', 'NLA_EDITOR', 'WINDOW', []),
         ('NLA Generic', 'NLA_EDITOR', 'WINDOW', []),
     ]),
-    ('Timeline', 'TIMELINE', 'WINDOW', []),
 
     ('Image', 'IMAGE_EDITOR', 'WINDOW', [
         # Image (reverse order, UVEdit before Image).
@@ -165,6 +164,14 @@ _km_hierarchy = [
 
     ('Node Editor', 'NODE_EDITOR', 'WINDOW', [
         ('Node Generic', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Tweak', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Tweak (fallback)', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Box', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Box (fallback)', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Lasso', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Lasso (fallback)', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Circle', 'NODE_EDITOR', 'WINDOW', []),
+        ('Node Tool: Select Circle (fallback)', 'NODE_EDITOR', 'WINDOW', []),
     ]),
     ('SequencerCommon', 'SEQUENCE_EDITOR', 'WINDOW', [
         ('Sequencer', 'SEQUENCE_EDITOR', 'WINDOW', [

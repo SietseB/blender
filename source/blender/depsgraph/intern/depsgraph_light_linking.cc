@@ -265,7 +265,7 @@ LightSet &LinkingData::ensure_light_set_for(const Object &object)
 
 void LinkingData::clear_after_build()
 {
-  light_linked_sets_.clear_and_shrink();
+  light_linked_sets_.clear();
 }
 
 void LinkingData::end_build(const Scene &scene, EmitterDataMap &emitter_data_map)
@@ -446,7 +446,6 @@ void Cache::end_build(const Scene &scene)
   shadow_linking_.end_build(scene, shadow_emitter_data_map_);
 }
 
-/* Set runtime data in light linking. */
 void Cache::eval_runtime_data(Object &object_eval) const
 {
   static const LightLinkingRuntime runtime_no_links = {

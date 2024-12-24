@@ -469,7 +469,7 @@ static bool view3d_selectable_data(bContext *C)
       return BKE_paint_select_elem_test(ob);
     }
     if (ob->mode & OB_MODE_WEIGHT_PAINT) {
-      return BKE_paint_select_elem_test(ob) && BKE_object_pose_armature_get_with_wpaint_check(ob);
+      return BKE_paint_select_elem_test(ob) || BKE_object_pose_armature_get_with_wpaint_check(ob);
     }
   }
 
@@ -2072,7 +2072,7 @@ static int selectbuffer_ret_hits_5(blender::MutableSpan<GPUSelectResult> hit_res
  * Populate a select buffer with objects and bones, if there are any.
  * Checks three selection levels and compare.
  *
- * \param do_nearest_xray_if_supported: When set, read in hits that don't stop
+ * \param do_nearest_xray: When set, read in hits that don't stop
  * at the nearest surface. The hits must still be ordered by depth.
  * Needed so we can step to the next, non-active object when it's already selected, see: #76445.
  */
@@ -2081,7 +2081,7 @@ static int mixed_bones_object_selectbuffer(const ViewContext *vc,
                                            const int mval[2],
                                            eV3DSelectObjectFilter select_filter,
                                            bool do_nearest,
-                                           bool do_nearest_xray_if_supported,
+                                           bool do_nearest_xray,
                                            const bool do_material_slot_selection)
 {
   rcti rect;
@@ -2091,10 +2091,8 @@ static int mixed_bones_object_selectbuffer(const ViewContext *vc,
   eV3DSelectMode select_mode = (do_nearest ? VIEW3D_SELECT_PICK_NEAREST : VIEW3D_SELECT_PICK_ALL);
   int hits = 0;
 
-  if (do_nearest_xray_if_supported) {
-    if ((U.gpu_flag & USER_GPU_FLAG_NO_DEPT_PICK) == 0) {
-      select_mode = VIEW3D_SELECT_PICK_ALL;
-    }
+  if (do_nearest_xray) {
+    select_mode = VIEW3D_SELECT_PICK_ALL;
   }
 
   /* we _must_ end cache before return, use 'goto finally' */
@@ -3103,7 +3101,7 @@ static bool ed_curves_select_pick(bContext &C, const int mval[2], const SelectPi
           Object &curves_ob = *base->object;
           Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
           bke::crazyspace::GeometryDeformation deformation =
-              bke::crazyspace::get_evaluated_curves_deformation(*vc.depsgraph, *vc.obedit);
+              bke::crazyspace::get_evaluated_curves_deformation(*vc.depsgraph, curves_ob);
           const bke::CurvesGeometry &curves = curves_id.geometry.wrap();
           const float4x4 projection = ED_view3d_ob_project_mat_get(vc.rv3d, &curves_ob);
           const IndexMask elements(curves.attributes().domain_size(selection_domain));
@@ -3146,7 +3144,7 @@ static bool ed_curves_select_pick(bContext &C, const int mval[2], const SelectPi
         return new_closest;
       },
       [](const ClosestCurveDataBlock &a, const ClosestCurveDataBlock &b) {
-        return (a.elem.distance < b.elem.distance) ? a : b;
+        return (a.elem.distance_sq < b.elem.distance_sq) ? a : b;
       });
 
   std::atomic<bool> deselected = false;
@@ -3308,7 +3306,7 @@ static bool ed_grease_pencil_select_pick(bContext *C,
         return new_closest;
       },
       [](const ClosestGreasePencilDrawing &a, const ClosestGreasePencilDrawing &b) {
-        return (a.elem.distance < b.elem.distance) ? a : b;
+        return (a.elem.distance_sq < b.elem.distance_sq) ? a : b;
       });
 
   std::atomic<bool> deselected = false;
@@ -3377,17 +3375,6 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   Object *obedit = CTX_data_edit_object(C);
   Object *obact = CTX_data_active_object(C);
-
-  if (obact && obact->type == OB_GPENCIL_LEGACY && GPENCIL_ANY_MODE((bGPdata *)obact->data) &&
-      (BKE_object_pose_armature_get_with_wpaint_check(obact) == nullptr))
-  {
-    /* Prevent acting on Grease Pencil (when not in object mode -- or not in weight-paint + pose
-     * selection), it implements its own selection operator in other modes. We might still fall
-     * trough to here (because that operator uses OPERATOR_PASS_THROUGH to make tweak work) but if
-     * we don't stop here code below assumes we are in object mode it might falsely toggle object
-     * selection. Alternatively, this could be put in the poll function instead. */
-    return OPERATOR_PASS_THROUGH | OPERATOR_CANCELLED;
-  }
 
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   const ViewContext vc = ED_view3d_viewcontext_init(C, depsgraph);

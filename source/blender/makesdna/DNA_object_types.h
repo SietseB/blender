@@ -785,5 +785,3 @@ typedef enum eGP_OndineFlag {
   GP_ONDINE_SMOOTH_RANDOMIZE_STEPS = (1 << 4),
   GP_ONDINE_TRUE_DEPTH = (1 << 5),
 } eGP_OndineFlag;
-
-#define MAX_DUPLI_RECUR 8

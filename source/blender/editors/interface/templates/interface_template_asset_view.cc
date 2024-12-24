@@ -62,7 +62,7 @@ static void asset_view_item_but_drag_set(uiBut *but, AssetHandle *asset_handle)
 }
 
 static void asset_view_draw_item(uiList *ui_list,
-                                 const bContext * /*C*/,
+                                 const bContext *C,
                                  uiLayout *layout,
                                  PointerRNA * /*dataptr*/,
                                  PointerRNA * /*itemptr*/,
@@ -81,6 +81,8 @@ static void asset_view_draw_item(uiList *ui_list,
                                            &RNA_FileSelectEntry,
                                            const_cast<FileDirEntry *>(asset_handle.file_data));
   uiLayoutSetContextPointer(layout, "active_file", &file_ptr);
+
+  asset::list::asset_preview_ensure_requested(*C, &list_data->asset_library_ref, &asset_handle);
 
   uiBlock *block = uiLayoutGetBlock(layout);
   const bool show_names = list_data->show_names;
@@ -194,7 +196,7 @@ static void populate_asset_collection(const AssetLibraryReference &asset_library
 
   RNA_property_collection_clear(&assets_dataptr, assets_prop);
 
-  asset::list::iterate(asset_library_ref, [&](AssetHandle /*asset*/) {
+  asset::list::iterate(asset_library_ref, [&](asset_system::AssetRepresentation & /*asset*/) {
     /* XXX creating a dummy #RNA_AssetHandle collection item. It's #file_data will be null. This is
      * because the #FileDirEntry may be freed while iterating, there's a cache for them with a
      * maximum size. Further code will query as needed it using the collection index. */
@@ -252,7 +254,7 @@ void uiTemplateAssetView(uiLayout *layout,
   }
 
   asset::list::storage_fetch(&asset_library_ref, C);
-  asset::list::ensure_previews_job(&asset_library_ref, C);
+  asset::list::previews_fetch(&asset_library_ref, C);
   const int tot_items = asset::list::size(&asset_library_ref);
 
   populate_asset_collection(asset_library_ref, *assets_dataptr, assets_propname);

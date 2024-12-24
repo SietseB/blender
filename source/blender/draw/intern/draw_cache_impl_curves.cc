@@ -760,6 +760,7 @@ static bool ensure_attributes(const Curves &curves,
         case CD_PROP_BOOL:
         case CD_PROP_INT8:
         case CD_PROP_INT32:
+        case CD_PROP_INT16_2D:
         case CD_PROP_INT32_2D:
         case CD_PROP_FLOAT:
         case CD_PROP_FLOAT2: {
@@ -943,11 +944,6 @@ void DRW_curves_batch_cache_free_old(Curves *curves, int ctime)
   if (do_discard) {
     discard_attributes(cache->eval_cache);
   }
-}
-
-int DRW_curves_material_count_get(const Curves *curves)
-{
-  return max_ii(1, curves->totcol);
 }
 
 gpu::Batch *DRW_curves_batch_cache_get_edit_points(Curves *curves)

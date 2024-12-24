@@ -55,8 +55,8 @@
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_idprop.hh"
-#include "BKE_image.h"
-#include "BKE_image_format.h"
+#include "BKE_image.hh"
+#include "BKE_image_format.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_main.hh"
@@ -384,7 +384,7 @@ static const char *wm_context_member_from_ptr(bContext *C, const PointerRNA *ptr
 
   for (link = lb.first; link; link = link->next) {
     const char *identifier = link->data;
-    PointerRNA ctx_item_ptr = {{0}};
+    PointerRNA ctx_item_ptr = {};
     // CTX_data_pointer_get(C, identifier);  /* XXX, this isn't working. */
 
     if (ctx_item_ptr.type == nullptr) {
@@ -1334,7 +1334,7 @@ ID *WM_operator_drop_load_path(bContext *C, wmOperator *op, const short idcode)
     errno = 0;
 
     if (idcode == ID_IM) {
-      id = (ID *)BKE_image_load_exists_ex(bmain, filepath, &exists);
+      id = reinterpret_cast<ID *>(BKE_image_load_exists(bmain, filepath, &exists));
     }
     else {
       BLI_assert_unreachable();
@@ -1445,7 +1445,7 @@ static uiBlock *wm_block_create_redo(bContext *C, ARegion *region, void *arg_op)
     }
   }
 
-  uiItemL_ex(layout, WM_operatortype_name(op->type, op->ptr).c_str(), ICON_NONE, true, false);
+  uiItemL_ex(layout, WM_operatortype_name(op->type, op->ptr), ICON_NONE, true, false);
   uiItemS_ex(layout, 0.2f, LayoutSeparatorType::Line);
   uiItemS_ex(layout, 0.5f);
 
@@ -1572,7 +1572,7 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *region, void *user_
 
   /* Title. */
   if (!data->title.empty()) {
-    uiItemL_ex(layout, data->title.c_str(), ICON_NONE, true, false);
+    uiItemL_ex(layout, data->title, ICON_NONE, true, false);
 
     /* Line under the title if there are properties but no message body. */
     if (data->include_properties && message_lines.size() == 0) {
@@ -1582,7 +1582,7 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *region, void *user_
 
   /* Message lines. */
   for (auto &st : message_lines) {
-    uiItemL(layout, st.c_str(), ICON_NONE);
+    uiItemL(layout, st, ICON_NONE);
   }
 
   if (data->include_properties) {
@@ -3613,7 +3613,7 @@ static void redraw_timer_step(bContext *C,
     LISTBASE_FOREACH (ScrArea *, area_iter, &screen->areabase) {
       CTX_wm_area_set(C, area_iter);
       LISTBASE_FOREACH (ARegion *, region_iter, &area_iter->regionbase) {
-        if (!region_iter->visible) {
+        if (!region_iter->runtime->visible) {
           continue;
         }
         CTX_wm_region_set(C, region_iter);
@@ -3794,7 +3794,7 @@ static void previews_id_ensure(bContext *C, Scene *scene, ID *id)
 
 static int previews_id_ensure_callback(LibraryIDLinkCallbackData *cb_data)
 {
-  const int cb_flag = cb_data->cb_flag;
+  const LibraryForeachIDCallbackFlag cb_flag = cb_data->cb_flag;
 
   if (cb_flag & (IDWALK_CB_EMBEDDED | IDWALK_CB_EMBEDDED_NOT_OWNING)) {
     return IDWALK_RET_NOP;
@@ -4289,6 +4289,7 @@ static void gesture_box_modal_keymap(wmKeyConfig *keyconf)
   WM_modalkeymap_assign(keymap, "VIEW3D_OT_zoom_border");
   WM_modalkeymap_assign(keymap, "IMAGE_OT_render_border");
   WM_modalkeymap_assign(keymap, "IMAGE_OT_view_zoom_border");
+  WM_modalkeymap_assign(keymap, "GREASE_PENCIL_OT_erase_box");
 }
 
 /* Lasso modal operators. */
@@ -4320,6 +4321,7 @@ static void gesture_lasso_modal_keymap(wmKeyConfig *keyconf)
   WM_modalkeymap_assign(keymap, "NODE_OT_select_lasso");
   WM_modalkeymap_assign(keymap, "UV_OT_select_lasso");
   WM_modalkeymap_assign(keymap, "PAINT_OT_hide_show_lasso_gesture");
+  WM_modalkeymap_assign(keymap, "GREASE_PENCIL_OT_erase_lasso");
 }
 
 /* Polyline modal operators */

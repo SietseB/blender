@@ -4,6 +4,16 @@
 
 # Some misc utilities...
 
+__all__ = (
+    "I18n",
+    "I18nMessage",
+    "I18nMessages",
+    "enable_addons",
+    "find_best_isocode_matches",
+    "get_po_files_from_dir",
+    "list_po_dir",
+)
+
 import collections
 import os
 import platform
@@ -1209,7 +1219,7 @@ class I18nMessages:
         """
         Update or create a single PO file (specified by a filepath) from the given POT `I18nMessages` data.
 
-        Callback usable in a context where Blender specific modules (like `bpy`) are not available.
+        Callback usable in a context where Blender specific modules (like ``bpy``) are not available.
         """
         import sys
         sys.stdout.reconfigure(encoding="utf-8")
@@ -1229,7 +1239,7 @@ class I18nMessages:
         """
         Cleanup a single PO file (specified by a filepath).
 
-        Callback usable in a context where Blender specific modules (like `bpy`) are not available.
+        Callback usable in a context where Blender specific modules (like ``bpy``) are not available.
         """
         import sys
         sys.stdout.reconfigure(encoding="utf-8")
@@ -1249,7 +1259,7 @@ class I18nMessages:
         """
         Cleanup and write a single PO file (specified by a filepath) into the relevant Blender source 'compact' PO file.
 
-        Callback usable in a context where Blender specific modules (like `bpy`) are not available.
+        Callback usable in a context where Blender specific modules (like ``bpy``) are not available.
         """
         import sys
         sys.stdout.reconfigure(encoding="utf-8")
@@ -1431,7 +1441,7 @@ class I18n:
         """
         txts = []
         if os.path.isdir(src):
-            for root, dnames, fnames in os.walk(src):
+            for root, _dnames, fnames in os.walk(src):
                 for fname in fnames:
                     if not fname.endswith(".py"):
                         continue

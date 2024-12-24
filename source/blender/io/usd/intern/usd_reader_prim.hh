@@ -10,6 +10,7 @@
 #include "usd.hh"
 
 #include "BLI_map.hh"
+#include "BLI_set.hh"
 
 #include "WM_types.hh"
 
@@ -27,59 +28,40 @@ struct ReportList;
 namespace blender::io::usd {
 
 struct ImportSettings {
-  bool do_convert_mat;
-  float conversion_mat[4][4];
-
-  int from_up;
-  int from_forward;
-  float scale;
-  bool is_sequence;
-  bool set_frame_range;
-
-  /* Length and frame offset of file sequences. */
-  int sequence_len;
-  int sequence_offset;
+  bool do_convert_mat = false;
+  float conversion_mat[4][4] = {};
 
   /* From MeshSeqCacheModifierData.read_flag */
-  int read_flag;
+  int read_flag = 0;
 
-  bool validate_meshes;
+  std::function<CacheFile *()> get_cache_file{};
 
-  std::function<CacheFile *()> get_cache_file;
+  /*
+   * The fields below are mutable because they are used to keep track
+   * of what the importer is doing. This is necessary even when all
+   * the other import settings are to remain const.
+   */
 
   /* Map a USD material prim path to a Blender material name.
-   * This map is updated by readers during stage traversal.
-   * This field is mutable because it is used to keep track
-   * of what the importer is doing. This is necessary even
-   * when all the other import settings are to remain const. */
-  mutable blender::Map<std::string, std::string> usd_path_to_mat_name;
+   * This map is updated by readers during stage traversal. */
+  mutable blender::Map<std::string, std::string> usd_path_to_mat_name{};
   /* Map a material name to Blender material.
-   * This map is updated by readers during stage traversal,
-   * and is mutable similar to the map above. */
-  mutable blender::Map<std::string, Material *> mat_name_to_mat;
+   * This map is updated by readers during stage traversal. */
+  mutable blender::Map<std::string, Material *> mat_name_to_mat{};
+  /* Map a USD material prim path to a Blender material to be
+   * converted by invoking the 'on_material_import' USD hook.
+   * This map is updated by readers during stage traversal. */
+  mutable blender::Map<std::string, Material *> usd_path_to_mat_for_hook{};
+  /* Set of paths to USD material prims that can be converted by the
+   * 'on_material_import' USD hook. For efficiency this set should
+   * be populated prior to stage traversal. */
+  mutable blender::Set<std::string> mat_import_hook_sources{};
 
   /* We use the stage metersPerUnit to convert camera properties from USD scene units to the
    * correct millimeter scale that Blender uses for camera parameters. */
-  double stage_meters_per_unit;
+  double stage_meters_per_unit = 1.0;
 
-  pxr::SdfPath skip_prefix;
-
-  ImportSettings()
-      : do_convert_mat(false),
-        from_up(0),
-        from_forward(0),
-        scale(1.0f),
-        is_sequence(false),
-        set_frame_range(false),
-        sequence_len(1),
-        sequence_offset(0),
-        read_flag(0),
-        validate_meshes(false),
-        get_cache_file(nullptr),
-        stage_meters_per_unit(1.0),
-        skip_prefix(pxr::SdfPath{})
-  {
-  }
+  pxr::SdfPath skip_prefix{};
 };
 
 /* Most generic USD Reader. */
@@ -148,6 +130,16 @@ class USDPrimReader {
   const std::string &prim_path() const
   {
     return prim_path_;
+  }
+
+  virtual std::string object_prim_path() const
+  {
+    return prim_path();
+  }
+
+  virtual std::string data_prim_path() const
+  {
+    return prim_path();
   }
 
   void set_is_in_instancer_proto(bool flag)

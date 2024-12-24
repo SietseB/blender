@@ -124,11 +124,6 @@ static bool is_object_data_in_editmode(const ID *id, const Object *obact)
 
   const short id_type = GS(id->name);
 
-  if (id_type == ID_GD_LEGACY && obact && obact->data == id) {
-    bGPdata *gpd = (bGPdata *)id;
-    return GPENCIL_EDIT_MODE(gpd);
-  }
-
   return ((obact && (obact->mode & OB_MODE_EDIT)) && (id && OB_DATA_SUPPORT_EDITMODE(id_type)) &&
           (GS(((ID *)obact->data)->name) == id_type) && BKE_object_data_is_in_editmode(obact, id));
 }
@@ -373,19 +368,20 @@ static void outliner_collection_set_flag_recursive(Scene *scene,
                                                    PropertyRNA *base_or_object_prop,
                                                    const bool value)
 {
-  if (layer_collection && layer_collection->flag & LAYER_COLLECTION_EXCLUDE) {
+  if (!layer_collection) {
     return;
   }
+
   PointerRNA ptr;
   outliner_layer_or_collection_pointer_create(scene, layer_collection, collection, &ptr);
-  if (base_or_object_prop && !RNA_property_editable(&ptr, base_or_object_prop)) {
+  if (layer_or_collection_prop && !RNA_property_editable(&ptr, layer_or_collection_prop)) {
     return;
   }
 
   RNA_property_boolean_set(&ptr, layer_or_collection_prop, value);
 
   /* Set the same flag for the nested objects as well. */
-  if (base_or_object_prop) {
+  if (base_or_object_prop && !(layer_collection->flag & LAYER_COLLECTION_EXCLUDE)) {
     /* NOTE: We can't use BKE_collection_object_cache_get()
      * otherwise we would not take collection exclusion into account. */
     LISTBASE_FOREACH (CollectionObject *, cob, &layer_collection->collection->gobject) {
@@ -438,7 +434,7 @@ static bool outliner_collection_is_isolated(Scene *scene,
                                             const LayerCollection *layer_collection_cmp,
                                             const Collection *collection_cmp,
                                             const bool value_cmp,
-                                            const PropertyRNA *layer_or_collection_prop,
+                                            PropertyRNA *layer_or_collection_prop,
                                             LayerCollection *layer_collection,
                                             Collection *collection)
 {
@@ -448,6 +444,12 @@ static bool outliner_collection_is_isolated(Scene *scene,
   Collection *collection_ensure = collection ? collection : layer_collection->collection;
   const Collection *collection_ensure_cmp = collection_cmp ? collection_cmp :
                                                              layer_collection_cmp->collection;
+
+  /* Exclude linked collections, otherwise toggling property won't reset the visibility for
+   * editable collections, see: #130579. */
+  if (layer_or_collection_prop && !RNA_property_editable(&ptr, layer_or_collection_prop)) {
+    return true;
+  }
 
   if (collection_ensure->flag & COLLECTION_IS_MASTER) {
   }
@@ -504,7 +506,7 @@ void outliner_collection_isolate_flag(Scene *scene,
                                       const bool value)
 {
   PointerRNA ptr;
-  const bool is_hide = strstr(propname, "hide_") != nullptr;
+  const bool is_hide = strstr(propname, "hide_") || (strcmp(propname, "exclude") == 0);
 
   LayerCollection *top_layer_collection = layer_collection ?
                                               static_cast<LayerCollection *>(
@@ -782,6 +784,12 @@ static void namebutton_fn(bContext *C, void *tsep, char *oldname)
         case TSE_NLA_TRACK: {
           WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_RENAME, nullptr);
           undo_str = "Rename NLA Track";
+          break;
+        }
+        case TSE_MODIFIER: {
+          WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER | NA_RENAME, nullptr);
+          DEG_relations_tag_update(bmain);
+          undo_str = "Rename Modifier";
           break;
         }
         case TSE_EBONE: {
@@ -1580,6 +1588,10 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                       0,
                                       0,
                                       nullptr);
+              UI_but_func_set(bt,
+                              view_layer__layer_collection_set_flag_recursive_fn,
+                              layer_collection,
+                              (char *)"exclude");
               UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
             }
 
@@ -2006,16 +2018,13 @@ static void outliner_draw_overrides_rna_buts(uiBlock *block,
 
 static bool outliner_but_identity_cmp_context_id_fn(const uiBut *a, const uiBut *b)
 {
-  const PointerRNA *idptr_a = UI_but_context_ptr_get(a, "id", &RNA_ID);
-  const PointerRNA *idptr_b = UI_but_context_ptr_get(b, "id", &RNA_ID);
-  if (!idptr_a || !idptr_b) {
+  const std::optional<int64_t> session_uid_a = UI_but_context_int_get(a, "session_uid");
+  const std::optional<int64_t> session_uid_b = UI_but_context_int_get(b, "session_uid");
+  if (!session_uid_a || !session_uid_b) {
     return false;
   }
-  const ID *id_a = (const ID *)idptr_a->data;
-  const ID *id_b = (const ID *)idptr_b->data;
-
   /* Using session UID to compare is safer than using the pointer. */
-  return id_a->session_uid == id_b->session_uid;
+  return session_uid_a == session_uid_b;
 }
 
 static void outliner_draw_overrides_restrictbuts(Main *bmain,
@@ -2062,8 +2071,7 @@ static void outliner_draw_overrides_restrictbuts(Main *bmain,
                                UI_UNIT_X,
                                UI_UNIT_Y,
                                "");
-    PointerRNA idptr = RNA_id_pointer_create(&id);
-    UI_but_context_ptr_set(block, but, "id", &idptr);
+    UI_but_context_int_set(block, but, "session_uid", id.session_uid);
     UI_but_func_identity_compare_set(but, outliner_but_identity_cmp_context_id_fn);
     UI_but_flag_enable(but, UI_BUT_DRAG_LOCK);
   }
@@ -2127,7 +2135,7 @@ static void outliner_draw_rnabuts(uiBlock *block,
                         &ptr,
                         prop,
                         -1,
-                        nullptr,
+                        std::nullopt,
                         ICON_NONE,
                         sizex,
                         te->ys,
@@ -2490,8 +2498,6 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
         else {
           return ICON_OUTLINER_OB_EMPTY;
         }
-      case OB_GPENCIL_LEGACY:
-        return ICON_OUTLINER_OB_GREASEPENCIL;
       case OB_GREASE_PENCIL:
         return ICON_OUTLINER_OB_GREASEPENCIL;
     }
@@ -2784,91 +2790,13 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
         Object *ob = (Object *)tselem->id;
         data.drag_id = tselem->id;
 
-        if (ob->type != OB_GPENCIL_LEGACY) {
-          ModifierData *md = static_cast<ModifierData *>(BLI_findlink(&ob->modifiers, tselem->nr));
-          const ModifierTypeInfo *modifier_type = static_cast<const ModifierTypeInfo *>(
-              BKE_modifier_get_info((ModifierType)md->type));
-          if (modifier_type != nullptr) {
-            data.icon = modifier_type->icon;
-          }
-          else {
-            data.icon = ICON_DOT;
-          }
+        ModifierData *md = static_cast<ModifierData *>(BLI_findlink(&ob->modifiers, tselem->nr));
+        if (const ModifierTypeInfo *modifier_type = BKE_modifier_get_info(ModifierType(md->type)))
+        {
+          data.icon = modifier_type->icon;
         }
         else {
-          /* grease pencil modifiers */
-          GpencilModifierData *md = static_cast<GpencilModifierData *>(
-              BLI_findlink(&ob->greasepencil_modifiers, tselem->nr));
-          switch ((GpencilModifierType)md->type) {
-            case eGpencilModifierType_Noise:
-              data.icon = ICON_MOD_NOISE;
-              break;
-            case eGpencilModifierType_Subdiv:
-              data.icon = ICON_MOD_SUBSURF;
-              break;
-            case eGpencilModifierType_Thick:
-              data.icon = ICON_MOD_THICKNESS;
-              break;
-            case eGpencilModifierType_Tint:
-              data.icon = ICON_MOD_TINT;
-              break;
-            case eGpencilModifierType_Array:
-              data.icon = ICON_MOD_ARRAY;
-              break;
-            case eGpencilModifierType_Build:
-              data.icon = ICON_MOD_BUILD;
-              break;
-            case eGpencilModifierType_Opacity:
-              data.icon = ICON_MOD_MASK;
-              break;
-            case eGpencilModifierType_Color:
-              data.icon = ICON_MOD_HUE_SATURATION;
-              break;
-            case eGpencilModifierType_Lattice:
-              data.icon = ICON_MOD_LATTICE;
-              break;
-            case eGpencilModifierType_Mirror:
-              data.icon = ICON_MOD_MIRROR;
-              break;
-            case eGpencilModifierType_Simplify:
-              data.icon = ICON_MOD_SIMPLIFY;
-              break;
-            case eGpencilModifierType_Smooth:
-              data.icon = ICON_MOD_SMOOTH;
-              break;
-            case eGpencilModifierType_Hook:
-              data.icon = ICON_HOOK;
-              break;
-            case eGpencilModifierType_Offset:
-              data.icon = ICON_MOD_OFFSET;
-              break;
-            case eGpencilModifierType_Armature:
-              data.icon = ICON_MOD_ARMATURE;
-              break;
-            case eGpencilModifierType_Multiply:
-              data.icon = ICON_GP_MULTIFRAME_EDITING;
-              break;
-            case eGpencilModifierType_Time:
-              data.icon = ICON_MOD_TIME;
-              break;
-            case eGpencilModifierType_Texture:
-              data.icon = ICON_TEXTURE;
-              break;
-            case eGpencilModifierType_WeightProximity:
-              data.icon = ICON_MOD_VERTEX_WEIGHT;
-              break;
-            case eGpencilModifierType_WeightAngle:
-              data.icon = ICON_MOD_VERTEX_WEIGHT;
-              break;
-            case eGpencilModifierType_Shrinkwrap:
-              data.icon = ICON_MOD_SHRINKWRAP;
-              break;
-
-              /* Default */
-            default:
-              data.icon = ICON_DOT;
-              break;
-          }
+          data.icon = ICON_DOT;
         }
         break;
       }

@@ -6,7 +6,6 @@ set(INC
   PUBLIC .
   intern
 
-  ../blenkernel
   ../blentranslation
   ../editors/include
   ../makesrna
@@ -34,6 +33,7 @@ set(SRC
   intern/fcurve.cc
   intern/keyframing.cc
   intern/keyframing_auto.cc
+  intern/keyingsets.cc
   intern/nla.cc
   intern/pose.cc
   intern/visualkey.cc
@@ -60,11 +60,10 @@ set(SRC
 )
 
 set(LIB
-  bf_blenkernel
+  PRIVATE bf::blenkernel
   bf::blenlib
   PRIVATE bf::depsgraph
   bf::dna
-  PRIVATE bf_editor_interface
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::intern::atomic
   PRIVATE bf::intern::clog

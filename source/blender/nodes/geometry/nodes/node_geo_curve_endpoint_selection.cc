@@ -53,7 +53,7 @@ class EndpointFieldInput final : public bke::GeometryFieldInput {
       return {};
     }
     const bke::CurvesGeometry &curves = *curves_ptr;
-    if (curves.points_num() == 0) {
+    if (curves.is_empty()) {
       return {};
     }
 
@@ -125,6 +125,7 @@ static void node_register()
 
   geo_node_type_base(
       &ntype, GEO_NODE_CURVE_ENDPOINT_SELECTION, "Endpoint Selection", NODE_CLASS_INPUT);
+  ntype.enum_name_legacy = "CURVE_ENDPOINT_SELECTION";
   ntype.declare = node_declare;
   ntype.geometry_node_execute = node_geo_exec;
 

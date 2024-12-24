@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2023-10-06 09:54+0000\n"
 "Last-Translator: Eitan Traurig <eitant13@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.blender.org/projects/blender-ui/ui/he/>\n"
@@ -370,6 +370,10 @@ msgid "Modifiers"
 msgstr "םינשמ"
 
 
+msgid "Roughness"
+msgstr "תוסג"
+
+
 msgid "Frequency"
 msgstr "תורידת"
 
@@ -496,10 +500,6 @@ msgid "Hair"
 msgstr "רעיש"
 
 
-msgid "Roughness"
-msgstr "תוסג"
-
-
 msgid "Specular"
 msgstr "רלקפסא"
 
@@ -599,20 +599,20 @@ msgid "Grease Pencil Color"
 msgstr "Grease Pencil יאבצ"
 
 
-msgid "Face Data"
-msgstr "האפ ינותנ"
-
-
 msgid "Mirror"
 msgstr "הארמ"
+
+
+msgid "Apply"
+msgstr "לחה"
 
 
 msgid "Convert"
 msgstr "רמה"
 
 
-msgid "Apply"
-msgstr "לחה"
+msgid "Face Data"
+msgstr "האפ ינותנ"
 
 
 msgid "Languages..."

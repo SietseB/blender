@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2024-01-11 03:55+0000\n"
 "Last-Translator: Répási Dávid <hu.repasidavid@protonmail.com>\n"
 "Language-Team: Hungarian <https://translate.blender.org/projects/blender-ui/ui/hu/>\n"
@@ -4966,12 +4966,12 @@ msgid "Filter"
 msgstr "Szűrő"
 
 
-msgid "Grease Pencil Data"
-msgstr "Zsírkrétaadat"
-
-
 msgid "Interface"
 msgstr "Kezelőfelület"
+
+
+msgid "Grease Pencil Data"
+msgstr "Zsírkrétaadat"
 
 
 msgid "Links"
@@ -6657,44 +6657,44 @@ msgid "Use Material Mask"
 msgstr "Anyagmaszk használata"
 
 
-msgid "Align View"
-msgstr "Nézet igazítása"
-
-
-msgid "Navigation"
-msgstr "Navigáció"
+msgid "Mirror"
+msgstr "Tükrözés"
 
 
 msgid "Local View"
 msgstr "Helyi nézet"
 
 
-msgid "Show/Hide"
-msgstr "Mutat/Rejt"
+msgid "Navigation"
+msgstr "Navigáció"
 
 
-msgid "Mirror"
-msgstr "Tükrözés"
+msgid "Align View"
+msgstr "Nézet igazítása"
 
 
-msgid "Clean Up"
-msgstr "Tisztítás"
-
-
-msgid "Track"
-msgstr "Nyom"
-
-
-msgid "Apply"
-msgstr "Elfogadás"
+msgid "Relations"
+msgstr "Kapcsolatok"
 
 
 msgid "Rigid Body"
 msgstr "Szilárd test"
 
 
-msgid "Relations"
-msgstr "Kapcsolatok"
+msgid "Apply"
+msgstr "Elfogadás"
+
+
+msgid "Track"
+msgstr "Nyom"
+
+
+msgid "Show/Hide"
+msgstr "Mutat/Rejt"
+
+
+msgid "Clean Up"
+msgstr "Tisztítás"
 
 
 msgid "Merge"
@@ -9455,11 +9455,6 @@ msgstr "Objektum kényszerítők"
 
 
 msgctxt "Operator"
-msgid "Add Material Variant"
-msgstr "Anyagvariáns hozzáadása"
-
-
-msgctxt "Operator"
 msgid "Clear Useless Actions"
 msgstr "Nem használt akciók törlése"
 
@@ -10084,10 +10079,6 @@ msgid "Bend"
 msgstr "Hajlítás"
 
 
-msgid "Grease Pencil Shrink/Fatten"
-msgstr "Zsírkréta zsugorítás/hízlalás"
-
-
 msgid "Grease Pencil Opacity"
 msgstr "Zsírkréta átlátszatlanság"
 
@@ -10392,15 +10383,6 @@ msgstr "Könyvjelző hozzáadása a kiválasztott/aktív könyvtár alapján"
 
 msgid "Delete selected bookmark"
 msgstr "Kiválasztott könyvjelző törlése"
-
-
-msgctxt "Operator"
-msgid "Cancel File Load"
-msgstr "Fájl betöltésének visszavonása"
-
-
-msgid "Cancel loading of selected file"
-msgstr "Fájl megnyitásának visszavonása"
 
 
 msgctxt "Operator"
@@ -12236,6 +12218,11 @@ msgid "Swap Strip"
 msgstr "Sáv megcserélése"
 
 
+msgctxt "Operator"
+msgid "Deselect All"
+msgstr "Összes elem kijelölése (megszüntetése)"
+
+
 msgid "View all the strips in the sequencer"
 msgstr "Mutassa az összes sávot"
 
@@ -13006,12 +12993,12 @@ msgid "Detail Size"
 msgstr "Részlet mérete"
 
 
-msgid "Render Pass"
-msgstr "Render vezeték"
-
-
 msgid "Motion Tracking"
 msgstr "Mozgáskövetés"
+
+
+msgid "Render Pass"
+msgstr "Render vezeték"
 
 
 msgid "Chain Scaling"
@@ -13080,10 +13067,6 @@ msgstr "Hullámok"
 
 msgid "Deactivation"
 msgstr "Deaktiválás"
-
-
-msgid "Indirect Lighting"
-msgstr "Indirekt megvilágítás"
 
 
 msgid "Shadows"
@@ -14398,10 +14381,6 @@ msgid "Reduce extra velocity that can build up when objects collide (lowers simu
 msgstr "Extra sebesség csökkentése, ami termelődhet az objektumok ütözésekor (alacsonyabb szimulációs stabilitás, csak akkor ajánlott, ha feltétlenül szükséges)"
 
 
-msgid "Factor for ambient occlusion blending"
-msgstr "Faktor a Környezeti elnyelődés keveréséhez"
-
-
 msgid "Alpha Under"
 msgstr "Alfa takarás"
 
@@ -15259,6 +15238,10 @@ msgid "Render stylized strokes in this Layer"
 msgstr "A rétegen lévő stilizált vonások renderelése"
 
 
+msgid "Factor for ambient occlusion blending"
+msgstr "Faktor a Környezeti elnyelődés keveréséhez"
+
+
 msgid "Length of rays, defines how far away other faces give occlusion effect"
 msgstr "Sugarak hossza, meghatározza, milyen távol adjanak más oldallapok elnyelődés effektet"
 
@@ -15425,11 +15408,6 @@ msgstr "Akciószerkesztő (NLA)"
 
 
 msgctxt "WindowManager"
-msgid "Timeline"
-msgstr "Idővonal"
-
-
-msgctxt "WindowManager"
 msgid "Image"
 msgstr "Kép"
 
@@ -15534,6 +15512,11 @@ msgid "Deselect"
 msgstr "Kijelölés törlése"
 
 
+msgctxt "Operator"
+msgid "Add Material Variant"
+msgstr "Anyagvariáns hozzáadása"
+
+
 msgid "Description:"
 msgstr "Leírás:"
 
@@ -15575,11 +15558,6 @@ msgstr "Opciók:"
 msgctxt "Operator"
 msgid "Reset Settings"
 msgstr "Beállítások visszaállítása"
-
-
-msgctxt "Operator"
-msgid "Deselect All"
-msgstr "Összes elem kijelölése (megszüntetése)"
 
 
 msgid "Add-ons:"
@@ -15832,10 +15810,6 @@ msgstr "Ecset hozzáadás"
 
 msgid "Surface Thickness"
 msgstr "Felületvastagság"
-
-
-msgid "Refraction"
-msgstr "Fénytörés"
 
 
 msgid "Paths:"
@@ -16505,10 +16479,6 @@ msgstr "kényszer"
 
 msgid "Col"
 msgstr "Szín"
-
-
-msgid "TexturedCol"
-msgstr "Textúrázott szín"
 
 
 msgctxt "Brush"
@@ -17503,10 +17473,6 @@ msgstr "Rendszer Konzol ki- bekapcsolása"
 msgctxt "Operator"
 msgid "Toggle System Console"
 msgstr "Rendszer Konzol ki- bekapcsolása"
-
-
-msgid "All Add-ons"
-msgstr "Minden kiegészítő"
 
 
 msgid "All Add-ons Installed by User"

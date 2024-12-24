@@ -6,15 +6,12 @@ set(INC
   ../include
   ../io
   ../../asset_system
-  ../../blenkernel
   ../../blenloader
   ../../blentranslation
   ../../compositor
-  ../../compositor/realtime_compositor
   ../../draw
   ../../functions
   ../../geometry
-  ../../gpu
   ../../imbuf
   ../../makesrna
   ../../nodes
@@ -54,19 +51,16 @@ set(SRC
 set(LIB
   PRIVATE bf::animrig
   PRIVATE bf::blenfont
-  bf_blenkernel
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_editor_screen
+  PRIVATE bf::gpu
   PRIVATE bf::intern::guardedalloc
-  bf_realtime_compositor
+  bf_compositor
   PRIVATE bf::extern::fmtlib
 )
-
-if(WITH_COMPOSITOR_CPU)
-  add_definitions(-DWITH_COMPOSITOR_CPU)
-endif()
 
 if(WITH_OPENIMAGEDENOISE)
   add_definitions(-DWITH_OPENIMAGEDENOISE)

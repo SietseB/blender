@@ -7,6 +7,10 @@ from typing import (
     Any,
 )
 
+# Notes:
+# - Most tests in `tests/python` use `bpy` enough that it's simpler to list the scripts that *are* type checked.
+# - References individual files which are also included in a directory are supported
+#   without checking those files twice. This is needed to allow those files to use their own settings.
 PATHS: tuple[tuple[str, tuple[Any, ...], dict[str, str]], ...] = (
     ("build_files/cmake/", (), {'MYPYPATH': "modules"}),
     ("build_files/utils/", (), {'MYPYPATH': "modules"}),
@@ -16,9 +20,12 @@ PATHS: tuple[tuple[str, tuple[Any, ...], dict[str, str]], ...] = (
     ("scripts/modules/_bpy_internal/extensions/wheel_manager.py", (), {}),
     ("scripts/modules/_bpy_internal/freedesktop.py", (), {}),
     ("source/blender/nodes/intern/discover_nodes.py", (), {}),
+    ("tests/python/bl_keymap_validate.py", (), {}),
+    ("tests/utils/blender_headless.py", (), {}),
     ("tools/check_blender_release/", (), {}),
     ("tools/check_docs/", (), {}),
     ("tools/check_source/", (), {'MYPYPATH': "modules"}),
+    ("tools/check_source/check_unused_defines.py", (), {'MYPYPATH': "../utils_maintenance/modules"}),
     ("tools/config/", (), {}),
     ("tools/triage/", (), {}),
     ("tools/utils/", (), {}),
@@ -36,9 +43,9 @@ PATHS_EXCLUDE = set(
     os.path.join(SOURCE_DIR, p.replace("/", os.sep))
     for p in
     (
-        "build_files/cmake/clang_array_check.py",
-        "build_files/cmake/cmake_netbeans_project.py",
-        "build_files/cmake/cmake_qtcreator_project.py",
+        "tools/check_source/clang_array_check.py",
+        "tools/utils_ide/cmake_netbeans_project.py",
+        "tools/utils_ide/cmake_qtcreator_project.py",
         "release/datafiles/blender_icons_geom.py",  # Uses `bpy` too much.
         "tests/utils/bl_run_operators.py",  # Uses `bpy` too much.
         "tests/utils/bl_run_operators_event_simulate.py",  # Uses `bpy` too much.
@@ -52,7 +59,6 @@ PATHS_EXCLUDE = set(
         "tools/check_blender_release/scripts/requests_basic_access.py",
         "tools/check_blender_release/scripts/requests_import.py",
         "tools/check_source/check_descriptions.py",
-        "tools/check_source/check_unused_defines.py",
         "tools/utils/blend2json.py",
         "tools/utils/blender_keyconfig_export_permutations.py",
         "tools/utils/blender_merge_format_changes.py",
@@ -61,7 +67,6 @@ PATHS_EXCLUDE = set(
         "tools/utils/gdb_struct_repr_c99.py",
         "tools/utils/git_log_review_commits.py",
         "tools/utils/git_log_review_commits_advanced.py",
-        "tools/utils/gitea_inactive_developers.py",
         "tools/utils/make_cursor_gui.py",
         "tools/utils/make_gl_stipple_from_xpm.py",
         "tools/utils/make_shape_2d_from_blend.py",

@@ -50,8 +50,6 @@ enum {
   DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE = (1 << 2),
 };
 
-int mesh_render_mat_len_get(const Object &object, const Mesh &mesh);
-
 struct MeshBufferList {
   /* Every VBO below contains at least enough data for every loop in the mesh
    * (except fdots and skin roots). For some VBOs, it extends to (in this exact order) :
@@ -288,7 +286,6 @@ void mesh_buffer_cache_create_requested(TaskGraph &task_graph,
                                         Mesh &mesh,
                                         bool is_editmode,
                                         bool is_paint_mode,
-                                        bool edit_mode_active,
                                         const float4x4 &object_to_world,
                                         bool do_final,
                                         bool do_uvedit,

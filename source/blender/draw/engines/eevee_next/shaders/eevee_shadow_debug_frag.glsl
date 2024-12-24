@@ -7,6 +7,10 @@
  * See eShadowDebug for more information.
  */
 
+#include "infos/eevee_shadow_info.hh"
+
+FRAGMENT_SHADER_CREATE_INFO(eevee_shadow_debug)
+
 #include "draw_view_lib.glsl"
 #include "eevee_light_iter_lib.glsl"
 #include "eevee_light_lib.glsl"
@@ -112,6 +116,10 @@ LightData debug_light_get()
     }
   }
   LIGHT_FOREACH_END
+
+  /* TODO Assert. */
+  /* Silence compiler warning. */
+  return light_buf[0];
 }
 
 /** Return true if a pixel was written. */
@@ -225,6 +233,8 @@ void main()
         break;
       case DEBUG_SHADOW_TILEMAP_RANDOM_COLOR:
         debug_random_tilemap_color(P, light);
+        break;
+      default:
         break;
     }
   }

@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2019-12-08 17:40+0700\n"
 "Last-Translator: gongpha <gongpha@gmail.com>\n"
 "Language-Team: Thai Translation Team <gongpha@gmail.com>\n"
@@ -1500,6 +1500,10 @@ msgid "Shader"
 msgstr "เชดเดอร์"
 
 
+msgid "Pattern"
+msgstr "ลวดลาย"
+
+
 msgid "Interface"
 msgstr "อินเตอร์เฟส"
 
@@ -1719,10 +1723,6 @@ msgid "Mirror Y"
 msgstr "สะท้อน Y"
 
 
-msgid "Pattern"
-msgstr "ลวดลาย"
-
-
 msgid "Sharp"
 msgstr "แหลม"
 
@@ -1899,60 +1899,60 @@ msgid "Mix Color"
 msgstr "ผสมสี"
 
 
-msgid "Names"
-msgstr "ชื่อ"
-
-
-msgid "Align View"
-msgstr "จัดมุมมอง"
-
-
-msgid "Face Data"
-msgstr "ข้อมูลด้าน"
-
-
-msgid "Navigation"
-msgstr "การนำทาง"
-
-
-msgid "Viewpoint"
-msgstr "จุดของมุมมอง"
-
-
-msgid "Local View"
-msgstr "มุมมองท้องถิ่น"
+msgid "Mirror"
+msgstr "กระจกสะท้อน"
 
 
 msgid "Snap"
 msgstr "ยึดติด"
 
 
-msgid "Mirror"
-msgstr "กระจกสะท้อน"
+msgid "Local View"
+msgstr "มุมมองท้องถิ่น"
 
 
-msgid "Hooks"
-msgstr "ตะขอ"
+msgid "Viewpoint"
+msgstr "จุดของมุมมอง"
 
 
-msgid "Track"
-msgstr "แทร็ค"
+msgid "Navigation"
+msgstr "การนำทาง"
 
 
-msgid "Apply"
-msgstr "นำไปใช้"
+msgid "Align View"
+msgstr "จัดมุมมอง"
 
 
-msgid "Add Image"
-msgstr "เพิ่มภาพ"
+msgid "Align View to Active"
+msgstr "จัดมุมมองไปยังที่วัตถุใช้งาน"
 
 
 msgid "View Regions"
 msgstr "ขอบเขตมุมมอง"
 
 
-msgid "Align View to Active"
-msgstr "จัดมุมมองไปยังที่วัตถุใช้งาน"
+msgid "Add Image"
+msgstr "เพิ่มภาพ"
+
+
+msgid "Apply"
+msgstr "นำไปใช้"
+
+
+msgid "Track"
+msgstr "แทร็ค"
+
+
+msgid "Hooks"
+msgstr "ตะขอ"
+
+
+msgid "Names"
+msgstr "ชื่อ"
+
+
+msgid "Face Data"
+msgstr "ข้อมูลด้าน"
 
 
 msgid "Merge"

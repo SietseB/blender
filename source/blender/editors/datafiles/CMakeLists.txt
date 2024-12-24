@@ -24,6 +24,7 @@ set(LIB
 # See: `make icons_geom` and the script `./release/datafiles/blender_icons_geom_update.py`.
 set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   # BEGIN ICON_GEOM_NAMES
+  brush.generic
   brush.gpencil_draw.erase
   brush.gpencil_draw.fill
   brush.paint_texture.clone
@@ -958,7 +959,6 @@ if(WITH_BLENDER)
     # Blend files.
     data_to_c_simple(../../../../release/datafiles/preview.blend SRC)
     data_to_c_simple(../../../../release/datafiles/preview_grease_pencil.blend SRC)
-    data_to_c_simple(../../../../release/datafiles/preview_grease_pencil_legacy.blend SRC)
 
     # Images.
     data_to_c_simple(../../../../release/datafiles/splash.png SRC)

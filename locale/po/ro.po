@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2024-03-23 04:06+0000\n"
 "Last-Translator: Alexandru Buhnici <in@alexm.ro>\n"
 "Language-Team: Romanian <https://translate.blender.org/projects/blender-ui/ui/ro/>\n"
@@ -2117,16 +2117,16 @@ msgid "Sampling"
 msgstr "Eșantionare"
 
 
-msgid "Convert"
-msgstr "Convertire"
+msgid "Add Image"
+msgstr "Adăugare Imagine"
 
 
 msgid "Apply"
 msgstr "Aplicare"
 
 
-msgid "Add Image"
-msgstr "Adăugare Imagine"
+msgid "Convert"
+msgstr "Convertire"
 
 
 msgid "Marker"
@@ -2364,11 +2364,6 @@ msgstr "Lampă"
 
 msgid "Custom Properties"
 msgstr "Proprietăți Personalizate"
-
-
-msgctxt "Operator"
-msgid "Cancel File Load"
-msgstr "Anulați Încărcarea Fișierului"
 
 
 msgid "Open"

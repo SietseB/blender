@@ -148,7 +148,7 @@ class GreasePencil_LayerAdjustmentsPanel:
         col.prop(layer, "radius_offset", text="Stroke Thickness")
 
 
-class GreasPencil_LayerRelationsPanel:
+class GreasePencil_LayerRelationsPanel:
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -176,6 +176,19 @@ class GreasPencil_LayerRelationsPanel:
         # Only enable this property when a view layer is selected.
         col.enabled = bool(layer.viewlayer_render)
         col.prop(layer, "use_viewlayer_masks")
+
+
+class GreasePencil_LayerDisplayPanel:
+    bl_label = "Display"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+
+        grease_pencil = context.grease_pencil
+        layer = grease_pencil.layers.active
+
+        layout.prop(layer, "channel_color", text="Channel Color")
 
 
 class GREASE_PENCIL_MT_layer_mask_add(Menu):
@@ -389,8 +402,14 @@ class DATA_PT_grease_pencil_layer_adjustments(LayerDataButtonsPanel, GreasePenci
     bl_options = {'DEFAULT_CLOSED'}
 
 
-class DATA_PT_grease_pencil_layer_relations(LayerDataButtonsPanel, GreasPencil_LayerRelationsPanel, Panel):
+class DATA_PT_grease_pencil_layer_relations(LayerDataButtonsPanel, GreasePencil_LayerRelationsPanel, Panel):
     bl_label = "Relations"
+    bl_parent_id = "DATA_PT_grease_pencil_layers"
+    bl_options = {'DEFAULT_CLOSED'}
+
+
+class DATA_PT_grease_pencil_layer_display(LayerDataButtonsPanel, GreasePencil_LayerDisplayPanel, Panel):
+    bl_label = "Display"
     bl_parent_id = "DATA_PT_grease_pencil_layers"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -521,12 +540,6 @@ class GREASE_PENCIL_UL_attributes(UIList):
 class DATA_PT_grease_pencil_attributes(DataButtonsPanel, Panel):
     bl_label = "Attributes"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {
-        'BLENDER_RENDER',
-        'BLENDER_EEVEE',
-        'BLENDER_EEVEE_NEXT',
-        'BLENDER_WORKBENCH',
-    }
 
     def draw(self, context):
         grease_pencil = context.grease_pencil
@@ -560,6 +573,7 @@ classes = (
     DATA_PT_grease_pencil_layer_transform,
     DATA_PT_grease_pencil_layer_adjustments,
     DATA_PT_grease_pencil_layer_relations,
+    DATA_PT_grease_pencil_layer_display,
     DATA_PT_grease_pencil_onion_skinning,
     DATA_PT_grease_pencil_onion_skinning_custom_colors,
     DATA_PT_grease_pencil_onion_skinning_display,

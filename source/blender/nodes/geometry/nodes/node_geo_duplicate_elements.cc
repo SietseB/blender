@@ -731,7 +731,7 @@ static bke::CurvesGeometry duplicate_points_CurvesGeometry(
     const IndexAttributes &attribute_outputs,
     const AttributeFilter &attribute_filter)
 {
-  if (src_curves.points_num() == 0) {
+  if (src_curves.is_empty()) {
     return {};
   }
 
@@ -1245,7 +1245,7 @@ static void node_register()
   static blender::bke::bNodeType ntype;
   geo_node_type_base(
       &ntype, GEO_NODE_DUPLICATE_ELEMENTS, "Duplicate Elements", NODE_CLASS_GEOMETRY);
-
+  ntype.enum_name_legacy = "DUPLICATE_ELEMENTS";
   blender::bke::node_type_storage(&ntype,
                                   "NodeGeometryDuplicateElements",
                                   node_free_standard_storage,

@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2024-01-17 19:22+0000\n"
 "Last-Translator: Peter Simonsson <peter@simonsson.com>\n"
 "Language-Team: Swedish <https://translate.blender.org/projects/blender-ui/ui/sv/>\n"
@@ -4154,6 +4154,10 @@ msgid "Shader"
 msgstr "Shader"
 
 
+msgid "Pattern"
+msgstr "Mönster"
+
+
 msgid "Interface"
 msgstr "Gränssnitt"
 
@@ -4820,10 +4824,6 @@ msgid "Marble Texture"
 msgstr "Marmortextur"
 
 
-msgid "Pattern"
-msgstr "Mönster"
-
-
 msgid "Use soft marble"
 msgstr "Använd mjuk marmor"
 
@@ -5321,64 +5321,64 @@ msgid "Texture"
 msgstr "Textur"
 
 
-msgid "Names"
-msgstr "Namn"
-
-
-msgid "Align View"
-msgstr "Justera vy"
-
-
-msgid "Local View"
-msgstr "Lokal vy"
-
-
-msgid "Show/Hide"
-msgstr "Visa/dölj"
+msgid "Mirror"
+msgstr "Spegla"
 
 
 msgid "Snap"
 msgstr "Snäpp"
 
 
-msgid "Mirror"
-msgstr "Spegla"
+msgid "Local View"
+msgstr "Lokal vy"
 
 
-msgid "Asset"
-msgstr "Tillgång"
+msgid "Align View"
+msgstr "Justera vy"
 
 
-msgid "Clean Up"
-msgstr "Städa upp"
-
-
-msgid "Quick Effects"
-msgstr "Snabbeffekter"
-
-
-msgid "Apply"
-msgstr "Applicera"
-
-
-msgid "Rigid Body"
-msgstr "Rigid kropp"
-
-
-msgid "Relations"
-msgstr "Relationer"
-
-
-msgid "Add Image"
-msgstr "Lägg till bild"
+msgid "Align View to Active"
+msgstr "Justera vy till aktiv"
 
 
 msgid "Select More/Less"
 msgstr "Markera mera/mindre"
 
 
-msgid "Align View to Active"
-msgstr "Justera vy till aktiv"
+msgid "Add Image"
+msgstr "Lägg till bild"
+
+
+msgid "Relations"
+msgstr "Relationer"
+
+
+msgid "Rigid Body"
+msgstr "Rigid kropp"
+
+
+msgid "Apply"
+msgstr "Applicera"
+
+
+msgid "Quick Effects"
+msgstr "Snabbeffekter"
+
+
+msgid "Show/Hide"
+msgstr "Visa/dölj"
+
+
+msgid "Clean Up"
+msgstr "Städa upp"
+
+
+msgid "Asset"
+msgstr "Tillgång"
+
+
+msgid "Names"
+msgstr "Namn"
 
 
 msgid "Pivot Point"
@@ -5793,6 +5793,11 @@ msgstr "Rotera"
 
 msgid "Map values to colors with the use of a gradient"
 msgstr "Mappa värden till färger med användning av en gradient"
+
+
+msgctxt "NodeTree"
+msgid "Modulo"
+msgstr "Modulo"
 
 
 msgid "Invert Rotation"
@@ -6935,11 +6940,6 @@ msgid "Normalize A"
 msgstr "Normalisera A"
 
 
-msgctxt "NodeTree"
-msgid "Modulo"
-msgstr "Modulo"
-
-
 msgid "Vector Rotate"
 msgstr "Vektor rotera"
 
@@ -7684,6 +7684,16 @@ msgid "Subdivision Set"
 msgstr "Uppdelningssats"
 
 
+msgctxt "Operator"
+msgid "Disable Add-on"
+msgstr "Inaktivera tillägg"
+
+
+msgctxt "Operator"
+msgid "Enable Add-on"
+msgstr "Aktivera tillägg"
+
+
 msgid "Display information and preferences for this add-on"
 msgstr "Visa information och inställningar för detta tillägg"
 
@@ -7779,18 +7789,8 @@ msgid "Disable add-on for workspace"
 msgstr "Inaktivera tillägg för arbetsyta"
 
 
-msgctxt "Operator"
-msgid "Disable Add-on"
-msgstr "Inaktivera tillägg"
-
-
 msgid "Enable add-on for workspace"
 msgstr "Aktivera tillägg för arbetsyta"
-
-
-msgctxt "Operator"
-msgid "Enable Add-on"
-msgstr "Aktivera tillägg"
 
 
 msgid "Internal use (edit a property data_path)"
@@ -11028,11 +11028,6 @@ msgid "Toggle whether item under cursor is enabled or closed"
 msgstr "Växla om objektet under musen är aktiverat eller stängt"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Toggle"
-msgstr "Växla texturmålning"
-
-
 msgid "Weights from envelopes with user defined radius"
 msgstr "Vikter från omslutningar med användardefinierad radie"
 
@@ -11186,6 +11181,11 @@ msgstr "Kör Python-fil"
 msgctxt "Operator"
 msgid "Sphere"
 msgstr "Sfär"
+
+
+msgctxt "Operator"
+msgid "Deselect All"
+msgstr "Avmarkera allt"
 
 
 msgid "Add or remove comments"
@@ -13465,11 +13465,6 @@ msgstr "Rotera"
 
 
 msgctxt "WindowManager"
-msgid "Timeline"
-msgstr "Tidslinje"
-
-
-msgctxt "WindowManager"
 msgid "Image"
 msgstr "Bild"
 
@@ -13685,11 +13680,6 @@ msgstr "Tillägget '{}' kunde inte hittas!"
 msgctxt "Operator"
 msgid "Reset Settings"
 msgstr "Återställ inställningar"
-
-
-msgctxt "Operator"
-msgid "Deselect All"
-msgstr "Avmarkera allt"
 
 
 msgctxt "Operator"
@@ -14358,10 +14348,6 @@ msgid "Rays"
 msgstr "Strålar"
 
 
-msgid "Cascade Size"
-msgstr "Kaskadstorlek"
-
-
 msgid "Dimension"
 msgstr "Dimension"
 
@@ -14846,11 +14832,6 @@ msgstr "Ta bort från ram"
 
 
 msgctxt "Operator"
-msgid "Insert Into Group"
-msgstr "Infoga i grupp"
-
-
-msgctxt "Operator"
 msgid "Node Options"
 msgstr "Nodalternativ"
 
@@ -14863,6 +14844,11 @@ msgstr "Okopplade uttag"
 msgctxt "Operator"
 msgid "Collapse"
 msgstr "Fäll ihop"
+
+
+msgctxt "Operator"
+msgid "Insert Into Group"
+msgstr "Infoga i grupp"
 
 
 msgctxt "Operator"
@@ -14881,11 +14867,6 @@ msgstr "Hitta..."
 
 
 msgctxt "Operator"
-msgid "Exit Group"
-msgstr "Gå ur grupp"
-
-
-msgctxt "Operator"
 msgid "Online Manual"
 msgstr "Onlinemanual"
 
@@ -14896,6 +14877,11 @@ msgstr "Förhandsgranskningar"
 
 msgid "Named Attributes"
 msgstr "Namngivna attribut"
+
+
+msgctxt "Operator"
+msgid "Exit Group"
+msgstr "Gå ur grupp"
 
 
 msgid "Closed by Default"
@@ -15972,10 +15958,6 @@ msgid "Saving preferences failed"
 msgstr "Spara inställningar misslyckades"
 
 
-msgid "Path '%s' not found"
-msgstr "Sökväg '%s' hittas inte"
-
-
 msgid "No missing files"
 msgstr "Inga filer saknas"
 
@@ -16775,10 +16757,6 @@ msgstr "Cycles renderingsmotor"
 
 msgid "Pose Library"
 msgstr "Pose-bibliotek"
-
-
-msgid "All Add-ons"
-msgstr "Alla tillägg"
 
 
 msgid "All Add-ons Installed by User"

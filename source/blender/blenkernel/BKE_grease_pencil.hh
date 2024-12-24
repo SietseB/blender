@@ -11,20 +11,20 @@
 
 #include <atomic>
 
-#include "BLI_array_utils.hh"
 #include "BLI_color.hh"
 #include "BLI_function_ref.hh"
 #include "BLI_implicit_sharing_ptr.hh"
 #include "BLI_map.hh"
 #include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector_types.hh"
+#include "BLI_offset_indices.hh"
 #include "BLI_shared_cache.hh"
 #include "BLI_utility_mixins.hh"
-#include "BLI_virtual_array.hh"
+#include "BLI_virtual_array_fwd.hh"
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_grease_pencil_types.h"
 
+struct Brush;
 struct Main;
 struct Depsgraph;
 struct Scene;
@@ -36,6 +36,7 @@ struct BakeMaterialsList;
 }
 
 namespace blender::bke {
+struct AttributeAccessorFunctions;
 
 namespace greasepencil {
 
@@ -225,7 +226,7 @@ class Layer;
  * forwarded to #TreeNode. */
 #define TREENODE_COMMON_METHODS \
   StringRefNull name() const; \
-  void set_name(StringRefNull new_name); \
+  void set_name(StringRef new_name); \
   bool is_visible() const; \
   void set_visible(bool visible); \
   bool is_locked() const; \
@@ -244,7 +245,7 @@ class Layer;
   { \
     return this->as_node().name(); \
   } \
-  inline void class_name::set_name(StringRefNull new_name) \
+  inline void class_name::set_name(const StringRef new_name) \
   { \
     return this->as_node().set_name(new_name); \
   } \
@@ -302,7 +303,7 @@ class TreeNode : public ::GreasePencilLayerTreeNode {
  public:
   TreeNode();
   explicit TreeNode(GreasePencilLayerTreeNodeType type);
-  explicit TreeNode(GreasePencilLayerTreeNodeType type, StringRefNull name);
+  explicit TreeNode(GreasePencilLayerTreeNodeType type, StringRef name);
   TreeNode(const TreeNode &other);
   ~TreeNode();
 
@@ -352,7 +353,7 @@ static_assert(sizeof(TreeNode) == sizeof(::GreasePencilLayerTreeNode));
 class LayerMask : public ::GreasePencilLayerMask {
  public:
   LayerMask();
-  explicit LayerMask(StringRefNull name);
+  explicit LayerMask(StringRef name);
   LayerMask(const LayerMask &other);
   ~LayerMask();
 };
@@ -454,7 +455,7 @@ class Layer : public ::GreasePencilLayer {
   using SortedKeysIterator = const int *;
 
   Layer();
-  explicit Layer(StringRefNull name);
+  explicit Layer(StringRef name);
   Layer(const Layer &other);
   ~Layer();
 
@@ -601,14 +602,14 @@ class Layer : public ::GreasePencilLayer {
    * armature.
    */
   StringRefNull parent_bone_name() const;
-  void set_parent_bone_name(const char *new_name);
+  void set_parent_bone_name(const StringRef new_name);
 
   /**
    * Returns the view layer name that this layer should be rendered in or an empty
    * `StringRefNull` if no such name is set.
    */
   StringRefNull view_layer_name() const;
-  void set_view_layer_name(const char *new_name);
+  void set_view_layer_name(const StringRef new_name);
 
  private:
   /**
@@ -663,7 +664,7 @@ class LayerGroup : public ::GreasePencilLayerTreeGroup {
 
  public:
   LayerGroup();
-  explicit LayerGroup(StringRefNull name);
+  explicit LayerGroup(StringRef name);
   LayerGroup(const LayerGroup &other);
   ~LayerGroup();
 
@@ -714,13 +715,22 @@ class LayerGroup : public ::GreasePencilLayerTreeGroup {
   /**
    * Returns a pointer to the node with \a name. If no such node was found, returns nullptr.
    */
-  const TreeNode *find_node_by_name(StringRefNull name) const;
-  TreeNode *find_node_by_name(StringRefNull name);
+  const TreeNode *find_node_by_name(StringRef name) const;
+  TreeNode *find_node_by_name(StringRef name);
+
+  /**
+   * Returns true if the group is expanded in the UI.
+   */
+  bool is_expanded() const;
+  /**
+   * Expand/collapse the group in the UI.
+   */
+  void set_expanded(bool expanded);
 
   /**
    * Print the nodes. For debugging purposes.
    */
-  void print_nodes(StringRefNull header) const;
+  void print_nodes(StringRef header) const;
 
   /**
    * Prepare the DNA #GreasePencilLayerTreeGroup data before blend-file writing.
@@ -897,6 +907,8 @@ inline LayerGroup &Layer::parent_group()
 
 TREENODE_COMMON_METHODS_FORWARD_IMPL(LayerGroup);
 
+const AttributeAccessorFunctions &get_attribute_accessor_functions();
+
 }  // namespace greasepencil
 
 class GreasePencilRuntime {
@@ -933,6 +945,12 @@ class GreasePencilDrawingEditHints {
  public:
   const greasepencil::Drawing *drawing_orig;
   ImplicitSharingPtrAndData positions_data;
+
+  /**
+   * Matrices which transform point movement vectors from original data to corresponding movements
+   * of evaluated data.
+   */
+  std::optional<Array<float3x3>> deform_mats;
 
   std::optional<Span<float3>> positions() const;
   std::optional<MutableSpan<float3>> positions_for_write();

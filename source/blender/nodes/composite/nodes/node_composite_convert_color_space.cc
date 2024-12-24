@@ -58,11 +58,11 @@ static void node_composit_buts_convert_colorspace(uiLayout *layout,
   uiItemL(layout, RPT_("Disabled, built without OpenColorIO"), ICON_ERROR);
 #endif
 
-  uiItemR(layout, ptr, "from_color_space", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
-  uiItemR(layout, ptr, "to_color_space", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "from_color_space", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
+  uiItemR(layout, ptr, "to_color_space", UI_ITEM_R_SPLIT_EMPTY_NAME, std::nullopt, ICON_NONE);
 }
 
-using namespace blender::realtime_compositor;
+using namespace blender::compositor;
 
 class ConvertColorSpaceOperation : public NodeOperation {
  public:
@@ -70,17 +70,6 @@ class ConvertColorSpaceOperation : public NodeOperation {
 
   void execute() override
   {
-    /* Not yet supported on CPU. */
-    if (!context().use_gpu()) {
-      for (const bNodeSocket *output : this->node()->output_sockets()) {
-        Result &output_result = get_result(output->identifier);
-        if (output_result.should_compute()) {
-          output_result.allocate_invalid();
-        }
-      }
-      return;
-    }
-
     Result &input_image = get_input("Image");
     Result &output_image = get_result("Image");
     if (is_identity()) {
@@ -92,7 +81,16 @@ class ConvertColorSpaceOperation : public NodeOperation {
       execute_single();
       return;
     }
+    else if (this->context().use_gpu()) {
+      execute_gpu();
+    }
+    else {
+      execute_cpu();
+    }
+  }
 
+  void execute_gpu()
+  {
     const char *source = node_storage(bnode()).from_color_space;
     const char *target = node_storage(bnode()).to_color_space;
 
@@ -104,6 +102,8 @@ class ConvertColorSpaceOperation : public NodeOperation {
 
     /* A null shader indicates that the conversion shader is just a stub implementation since OCIO
      * is disabled at compile time, so pass the input through in that case. */
+    Result &input_image = get_input("Image");
+    Result &output_image = get_result("Image");
     if (!shader) {
       input_image.pass_through(output_image);
       return;
@@ -120,6 +120,32 @@ class ConvertColorSpaceOperation : public NodeOperation {
     input_image.unbind_as_texture();
     output_image.unbind_as_image();
     ocio_shader.unbind_shader_and_resources();
+  }
+
+  void execute_cpu()
+  {
+    const char *source = node_storage(bnode()).from_color_space;
+    const char *target = node_storage(bnode()).to_color_space;
+    ColormanageProcessor *color_processor = IMB_colormanagement_colorspace_processor_new(source,
+                                                                                         target);
+
+    Result &input_image = get_input("Image");
+
+    const Domain domain = compute_domain();
+    Result &output_image = get_result("Image");
+    output_image.allocate_texture(domain);
+
+    parallel_for(domain.size, [&](const int2 texel) {
+      output_image.store_pixel(texel, input_image.load_pixel<float4>(texel));
+    });
+
+    IMB_colormanagement_processor_apply(color_processor,
+                                        output_image.float_texture(),
+                                        domain.size.x,
+                                        domain.size.y,
+                                        input_image.channels_count(),
+                                        false);
+    IMB_colormanagement_processor_free(color_processor);
   }
 
   void execute_single()
@@ -172,6 +198,7 @@ void register_node_type_cmp_convert_color_space()
 
   cmp_node_type_base(
       &ntype, CMP_NODE_CONVERT_COLOR_SPACE, "Convert Colorspace", NODE_CLASS_CONVERTER);
+  ntype.enum_name_legacy = "CONVERT_COLORSPACE";
   ntype.declare = file_ns::CMP_NODE_CONVERT_COLOR_SPACE_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_convert_colorspace;
   blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Middle);

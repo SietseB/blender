@@ -318,7 +318,7 @@ class BrushSelectPanel(BrushPanel):
         if brush is None:
             return
 
-        if brush.has_unsaved_changes and bpy.ops.brush.asset_save.poll():
+        if brush.has_unsaved_changes:
             layout.label(text="*Unsaved Changes")
             layout.separator()
 
@@ -1074,9 +1074,11 @@ def brush_shared_settings(layout, context, brush, popover=False):
 
     # Sculpt Curves #
     if mode == 'SCULPT_CURVES':
+        tool = brush.curves_sculpt_tool
         size = True
-        strength = True
-        direction = brush.curves_sculpt_tool in {'GROW_SHRINK', 'SELECTION_PAINT'}
+        strength = tool not in {'ADD', 'DELETE'}
+        direction = tool in {'GROW_SHRINK', 'SELECTION_PAINT'}
+        strength_pressure = tool not in {'SLIDE', 'ADD', 'DELETE'}
 
     # Grease Pencil #
     if mode == 'PAINT_GREASE_PENCIL':
@@ -1402,8 +1404,8 @@ def brush_texture_settings(layout, brush, sculpt):
 
     if tex_slot.map_mode == 'STENCIL':
         if brush.texture and brush.texture.type == 'IMAGE':
-            layout.operator("brush.stencil_fit_image_aspect")
-        layout.operator("brush.stencil_reset_transform")
+            layout.operator("brush.stencil_fit_image_aspect").mask = False
+        layout.operator("brush.stencil_reset_transform").mask = False
 
     # angle and texture_angle_source
     if tex_slot.has_texture_angle:
@@ -1537,15 +1539,17 @@ def brush_basic__draw_color_selector(context, layout, brush, gp_settings):
     if brush.gpencil_tool in {'DRAW', 'FILL'}:
         row.separator(factor=1.0)
         sub_row = row.row(align=True)
-        sub_row.enabled = not gp_settings.pin_draw_mode
-        if gp_settings.pin_draw_mode:
+        pin_draw_mode = gp_settings.pin_draw_mode
+        sub_row.enabled = not pin_draw_mode
+        if pin_draw_mode:
             sub_row.prop_enum(gp_settings, "brush_draw_mode", 'MATERIAL', text="", icon='MATERIAL')
             sub_row.prop_enum(gp_settings, "brush_draw_mode", 'VERTEXCOLOR', text="", icon='VPAINT_HLT')
         else:
             sub_row.prop_enum(settings, "color_mode", 'MATERIAL', text="", icon='MATERIAL')
             sub_row.prop_enum(settings, "color_mode", 'VERTEXCOLOR', text="", icon='VPAINT_HLT')
 
-        show_vertex_color = settings.color_mode == 'VERTEXCOLOR' or gp_settings.brush_draw_mode == 'VERTEXCOLOR'
+        show_vertex_color = ((not pin_draw_mode) and settings.color_mode == 'VERTEXCOLOR') or \
+            (pin_draw_mode and gp_settings.brush_draw_mode == 'VERTEXCOLOR')
 
         if show_vertex_color:
             sub_row = row.row(align=True)

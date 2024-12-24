@@ -605,9 +605,7 @@ struct uiBlock {
   int (*block_event_func)(const bContext *C, uiBlock *, const wmEvent *);
 
   /** Custom extra draw function for custom blocks. */
-  void (*drawextra)(const bContext *C, void *idv, void *arg1, void *arg2, rcti *rect);
-  void *drawextra_arg1;
-  void *drawextra_arg2;
+  std::function<void(const bContext *, rcti *)> drawextra;
 
   int flag;
   short alignnr;
@@ -867,7 +865,7 @@ struct uiKeyNavLock {
   /** Set when we're using keyboard-input. */
   bool is_keynav;
   /** Only used to check if we've moved the cursor. */
-  int event_xy[2];
+  blender::int2 event_xy;
 };
 
 using uiBlockHandleCreateFunc = uiBlock *(*)(bContext *C, uiPopupBlockHandle *handle, void *arg1);
@@ -878,7 +876,7 @@ struct uiPopupBlockCreate {
   void *arg;
   uiFreeArgFunc arg_free;
 
-  int event_xy[2];
+  blender::int2 event_xy;
 
   /** Set when popup is initialized from a button. */
   ARegion *butregion;
@@ -1050,7 +1048,7 @@ uiPopupBlockHandle *ui_popover_panel_create(bContext *C,
  */
 void ui_pie_menu_level_create(uiBlock *block,
                               wmOperatorType *ot,
-                              const char *propname,
+                              const blender::StringRefNull propname,
                               IDProperty *properties,
                               const EnumPropertyItem *items,
                               int totitem,
@@ -1611,7 +1609,10 @@ void ui_interface_tag_script_reload_queries();
 /* interface_view.cc */
 
 void ui_block_free_views(uiBlock *block);
-void ui_block_views_bounds_calc(const uiBlock *block);
+void ui_block_views_end(ARegion *region, const uiBlock *block);
+void ui_block_view_persistent_state_restore(const ARegion &region,
+                                            const uiBlock &block,
+                                            blender::ui::AbstractView &view);
 void ui_block_views_listen(const uiBlock *block, const wmRegionListenerParams *listener_params);
 void ui_block_views_draw_overlays(const ARegion *region, const uiBlock *block);
 blender::ui::AbstractView *ui_block_view_find_matching_in_old_block(

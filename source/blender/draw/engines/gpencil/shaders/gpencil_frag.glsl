@@ -2,23 +2,18 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "infos/gpencil_info.hh"
+
+FRAGMENT_SHADER_CREATE_INFO(gpencil_geometry)
+
 #include "common_colormanagement_lib.glsl"
-#include "common_gpencil_lib.glsl"
+#include "draw_grease_pencil_lib.glsl"
 
-float length_squared(vec2 v)
-{
-  return dot(v, v);
-}
-float length_squared(vec3 v)
-{
-  return dot(v, v);
-}
-
-vec3 gpencil_lighting(void)
+vec3 gpencil_lighting()
 {
   vec3 light_accum = vec3(0.0);
   for (int i = 0; i < GPENCIL_LIGHT_BUFFER_LEN; i++) {
-    if (gp_lights[i]._color.x == -1.0) {
+    if (vec3(gp_lights[i]._color).x == -1.0) {
       break;
     }
     vec3 L = gp_lights[i]._position - gp_interp.pos;

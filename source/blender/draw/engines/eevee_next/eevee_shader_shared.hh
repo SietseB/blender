@@ -15,9 +15,13 @@
 #  define IS_CPP 1
 #endif
 
-#if IS_CPP
+#if IS_CPP || defined(GLSL_CPP_STUBS)
 #  pragma once
 
+#  include "eevee_defines.hh"
+#endif
+
+#if IS_CPP
 #  include "BLI_math_bits.h"
 #  include "BLI_memory_utils.hh"
 
@@ -25,8 +29,6 @@
 
 #  include "draw_manager.hh"
 #  include "draw_pass.hh"
-
-#  include "eevee_defines.hh"
 
 #  include "GPU_shader_shared.hh"
 
@@ -262,6 +264,9 @@ enum eSamplingDimension : uint32_t {
   SAMPLING_SHADOW_I = 26u,
   SAMPLING_SHADOW_J = 27u,
   SAMPLING_SHADOW_K = 28u,
+  SAMPLING_UNUSED_0 = 29u,
+  SAMPLING_UNUSED_1 = 30u,
+  SAMPLING_UNUSED_2 = 31u,
 };
 
 /**
@@ -706,7 +711,7 @@ struct DepthOfFieldData {
   float4 filter_samples_weight;
   float filter_center_weight;
   /** Max number of sprite in the scatter pass for each ground. */
-  int scatter_max_rect;
+  uint scatter_max_rect;
 
   int _pad0, _pad1;
 };
@@ -2143,8 +2148,10 @@ BLI_STATIC_ASSERT_ALIGN(UniformData, 16)
 #    define UTIL_TEXEL vec2(gl_FragCoord.xy)
 #  elif defined(GPU_COMPUTE_SHADER)
 #    define UTIL_TEXEL vec2(gl_GlobalInvocationID.xy)
-#  else
+#  elif defined(GPU_VERTEX_SHADER)
 #    define UTIL_TEXEL vec2(gl_VertexID, 0)
+#  elif defined(GPU_LIBRARY_SHADER)
+#    define UTIL_TEXEL vec2(0)
 #  endif
 
 /* Fetch texel. Wrapping if above range. */

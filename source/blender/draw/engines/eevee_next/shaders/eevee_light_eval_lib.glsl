@@ -15,6 +15,10 @@
  * - utility_tx
  */
 
+#include "infos/eevee_common_info.hh"
+
+SHADER_LIBRARY_CREATE_INFO(eevee_light_data)
+
 #include "eevee_bxdf_lib.glsl"
 #include "eevee_closure_lib.glsl"
 #include "eevee_light_lib.glsl"
@@ -27,6 +31,8 @@
 /* If using compute, the shader should define its own pixel. */
 #if !defined(PIXEL) && defined(GPU_FRAGMENT_SHADER)
 #  define PIXEL gl_FragCoord.xy
+#elif defined(GPU_LIBRARY_SHADER)
+#  define PIXEL vec2(0)
 #endif
 
 #if !defined(LIGHT_CLOSURE_EVAL_COUNT)
@@ -39,7 +45,7 @@ struct ClosureLightStack {
   ClosureLight cl[LIGHT_CLOSURE_EVAL_COUNT];
 };
 
-ClosureLight closure_light_get(ClosureLightStack stack, int index)
+ClosureLight closure_light_get(ClosureLightStack stack, uchar index)
 {
   switch (index) {
     case 0:
@@ -60,7 +66,7 @@ ClosureLight closure_light_get(ClosureLightStack stack, int index)
   return closure_null;
 }
 
-void closure_light_set(inout ClosureLightStack stack, int index, ClosureLight cl_light)
+void closure_light_set(inout ClosureLightStack stack, uchar index, ClosureLight cl_light)
 {
   switch (index) {
     case 0:

@@ -40,9 +40,11 @@
 
 #include "BKE_context.hh"
 #include "BKE_idtype.hh"
-#include "BKE_image.h"
+#include "BKE_image.hh"
+#include "BKE_main.hh"
 #include "BKE_paint.hh"
 #include "BKE_screen.hh"
+#include "BKE_vfont.hh"
 
 #include "BIF_glutil.hh"
 
@@ -55,6 +57,8 @@
 #include "IMB_imbuf.hh"
 #include "IMB_imbuf_types.hh"
 #include "IMB_thumbs.hh"
+
+#include "MOV_read.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -145,18 +149,13 @@ void UI_tooltip_image_field_add(uiTooltipData &data, const uiTooltipImage &image
 /** \name ToolTip Callbacks (Draw & Free)
  * \{ */
 
-static void rgb_tint(float col[3], float h, float h_strength, float v, float v_strength)
+static void color_blend_f3_f3(float dest[3], const float source[3], const float fac)
 {
-  float col_hsv_from[3];
-  float col_hsv_to[3];
-
-  rgb_to_hsv_v(col, col_hsv_from);
-
-  col_hsv_to[0] = h;
-  col_hsv_to[1] = h_strength;
-  col_hsv_to[2] = (col_hsv_from[2] * (1.0f - v_strength)) + (v * v_strength);
-
-  hsv_to_rgb_v(col_hsv_to, col);
+  if (fac != 0.0f) {
+    dest[0] = (1.0f - fac) * dest[0] + (fac * source[0]);
+    dest[1] = (1.0f - fac) * dest[1] + (fac * source[1]);
+    dest[2] = (1.0f - fac) * dest[2] + (fac * source[2]);
+  }
 }
 
 static void ui_tooltip_region_draw_cb(const bContext * /*C*/, ARegion *region)
@@ -186,25 +185,29 @@ static void ui_tooltip_region_draw_cb(const bContext * /*C*/, ARegion *region)
   /* set background_color */
   rgb_uchar_to_float(background_color, theme->inner);
 
-  /* Calculate `normal_color`. */
+  /* `normal_color` is just tooltip text color. */
   rgb_uchar_to_float(main_color, theme->text);
-  copy_v3_v3(active_color, main_color);
   copy_v3_v3(normal_color, main_color);
-  copy_v3_v3(python_color, main_color);
-  copy_v3_v3(alert_color, main_color);
+
+  /* `value_color` mixes with some background for less strength. */
   copy_v3_v3(value_color, main_color);
+  color_blend_f3_f3(value_color, background_color, 0.2f);
 
-  /* Find the brightness difference between background and text colors. */
+  /* `python_color` mixes with more background to be even dimmer. */
+  copy_v3_v3(python_color, main_color);
+  color_blend_f3_f3(python_color, background_color, 0.5f);
 
-  const float tone_bg = rgb_to_grayscale(background_color);
-  // tone_fg = rgb_to_grayscale(main_color);
+  /* `active_color` is a light blue, push a bit toward text color. */
+  active_color[0] = 0.4f;
+  active_color[1] = 0.55f;
+  active_color[2] = 0.75f;
+  color_blend_f3_f3(active_color, main_color, 0.3f);
 
-  /* Mix the colors. */
-  rgb_tint(value_color, 0.0f, 0.0f, tone_bg, 0.2f);  /* Light gray. */
-  rgb_tint(active_color, 0.6f, 0.2f, tone_bg, 0.2f); /* Light blue. */
-  rgb_tint(normal_color, 0.0f, 0.0f, tone_bg, 0.4f); /* Gray. */
-  rgb_tint(python_color, 0.0f, 0.0f, tone_bg, 0.5f); /* Dark gray. */
-  rgb_tint(alert_color, 0.0f, 0.8f, tone_bg, 0.1f);  /* Red. */
+  /* `alert_color` is red, push a bit toward text color. */
+  alert_color[0] = 0.7f;
+  alert_color[1] = 0.0f;
+  alert_color[2] = 0.0f;
+  color_blend_f3_f3(alert_color, main_color, 0.3f);
 
   /* Draw text. */
   BLF_wordwrap(data->fstyle.uifont_id, data->wrap_width);
@@ -405,7 +408,7 @@ static bool ui_tooltip_data_append_from_keymap(bContext *C, uiTooltipData &data,
     /* Shortcut. */
     const std::string kmi_str = WM_keymap_item_to_string(kmi, false).value_or("None");
     UI_tooltip_text_field_add(data,
-                              fmt::format(TIP_("Shortcut: {}"), kmi_str),
+                              fmt::format(fmt::runtime(TIP_("Shortcut: {}")), kmi_str),
                               {},
                               UI_TIP_STYLE_NORMAL,
                               UI_TIP_LC_NORMAL);
@@ -413,8 +416,11 @@ static bool ui_tooltip_data_append_from_keymap(bContext *C, uiTooltipData &data,
     /* Python. */
     if (U.flag & USER_TOOLTIPS_PYTHON) {
       std::string str = ui_tooltip_text_python_from_op(C, ot, kmi->ptr);
-      UI_tooltip_text_field_add(
-          data, fmt::format(TIP_("Python: {}"), str), {}, UI_TIP_STYLE_MONO, UI_TIP_LC_PYTHON);
+      UI_tooltip_text_field_add(data,
+                                fmt::format(fmt::runtime(TIP_("Python: {}")), str),
+                                {},
+                                UI_TIP_STYLE_MONO,
+                                UI_TIP_LC_PYTHON);
     }
   }
 
@@ -547,7 +553,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_tool(bContext *C,
                                 {},
                                 UI_TIP_STYLE_NORMAL,
                                 (is_error) ? UI_TIP_LC_ALERT : UI_TIP_LC_MAIN,
-                                true);
+                                false);
       MEM_freeN(expr_result);
     }
   }
@@ -654,7 +660,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_tool(bContext *C,
 
     if (!shortcut.empty()) {
       UI_tooltip_text_field_add(*data,
-                                fmt::format(TIP_("Shortcut: {}"), shortcut),
+                                fmt::format(fmt::runtime(TIP_("Shortcut: {}")), shortcut),
                                 {},
                                 UI_TIP_STYLE_NORMAL,
                                 UI_TIP_LC_VALUE,
@@ -726,7 +732,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_tool(bContext *C,
 
       if (shortcut) {
         UI_tooltip_text_field_add(*data,
-                                  fmt::format(TIP_("Shortcut Cycle: {}"), *shortcut),
+                                  fmt::format(fmt::runtime(TIP_("Shortcut Cycle: {}")), *shortcut),
                                   {},
                                   UI_TIP_STYLE_NORMAL,
                                   UI_TIP_LC_VALUE,
@@ -739,7 +745,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_tool(bContext *C,
   if ((is_label == false) && (U.flag & USER_TOOLTIPS_PYTHON)) {
     std::string str = ui_tooltip_text_python_from_op(C, but->optype, but->opptr);
     UI_tooltip_text_field_add(*data,
-                              fmt::format(TIP_("Python: {}"), str),
+                              fmt::format(fmt::runtime(TIP_("Python: {}")), str),
                               {},
                               UI_TIP_STYLE_MONO,
                               UI_TIP_LC_PYTHON,
@@ -903,7 +909,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
   /* Operator shortcut. */
   if (!op_keymap.empty()) {
     UI_tooltip_text_field_add(*data,
-                              fmt::format(TIP_("Shortcut: {}"), op_keymap),
+                              fmt::format(fmt::runtime(TIP_("Shortcut: {}")), op_keymap),
                               {},
                               UI_TIP_STYLE_NORMAL,
                               UI_TIP_LC_VALUE,
@@ -913,7 +919,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
   /* Property context-toggle shortcut. */
   if (!prop_keymap.empty()) {
     UI_tooltip_text_field_add(*data,
-                              fmt::format(TIP_("Shortcut: {}"), prop_keymap),
+                              fmt::format(fmt::runtime(TIP_("Shortcut: {}")), prop_keymap),
                               {},
                               UI_TIP_STYLE_NORMAL,
                               UI_TIP_LC_VALUE,
@@ -927,7 +933,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
       ui_but_string_get(but, buf, sizeof(buf));
       if (buf[0]) {
         UI_tooltip_text_field_add(*data,
-                                  fmt::format(TIP_("Value: {}"), buf),
+                                  fmt::format(fmt::runtime(TIP_("Value: {}")), buf),
                                   {},
                                   UI_TIP_STYLE_NORMAL,
                                   UI_TIP_LC_VALUE,
@@ -945,7 +951,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
                           RNA_property_float_get_index(&but->rnapoin, rnaprop, but->rnaindex) :
                           RNA_property_float_get(&but->rnapoin, rnaprop);
         UI_tooltip_text_field_add(*data,
-                                  fmt::format(TIP_("Radians: {}"), value),
+                                  fmt::format(fmt::runtime(TIP_("Radians: {}")), value),
                                   {},
                                   UI_TIP_STYLE_NORMAL,
                                   UI_TIP_LC_VALUE);
@@ -955,7 +961,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     if (but->flag & UI_BUT_DRIVEN) {
       if (ui_but_anim_expression_get(but, buf, sizeof(buf))) {
         UI_tooltip_text_field_add(*data,
-                                  fmt::format(TIP_("Expression: {}"), buf),
+                                  fmt::format(fmt::runtime(TIP_("Expression: {}")), buf),
                                   {},
                                   UI_TIP_STYLE_NORMAL,
                                   UI_TIP_LC_NORMAL);
@@ -965,11 +971,12 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     if (but->rnapoin.owner_id) {
       const ID *id = but->rnapoin.owner_id;
       if (ID_IS_LINKED(id)) {
-        UI_tooltip_text_field_add(*data,
-                                  fmt::format(TIP_("Library: {}"), id->lib->filepath),
-                                  {},
-                                  UI_TIP_STYLE_NORMAL,
-                                  UI_TIP_LC_NORMAL);
+        UI_tooltip_text_field_add(
+            *data,
+            fmt::format(fmt::runtime(TIP_("Library: {}")), id->lib->filepath),
+            {},
+            UI_TIP_STYLE_NORMAL,
+            UI_TIP_LC_NORMAL);
       }
     }
   }
@@ -986,7 +993,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     /* Operator info. */
     if (U.flag & USER_TOOLTIPS_PYTHON) {
       UI_tooltip_text_field_add(*data,
-                                fmt::format(TIP_("Python: {}"), str),
+                                fmt::format(fmt::runtime(TIP_("Python: {}")), str),
                                 {},
                                 UI_TIP_STYLE_MONO,
                                 UI_TIP_LC_PYTHON,
@@ -1019,7 +1026,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
 
     if (disabled_msg && disabled_msg[0]) {
       UI_tooltip_text_field_add(*data,
-                                fmt::format(TIP_("Disabled: {}"), disabled_msg),
+                                fmt::format(fmt::runtime(TIP_("Disabled: {}")), disabled_msg),
                                 {},
                                 UI_TIP_STYLE_NORMAL,
                                 UI_TIP_LC_ALERT);
@@ -1031,14 +1038,15 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
 
   if ((U.flag & USER_TOOLTIPS_PYTHON) && !optype && !rna_struct.empty()) {
     {
-      UI_tooltip_text_field_add(*data,
-                                rna_prop.empty() ?
-                                    fmt::format(TIP_("Python: {}"), rna_struct) :
-                                    fmt::format(TIP_("Python: {}.{}"), rna_struct, rna_prop),
-                                {},
-                                UI_TIP_STYLE_MONO,
-                                UI_TIP_LC_PYTHON,
-                                (data->fields.size() > 0));
+      UI_tooltip_text_field_add(
+          *data,
+          rna_prop.empty() ?
+              fmt::format(fmt::runtime(TIP_("Python: {}")), rna_struct) :
+              fmt::format(fmt::runtime(TIP_("Python: {}.{}")), rna_struct, rna_prop),
+          {},
+          UI_TIP_STYLE_MONO,
+          UI_TIP_LC_PYTHON,
+          (data->fields.size() > 0));
     }
 
     if (but->rnapoin.owner_id) {
@@ -1129,7 +1137,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     UI_tooltip_text_field_add(*data, rgba_st, {}, UI_TIP_STYLE_MONO, UI_TIP_LC_NORMAL, false);
     UI_tooltip_text_field_add(*data, hsva_st, {}, UI_TIP_STYLE_MONO, UI_TIP_LC_NORMAL, false);
 
-    /* Tooltip now owns a copy of the ImBuf, so we can delete ours.*/
+    /* Tooltip now owns a copy of the ImBuf, so we can delete ours. */
     IMB_freeImBuf(image_data.ibuf);
   }
 
@@ -1184,12 +1192,13 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_gizmo(bContext *C, wm
           if (std::optional<std::string> shortcut_str = WM_key_event_operator_string(
                   C, gzop->type->idname, WM_OP_INVOKE_DEFAULT, prop, true))
           {
-            UI_tooltip_text_field_add(*data,
-                                      fmt::format(TIP_("Shortcut: {}"), *shortcut_str),
-                                      {},
-                                      UI_TIP_STYLE_NORMAL,
-                                      UI_TIP_LC_VALUE,
-                                      true);
+            UI_tooltip_text_field_add(
+                *data,
+                fmt::format(fmt::runtime(TIP_("Shortcut: {}")), *shortcut_str),
+                {},
+                UI_TIP_STYLE_NORMAL,
+                UI_TIP_LC_VALUE,
+                true);
           }
         }
       }
@@ -1240,7 +1249,7 @@ static ARegion *ui_tooltip_create_with_data(bContext *C,
   type.draw = ui_tooltip_region_draw_cb;
   type.free = ui_tooltip_region_free_cb;
   type.regionid = RGN_TYPE_TEMPORARY;
-  region->type = &type;
+  region->runtime->type = &type;
   /* Move ownership to region data. The region type free callback puts it back into a unique
    * pointer for save freeing. */
   region->regiondata = data_uptr.release();
@@ -1611,9 +1620,9 @@ static void ui_tooltip_from_image(Image &ima, uiTooltipData &data)
   }
 
   if (BKE_image_has_anim(&ima)) {
-    ImBufAnim *anim = static_cast<ImBufAnim *>(ima.anims.first);
+    MovieReader *anim = static_cast<MovieReader *>(ima.anims.first);
     if (anim) {
-      int duration = IMB_anim_get_duration(anim, IMB_TC_RECORD_RUN);
+      int duration = MOV_get_duration_frames(anim, IMB_TC_RECORD_RUN);
       UI_tooltip_text_field_add(
           data, fmt::format("Frames: {}", duration), {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_NORMAL);
     }
@@ -1622,8 +1631,11 @@ static void ui_tooltip_from_image(Image &ima, uiTooltipData &data)
   UI_tooltip_text_field_add(
       data, ima.colorspace_settings.name, {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_NORMAL);
 
-  UI_tooltip_text_field_add(
-      data, fmt::format(TIP_("Users: {}"), ima.id.us), {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_NORMAL);
+  UI_tooltip_text_field_add(data,
+                            fmt::format(fmt::runtime(TIP_("Users: {}")), ima.id.us),
+                            {},
+                            UI_TIP_STYLE_NORMAL,
+                            UI_TIP_LC_NORMAL);
 
   if (ibuf) {
     uiTooltipImage image_data;
@@ -1660,24 +1672,23 @@ static void ui_tooltip_from_clip(MovieClip &clip, uiTooltipData &data)
   UI_tooltip_text_field_add(data, image_type, {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_NORMAL);
 
   if (clip.anim) {
-    ImBufAnim *anim = clip.anim;
-
-    UI_tooltip_text_field_add(data,
-                              fmt::format("{} \u00D7 {}",
-                                          IMB_anim_get_image_width(anim),
-                                          IMB_anim_get_image_height(anim)),
-                              {},
-                              UI_TIP_STYLE_NORMAL,
-                              UI_TIP_LC_NORMAL);
+    MovieReader *anim = clip.anim;
 
     UI_tooltip_text_field_add(
         data,
-        fmt::format("Frames: {}", IMB_anim_get_duration(anim, IMB_TC_RECORD_RUN)),
+        fmt::format("{} \u00D7 {}", MOV_get_image_width(anim), MOV_get_image_height(anim)),
         {},
         UI_TIP_STYLE_NORMAL,
         UI_TIP_LC_NORMAL);
 
-    ImBuf *ibuf = IMB_anim_previewframe(anim);
+    UI_tooltip_text_field_add(
+        data,
+        fmt::format("Frames: {}", MOV_get_duration_frames(anim, IMB_TC_RECORD_RUN)),
+        {},
+        UI_TIP_STYLE_NORMAL,
+        UI_TIP_LC_NORMAL);
+
+    ImBuf *ibuf = MOV_decode_preview_frame(anim);
 
     if (ibuf) {
       /* Resize. */
@@ -1702,12 +1713,21 @@ static void ui_tooltip_from_clip(MovieClip &clip, uiTooltipData &data)
 
 static void ui_tooltip_from_vfont(const VFont &font, uiTooltipData &data)
 {
+  if (BKE_vfont_is_builtin(&font)) {
+    /* In memory font previews are currently not supported,
+     *  don't attempt to handle as a file. */
+    return;
+  }
   if (!font.filepath[0]) {
-    /* Let's not bother with packed files _for now_.*/
+    /* These may be packed files, currently not supported. */
     return;
   }
 
-  if (!BLI_exists(font.filepath)) {
+  char filepath_abs[FILE_MAX];
+  STRNCPY(filepath_abs, font.filepath);
+  BLI_path_abs(filepath_abs, ID_BLEND_PATH_FROM_GLOBAL(&font.id));
+
+  if (!BLI_exists(filepath_abs)) {
     UI_tooltip_text_field_add(
         data, TIP_("File not found"), {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_ALERT);
     return;
@@ -1716,7 +1736,7 @@ static void ui_tooltip_from_vfont(const VFont &font, uiTooltipData &data)
   float color[4];
   const uiWidgetColors *theme = ui_tooltip_get_theme();
   rgba_uchar_to_float(color, theme->text);
-  ImBuf *ibuf = IMB_font_preview(font.filepath, 200 * UI_SCALE_FAC, color);
+  ImBuf *ibuf = IMB_font_preview(filepath_abs, 200 * UI_SCALE_FAC, color);
   if (ibuf) {
     uiTooltipImage image_data;
     image_data.width = ibuf->x;
@@ -1748,22 +1768,24 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_search_item_tooltip_d
     ui_tooltip_from_vfont(*reinterpret_cast<VFont *>(id), *data);
   }
   else {
-    UI_tooltip_text_field_add(*data,
-                              fmt::format(TIP_("Choose {} data-block to be assigned to this user"),
-                                          BKE_idtype_idcode_to_name(GS(id->name))),
-                              {},
-                              UI_TIP_STYLE_NORMAL,
-                              UI_TIP_LC_NORMAL);
+    UI_tooltip_text_field_add(
+        *data,
+        fmt::format(fmt::runtime(TIP_("Choose {} data-block to be assigned to this user")),
+                    BKE_idtype_idcode_to_name(GS(id->name))),
+        {},
+        UI_TIP_STYLE_NORMAL,
+        UI_TIP_LC_NORMAL);
   }
 
   /** Additional info about the item (e.g. library name of a linked data-block). */
   if (ID_IS_LINKED(id)) {
-    UI_tooltip_text_field_add(
-        *data,
-        fmt::format(TIP_("Source library: {}\n{}"), id->lib->id.name + 2, id->lib->filepath),
-        {},
-        UI_TIP_STYLE_NORMAL,
-        UI_TIP_LC_NORMAL);
+    UI_tooltip_text_field_add(*data,
+                              fmt::format(fmt::runtime(TIP_("Source library: {}\n{}")),
+                                          id->lib->id.name + 2,
+                                          id->lib->filepath),
+                              {},
+                              UI_TIP_STYLE_NORMAL,
+                              UI_TIP_LC_NORMAL);
   }
 
   return data->fields.is_empty() ? nullptr : std::move(data);

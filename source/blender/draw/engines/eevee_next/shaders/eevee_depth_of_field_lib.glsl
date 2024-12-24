@@ -8,6 +8,8 @@
  * Depth of Field utils.
  */
 
+#include "infos/eevee_common_info.hh"
+
 #include "draw_view_lib.glsl"
 #include "gpu_shader_math_base_lib.glsl"
 #include "gpu_shader_utildefines_lib.glsl"
@@ -49,11 +51,11 @@
 #define no_hole_fill_pass false
 
 /* Distribute weights between near/slight-focus/far fields (slide 117). */
-#define dof_layer_threshold 4.0
+#define dof_layer_threshold (4.0)
 /* Make sure it overlaps. */
-#define dof_layer_offset_fg 0.5 + 1.0
+#define dof_layer_offset_fg (0.5 + 1.0)
 /* Extra offset for convolution layers to avoid light leaking from background. */
-#define dof_layer_offset 0.5 + 0.5
+#define dof_layer_offset (0.5 + 0.5)
 
 #define dof_max_slight_focus_radius DOF_MAX_SLIGHT_FOCUS_RADIUS
 
@@ -283,8 +285,10 @@ CocTilePrediction dof_coc_tile_prediction_get(CocTile tile)
                          dof_do_fast_gather(-tile.fg_min_coc, -tile.fg_max_coc, true);
   predict.do_background = !fg_fully_opaque &&
                           (tile.bg_max_coc > dof_layer_threshold - dof_layer_offset);
+#if 0 /* Unused. */
   bool bg_fully_opaque = predict.do_background &&
                          dof_do_fast_gather(-tile.bg_max_coc, tile.bg_min_coc, false);
+#endif
   predict.do_hole_fill = !fg_fully_opaque && -tile.fg_min_coc > 0.0;
   predict.do_focus = !fg_fully_opaque;
   predict.do_slight_focus = !fg_fully_opaque;

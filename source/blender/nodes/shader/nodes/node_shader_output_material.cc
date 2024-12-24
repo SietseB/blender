@@ -55,6 +55,15 @@ NODE_SHADER_MATERIALX_BEGIN
                             {{"bsdf", bsdf}, {"edf", edf}, {"opacity", opacity}});
     }
   }
+
+  /* Displacement cannot be enabled just yet.
+   * - Verify coordinate system for Tangent Space displacement maps
+   * - Wait on fix for scalar displacement (present in USD 2408+)
+   */
+  // NodeItem displacement = get_input_link("Displacement", NodeItem::Type::DisplacementShader);
+  // return create_node("surfacematerial",
+  //                    NodeItem::Type::Material,
+  //                    {{"surfaceshader", surface}, {"displacementshader", displacement}});
   return create_node("surfacematerial", NodeItem::Type::Material, {{"surfaceshader", surface}});
 }
 #endif
@@ -70,6 +79,7 @@ void register_node_type_sh_output_material()
   static blender::bke::bNodeType ntype;
 
   sh_node_type_base(&ntype, SH_NODE_OUTPUT_MATERIAL, "Material Output", NODE_CLASS_OUTPUT);
+  ntype.enum_name_legacy = "OUTPUT_MATERIAL";
   ntype.declare = file_ns::node_declare;
   ntype.add_ui_poll = object_shader_nodes_poll;
   ntype.gpu_fn = file_ns::node_shader_gpu_output_material;

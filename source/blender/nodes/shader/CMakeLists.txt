@@ -6,11 +6,9 @@ set(INC
   .
   ..
   ../intern
-  ../../blenkernel
   ../../blentranslation
   ../../editors/include
   ../../functions
-  ../../gpu
   ../../imbuf
   ../../makesrna
   ../../render
@@ -129,10 +127,12 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_functions
+  PRIVATE bf::gpu
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
   bf_intern_sky

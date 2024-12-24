@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2012-09-07 22:32+0100\n"
 "Last-Translator: Nikola Radovanovic <cobisimo@gmail.com>\n"
 "Language-Team: Nikola Radovanovic\n"
@@ -4100,6 +4100,10 @@ msgid "Phase"
 msgstr "Faza"
 
 
+msgid "Roughness"
+msgstr "Hrapavost"
+
+
 msgid "Step Size"
 msgstr "Broj koraka"
 
@@ -6248,14 +6252,6 @@ msgid "Cloth"
 msgstr "Tkanina"
 
 
-msgid "Roughness"
-msgstr "Hrapavost"
-
-
-msgid "Opaque"
-msgstr "Neprovidno"
-
-
 msgid "Texture Slot Images"
 msgstr "Slike slota tekstura"
 
@@ -6400,12 +6396,16 @@ msgid "Shader"
 msgstr "Senčenja"
 
 
-msgid "Grease Pencil Data"
-msgstr "Podaci skiciranja"
+msgid "Pattern"
+msgstr "Šara"
 
 
 msgid "Interface"
 msgstr "Interfejs"
+
+
+msgid "Grease Pencil Data"
+msgstr "Podaci skiciranja"
 
 
 msgid "Links"
@@ -7762,10 +7762,6 @@ msgid "Marble Texture"
 msgstr "Tekstura mermera"
 
 
-msgid "Pattern"
-msgstr "Šara"
-
-
 msgid "Use soft marble"
 msgstr "Koristi meki mermer"
 
@@ -8732,92 +8728,96 @@ msgid "Material slot name"
 msgstr "Naziv slota materijala"
 
 
-msgid "Names"
-msgstr "Imena"
-
-
-msgid "Propagate"
-msgstr "Prenesi"
-
-
-msgid "In-Betweens"
-msgstr "U međuvremenu"
-
-
-msgid "Clear Transform"
-msgstr "Očisti transformacije"
-
-
-msgid "Align View"
-msgstr "Poravnaj pogled"
-
-
-msgid "Mesh Select Mode"
-msgstr "Mod izbora mreže"
-
-
-msgid "Navigation"
-msgstr "Navigacija"
-
-
-msgid "Disable Bone Options"
-msgstr "Onemogući opcije kostiju"
-
-
-msgid "Enable Bone Options"
-msgstr "Omogući opcije kostiju"
-
-
-msgid "Local View"
-msgstr "Lokalni pogled"
-
-
-msgid "Toggle Bone Options"
-msgstr "Manje/više informacija"
-
-
-msgid "Show/Hide"
-msgstr "Prikaži/sakrij"
-
-
-msgid "UV Mapping"
-msgstr "UV Mapiranje"
+msgid "Mirror"
+msgstr "Ogledalo"
 
 
 msgid "Snap"
 msgstr "Lepljenje"
 
 
-msgid "Mirror"
-msgstr "Ogledalo"
+msgid "UV Mapping"
+msgstr "UV Mapiranje"
 
 
-msgid "Hooks"
-msgstr "Udice"
+msgid "Local View"
+msgstr "Lokalni pogled"
 
 
-msgid "Quick Effects"
-msgstr "Brzi efekti"
+msgid "Navigation"
+msgstr "Navigacija"
 
 
-msgid "Track"
-msgstr "Staza"
+msgid "Align View"
+msgstr "Poravnaj pogled"
 
 
-msgid "Apply"
-msgstr "Primeni"
-
-
-msgid "Rigid Body"
-msgstr "Kruto telo"
+msgid "Select Linked"
+msgstr "Izaberi povezano"
 
 
 msgid "Relations"
 msgstr "Odnosi"
 
 
-msgid "Select Linked"
-msgstr "Izaberi povezano"
+msgid "Rigid Body"
+msgstr "Kruto telo"
+
+
+msgid "Apply"
+msgstr "Primeni"
+
+
+msgid "Track"
+msgstr "Staza"
+
+
+msgid "Quick Effects"
+msgstr "Brzi efekti"
+
+
+msgid "Show/Hide"
+msgstr "Prikaži/sakrij"
+
+
+msgid "Hooks"
+msgstr "Udice"
+
+
+msgid "Clear Transform"
+msgstr "Očisti transformacije"
+
+
+msgid "In-Betweens"
+msgstr "U međuvremenu"
+
+
+msgid "Propagate"
+msgstr "Prenesi"
+
+
+msgid "Names"
+msgstr "Imena"
+
+
+msgid "Toggle Bone Options"
+msgstr "Manje/više informacija"
+
+
+msgid "Enable Bone Options"
+msgstr "Omogući opcije kostiju"
+
+
+msgid "Disable Bone Options"
+msgstr "Onemogući opcije kostiju"
+
+
+msgid "Mesh Select Mode"
+msgstr "Mod izbora mreže"
+
+
+msgid "Merge"
+msgstr "Sjedini"
 
 
 msgid "Special Characters"
@@ -8826,10 +8826,6 @@ msgstr "Specijalni znaci"
 
 msgid "Bone Roll"
 msgstr "Rolna kostiju"
-
-
-msgid "Merge"
-msgstr "Sjedini"
 
 
 msgid "Basic"
@@ -10740,10 +10736,6 @@ msgstr "Naslov čvora"
 
 msgid "Static Type"
 msgstr "Statička vrsta"
-
-
-msgid "Node type (deprecated, use with care)"
-msgstr "Vrsta čvora (zastarelo, koristite pažljivo)"
 
 
 msgid "Outputs"
@@ -14196,15 +14188,6 @@ msgstr "Ukloni obeleživač"
 
 
 msgctxt "Operator"
-msgid "Cancel File Load"
-msgstr "Prekini učitavanje slike"
-
-
-msgid "Cancel loading of selected file"
-msgstr "Prekini učitavanje izabrane datoteke"
-
-
-msgctxt "Operator"
 msgid "Delete Selected Files"
 msgstr "Izbriši izabrane datoteke"
 
@@ -16049,10 +16032,6 @@ msgid "Bake object transformations"
 msgstr "Bez transformacija"
 
 
-msgid "Remove all constraints from keyed object/bones, and do 'visual' keying"
-msgstr "Ukloni sva IK ograničenja sa izabranih kostiju"
-
-
 msgid "Clear Parents"
 msgstr "Obriši roditeljske veze"
 
@@ -17384,11 +17363,6 @@ msgid "Project Image"
 msgstr "Projektuj sliku"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Toggle"
-msgstr "Bojenje teksture"
-
-
 msgid "Blur Iterations"
 msgstr "Iteracija zamućenja"
 
@@ -18515,6 +18489,11 @@ msgstr "Zamenjuje 2 trake sekvencera"
 msgctxt "Operator"
 msgid "Swap Inputs"
 msgstr "Zameni ulaz"
+
+
+msgctxt "Operator"
+msgid "Deselect All"
+msgstr "Poništi ceo izabor"
 
 
 msgid "Zoom preview to fit in the area"
@@ -20180,10 +20159,6 @@ msgstr "Dinamičko"
 
 msgid "Self Collision"
 msgstr "Samoodbijanje"
-
-
-msgid "Indirect Lighting"
-msgstr "Indirektno osvetljenje"
 
 
 msgid "Shadows"
@@ -23247,30 +23222,6 @@ msgid "Snap Element"
 msgstr "Element lepljenja"
 
 
-msgid "Node X"
-msgstr "Čvor X"
-
-
-msgid "Snap to left/right node border"
-msgstr "Lepi za levu/desnu ivicu čvora"
-
-
-msgid "Node Y"
-msgstr "Čvor Y"
-
-
-msgid "Snap to top/bottom node border"
-msgstr "Lepi za gornju/donju ivicu čvora"
-
-
-msgid "Node X / Y"
-msgstr "Čvor X / Y"
-
-
-msgid "Snap to any node border"
-msgstr "Lepi za bolo koju ivicu svora"
-
-
 msgid "Snap Target"
 msgstr "Cilj lepljenja"
 
@@ -23692,11 +23643,6 @@ msgstr "Početni NLA"
 
 
 msgctxt "WindowManager"
-msgid "Timeline"
-msgstr "Vremenska linija"
-
-
-msgctxt "WindowManager"
 msgid "Image"
 msgstr "Slika"
 
@@ -23865,11 +23811,6 @@ msgstr "Učitaj"
 msgctxt "Operator"
 msgid "Reset Settings"
 msgstr "Zapamti korisničke postavke"
-
-
-msgctxt "Operator"
-msgid "Deselect All"
-msgstr "Poništi ceo izabor"
 
 
 msgctxt "Operator"
@@ -25160,14 +25101,6 @@ msgid "Plane Track"
 msgstr "Praćenje ploče"
 
 
-msgid "Error writing frame"
-msgstr "Greška pri upisu kadra"
-
-
-msgid "No valid formats found"
-msgstr "Nije pronađen ispravan format"
-
-
 msgid "unknown error reading file"
 msgstr "nepoznata grešaka prilikom čitanja datoteke"
 
@@ -26336,6 +26269,14 @@ msgstr "Prepiši %s"
 
 msgid "UV Vertex"
 msgstr "UV teme"
+
+
+msgid "Error writing frame"
+msgstr "Greška pri upisu kadra"
+
+
+msgid "No valid formats found"
+msgstr "Nije pronađen ispravan format"
 
 
 msgid "Index out of range"

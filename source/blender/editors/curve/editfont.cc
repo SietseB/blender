@@ -29,6 +29,7 @@
 
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
+#include "BKE_global.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -458,6 +459,10 @@ static int kill_selection(Object *obedit, int ins) /* ins == new character len *
 
 static void font_select_update_primary_clipboard(Object *obedit)
 {
+  if (G.background) {
+    return;
+  }
+
   if ((WM_capabilities_flag() & WM_CAPABILITY_PRIMARY_CLIPBOARD) == 0) {
     return;
   }
@@ -816,7 +821,7 @@ static void txt_add_object(bContext *C,
   add_v3_v3(obedit->loc, offset);
 
   cu = static_cast<Curve *>(obedit->data);
-  cu->vfont = BKE_vfont_builtin_get();
+  cu->vfont = BKE_vfont_builtin_ensure();
   id_us_plus(&cu->vfont->id);
 
   for (tmp = firstline, a = 0; nbytes < MAXTEXT && a < totline; tmp = tmp->next, a++) {
@@ -998,7 +1003,7 @@ static int toggle_style_exec(bContext *C, wmOperator *op)
     clear = (cu->curinfo.flag & style) == 0;
     return set_style(C, style, clear);
   }
-  return true;
+  return OPERATOR_CANCELLED;
 }
 
 void FONT_OT_style_toggle(wmOperatorType *ot)
@@ -2498,7 +2503,7 @@ static int font_unlink_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  builtin_font = BKE_vfont_builtin_get();
+  builtin_font = BKE_vfont_builtin_ensure();
 
   PointerRNA idptr = RNA_id_pointer_create(&builtin_font->id);
   RNA_property_pointer_set(&pprop.ptr, pprop.prop, idptr, nullptr);

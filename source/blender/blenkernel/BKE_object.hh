@@ -331,10 +331,10 @@ void BKE_object_where_is_calc_mat4(const Object *ob, float r_obmat[4][4]);
 /* Possibly belong in its own module? */
 
 void BKE_boundbox_init_from_minmax(BoundBox *bb, const float min[3], const float max[3]);
-void BKE_boundbox_minmax(const BoundBox *bb,
-                         const float obmat[4][4],
-                         float r_min[3],
-                         float r_max[3]);
+void BKE_boundbox_minmax(const BoundBox &bb,
+                         const blender::float4x4 &matrix,
+                         blender::float3 &r_min,
+                         blender::float3 &r_max);
 
 /**
  * Retrieve the bounds of the object's geometry, in the local space of the object
@@ -342,7 +342,7 @@ void BKE_boundbox_minmax(const BoundBox *bb,
  * the evaluated geometry (not just #Object.data).
  */
 std::optional<blender::Bounds<blender::float3>> BKE_object_boundbox_get(const Object *ob);
-void BKE_object_dimensions_get(Object *ob, float r_vec[3]);
+void BKE_object_dimensions_get(const Object *ob, float r_vec[3]);
 
 /**
  * Retrieve the bounds of the evaluated object's geometry, stored on the original object as part of
@@ -353,7 +353,7 @@ void BKE_object_dimensions_get(Object *ob, float r_vec[3]);
 std::optional<blender::Bounds<blender::float3>> BKE_object_boundbox_eval_cached_get(
     const Object *ob);
 /** Similar to #BKE_object_boundbox_eval_cached_get but gives the size of the bounds instead. */
-void BKE_object_dimensions_eval_cached_get(Object *ob, float r_vec[3]);
+void BKE_object_dimensions_eval_cached_get(const Object *ob, float r_vec[3]);
 
 /**
  * The original scale and object matrix can be passed in so any difference
@@ -374,12 +374,12 @@ void BKE_object_empty_draw_type_set(Object *ob, int value);
 
 std::optional<blender::Bounds<blender::float3>> BKE_object_evaluated_geometry_bounds(
     const Object *ob);
-void BKE_object_minmax(Object *ob, float r_min[3], float r_max[3]);
+void BKE_object_minmax(Object *ob, blender::float3 &r_min, blender::float3 &r_max);
 bool BKE_object_minmax_dupli(Depsgraph *depsgraph,
                              Scene *scene,
                              Object *ob,
-                             float r_min[3],
-                             float r_max[3],
+                             blender::float3 &r_min,
+                             blender::float3 &r_max,
                              bool use_hidden);
 /**
  * Calculate visual bounds from an empty objects draw-type.
@@ -507,12 +507,11 @@ Mesh *BKE_object_get_evaluated_mesh_no_subsurf_unchecked(const Object *object);
 Mesh *BKE_object_get_evaluated_mesh_unchecked(const Object *object);
 /**
  * Get mesh which is not affected by modifiers:
- * - For original objects it will be same as `object->data`, and it is a mesh
- *   which is in the corresponding #Main.
- * - For copied-on-write objects it will give pointer to a copied-on-write
- *   mesh which corresponds to original object's mesh.
+ * - For original objects, return #Object::data: the mesh in the original #Main database.
+ * - For evaluated objects, return the evaluated mesh which corresponds to the original
+ *   mesh, if the original object was a mesh object (otherwise null).
  */
-Mesh *BKE_object_get_pre_modified_mesh(const Object *object);
+const Mesh *BKE_object_get_pre_modified_mesh(const Object *object);
 /**
  * Get a mesh which corresponds to the very original mesh from #Main.
  * - For original objects it will be object->data.

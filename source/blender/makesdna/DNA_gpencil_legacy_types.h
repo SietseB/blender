@@ -9,25 +9,11 @@
 #pragma once
 
 #include "DNA_ID.h"
-#include "DNA_brush_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_listBase.h"
 
 struct AnimData;
-struct Curve;
-struct Curve;
-struct GPencilUpdateCache;
 struct MDeformVert;
-#ifdef __cplusplus
-namespace blender::gpu {
-class VertBuf;
-class Batch;
-}  // namespace blender::gpu
-using GPUBatchHandle = blender::gpu::Batch;
-using GPUVertBufHandle = blender::gpu::VertBuf;
-#else
-typedef struct GPUBatchHandle GPUBatchHandle;
-typedef struct GPUVertBufHandle GPUVertBufHandle;
-#endif
 
 #define GP_DEFAULT_PIX_FACTOR 1.0f
 #define GP_DEFAULT_GRID_LINES 4
@@ -39,29 +25,6 @@ typedef struct GPUVertBufHandle GPUVertBufHandle;
 
 #define GPENCIL_MIN_FILL_FAC 0.05f
 #define GPENCIL_MAX_FILL_FAC 8.0f
-
-/* ***************************************** */
-/* GP Stroke Points */
-
-/* 'Control Point' data for primitives and curves */
-typedef struct bGPDcontrolpoint {
-  /** X and y coordinates of control point. */
-  float x, y, z;
-  /** Point color. */
-  float color[4];
-  /** Radius. */
-  int size;
-} bGPDcontrolpoint;
-
-typedef struct bGPDspoint_Runtime {
-  DNA_DEFINE_CXX_METHODS(bGPDspoint_Runtime)
-
-  /** Original point (used to dereference evaluated data) */
-  struct bGPDspoint *pt_orig;
-  /** Original index array position */
-  int idx_orig;
-  char _pad0[4];
-} bGPDspoint_Runtime;
 
 /**
  * Grease-Pencil Annotations - 'Stroke Point'
@@ -95,8 +58,6 @@ typedef struct bGPDspoint {
 
   /** Runtime data */
   char _pad2[4];
-
-  bGPDspoint_Runtime runtime;
 } bGPDspoint;
 
 /** #bGPDspoint.flag */
@@ -106,44 +67,7 @@ typedef enum eGPDspoint_Flag {
 
   /* stroke point is tagged (for some editing operation) */
   GP_SPOINT_TAG = (1 << 1),
-  /* stroke point is temp tagged (for some editing operation) */
-  GP_SPOINT_TEMP_TAG = (1 << 2),
-  /* stroke point is temp tagged (for some editing operation) */
-  GP_SPOINT_TEMP_TAG2 = (1 << 3),
 } eGPSPoint_Flag;
-
-/* ***************************************** */
-/* GP stroke point delta's for storing morph target data. */
-typedef struct bGPDspoint_delta {
-  DNA_DEFINE_CXX_METHODS(bGPDspoint_delta)
-
-  /** Delta in point coordinate (rotation quaternion and distance). */
-  float rot_quat[4];
-  float distance;
-  /** Delta in pressure (thickness). */
-  float pressure;
-  /** Delta in strength (opacity). */
-  float strength;
-  /** Delta in vertex color RGBA. */
-  float vert_color[4];
-  char _pad0[4];
-} bGPDspoint_delta;
-
-/* Morph target data for GP strokes. */
-typedef struct bGPDsmorph {
-  DNA_DEFINE_CXX_METHODS(bGPDsmorph)
-
-  struct bGPDsmorph *next, *prev;
-
-  /** Array of data-points delta's for stroke. */
-  bGPDspoint_delta *point_deltas;
-  /** Morph target index. */
-  int morph_target_nr;
-  /** Number of delta's in array. */
-  int tot_point_deltas;
-  /** Delta of fill vertex color. */
-  float fill_color_delta[4];
-} bGPDsmorph;
 
 /* ***************************************** */
 /* GP Fill - Triangle Tessellation Data */
@@ -291,37 +215,12 @@ typedef struct bGPDstroke_Runtime {
   int vertex_start;
   /** Curve Handles offset in the IBO where this handle starts. */
   int curve_start;
-
-  /** Runtime flag. */
-  short flag;
-  char _pad[2];
-
-  /** Morph index for syncing morph target and base. */
-  int morph_index;
-
-  /** Ondine runtime render calculations */
-  float render_fill_color[3];
-  float render_stroke_color[3];
-  float render_fill_opacity;
-  float render_stroke_opacity;
-  float render_stroke_radius;
-  float render_thickness;
-  float render_dist_to_camera;
-  short render_flag;
-  char _pad1[2];
-  float render_bbox[4];
-  float render_max_radius;
+  int _pad0;
 
   /** Original stroke (used to dereference evaluated data) */
   struct bGPDstroke *gps_orig;
   void *_pad2;
 } bGPDstroke_Runtime;
-
-/** #bGPDstroke.runtimeflag */
-typedef enum eGPDstroke_RuntimeFlag {
-  /* Stroke needs geometry update. */
-  GP_STROKE_UPDATE_GEOMETRY = (1 << 0),
-} eGPDstroke_RuntimeFlag;
 
 /**
  * Grease-Pencil Annotations - 'Stroke'
@@ -366,11 +265,6 @@ typedef struct bGPDstroke {
   /** Factor of opacity for Fill color (used by opacity modifier). */
   float fill_opacity_fac;
 
-  /** Min of the bound box used to speedup painting operators. */
-  float boundbox_min[3];
-  /** Max of the bound box used to speedup painting operators. */
-  float boundbox_max[3];
-
   /** UV rotation */
   float uv_rotation;
   /** UV translation (X and Y axis) */
@@ -391,14 +285,8 @@ typedef struct bGPDstroke {
   /** Curve used to edit the stroke using Bezier handlers. */
   struct bGPDcurve *editcurve;
 
-  /** Morph target data. */
-  ListBase morphs;
-
-  /* NOTE: When adding new members, make sure to add them to BKE_gpencil_stroke_copy_settings as
-   * well! */
-
-  void *_pad5;
   bGPDstroke_Runtime runtime;
+  void *_pad5;
 } bGPDstroke;
 
 /** #bGPDstroke.flag */
@@ -465,13 +353,6 @@ typedef struct bGPDframe_Runtime {
   int frameid;
   /** Onion offset from active frame. 0 if not onion. INT_MAX to bypass frame. */
   int onion_id;
-
-  /** Morph index for syncing morph target and base. */
-  int morph_index;
-  char _pad0[4];
-
-  /** Original frame (used to dereference evaluated data) */
-  struct bGPDframe *gpf_orig;
 } bGPDframe_Runtime;
 
 /**
@@ -530,38 +411,13 @@ typedef enum ebGPDlayer_Mask_Flag {
   GP_MASK_INVERT = (1 << 1),
 } ebGPDlayer_Mask_Flag;
 
-/* Morph target data for GP layers. */
-typedef struct bGPDlmorph {
-  DNA_DEFINE_CXX_METHODS(bGPDlmorph)
-
-  struct bGPDlmorph *next, *prev;
-
-  /** Morph target index. */
-  int morph_target_nr;
-  /** Transform delta's. */
-  float location[3];
-  float rotation[3];
-  float scale[3];
-  /** Opacity delta. */
-  float opacity;
-  /** Order delta. */
-  short order;
-  /** Applied order delta in evaluated lmorphs. */
-  short order_applied;
-} bGPDlmorph;
-
 /** Runtime temp data for #bGPDlayer. */
 typedef struct bGPDlayer_Runtime {
   DNA_DEFINE_CXX_METHODS(bGPDlayer_Runtime)
 
   /** Id for dynamic icon used to show annotation color preview for layer. */
   int icon_id;
-
-  /** Morph index for syncing morph target and base. */
-  int morph_index;
-
-  /** Original layer (used to dereference evaluated data) */
-  struct bGPDlayer *gpl_orig;
+  char _pad[4];
 } bGPDlayer_Runtime;
 
 /** Grease-Pencil Annotations - 'Layer'. */
@@ -641,26 +497,10 @@ typedef struct bGPDlayer {
   int act_mask;
   char _pad2[4];
 
-  /** Morphs (bGPDlmorph). */
-  ListBase morphs;
-
   /** Layer transforms. */
   float location[3], rotation[3], scale[3];
   float layer_mat[4][4], layer_invmat[4][4];
   char _pad3[4];
-
-  /** Ondine watercolor additions */
-  short ondine_flag;
-  char _pad4[2];
-  float stroke_wetness;
-  float stroke_dryness;
-  float stroke_darkened_edge_width;
-  float darkened_edge_width_var;
-  float layer_darkened_edge_width;
-  float darkened_edge_intensity;
-  float brush_jitter;
-  float watercolor_color_variation;
-  float watercolor_alpha_variation;
 
   bGPDlayer_Runtime runtime;
 } bGPDlayer;
@@ -723,12 +563,6 @@ typedef struct bGPdata_Runtime {
 
   /** Stroke buffer. */
   void *sbuffer;
-  /** Temp batches cleared after drawing. */
-  GPUVertBufHandle *sbuffer_position_buf;
-  GPUVertBufHandle *sbuffer_color_buf;
-  GPUBatchHandle *sbuffer_batch;
-  /** Temp stroke used for drawing. */
-  struct bGPDstroke *sbuffer_gps;
 
   /** Animation playing flag. */
   short playing;
@@ -761,23 +595,7 @@ typedef struct bGPdata_Runtime {
   int arrow_start_style;
   int arrow_end_style;
 
-  /* Ondine render runtimes. */
-  float render_zdepth;
-
-  /** Morph targets flag. */
-  short morph_target_flag;
-  char _pad2[2];
-
-  /** Number of control-points for stroke. */
-  int tot_cp_points;
-  /** Array of control-points for stroke. */
-  bGPDcontrolpoint *cp_points;
-  /** Brush pointer */
-  Brush *sbuffer_brush;
-  struct GpencilBatchCache *gpencil_cache;
-  struct LineartCache *lineart_cache;
-
-  struct GPencilUpdateCache *update_cache;
+  char _pad[4];
 } bGPdata_Runtime;
 
 /* grid configuration */
@@ -790,32 +608,6 @@ typedef struct bGPgrid {
   int lines;
   char _pad[4];
 } bGPgrid;
-
-/* Morph target definition. */
-typedef struct bGPDmorph_target {
-  DNA_DEFINE_CXX_METHODS(bGPDmorph_target)
-
-  struct bGPDmorph_target *next, *prev;
-
-  char name[128];
-  float value;
-  float range_min;
-  float range_max;
-  short flag;
-  char _pad0[2];
-
-  /* Flipping point condition when layer order morph is applied. */
-  int layer_order_compare;
-  float layer_order_value;
-} bGPDmorph_target;
-
-/* bGPDlayer->flag */
-typedef enum eGPDmorph_target_Flag {
-  /* Morhp target is active. */
-  GP_MORPH_TARGET_ACTIVE = (1 << 0),
-  /* Morph target is muted. */
-  GP_MORPH_TARGET_MUTE = (1 << 1),
-} eGPDmorph_target_Flag;
 
 /** Grease-Pencil Annotations - 'DataBlock'. */
 typedef struct bGPdata {
@@ -899,28 +691,6 @@ typedef struct bGPdata {
   int vertex_group_active_index;
 
   bGPgrid grid;
-
-  /** Morph targets. */
-  ListBase morph_targets;
-  char _pad3[4];
-
-  /* Ondine watercolor additions */
-  short ondine_flag;
-  char _pad4[2];
-  int randomize_seed_step;
-  float stroke_base_alpha;
-  float watercolor_noise_strength_high;
-  float stroke_overlap_darkening;
-  float layer_overlap_darkening;
-  float dry_stroke_edge_jitter;
-  float true_depth_threshold;
-
-  /* Pigment flow particle settings */
-  float pparticle_speed_min;
-  float pparticle_speed_max;
-  int pparticle_len_min;
-  int pparticle_len_max;
-  float pparticle_hairiness;
 
   bGPdata_Runtime runtime;
 } bGPdata;
@@ -1027,52 +797,14 @@ typedef enum eGP_DrawMode {
   GP_DRAWMODE_3D = 1,
 } eGP_DrawMode;
 
-/* gpd->runtime.morph_target_flag */
-typedef enum eGPD_MorphTargetFlag {
-  /* GP object has morphed layer order. */
-  GP_MORPH_TARGET_MORPHED_LAYER_ORDER = (1 << 0),
-} eGPD_MorphTargetFlag;
-
-/* Comparison operator for flipping point of layer order morph.*/
-typedef enum eGPD_MorphLayerOrderCompare {
-  GP_MORPH_TARGET_COMPARE_GREATER_THAN = 0,
-  GP_MORPH_TARGET_COMPARE_LESS_THAN = 1,
-} eGPD_MorphLayerOrderCompare;
-
 /* ***************************************** */
 /* Mode Checking Macros */
-
-/* Check if 'multiedit sessions' is enabled */
-#define GPENCIL_MULTIEDIT_SESSIONS_ON(gpd) \
-  ((gpd) && \
-   ((gpd)->flag & \
-    (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | \
-     GP_DATA_STROKE_WEIGHTMODE | GP_DATA_STROKE_VERTEXMODE)) && \
-   ((gpd)->flag & GP_DATA_STROKE_MULTIEDIT))
 
 #define GPENCIL_CURVE_EDIT_SESSIONS_ON(gpd) \
   ((gpd) && ((gpd)->flag & (GP_DATA_STROKE_EDITMODE)) && ((gpd)->flag & GP_DATA_CURVE_EDIT_MODE))
 
 /* Macros to check grease pencil modes */
-#define GPENCIL_ANY_MODE(gpd) \
-  ((gpd) && ((gpd)->flag & \
-             (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | \
-              GP_DATA_STROKE_WEIGHTMODE | GP_DATA_STROKE_VERTEXMODE)))
-#define GPENCIL_EDIT_MODE(gpd) ((gpd) && ((gpd)->flag & GP_DATA_STROKE_EDITMODE))
-#define GPENCIL_ANY_EDIT_MODE(gpd) \
-  ((gpd) && ((gpd)->flag & \
-             (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
-#define GPENCIL_PAINT_MODE(gpd) ((gpd) && (gpd->flag & GP_DATA_STROKE_PAINTMODE))
-#define GPENCIL_SCULPT_MODE(gpd) ((gpd) && (gpd->flag & GP_DATA_STROKE_SCULPTMODE))
-#define GPENCIL_WEIGHT_MODE(gpd) ((gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE))
 #define GPENCIL_VERTEX_MODE(gpd) ((gpd) && (gpd->flag & GP_DATA_STROKE_VERTEXMODE))
-#define GPENCIL_NONE_EDIT_MODE(gpd) \
-  ((gpd) && (((gpd)->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | \
-                             GP_DATA_STROKE_WEIGHTMODE | GP_DATA_STROKE_VERTEXMODE)) == 0))
-#define GPENCIL_LAZY_MODE(brush, shift) \
-  (((brush) && \
-    (((brush)->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) && ((shift) == 0))) || \
-   ((((brush)->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) && ((shift) == 1)))
 
 #define GPENCIL_ANY_SCULPT_MASK(flag) \
   ((flag & (GP_SCULPT_MASK_SELECTMODE_POINT | GP_SCULPT_MASK_SELECTMODE_STROKE | \
@@ -1081,5 +813,3 @@ typedef enum eGPD_MorphLayerOrderCompare {
 #define GPENCIL_ANY_VERTEX_MASK(flag) \
   ((flag & (GP_VERTEX_MASK_SELECTMODE_POINT | GP_VERTEX_MASK_SELECTMODE_STROKE | \
             GP_VERTEX_MASK_SELECTMODE_SEGMENT)))
-
-#define GPENCIL_PLAY_ON(gpd) ((gpd) && ((gpd)->runtime.playing == 1))

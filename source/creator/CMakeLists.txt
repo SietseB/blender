@@ -3,21 +3,22 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
-  ../blender/blenkernel
   ../blender/editors/include
-  ../blender/gpu
   ../blender/imbuf
+  ../blender/imbuf/movie
   ../blender/io/usd
-  ../blender/bmesh
   ../blender/makesrna
   ../blender/render
   ../blender/windowmanager
 )
 
 set(LIB
+  PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
+  PRIVATE bf::gpu
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
   bf_windowmanager
@@ -38,6 +39,12 @@ if(WITH_TBB)
   # This isn't fully robust but seems to work.
   list(INSERT LIB 0 ${TBB_LIBRARIES})
   list(INSERT LIB 0 bf_blenkernel)
+endif()
+
+if(WITH_OPENMP AND WITH_OPENMP_STATIC)
+  list(APPEND LIB
+    ${OpenMP_LIBRARIES}
+  )
 endif()
 
 if(WIN32)
@@ -378,9 +385,9 @@ endif()
 if(UNIX AND NOT APPLE)
   if(WITH_PYTHON_MODULE)
     if(WITH_INSTALL_PORTABLE)
-      set(TARGETDIR_BPY "./bpy")
-      set(TARGETDIR_VER "./bpy/${BLENDER_VERSION}")
-      set(TARGETDIR_LIB "./bpy/lib")
+      set(TARGETDIR_BPY "bpy")
+      set(TARGETDIR_VER "bpy/${BLENDER_VERSION}")
+      set(TARGETDIR_LIB "bpy/lib")
     else()
       set(TARGETDIR_BPY ${PYTHON_SITE_PACKAGES}/bpy)
       set(TARGETDIR_VER ${PYTHON_SITE_PACKAGES}/bpy/${BLENDER_VERSION})
@@ -388,12 +395,12 @@ if(UNIX AND NOT APPLE)
     endif()
   else()
     if(WITH_INSTALL_PORTABLE)
-      set(TARGETDIR_VER "./${BLENDER_VERSION}")
+      set(TARGETDIR_VER "${BLENDER_VERSION}")
       set(TARGETDIR_TEXT ".")
-      set(TARGETDIR_LIB "./lib")
+      set(TARGETDIR_LIB "lib")
     else()
-      set(TARGETDIR_VER "./share/blender/${BLENDER_VERSION}")
-      set(TARGETDIR_TEXT "./share/doc/blender")
+      set(TARGETDIR_VER "share/blender/${BLENDER_VERSION}")
+      set(TARGETDIR_TEXT "share/doc/blender")
     endif()
   endif()
 
@@ -405,17 +412,17 @@ elseif(WIN32)
     set(TARGETDIR_LIB ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/bpy)
     set(TARGETDIR_EXE ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/bpy)
   else()
-    set(TARGETDIR_VER "./${BLENDER_VERSION}")
+    set(TARGETDIR_VER "${BLENDER_VERSION}")
     set(TARGETDIR_TEXT ".")
-    set(TARGETDIR_LIB "./blender.shared")
+    set(TARGETDIR_LIB "blender.shared")
     set(TARGETDIR_EXE ".")
   endif()
 elseif(APPLE)
   if(WITH_PYTHON_MODULE)
     if(WITH_INSTALL_PORTABLE)
-      set(TARGETDIR_BPY "./bpy")
-      set(TARGETDIR_VER "./bpy/${BLENDER_VERSION}")
-      set(TARGETDIR_LIB "./bpy/lib")
+      set(TARGETDIR_BPY "bpy")
+      set(TARGETDIR_VER "bpy/${BLENDER_VERSION}")
+      set(TARGETDIR_LIB "bpy/lib")
     else()
       # Paths defined in terms of `site-packages` since the `site-packages`
       # directory can be a symbolic-link (brew for example).
@@ -424,9 +431,9 @@ elseif(APPLE)
       set(TARGETDIR_LIB ${PYTHON_SITE_PACKAGES}/bpy/lib)
     endif()
   else()
-    set(TARGETDIR_VER "./Blender.app/Contents/Resources/${BLENDER_VERSION}")
-    set(TARGETDIR_LIB "./Blender.app/Contents/Resources/lib")
-    set(TARGETDIR_TEXT "./Blender.app/Contents/Resources/text")
+    set(TARGETDIR_VER "Blender.app/Contents/Resources/${BLENDER_VERSION}")
+    set(TARGETDIR_LIB "Blender.app/Contents/Resources/lib")
+    set(TARGETDIR_TEXT "Blender.app/Contents/Resources/text")
   endif()
   # Skip re-linking on CPACK / install.
   set_target_properties(blender PROPERTIES BUILD_WITH_INSTALL_RPATH true)
@@ -473,6 +480,14 @@ if(WITH_PYTHON)
     endif()
   endif()
   unset(FREESTYLE_EXCLUDE_CONDITIONAL)
+
+  if(WITH_DRACO)
+    install(
+      PROGRAMS $<TARGET_FILE:extern_draco>
+      DESTINATION ${TARGETDIR_VER}/scripts/addons_core/io_scene_gltf2
+    )
+  endif()
+
 endif()
 
 # fonts
@@ -627,7 +642,7 @@ if(NOT ("${_install_cmd}" STREQUAL ""))
   # Message to display after building.
   get_filename_component(_install_dst ${TARGETDIR_VER} ABSOLUTE BASE_DIR ${CMAKE_INSTALL_PREFIX})
   add_custom_command(
-    TARGET blender POST_BUILD MAIN_DEPENDENCY blender
+    TARGET blender POST_BUILD
     COMMAND
       ${CMAKE_COMMAND} -E echo
       "Run: \\\"${_install_cmd}\\\" to copy runtime files and scripts to: ${_install_dst}"
@@ -977,19 +992,6 @@ file(REMOVE ${CMAKE_BINARY_DIR}/bin/lib/libglapi.so.0.0.0)\n
     endif()
   endif()
 
-  if(WITH_DRACO)
-    if(WITH_PYTHON_MODULE)
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${CMAKE_BINARY_DIR}/bin/bpy/lib
-      )
-    else()
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages
-      )
-    endif()
-  endif()
 elseif(WIN32)
   if(WITH_WINDOWS_EXTERNAL_MANIFEST)
     install(
@@ -1519,6 +1521,13 @@ elseif(WIN32)
       DESTINATION ${TARGETDIR_EXE}
       RENAME blender_system_info.cmd
     )
+    if(WITH_CYCLES)
+      install(
+        FILES
+          ${CMAKE_SOURCE_DIR}/release/windows/batch/blender_debug_cycles.cmd
+        DESTINATION ${TARGETDIR_EXE}
+      )
+    endif()
     install(
       FILES
         ${CMAKE_SOURCE_DIR}/release/windows/batch/blender_debug_gpu.cmd
@@ -1536,20 +1545,6 @@ elseif(WIN32)
       TARGETS BlendThumb
       DESTINATION "."
     )
-  endif()
-
-  if(WITH_DRACO)
-    if(WITH_PYTHON_MODULE)
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${CMAKE_BINARY_DIR}/bin/bpy/lib
-      )
-    else()
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages
-      )
-    endif()
   endif()
 
   if(WITH_PYTHON_MODULE AND TARGETDIR_BPY)
@@ -1608,18 +1603,18 @@ elseif(APPLE)
 
   install(
     FILES ${OSX_APP_SOURCEDIR}/Contents/PkgInfo
-    DESTINATION "./Blender.app/Contents"
+    DESTINATION "Blender.app/Contents"
   )
 
   install_dir(
     ${OSX_APP_SOURCEDIR}/Contents/Resources
-    "./Blender.app/Contents"
+    "Blender.app/Contents"
   )
 
   if(WITH_BLENDER_THUMBNAILER)
     install(
       TARGETS blender-thumbnailer
-      DESTINATION "./Blender.app/Contents/MacOS"
+      DESTINATION "Blender.app/Contents/MacOS"
     )
   endif()
 
@@ -1678,23 +1673,10 @@ elseif(APPLE)
     unset(PYTHON_EXECUTABLE_NAME_ONLY)
     install(
       PROGRAMS ${CMAKE_BINARY_DIR}/release/darwin/scripts/blender-system-info.sh
-      DESTINATION "./Blender.app/Contents/Resources"
+      DESTINATION "Blender.app/Contents/Resources"
     )
   endif()
 
-  if(WITH_DRACO)
-    if(WITH_PYTHON_MODULE)
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${CMAKE_BINARY_DIR}/bin/bpy/lib
-      )
-    else()
-      install(
-        PROGRAMS $<TARGET_FILE:extern_draco>
-        DESTINATION ${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages
-      )
-    endif()
-  endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -1848,7 +1830,7 @@ if((DEFINED LIBDIR) AND TARGETDIR_LIB)
         ${LIBDIR}/usd/plugin/usd/hdStorm
         ${LIBDIR}/usd/plugin/usd/usdShaders
         ${LIBDIR}/usd/plugin/usd/hioOiio
-        DESTINATION "./blender.shared/usd"
+        DESTINATION "blender.shared/usd"
       )
     elseif(USD_PYTHON_SUPPORT)
       install(DIRECTORY

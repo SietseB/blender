@@ -14,7 +14,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_ghash.h"
-#include "BLI_kdopbvh.h"
+#include "BLI_kdopbvh.hh"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
@@ -58,15 +58,13 @@
   "   :type distance: float\n"
 
 #define PYBVH_FIND_GENERIC_RETURN_DOC \
-  "   :return: Returns a tuple\n" \
-  "      (:class:`Vector` location, :class:`Vector` normal, int index, float distance),\n" \
+  "   :return: Returns a tuple: (position, normal, index, distance),\n" \
   "      Values will all be None if no hit is found.\n" \
-  "   :rtype: :class:`tuple`\n"
+  "   :rtype: tuple[:class:`Vector` | None, :class:`Vector` | None, int | None, float | None]\n"
 
 #define PYBVH_FIND_GENERIC_RETURN_LIST_DOC \
-  "   :return: Returns a list of tuples\n" \
-  "      (:class:`Vector` location, :class:`Vector` normal, int index, float distance),\n" \
-  "   :rtype: :class:`list`\n"
+  "   :return: Returns a list of tuples (position, normal, index, distance)\n" \
+  "   :rtype: list[tuple[:class:`Vector`, :class:`Vector`, int, float]]\n"
 
 #define PYBVH_FROM_GENERIC_EPSILON_DOC \
   "   :arg epsilon: Increase the threshold for detecting overlap and raycast hits.\n" \
@@ -271,10 +269,11 @@ static void py_bvhtree_raycast_cb(void *userdata,
   float dist;
 
   if (self->epsilon == 0.0f) {
-    dist = bvhtree_ray_tri_intersection(ray, hit->dist, UNPACK3(tri_co));
+    dist = blender::bke::bvhtree_ray_tri_intersection(ray, hit->dist, UNPACK3(tri_co));
   }
   else {
-    dist = bvhtree_sphereray_tri_intersection(ray, self->epsilon, hit->dist, UNPACK3(tri_co));
+    dist = blender::bke::bvhtree_sphereray_tri_intersection(
+        ray, self->epsilon, hit->dist, UNPACK3(tri_co));
   }
 
   if (dist >= 0 && dist < hit->dist) {
@@ -559,7 +558,7 @@ PyDoc_STRVAR(
     "   :type other_tree: :class:`BVHTree`\n"
     "   :return: Returns a list of unique index pairs,"
     "      the first index referencing this tree, the second referencing the **other_tree**.\n"
-    "   :rtype: :class:`list`\n");
+    "   :rtype: list[tuple[int, int]]\n");
 static PyObject *py_bvhtree_overlap(PyBVHTree *self, PyBVHTree *other)
 {
   PyBVHTree_OverlapData data;
@@ -642,9 +641,9 @@ PyDoc_STRVAR(
     "   BVH tree constructed geometry passed in as arguments.\n"
     "\n"
     "   :arg vertices: float triplets each representing ``(x, y, z)``\n"
-    "   :type vertices: float triplet sequence\n"
-    "   :arg polygons: Sequence of polyugons, each containing indices to the vertices argument.\n"
-    "   :type polygons: Sequence of sequences containing ints\n"
+    "   :type vertices: Sequence[Sequence[float]]\n"
+    "   :arg polygons: Sequence of polygons, each containing indices to the vertices argument.\n"
+    "   :type polygons: Sequence[Sequence[int]]\n"
     "   :arg all_triangles: Use when all **polygons** are triangles for more efficient "
     "conversion.\n"
     "   :type all_triangles: bool\n" PYBVH_FROM_GENERIC_EPSILON_DOC);

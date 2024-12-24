@@ -2,7 +2,11 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "infos/gpu_shader_text_info.hh"
+
 #include "gpu_shader_colorspace_lib.glsl"
+
+FRAGMENT_SHADER_CREATE_INFO(gpu_shader_text)
 
 /* Font texture is conceptually laid out like a big 1D buffer: each glyph
  * rectangle is flattened in row-major order into a "pixel strip". Inside
@@ -106,7 +110,6 @@ void main()
       /* 3x3 outline by dilation */
 
       float maxval = 0.0;
-      int idx = 0;
       for (int iy = 0; iy < 4; ++iy) {
         int ofsy = iy - 1;
         for (int ix = 0; ix < 4; ++ix) {
@@ -124,7 +127,6 @@ void main()
           float w = mix(mix(w00, w10, bilin_f.x), mix(w01, w11, bilin_f.x), bilin_f.y);
 
           maxval = max(maxval, v * w);
-          ++idx;
         }
       }
       fragColor.a = maxval;

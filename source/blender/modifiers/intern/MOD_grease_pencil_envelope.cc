@@ -9,6 +9,7 @@
 #include "DNA_defaults.h"
 #include "DNA_modifier_types.h"
 
+#include "BLI_array_utils.hh"
 #include "BLI_math_geom.h"
 
 #include "BKE_curves.hh"
@@ -631,6 +632,8 @@ static void modify_drawing(const GreasePencilEnvelopeModifierData &emd,
 {
   const EnvelopeInfo info = get_envelope_info(emd, ctx);
 
+  modifier::greasepencil::ensure_no_bezier_curves(drawing);
+
   IndexMaskMemory mask_memory;
   const IndexMask curves_mask = modifier::greasepencil::get_filtered_stroke_mask(
       ctx.object, drawing.strokes(), emd.influence, mask_memory);
@@ -684,24 +687,24 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
-  uiItemR(layout, ptr, "mode", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "mode", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  uiItemR(layout, ptr, "spread", UI_ITEM_NONE, nullptr, ICON_NONE);
-  uiItemR(layout, ptr, "thickness", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "spread", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+  uiItemR(layout, ptr, "thickness", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   switch (mode) {
     case MOD_GREASE_PENCIL_ENVELOPE_DEFORM:
       break;
     case MOD_GREASE_PENCIL_ENVELOPE_FILLS:
     case MOD_GREASE_PENCIL_ENVELOPE_SEGMENTS:
-      uiItemR(layout, ptr, "strength", UI_ITEM_NONE, nullptr, ICON_NONE);
-      uiItemR(layout, ptr, "mat_nr", UI_ITEM_NONE, nullptr, ICON_NONE);
-      uiItemR(layout, ptr, "skip", UI_ITEM_NONE, nullptr, ICON_NONE);
+      uiItemR(layout, ptr, "strength", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+      uiItemR(layout, ptr, "mat_nr", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+      uiItemR(layout, ptr, "skip", UI_ITEM_NONE, std::nullopt, ICON_NONE);
       break;
   }
 
   if (uiLayout *influence_panel = uiLayoutPanelProp(
-          C, layout, ptr, "open_influence_panel", "Influence"))
+          C, layout, ptr, "open_influence_panel", IFACE_("Influence")))
   {
     modifier::greasepencil::draw_layer_filter_settings(C, influence_panel, ptr);
     modifier::greasepencil::draw_material_filter_settings(C, influence_panel, ptr);

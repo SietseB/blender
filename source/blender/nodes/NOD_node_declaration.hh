@@ -48,7 +48,7 @@ enum class OutputSocketFieldType {
 };
 
 /**
- * A bit-field that maps to the #realtime_compositor::InputRealizationOptions.
+ * A bit-field that maps to the #compositor::InputRealizationOptions.
  */
 enum class CompositorInputRealizationOptions : uint8_t {
   None = 0,
@@ -173,7 +173,7 @@ class SocketDeclaration : public ItemDeclaration {
   std::string short_label;
   std::string identifier;
   std::string description;
-  std::string translation_context;
+  std::optional<std::string> translation_context;
   /** Defined by whether the socket is part of the node's input or
    * output socket declaration list. Included here for convenience. */
   eNodeSocketInOut in_out;
@@ -201,11 +201,11 @@ class SocketDeclaration : public ItemDeclaration {
       CompositorInputRealizationOptions::RealizeOnOperationDomain;
 
   /** The priority of the input for determining the domain of the node. See
-   * realtime_compositor::InputDescriptor for more information. */
+   * compositor::InputDescriptor for more information. */
   int compositor_domain_priority_ = 0;
 
   /** This input expects a single value and can't operate on non-single values. See
-   * realtime_compositor::InputDescriptor for more information. */
+   * compositor::InputDescriptor for more information. */
   bool compositor_expects_single_value_ = false;
 
   /** Utility method to make the socket available if there is a straightforward way to do so. */
@@ -284,7 +284,8 @@ class BaseSocketDeclarationBuilder {
 
   BaseSocketDeclarationBuilder &description(std::string value = "");
 
-  BaseSocketDeclarationBuilder &translation_context(std::string value = BLT_I18NCONTEXT_DEFAULT);
+  BaseSocketDeclarationBuilder &translation_context(
+      std::optional<std::string> value = std::nullopt);
 
   BaseSocketDeclarationBuilder &no_muted_links(bool value = true);
 
@@ -356,13 +357,13 @@ class BaseSocketDeclarationBuilder {
 
   /**
    * The priority of the input for determining the domain of the node. See
-   * realtime_compositor::InputDescriptor for more information.
+   * compositor::InputDescriptor for more information.
    */
   BaseSocketDeclarationBuilder &compositor_domain_priority(int priority);
 
   /**
    * This input expects a single value and can't operate on non-single values. See
-   * realtime_compositor::InputDescriptor for more information.
+   * compositor::InputDescriptor for more information.
    */
   BaseSocketDeclarationBuilder &compositor_expects_single_value(bool value = true);
 
@@ -437,7 +438,7 @@ class PanelDeclaration : public ItemDeclaration {
   int identifier;
   std::string name;
   std::string description;
-  std::string translation_context;
+  std::optional<std::string> translation_context;
   bool default_collapsed = false;
   Vector<ItemDeclaration *> items;
   /** Index in the list of panels on the node. */
@@ -526,7 +527,7 @@ using PanelDeclarationPtr = std::unique_ptr<PanelDeclaration>;
 
 class NodeDeclaration {
  public:
-  /* Contains all items including recursive children.*/
+  /* Contains all items including recursive children. */
   Vector<ItemDeclarationPtr> all_items;
   /* Contains only the items in the root. */
   Vector<ItemDeclaration *> root_items;

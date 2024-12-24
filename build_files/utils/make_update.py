@@ -11,11 +11,13 @@ For release branches, this will check out the appropriate branches of
 submodules and libraries.
 
 WARNING:
-Python 3.9 is used on the built-bot.
+- Python 3.6 is used on the Linux VM (Rocky8) to run "make update" to checkout LFS.
+- Python 3.9 is used on the built-bot.
+
 Take care *not* to use features from the Python version used by Blender!
 
 NOTE:
-Some type annotations are quoted to avoid errors in Python 3.9.
+Some type annotations are quoted to avoid errors in older Python versions.
 These can be unquoted eventually.
 """
 
@@ -61,7 +63,7 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_blender_git_root() -> Path:
+def get_blender_git_root(args: argparse.Namespace) -> Path:
     """
     Get root directory of the current Git directory.
     """
@@ -114,18 +116,17 @@ def get_effective_architecture(args: argparse.Namespace) -> str:
     if architecture == "aarch64":
         architecture = "arm64"
 
-    assert (architecture in {"x64", "arm64"})
-
     assert isinstance(architecture, str)
     return architecture
 
 
-def get_submodule_directories(args: argparse.Namespace) -> tuple[Path, ...]:
+# NOTE: unquote "tuple" once Python 3.6x is dropped.
+def get_submodule_directories(args: argparse.Namespace) -> "tuple[Path, ...]":
     """
     Get list of all configured submodule directories.
     """
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     dot_modules = blender_git_root / ".gitmodules"
 
     if not dot_modules.exists():
@@ -142,13 +143,13 @@ def ensure_git_lfs(args: argparse.Namespace) -> None:
     call((args.git_command, "lfs", "install", "--skip-repo"), exit_on_error=True)
 
 
-def prune_stale_files() -> None:
+def prune_stale_files(args: argparse.Namespace) -> None:
     """
     Ensure files from previous Git configurations do not exist anymore
     """
     print_stage("Removing stale files")
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     found_stale_files = False
 
     for relative_dir_to_remove in (
@@ -321,7 +322,7 @@ def external_script_copy_old_submodule_over(
         directory: Path,
         old_submodules_dir: Path,
 ) -> None:
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     external_dir = blender_git_root / directory
 
     print(f"Moving {old_submodules_dir} to {directory} ...")
@@ -348,7 +349,7 @@ def floating_checkout_initialize_if_needed(
 ) -> None:
     """Initialize checkout of an external repository"""
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     blender_dot_git = blender_git_root / ".git"
     external_dir = blender_git_root / directory
 
@@ -391,7 +392,7 @@ def floating_checkout_add_origin_if_needed(
 
     cwd = os.getcwd()
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     external_dir = blender_git_root / directory
 
     origin_blender_url = make_utils.git_get_remote_url(args.git_command, "origin")
@@ -446,7 +447,7 @@ def floating_checkout_update(
 ) -> str:
     """Update a single external checkout with the given name in the scripts folder"""
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     external_dir = blender_git_root / directory
 
     if only_update and not external_dir.exists():
@@ -455,7 +456,7 @@ def floating_checkout_update(
     floating_checkout_initialize_if_needed(args, repo_name, directory, old_submodules_dir)
     floating_checkout_add_origin_if_needed(args, repo_name, directory)
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     external_dir = blender_git_root / directory
 
     print(f"* Updating {directory} ...")
@@ -520,21 +521,6 @@ def floating_checkout_update(
     return skip_msg
 
 
-def external_scripts_update(
-        args: argparse.Namespace,
-        repo_name: str,
-        directory_name: str,
-        branch: "str | None",
-) -> str:
-    return floating_checkout_update(
-        args,
-        repo_name,
-        Path("scripts") / directory_name,
-        branch,
-        old_submodules_dir=Path("release") / "scripts" / directory_name,
-    )
-
-
 def floating_libraries_update(args: argparse.Namespace, branch: "str | None") -> str:
     """Update libraries checkouts which are floating (not attached as Git submodules)"""
     msg = ""
@@ -555,7 +541,7 @@ def add_submodule_push_url(args: argparse.Namespace) -> None:
     Add pushURL configuration for all locally activated submodules, pointing to SSH protocol.
     """
 
-    blender_git_root = get_blender_git_root()
+    blender_git_root = get_blender_git_root(args)
     modules = blender_git_root / ".git" / "modules"
 
     submodule_directories = get_submodule_directories(args)
@@ -610,7 +596,7 @@ def submodules_lib_update(args: argparse.Namespace, branch: "str | None") -> str
     return msg
 
 
-if __name__ == "__main__":
+def main() -> int:
     args = parse_arguments()
     blender_skip_msg = ""
     libraries_skip_msg = ""
@@ -628,7 +614,7 @@ if __name__ == "__main__":
     ensure_git_lfs(args)
 
     if args.prune_destructive:
-        prune_stale_files()
+        prune_stale_files(args)
 
     if not args.no_blender:
         blender_skip_msg = git_update_skip(args)
@@ -654,4 +640,10 @@ if __name__ == "__main__":
     # For Blender itself we don't and consider "make update" to be a command
     # you can use while working on uncommitted code.
     if submodules_skip_msg:
-        sys.exit(1)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

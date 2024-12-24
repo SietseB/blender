@@ -167,7 +167,7 @@ ModifierData *BKE_modifier_new(int type)
 static void modifier_free_data_id_us_cb(void * /*user_data*/,
                                         Object * /*ob*/,
                                         ID **idpoin,
-                                        int cb_flag)
+                                        const LibraryForeachIDCallbackFlag cb_flag)
 {
   ID *id = *idpoin;
   if (id != nullptr && (cb_flag & IDWALK_CB_USER) != 0) {
@@ -335,7 +335,7 @@ void BKE_modifier_copydata_generic(const ModifierData *md_src,
 static void modifier_copy_data_id_us_cb(void * /*user_data*/,
                                         Object * /*ob*/,
                                         ID **idpoin,
-                                        int cb_flag)
+                                        const LibraryForeachIDCallbackFlag cb_flag)
 {
   ID *id = *idpoin;
   if (id != nullptr && (cb_flag & IDWALK_CB_USER) != 0) {
@@ -770,7 +770,14 @@ bool BKE_modifiers_uses_armature(Object *ob, bArmature *arm)
 
   for (; md; md = md->next) {
     if (md->type == eModifierType_Armature) {
-      ArmatureModifierData *amd = (ArmatureModifierData *)md;
+      ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
+      if (amd->object && amd->object->data == arm) {
+        return true;
+      }
+    }
+    else if (md->type == eModifierType_GreasePencilArmature) {
+      GreasePencilArmatureModifierData *amd = reinterpret_cast<GreasePencilArmatureModifierData *>(
+          md);
       if (amd->object && amd->object->data == arm) {
         return true;
       }

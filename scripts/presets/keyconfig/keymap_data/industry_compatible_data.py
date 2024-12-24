@@ -407,6 +407,7 @@ def km_user_interface(params):
         ("ui.eyedropper_colorramp_point", {"type": 'I', "value": 'PRESS', "alt": True}, None),
         ("ui.eyedropper_id", {"type": 'I', "value": 'PRESS'}, None),
         ("ui.eyedropper_depth", {"type": 'I', "value": 'PRESS'}, None),
+        ("ui.eyedropper_bone", {"type": 'I', "value": 'PRESS'}, None),
         # Copy data path
         ("ui.copy_data_path_button", {"type": 'C', "value": 'PRESS', "ctrl": True}, None),
         ("ui.copy_data_path_button", {"type": 'C', "value": 'PRESS', "ctrl": True, "alt": True},
@@ -1860,11 +1861,11 @@ def km_sequencer(params):
          {"properties": [("extend", True)]}),
         ("sequencer.select_linked", {"type": 'L', "value": 'PRESS', "ctrl": True}, None),
         ("sequencer.select_box", {"type": 'LEFTMOUSE', "value": 'CLICK_DRAG'},
-         {"properties": [("mode", 'SET')]}),
+         {"properties": [("tweak", True), ("mode", 'SET')]}),
         ("sequencer.select_box", {"type": 'LEFTMOUSE', "value": 'CLICK_DRAG', "shift": True},
-         {"properties": [("mode", 'ADD')]}),
+         {"properties": [("tweak", True), ("mode", 'ADD')]}),
         ("sequencer.select_box", {"type": 'LEFTMOUSE', "value": 'CLICK_DRAG', "ctrl": True},
-         {"properties": [("mode", 'SUB')]}),
+         {"properties": [("tweak", True), ("mode", 'SUB')]}),
         ("sequencer.select_grouped", {"type": 'G', "value": 'PRESS', "shift": True}, None),
         ("sequencer.slip", {"type": 'R', "value": 'PRESS'}, None),
         ("wm.context_set_int", {"type": 'O', "value": 'PRESS'},
@@ -2222,9 +2223,8 @@ def km_spreadsheet_generic(_params):
     )
 
     items.extend([
-        *_template_space_region_type_toggle(
-            channels_key={"type": 'T', "value": 'PRESS'},
-        ),
+        ("wm.context_toggle", {"type": 'LEFT_BRACKET', "value": 'PRESS', "ctrl": True},
+         {"properties": [("data_path", "space_data.show_region_toolbar")]}),
         ("wm.context_toggle", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "ctrl": True},
          {"properties": [("data_path", "space_data.show_region_ui")]}),
     ])
@@ -2723,7 +2723,8 @@ def km_image_paint(params):
         ("paint.image_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
          {"properties": [("mode", 'INVERT')]}),
         # Colors
-        ("paint.sample_color", {"type": 'I', "value": 'PRESS'}, None),
+        ("paint.sample_color", {"type": 'I', "value": 'PRESS'}, {"properties": [("merged", False)]}),
+        ("paint.sample_color", {"type": 'I', "value": 'PRESS', "shift": True}, {"properties": [("merged", True)]}),
         ("paint.brush_colors_flip", {"type": 'X', "value": 'PRESS'}, None),
         # Clone
         ("paint.grab_clone", {"type": 'MIDDLEMOUSE', "value": 'PRESS'}, None),
@@ -2782,7 +2783,7 @@ def km_vertex_paint(params):
         ("paint.vertex_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
          {"properties": [("mode", 'SMOOTH')]}),
         # Colors
-        ("paint.sample_color", {"type": 'I', "value": 'PRESS'}, None),
+        ("paint.sample_color", {"type": 'I', "value": 'PRESS'}, {"properties": [("merged", False)]}),
         ("paint.brush_colors_flip", {"type": 'X', "value": 'PRESS'}, None),
         ("paint.vertex_color_set", {"type": 'BACK_SPACE', "value": 'PRESS'}, None),
         # Brush properties
@@ -3608,7 +3609,7 @@ def km_image_editor_tool_uv_select(params):
 
 def km_sequencer_editor_tool_select_preview(params):
     return (
-        "Sequencer Preview Tool: Tweak",
+        "Sequencer Preview Tool: Select Box",
         {"space_type": 'SEQUENCE_EDITOR', "region_type": 'WINDOW'},
         {"items": _template_items_tool_select(params, "sequencer.select", extend="toggle")}
     )
@@ -3616,7 +3617,7 @@ def km_sequencer_editor_tool_select_preview(params):
 
 def km_sequencer_editor_tool_select_timeline(params):
     return (
-        "Sequencer Timeline Tool: Tweak",
+        "Sequencer Timeline Tool: Select Box",
         {"space_type": 'SEQUENCE_EDITOR', "region_type": 'WINDOW'},
         {"items": _template_items_tool_select(params, "sequencer.select", extend="toggle")}
     )
@@ -3741,6 +3742,7 @@ def generate_keymaps_impl(params=None):
         km_clip_editor(params),
         km_clip_graph_editor(params),
         km_clip_dopesheet_editor(params),
+        km_spreadsheet_generic(params),
 
         # Animation.
         km_frames(params),

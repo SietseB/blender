@@ -14,8 +14,8 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_image.h"
-#include "BKE_image_format.h"
+#include "BKE_image.hh"
+#include "BKE_image_format.hh"
 #include "BKE_node_tree_update.hh"
 
 #include "BLT_translation.hh"
@@ -25,6 +25,8 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
+
+#include "MOV_read.hh"
 
 #include "rna_internal.hh"
 
@@ -599,9 +601,9 @@ static int rna_Image_frame_duration_get(PointerRNA *ptr)
   }
 
   if (BKE_image_has_anim(ima)) {
-    ImBufAnim *anim = ((ImageAnim *)ima->anims.first)->anim;
+    MovieReader *anim = ((ImageAnim *)ima->anims.first)->anim;
     if (anim) {
-      duration = IMB_anim_get_duration(anim, IMB_TC_RECORD_RUN);
+      duration = MOV_get_duration_frames(anim, IMB_TC_RECORD_RUN);
     }
   }
 

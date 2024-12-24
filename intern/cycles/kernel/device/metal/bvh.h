@@ -24,10 +24,16 @@ struct MetalRTIntersectionPayload {
 
 struct MetalRTIntersectionLocalPayload_single_hit {
   int self_prim;
+#if defined(__METALRT_MOTION__)
+  int self_object;
+#endif
 };
 
 struct MetalRTIntersectionLocalPayload {
   int self_prim;
+#if defined(__METALRT_MOTION__)
+  int self_object;
+#endif
   uint lcg_state;
   uint hit_prim[LOCAL_MAX_HITS];
   float hit_t[LOCAL_MAX_HITS];
@@ -135,10 +141,10 @@ ccl_device_forceinline float curve_ribbon_v(
   const float r_curve = P_curve4.w;
 
   float3 P = ray_P + ray_D * t;
-  const float3 P_curve = float4_to_float3(P_curve4);
+  const float3 P_curve = make_float3(P_curve4);
 
   const float4 dPdu4 = metal::catmull_rom_derivative(u, curve[0], curve[1], curve[2], curve[3]);
-  const float3 dPdu = float4_to_float3(dPdu4);
+  const float3 dPdu = make_float3(dPdu4);
 
   const float3 tangent = normalize(dPdu);
   const float3 bitangent = normalize(cross(tangent, -ray_D));
@@ -330,13 +336,11 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
     MetalRTIntersectionLocalPayload_single_hit payload;
     payload.self_prim = ray->self.prim - primitive_id_offset;
 
-    /* We only need custom intersection filtering (i.e. non_opaque) if we are performing a
-     * self-primitive intersection check. */
-    metalrt_intersect.force_opacity((ray->self.prim == PRIM_NONE) ?
-                                        metal::raytracing::forced_opacity::opaque :
-                                        metal::raytracing::forced_opacity::non_opaque);
-
 #  if defined(__METALRT_MOTION__)
+    /* We can't skip over the top-level BVH in the motion blur case, so still need to do
+     * the self-object check. */
+    payload.self_object = local_object;
+    metalrt_intersect.force_opacity(metal::raytracing::forced_opacity::non_opaque);
     intersection = metalrt_intersect.intersect(r,
                                                metal_ancillaries->accel_struct,
                                                ~0,
@@ -344,6 +348,11 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
                                                metal_ancillaries->ift_local_single_hit_mblur,
                                                payload);
 #  else
+    /* We only need custom intersection filtering (i.e. non_opaque) if we are performing a
+     * self-primitive intersection check. */
+    metalrt_intersect.force_opacity((ray->self.prim == PRIM_NONE) ?
+                                        metal::raytracing::forced_opacity::opaque :
+                                        metal::raytracing::forced_opacity::non_opaque);
     intersection = metalrt_intersect.intersect(
         r,
         metal_ancillaries->blas_accel_structs[local_object].blas,
@@ -387,6 +396,9 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
     metalrt_intersect.force_opacity(metal::raytracing::forced_opacity::non_opaque);
 
 #  if defined(__METALRT_MOTION__)
+    /* We can't skip over the top-level BVH in the motion blur case, so still need to do
+     * the self-object check. */
+    payload.self_object = local_object;
     intersection = metalrt_intersect.intersect(r,
                                                metal_ancillaries->accel_struct,
                                                ~0,

@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2024-10-16 00:56+0000\n"
 "Last-Translator: Leevi Oksanen <laavi.oksanen@gmail.com>\n"
 "Language-Team: Finnish <https://translate.blender.org/projects/blender-ui/ui/fi/>\n"
@@ -5351,6 +5351,10 @@ msgid "sin(x) / x"
 msgstr "sin(x) / x"
 
 
+msgid "Roughness"
+msgstr "Karheus"
+
+
 msgid "Step Size"
 msgstr "Askelkoko"
 
@@ -5720,6 +5724,14 @@ msgstr "2D-vektori"
 
 msgid "3D vector"
 msgstr "3D-vektori"
+
+
+msgid "OpenVDB"
+msgstr "OpenVDB"
+
+
+msgid "Raw Cache"
+msgstr "Raaka välimuisti"
 
 
 msgid "End"
@@ -6710,14 +6722,6 @@ msgid "Fluid"
 msgstr "Neste"
 
 
-msgid "Roughness"
-msgstr "Karheus"
-
-
-msgid "Shadow Mode"
-msgstr "Varjotila"
-
-
 msgid "Blended"
 msgstr "Sekoitettu"
 
@@ -6760,6 +6764,10 @@ msgstr "Attribuutti"
 
 msgid "Shader"
 msgstr "Varjostin"
+
+
+msgid "Pattern"
+msgstr "Kuvio"
 
 
 msgid "Interface"
@@ -7363,10 +7371,6 @@ msgid "Marble Texture"
 msgstr "Marmoritekstuuri"
 
 
-msgid "Pattern"
-msgstr "Kuvio"
-
-
 msgid "Use soft marble"
 msgstr "Käytää pehmeää marmoria"
 
@@ -7431,52 +7435,52 @@ msgid "Vector Font"
 msgstr "Vektorifontti"
 
 
-msgid "Names"
-msgstr "Nimet"
-
-
-msgid "Random Mask"
-msgstr "Satunnainen maski"
-
-
-msgid "Mesh Select Mode"
-msgstr "Muodon valintatila"
-
-
-msgid "Show/Hide"
-msgstr "Näytä/Piilota"
-
-
 msgid "UV Mapping"
 msgstr "UV-kartoittaminen"
-
-
-msgid "Hooks"
-msgstr "Koukut"
-
-
-msgid "Track"
-msgstr "Raide"
-
-
-msgid "Add Image"
-msgstr "Lisää kuva"
-
-
-msgid "Select Similar"
-msgstr "Valitse samankaltainen"
 
 
 msgid "Select More/Less"
 msgstr "Valitse enemmän/vähemmän"
 
 
-msgid "Select Loops"
-msgstr "Valitse silmukat"
+msgid "Select Similar"
+msgstr "Valitse samankaltainen"
 
 
 msgid "Select All by Trait"
 msgstr "Valitse kaikki piirteen mukaan"
+
+
+msgid "Select Loops"
+msgstr "Valitse silmukat"
+
+
+msgid "Add Image"
+msgstr "Lisää kuva"
+
+
+msgid "Track"
+msgstr "Raide"
+
+
+msgid "Show/Hide"
+msgstr "Näytä/Piilota"
+
+
+msgid "Hooks"
+msgstr "Koukut"
+
+
+msgid "Random Mask"
+msgstr "Satunnainen maski"
+
+
+msgid "Names"
+msgstr "Nimet"
+
+
+msgid "Mesh Select Mode"
+msgstr "Muodon valintatila"
 
 
 msgid "Basic"
@@ -8053,10 +8057,6 @@ msgstr "Mukautettu väli"
 
 msgid "Sound Clip"
 msgstr "Ääniklippi"
-
-
-msgid "Custom Node"
-msgstr "Mukautettu noodi"
 
 
 msgid "Show Options"
@@ -8741,6 +8741,11 @@ msgstr "Suurempi tai yhtä suuri kuin"
 
 msgid "Float to Integer"
 msgstr "Liukuluku kokonaisluvuksi"
+
+
+msgctxt "NodeTree"
+msgid "Modulo"
+msgstr "Jakojäännös"
 
 
 msgid "Random Value"
@@ -9650,11 +9655,6 @@ msgstr "Skaala"
 msgctxt "NodeTree"
 msgid "Normalize"
 msgstr "Normalisoi"
-
-
-msgctxt "NodeTree"
-msgid "Modulo"
-msgstr "Jakojäännös"
 
 
 msgid "Vector Rotate"
@@ -11686,18 +11686,6 @@ msgid "Normal Vector"
 msgstr "Normaalivektori"
 
 
-msgid "Node X"
-msgstr "X-noodi"
-
-
-msgid "Node Y"
-msgstr "Y-noodi"
-
-
-msgid "Node X / Y"
-msgstr "X / Y -noodi"
-
-
 msgid "Only Endpoints"
 msgstr "Vain Päätepisteet"
 
@@ -12399,11 +12387,6 @@ msgstr "NLA-Editori"
 msgctxt "WindowManager"
 msgid "NLA Tracks"
 msgstr "NLA-Raiteet"
-
-
-msgctxt "WindowManager"
-msgid "Timeline"
-msgstr "Aikajana"
 
 
 msgctxt "WindowManager"
@@ -14123,14 +14106,6 @@ msgid "Undefined Type"
 msgstr "Määrittelemätön tyyppi"
 
 
-msgid "Error writing frame"
-msgstr "Virhe kirjoittaessa kehystä"
-
-
-msgid "No valid formats found"
-msgstr "Päteviä formaatteja ei löytynyt"
-
-
 msgid "Sculpting"
 msgstr "Veistäminen"
 
@@ -15658,6 +15633,14 @@ msgid "Pack Islands"
 msgstr "Pakkaa UV-saaret"
 
 
+msgid "Error writing frame"
+msgstr "Virhe kirjoittaessa kehystä"
+
+
+msgid "No valid formats found"
+msgstr "Päteviä formaatteja ei löytynyt"
+
+
 msgid "Could not open SVG"
 msgstr "SVG-tiedostoa ei kyetty avaamaan"
 
@@ -15668,14 +15651,6 @@ msgstr "Suhde"
 
 msgid "Binary Object"
 msgstr "Binääriobjekti"
-
-
-msgid "OpenVDB"
-msgstr "OpenVDB"
-
-
-msgid "Raw Cache"
-msgstr "Raaka välimuisti"
 
 
 msgid "X Velocity"
@@ -15717,18 +15692,6 @@ msgstr "Muuta"
 
 msgid "Unknown socket type"
 msgstr "Tuntematon pistoketyyppi"
-
-
-msgid "CustomGroup"
-msgstr "Mukautettu ryhmä"
-
-
-msgid "Custom Group Node"
-msgstr "Mukautettu ryhmänoodi"
-
-
-msgid "UNDEFINED"
-msgstr "MÄÄRITTELEMÄTÖN"
 
 
 msgctxt "NodeTree"
@@ -17243,11 +17206,6 @@ msgstr "Väritasapaino"
 
 
 msgctxt "Sequence"
-msgid "White Balance"
-msgstr "Valkotasapaino"
-
-
-msgctxt "Sequence"
 msgid "Curves"
 msgstr "Käyrät"
 
@@ -17260,6 +17218,11 @@ msgstr "Sävykorjaus"
 msgctxt "Sequence"
 msgid "Brightness/Contrast"
 msgstr "Kirkkaus/Kontrasti"
+
+
+msgctxt "Sequence"
+msgid "White Balance"
+msgstr "Valkotasapaino"
 
 
 msgctxt "Sequence"
@@ -17857,10 +17820,6 @@ msgstr "Tuo SVG-käyrinä"
 
 msgid "UV Layout"
 msgstr "UV-asetelma"
-
-
-msgid "All Add-ons"
-msgstr "Kaikki lisäosat"
 
 
 msgid "All Add-ons Installed by User"

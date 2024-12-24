@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Alpha (b'58c660c9615d')\n"
+"Project-Id-Version: Blender 4.4.0 Alpha (b'159424053bc2')\n"
 "Report-Msgid-Bugs-To: Leandro Paganelli <leandrobp@fastmail.com>\n"
-"POT-Creation-Date: 2024-10-20 15:55+0000\n"
+"POT-Creation-Date: 2024-12-23 13:35+0000\n"
 "PO-Revision-Date: 2024-04-15 06:56+0000\n"
 "Last-Translator: Ruan da Silva Andrade <ruanandrade818@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.blender.org/projects/blender-ui/ui/pt_BR/>\n"
@@ -9353,6 +9353,10 @@ msgid "Amount of fine level detail present in the noise"
 msgstr "Quantidade de nível de detalhes finos presentes no ruído."
 
 
+msgid "Lacunarity"
+msgstr "Frequência das lacunas"
+
+
 msgid "Time offset for the noise effect"
 msgstr "Deslocamento de tempo para o efeito de ruído."
 
@@ -9363,6 +9367,10 @@ msgstr "Fase"
 
 msgid "A random seed for the noise effect"
 msgstr "Um valor de semente aleatória para o efeito de ruído."
+
+
+msgid "Roughness"
+msgstr "Rugosidade"
 
 
 msgid "Scaling (in time) of the noise"
@@ -14253,20 +14261,12 @@ msgid "Directional area light source"
 msgstr "Fonte de luz com área direcional."
 
 
-msgid "Shadow Buffer Bias"
-msgstr "Ajuste fino para sombras contingenciadas"
-
-
 msgid "Shadow Buffer Clip Start"
 msgstr "Limite inicial das sombras contingenciadas"
 
 
 msgid "Shadow map clip start, below which objects will not generate shadows"
 msgstr "O limite inicial do mapa de sombras (distância), abaixo do qual os objetos não irão gerar sombras."
-
-
-msgid "Shadow Color"
-msgstr "Cor de sombras"
 
 
 msgid "Shadow Soft Size"
@@ -14505,24 +14505,8 @@ msgid "Cloth"
 msgstr "Tecido"
 
 
-msgid "Roughness"
-msgstr "Rugosidade"
-
-
 msgid "Roughness of the material"
 msgstr "Rugosidade do material"
-
-
-msgid "Shadow Mode"
-msgstr "Modo de Sombra"
-
-
-msgid "Opaque"
-msgstr "Opaco"
-
-
-msgid "Alpha Clip"
-msgstr "Limite de corte de alfa"
 
 
 msgid "Specular Color"
@@ -14853,12 +14837,16 @@ msgid "Shader"
 msgstr "Sombreador"
 
 
-msgid "Grease Pencil Data"
-msgstr "Dados de lápis de cera"
+msgid "Pattern"
+msgstr "Padrão"
 
 
 msgid "Interface"
 msgstr "Interface"
+
+
+msgid "Grease Pencil Data"
+msgstr "Dados de lápis de cera"
 
 
 msgid "Links"
@@ -16593,10 +16581,6 @@ msgid "Show Subframe"
 msgstr "Mostrar sub-quadros"
 
 
-msgid "Show current scene subframe and allow set it using interface tools"
-msgstr "Mostra os sub-quadros da cena atual e permite que os mesmos sejam definidos usando as ferramentas de interface."
-
-
 msgid "Sync Mode"
 msgstr "Modo de sincronização"
 
@@ -17495,10 +17479,6 @@ msgid "Marble Texture"
 msgstr "Textura tipo mármore"
 
 
-msgid "Pattern"
-msgstr "Padrão"
-
-
 msgid "Use soft marble"
 msgstr "Usa um mármore suave."
 
@@ -17569,10 +17549,6 @@ msgstr "Ganho"
 
 msgid "The gain multiplier"
 msgstr "O multiplicador de ganho."
-
-
-msgid "Lacunarity"
-msgstr "Frequência das lacunas"
 
 
 msgid "Gap between successive frequencies"
@@ -21495,136 +21471,148 @@ msgid "Material slot name"
 msgstr "Nome do compartimento do material."
 
 
-msgid "Names"
-msgstr "Nomes"
-
-
-msgid "Propagate"
-msgstr "Propagar"
-
-
-msgid "In-Betweens"
-msgstr "Entre as continuidades"
-
-
-msgid "Clear Transform"
-msgstr "Limpar transformações"
-
-
-msgid "Random Mask"
-msgstr "Máscara Aleatória"
-
-
-msgid "Align View"
-msgstr "Alinhar visualização"
-
-
-msgid "Face Data"
-msgstr "Dados das faces"
-
-
-msgid "Mesh Select Mode"
-msgstr "Modo de seleção de malhas"
-
-
-msgid "Navigation"
-msgstr "Navegação"
-
-
-msgid "Disable Bone Options"
-msgstr "Desabilitar as opções de ossos"
-
-
-msgid "Viewpoint"
-msgstr "Ponto de visualização"
-
-
-msgid "Enable Bone Options"
-msgstr "Habilitar opções de ossos"
-
-
-msgid "Local View"
-msgstr "Visão local"
-
-
-msgid "Toggle Bone Options"
-msgstr "Alternar opções de ossos"
-
-
-msgid "Show/Hide"
-msgstr "Mostrar ou ocultar"
-
-
-msgid "UV Mapping"
-msgstr "Mapeamento UV"
+msgid "Mirror"
+msgstr "Espelhar"
 
 
 msgid "Snap"
 msgstr "Atrair"
 
 
-msgid "Mirror"
-msgstr "Espelhar"
+msgid "UV Mapping"
+msgstr "Mapeamento UV"
 
 
-msgid "Hooks"
-msgstr "Ganchos"
+msgid "Local View"
+msgstr "Visão local"
 
 
-msgid "Convert"
-msgstr "Converter"
+msgid "Viewpoint"
+msgstr "Ponto de visualização"
 
 
-msgid "Make Single User"
-msgstr "Tornar usuário único"
+msgid "Navigation"
+msgstr "Navegação"
 
 
-msgid "Clean Up"
-msgstr "Limpeza"
+msgid "Align View"
+msgstr "Alinhar visualização"
 
 
-msgid "Quick Effects"
-msgstr "Efeitos instantâneos"
+msgid "Align View to Active"
+msgstr "Alinhar vista para o ativo"
 
 
-msgid "Track"
-msgstr "Rastrear"
-
-
-msgid "Apply"
-msgstr "Aplicar"
-
-
-msgid "Rigid Body"
-msgstr "Corpo rígido"
-
-
-msgid "Relations"
-msgstr "Relações"
-
-
-msgid "Add Image"
-msgstr "Adicionar Imagem"
-
-
-msgid "Select Similar"
-msgstr "Selecionar por similaridades"
+msgid "View Regions"
+msgstr "Visualizar Regiões"
 
 
 msgid "Select More/Less"
 msgstr "Selecionar mais ou menos"
 
 
-msgid "Select Loops"
-msgstr "Selecionar anéis"
+msgid "Select Similar"
+msgstr "Selecionar por similaridades"
+
+
+msgid "Select All by Trait"
+msgstr "Selecionar todos por características..."
 
 
 msgid "Select Linked"
 msgstr "Selecionar vinculados(as)"
 
 
-msgid "Select All by Trait"
-msgstr "Selecionar todos por características..."
+msgid "Select Loops"
+msgstr "Selecionar anéis"
+
+
+msgid "Add Image"
+msgstr "Adicionar Imagem"
+
+
+msgid "Relations"
+msgstr "Relações"
+
+
+msgid "Rigid Body"
+msgstr "Corpo rígido"
+
+
+msgid "Apply"
+msgstr "Aplicar"
+
+
+msgid "Track"
+msgstr "Rastrear"
+
+
+msgid "Quick Effects"
+msgstr "Efeitos instantâneos"
+
+
+msgid "Show/Hide"
+msgstr "Mostrar ou ocultar"
+
+
+msgid "Clean Up"
+msgstr "Limpeza"
+
+
+msgid "Make Single User"
+msgstr "Tornar usuário único"
+
+
+msgid "Convert"
+msgstr "Converter"
+
+
+msgid "Hooks"
+msgstr "Ganchos"
+
+
+msgid "Random Mask"
+msgstr "Máscara Aleatória"
+
+
+msgid "Clear Transform"
+msgstr "Limpar transformações"
+
+
+msgid "In-Betweens"
+msgstr "Entre as continuidades"
+
+
+msgid "Propagate"
+msgstr "Propagar"
+
+
+msgid "Names"
+msgstr "Nomes"
+
+
+msgid "Toggle Bone Options"
+msgstr "Alternar opções de ossos"
+
+
+msgid "Enable Bone Options"
+msgstr "Habilitar opções de ossos"
+
+
+msgid "Disable Bone Options"
+msgstr "Desabilitar as opções de ossos"
+
+
+msgid "Mesh Select Mode"
+msgstr "Modo de seleção de malhas"
+
+
+msgid "Face Data"
+msgstr "Dados das faces"
+
+
+msgid "Merge"
+msgstr "Fundir"
 
 
 msgid "Special Characters"
@@ -21633,18 +21621,6 @@ msgstr "Caracteres especiais"
 
 msgid "Bone Roll"
 msgstr "Rolagem dos ossos"
-
-
-msgid "View Regions"
-msgstr "Visualizar Regiões"
-
-
-msgid "Align View to Active"
-msgstr "Alinhar vista para o ativo"
-
-
-msgid "Merge"
-msgstr "Fundir"
 
 
 msgid "Pivot Point"
@@ -27024,14 +27000,6 @@ msgid "Static Type"
 msgstr "Tipo estático"
 
 
-msgid "Node type (deprecated, use with care)"
-msgstr "Tipo de nó (função obsoleta, usar com cautela)."
-
-
-msgid "Custom Node"
-msgstr "Nós personalizados"
-
-
 msgid "Custom color of the node body"
 msgstr "Cor personalizada do corpo do nó."
 
@@ -27082,10 +27050,6 @@ msgstr "Mostrar "
 
 msgid "Show Texture"
 msgstr "Mostrar textura"
-
-
-msgid "Node type (deprecated, use bl_static_type or bl_idname for the actual identifier string)"
-msgstr "Tipo de nó (obsoleto, use bl_static_type ou bl_idname para a variável texto de identificação atual)."
 
 
 msgid "Use custom color for the node"
@@ -30595,6 +30559,16 @@ msgid "Create Pose Asset"
 msgstr "Criar Recurso de Pose"
 
 
+msgctxt "Operator"
+msgid "Disable Add-on"
+msgstr "Desabilitar complemento"
+
+
+msgctxt "Operator"
+msgid "Enable Add-on"
+msgstr "Habilitar complemento"
+
+
 msgid "Display information and preferences for this add-on"
 msgstr "Exibe as informações e preferências para este complemento."
 
@@ -31146,16 +31120,6 @@ msgstr "Permite adicionar ou remover uma predefinição de operador."
 msgctxt "Operator"
 msgid "Operator Preset"
 msgstr "Predefinições para operador"
-
-
-msgctxt "Operator"
-msgid "Disable Add-on"
-msgstr "Desabilitar complemento"
-
-
-msgctxt "Operator"
-msgid "Enable Add-on"
-msgstr "Habilitar complemento"
 
 
 msgid "Open a path in a file browser"
@@ -34350,6 +34314,10 @@ msgid "(De)select all control points"
 msgstr "(De)seleciona todos os pontos de controle."
 
 
+msgid "Deselect linked control points rather than selecting them"
+msgstr "De-seleciona os pontos de controle conectados ao invés de selecioná-los."
+
+
 msgctxt "Operator"
 msgid "Select Random"
 msgstr "Selecionar aleatoriamente"
@@ -34600,10 +34568,6 @@ msgstr "Revela os pontos de controle ocultados"
 
 msgid "Select all control points linked to already selected ones"
 msgstr "Seleciona todos os pontos de controle conectados aos já selecionados."
-
-
-msgid "Deselect linked control points rather than selecting them"
-msgstr "De-seleciona os pontos de controle conectados ao invés de selecioná-los."
 
 
 msgctxt "Operator"
@@ -35451,15 +35415,6 @@ msgstr "Início da lista"
 
 msgid "Bottom of the list"
 msgstr "Fim da lista"
-
-
-msgctxt "Operator"
-msgid "Cancel File Load"
-msgstr "Cancelar carregamento de arquivo"
-
-
-msgid "Cancel loading of selected file"
-msgstr "Cancela o carregamento de um arquivo selecionado."
 
 
 msgctxt "Operator"
@@ -40045,10 +40000,6 @@ msgid "Clear Constraints"
 msgstr "Limpar restrições"
 
 
-msgid "Remove all constraints from keyed object/bones, and do 'visual' keying"
-msgstr "Remove todas as restrições dos objetos ou ossos com chaves de interpolação, e executa a inserção de chaves \"visuais\"."
-
-
 msgid "Clear Parents"
 msgstr "Limpar parentes"
 
@@ -43713,11 +43664,6 @@ msgid "Add to Palette"
 msgstr "Adicionar para a paleta"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Toggle"
-msgstr "Alternar para pintura de textura"
-
-
 msgid "Toggle texture paint mode in 3D view"
 msgstr "Alterna para a pintura de textura na janela de visualização 3D."
 
@@ -46491,6 +46437,11 @@ msgstr "Troca as posições de duas faixas selecionadas no editor de sequências
 msgctxt "Operator"
 msgid "Swap Inputs"
 msgstr "Trocar entradas"
+
+
+msgctxt "Operator"
+msgid "Deselect All"
+msgstr "(De)selecionar tudo"
 
 
 msgctxt "Operator"
@@ -50320,14 +50271,6 @@ msgid "Active Palette Color"
 msgstr "Cor ativa da paleta"
 
 
-msgid "Wire Color"
-msgstr "Cor dos cabos"
-
-
-msgid "Render Pass"
-msgstr "Passo de renderização"
-
-
 msgid "Motion Tracking"
 msgstr "Captura de movimentos"
 
@@ -50342,6 +50285,14 @@ msgstr "Exibição Quadrante"
 
 msgid "Stereoscopy"
 msgstr "Estereoscopia"
+
+
+msgid "Wire Color"
+msgstr "Cor dos cabos"
+
+
+msgid "Render Pass"
+msgstr "Passo de renderização"
 
 
 msgid "Bone Constraints"
@@ -50760,24 +50711,12 @@ msgid "White Balance"
 msgstr "Balanço dos tons brancos"
 
 
-msgid "Indirect Lighting"
-msgstr "Iluminação indireta"
-
-
 msgid "Denoising"
 msgstr "Redução de ruídos"
 
 
 msgid "Shadows"
 msgstr "Sombras"
-
-
-msgid "Volumetrics"
-msgstr "Volumétricas"
-
-
-msgid "Volumetric Shadows"
-msgstr "Sombras Volumétricas"
 
 
 msgid "Encoding"
@@ -56049,14 +55988,6 @@ msgid "Method of anti-aliasing when rendering 3d viewport"
 msgstr "Método de anti serrilhado quando renderizar na janela de exibição 3D"
 
 
-msgid "Knee"
-msgstr "Joelho"
-
-
-msgid "Denoise Amount"
-msgstr "Quantidade da Redução de Ruído"
-
-
 msgid "Max Size"
 msgstr "Tamanho Máximo"
 
@@ -56093,14 +56024,6 @@ msgid "4096 px"
 msgstr "4096 px"
 
 
-msgid "Filter Quality"
-msgstr "Qualidade do Filtro"
-
-
-msgid "Irradiance Smoothing"
-msgstr "Suavização da Irradiação"
-
-
 msgid "8 px"
 msgstr "8 px"
 
@@ -56117,28 +56040,16 @@ msgid "64 px"
 msgstr "64 px"
 
 
-msgid "Factor for ambient occlusion blending"
-msgstr "Fator para a mesclagem de oclusão ambiente."
-
-
 msgid "Precision of the horizon search"
 msgstr "Precisão da busca do horizonte"
 
 
-msgid "Bent Normals"
-msgstr "Normais Dobradas"
-
-
-msgid "Compute main non occluded direction to sample the environment"
-msgstr "Calcular a direção principal não obstruída para amostrar o ambiente"
-
-
-msgid "Bounces Approximation"
-msgstr "Aproximação de Rebatidas"
-
-
 msgid "Viewport Denoising"
 msgstr "Redução de Ruídos na Janela de Exibição"
+
+
+msgid "Volumetric Shadows"
+msgstr "Sombras Volumétricas"
 
 
 msgid "Scene Objects"
@@ -56616,6 +56527,10 @@ msgstr "Localização do texto."
 
 msgid "Outline Width"
 msgstr "Largura dos contornos"
+
+
+msgid "Shadow Color"
+msgstr "Cor de sombras"
 
 
 msgid "Text that will be displayed"
@@ -60732,34 +60647,6 @@ msgid "Snap to"
 msgstr "Atrair para"
 
 
-msgid "Snap Node Element"
-msgstr "Elemento para atrair os nós"
-
-
-msgid "Node X"
-msgstr "Nós para o eixo X"
-
-
-msgid "Snap to left/right node border"
-msgstr "Atrai os nós para as margens esquerda ou direita no eixo X."
-
-
-msgid "Node Y"
-msgstr "Nós para o eixo Y"
-
-
-msgid "Snap to top/bottom node border"
-msgstr "Atrai os nós para o as margens do topo ou base no eixo Y."
-
-
-msgid "Node X / Y"
-msgstr "Nós para os eixos X ou Y"
-
-
-msgid "Snap to any node border"
-msgstr "Atrai os nós para quaisquer das margens presentes nos eixos."
-
-
 msgid "Snap Target"
 msgstr "Alvo de atração"
 
@@ -61488,6 +61375,10 @@ msgid "Lighting for a World data-block"
 msgstr "Iluminação para um bloco de dados de ambiente (mundo)"
 
 
+msgid "Factor for ambient occlusion blending"
+msgstr "Fator para a mesclagem de oclusão ambiente."
+
+
 msgid "Length of rays, defines how far away other faces give occlusion effect"
 msgstr "Comprimento dos raios, define com que distância as outras faces causam o efeito de oclusão."
 
@@ -61822,11 +61713,6 @@ msgstr "Editor de animação não linear"
 msgctxt "WindowManager"
 msgid "NLA Generic"
 msgstr "Animação não linear em geral"
-
-
-msgctxt "WindowManager"
-msgid "Timeline"
-msgstr "Linha do tempo"
 
 
 msgctxt "WindowManager"
@@ -62236,11 +62122,6 @@ msgstr "Por favor, edite as preferências do complemento de tradução da interf
 msgctxt "Operator"
 msgid "Reset Settings"
 msgstr "Redefinir configurações"
-
-
-msgctxt "Operator"
-msgid "Deselect All"
-msgstr "(De)selecionar tudo"
 
 
 msgctxt "Operator"
@@ -62943,10 +62824,6 @@ msgstr "Superior"
 
 msgid "Auto-Step"
 msgstr "Passos automáticos"
-
-
-msgid "Refraction"
-msgstr "Refração"
 
 
 msgid "Render Engine"
@@ -64891,11 +64768,6 @@ msgstr "Dissolver Ossos"
 
 
 msgctxt "Operator"
-msgid "Simplify"
-msgstr "Simplificar"
-
-
-msgctxt "Operator"
 msgid "Arrange"
 msgstr "Organizar"
 
@@ -65227,6 +65099,11 @@ msgstr "Para o Cursor 3D"
 
 
 msgctxt "Operator"
+msgid "Simplify"
+msgstr "Simplificar"
+
+
+msgctxt "Operator"
 msgid "Set as Active Material"
 msgstr "Definir como Material ativo"
 
@@ -65492,6 +65369,10 @@ msgid "Not clearing all keyframes from locked F-Curve '%s' for %s '%s'"
 msgstr "Não é possível a limpeza de todos os quadros-chave a partir da curva-f bloqueada '%s' para %s '%s'"
 
 
+msgid "Skipping path in keying set, as it has no ID (KS = '%s', path = '%s[%d]')"
+msgstr "Saltando caminho dentro do conjunto de inserção de chaves, pois este não possui identificador (KS = '%s', Caminho = '%s[%d]')."
+
+
 msgid "Could not set action '%s' onto ID '%s', as it does not have suitably rooted paths for this purpose"
 msgstr "Não é possível configurar a ação '%s' no identificador '%s', pelo fato dela não possuir caminhos devidamente enraizados para esta finalidade."
 
@@ -65544,10 +65425,6 @@ msgid "Total files %d | Changed %d | Failed %d"
 msgstr "Arquivos totais %d | Alterados %d | Falhos %d"
 
 
-msgid "Path '%s' not found"
-msgstr "Caminho '%s' não encontrado"
-
-
 msgid "Could not find '%s' in '%s'"
 msgstr "Não é possível encontrar '%s' dentro de '%s'"
 
@@ -65574,10 +65451,6 @@ msgstr "Cor"
 
 msgid "Int"
 msgstr "Inteiro"
-
-
-msgid "TexturedCol"
-msgstr "Cor texturizada"
 
 
 msgid "Recast"
@@ -65722,10 +65595,6 @@ msgid "Mball"
 msgstr "Mesf"
 
 
-msgid "GPencil"
-msgstr "Lápis de cera"
-
-
 msgid "No new files have been packed"
 msgstr "Nenhum arquivo novo foi empacotado."
 
@@ -65851,42 +65720,6 @@ msgid "Blender is compiled without motion tracking library"
 msgstr "Blender está compilado sem suporte a biblioteca de captura de movimentos."
 
 
-msgid "Error writing frame"
-msgstr "Erro ao escrever quadro"
-
-
-msgid "No valid formats found"
-msgstr "Nenhum formato válido encontrado."
-
-
-msgid "Render width has to be 720 pixels for DV!"
-msgstr "Largura da renderização deve ser de 720 pixeis para DV !"
-
-
-msgid "Render height has to be 480 pixels for DV-NTSC!"
-msgstr "Altura da renderização deve ser de 480 pixeis para DV-NTSC !"
-
-
-msgid "Render height has to be 576 pixels for DV-PAL!"
-msgstr "Altura da renderização dele ser de 576 pixeis para DV-PAL !"
-
-
-msgid "Error initializing video stream"
-msgstr "Erro ao inicializar o fluxo de vídeo."
-
-
-msgid "Error initializing audio stream"
-msgstr "Erro ao inicializar o fluxo de áudio."
-
-
-msgid "Could not open file for writing"
-msgstr "Não é possível abrir o arquivo para escrita."
-
-
-msgid "Could not initialize streams, probably unsupported codec combination"
-msgstr "Não é possível inicializar fluxos, provavelmente uma combinação de codificador não suportada."
-
-
 msgid "unknown error reading file"
 msgstr "Erro desconhecido ao ler arquivo."
 
@@ -65921,10 +65754,6 @@ msgstr "Não foi possível abrir o arquivo blend <memória>"
 
 msgid "Failed to read blend file '%s': %s"
 msgstr "Falha ao ler arquivo blend '%s', %s"
-
-
-msgid "Failed to read blend file '%s', not a blend file"
-msgstr "Falha ao ler arquivo .blend: '%s', não é um arquivo blend"
 
 
 msgid "Unable to open '%s': %s"
@@ -66201,10 +66030,6 @@ msgstr "Não é possível remover a propriedade a partir do conjunto de inserç�
 
 msgid "Property added to Keying Set: '%s'"
 msgstr "Propriedade adicionada ao conjunto de inserção de chaves: '%s'"
-
-
-msgid "Skipping path in keying set, as it has no ID (KS = '%s', path = '%s[%d]')"
-msgstr "Saltando caminho dentro do conjunto de inserção de chaves, pois este não possui identificador (KS = '%s', Caminho = '%s[%d]')."
 
 
 msgid "No region view3d available"
@@ -69850,6 +69675,42 @@ msgid "Freestyle: Stroke rendering"
 msgstr "Freestyle: Renderização de traços..."
 
 
+msgid "Error writing frame"
+msgstr "Erro ao escrever quadro"
+
+
+msgid "No valid formats found"
+msgstr "Nenhum formato válido encontrado."
+
+
+msgid "Render width has to be 720 pixels for DV!"
+msgstr "Largura da renderização deve ser de 720 pixeis para DV !"
+
+
+msgid "Render height has to be 480 pixels for DV-NTSC!"
+msgstr "Altura da renderização deve ser de 480 pixeis para DV-NTSC !"
+
+
+msgid "Render height has to be 576 pixels for DV-PAL!"
+msgstr "Altura da renderização dele ser de 576 pixeis para DV-PAL !"
+
+
+msgid "Error initializing video stream"
+msgstr "Erro ao inicializar o fluxo de vídeo."
+
+
+msgid "Error initializing audio stream"
+msgstr "Erro ao inicializar o fluxo de áudio."
+
+
+msgid "Could not open file for writing"
+msgstr "Não é possível abrir o arquivo para escrita."
+
+
+msgid "Could not initialize streams, probably unsupported codec combination"
+msgstr "Não é possível inicializar fluxos, provavelmente uma combinação de codificador não suportada."
+
+
 msgid "Index out of range"
 msgstr "Índice fora do intervalo"
 
@@ -70866,11 +70727,6 @@ msgstr "Balanço de cor"
 
 
 msgctxt "Sequence"
-msgid "White Balance"
-msgstr "Balanço dos tons brancos"
-
-
-msgctxt "Sequence"
 msgid "Curves"
 msgstr "Curvas"
 
@@ -70878,6 +70734,11 @@ msgstr "Curvas"
 msgctxt "Sequence"
 msgid "Hue Correct"
 msgstr "Correção de matiz"
+
+
+msgctxt "Sequence"
+msgid "White Balance"
+msgstr "Balanço dos tons brancos"
 
 
 msgctxt "Sequence"
@@ -71092,10 +70953,6 @@ msgstr "Falha ao abrir a janela"
 
 msgid "Pose Library"
 msgstr "Biblioteca de poses"
-
-
-msgid "All Add-ons"
-msgstr "Todos os complementos"
 
 
 msgid "All Add-ons Installed by User"

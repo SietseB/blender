@@ -38,11 +38,12 @@
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_icons.h"
-#include "BKE_image.h"
+#include "BKE_image.hh"
 #include "BKE_keyconfig.h"
 #include "BKE_lib_remap.hh"
 #include "BKE_main.hh"
 #include "BKE_mball_tessellate.hh"
+#include "BKE_preferences.h"
 #include "BKE_preview_image.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
@@ -111,6 +112,8 @@
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
+
+#include "ANIM_keyingsets.hh"
 
 #include "DRW_engine.hh"
 
@@ -375,17 +378,7 @@ static bool wm_init_splash_show_on_startup_check()
   else {
     /* A less common case, if there is no user preferences, show the splash screen
      * so the user has the opportunity to restore settings from a previous version. */
-    const std::optional<std::string> cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, nullptr);
-    if (cfgdir.has_value()) {
-      char userpref[FILE_MAX];
-      BLI_path_join(userpref, sizeof(userpref), cfgdir->c_str(), BLENDER_USERPREF_FILE);
-      if (!BLI_exists(userpref)) {
-        use_splash = true;
-      }
-    }
-    else {
-      use_splash = true;
-    }
+    use_splash = !blender::bke::preferences::exists();
   }
 
   return use_splash;
@@ -590,9 +583,7 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   UV_clipboard_free();
   wm_clipboard_free();
 
-#ifdef WITH_COMPOSITOR_CPU
   COM_deinitialize();
-#endif
 
   bke::subdiv::exit();
 
@@ -637,7 +628,7 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
 
   BLT_lang_free();
 
-  ANIM_keyingset_infos_exit();
+  blender::animrig::keyingset_infos_exit();
 
   //  free_txt_data();
 

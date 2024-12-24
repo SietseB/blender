@@ -22,7 +22,7 @@ static bke::CurvesGeometry join_curves(const GreasePencil &src_grease_pencil,
   Vector<bke::GeometrySet> src_geometries(all_src_curves.size());
   for (const int src_curves_i : all_src_curves.index_range()) {
     bke::CurvesGeometry src_curves = *all_src_curves[src_curves_i];
-    if (src_curves.curves_num() == 0) {
+    if (src_curves.is_empty()) {
       continue;
     }
     const float4x4 &transform = transforms_to_apply[src_curves_i];
@@ -47,10 +47,8 @@ GreasePencil *merge_layers(const GreasePencil &src_grease_pencil,
 
   GreasePencil *new_grease_pencil = BKE_grease_pencil_new_nomain();
 
+  BKE_grease_pencil_copy_parameters(src_grease_pencil, *new_grease_pencil);
   new_grease_pencil->runtime->eval_frame = src_grease_pencil.runtime->eval_frame;
-  new_grease_pencil->material_array = static_cast<Material **>(
-      MEM_dupallocN(src_grease_pencil.material_array));
-  new_grease_pencil->material_array_num = src_grease_pencil.material_array_num;
 
   const int new_layers_num = layers_to_merge.size();
   new_grease_pencil->add_layers_with_empty_drawings_for_eval(new_layers_num);

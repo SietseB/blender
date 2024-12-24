@@ -90,7 +90,7 @@ struct PinchOperationExecutor {
     object_ = CTX_data_active_object(&C);
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &curves_id_->geometry.wrap();
-    if (curves_->curves_num() == 0) {
+    if (curves_->is_empty()) {
       return;
     }
 
@@ -112,7 +112,7 @@ struct PinchOperationExecutor {
     const eBrushFalloffShape falloff_shape = eBrushFalloffShape(brush_->falloff_shape);
 
     if (stroke_extension.is_first) {
-      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
+      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE || (U.uiflag & USER_ORBIT_SELECTION)) {
         self_->brush_3d_ = *sample_curves_3d_brush(*ctx_.depsgraph,
                                                    *ctx_.region,
                                                    *ctx_.v3d,
@@ -120,6 +120,9 @@ struct PinchOperationExecutor {
                                                    *object_,
                                                    brush_pos_re_,
                                                    brush_radius_base_re_);
+        remember_stroke_position(
+            *ctx_.scene,
+            math::transform_point(transforms_.curves_to_world, self_->brush_3d_.position_cu));
       }
 
       self_->constraint_solver_.initialize(

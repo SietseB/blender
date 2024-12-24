@@ -9,6 +9,7 @@
 #include "AS_asset_representation.hh"
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_string.h"
 
 #include "DNA_ID.h"
@@ -391,7 +392,7 @@ bool push_compute_context_for_tree_path(const SpaceNode &snode,
 
 static SpaceLink *node_create(const ScrArea * /*area*/, const Scene * /*scene*/)
 {
-  SpaceNode *snode = MEM_cnew<SpaceNode>("initnode");
+  SpaceNode *snode = MEM_cnew<SpaceNode>(__func__);
   snode->spacetype = SPACE_NODE;
 
   snode->flag = SNODE_SHOW_GPENCIL | SNODE_USE_ALPHA;
@@ -402,28 +403,27 @@ static SpaceLink *node_create(const ScrArea * /*area*/, const Scene * /*scene*/)
   snode->zoom = 1.0f;
 
   /* select the first tree type for valid type */
-  NODE_TREE_TYPES_BEGIN (treetype) {
+  for (const bke::bNodeTreeType *treetype : bke::node_tree_types_get()) {
     STRNCPY(snode->tree_idname, treetype->idname);
     break;
   }
-  NODE_TREE_TYPES_END;
 
   /* header */
-  ARegion *region = MEM_cnew<ARegion>("header for node");
+  ARegion *region = BKE_area_region_new();
 
   BLI_addtail(&snode->regionbase, region);
   region->regiontype = RGN_TYPE_HEADER;
   region->alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_BOTTOM : RGN_ALIGN_TOP;
 
   /* buttons/list view */
-  region = MEM_cnew<ARegion>("buttons for node");
+  region = BKE_area_region_new();
 
   BLI_addtail(&snode->regionbase, region);
   region->regiontype = RGN_TYPE_UI;
   region->alignment = RGN_ALIGN_RIGHT;
 
   /* toolbar */
-  region = MEM_cnew<ARegion>("node tools");
+  region = BKE_area_region_new();
 
   BLI_addtail(&snode->regionbase, region);
   region->regiontype = RGN_TYPE_TOOLS;
@@ -432,7 +432,7 @@ static SpaceLink *node_create(const ScrArea * /*area*/, const Scene * /*scene*/)
   region->flag = RGN_FLAG_HIDDEN;
 
   /* main region */
-  region = MEM_cnew<ARegion>("main region for node");
+  region = BKE_area_region_new();
 
   BLI_addtail(&snode->regionbase, region);
   region->regiontype = RGN_TYPE_WINDOW;
@@ -549,7 +549,7 @@ static void node_area_listener(const wmSpaceTypeListenerParams *params)
           /* Backdrop image offset is calculated during compositing so gizmos need to be updated
            * afterwards. */
           const ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
-          WM_gizmomap_tag_refresh(region->gizmo_map);
+          WM_gizmomap_tag_refresh(region->runtime->gizmo_map);
           break;
         }
       }
@@ -740,7 +740,7 @@ static void node_buttons_region_init(wmWindowManager *wm, ARegion *region)
   ED_region_panels_init(wm, region);
 
   keymap = WM_keymap_ensure(wm->defaultconf, "Node Generic", SPACE_NODE, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->handlers, keymap);
+  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 }
 
 static void node_buttons_region_draw(const bContext *C, ARegion *region)
@@ -756,7 +756,7 @@ static void node_toolbar_region_init(wmWindowManager *wm, ARegion *region)
   ED_region_panels_init(wm, region);
 
   keymap = WM_keymap_ensure(wm->defaultconf, "Node Generic", SPACE_NODE, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->handlers, keymap);
+  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 }
 
 static void node_toolbar_region_draw(const bContext *C, ARegion *region)
@@ -793,19 +793,19 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *region)
 
   /* own keymaps */
   keymap = WM_keymap_ensure(wm->defaultconf, "Node Generic", SPACE_NODE, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->handlers, keymap);
+  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(wm->defaultconf, "Node Editor", SPACE_NODE, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler_v2d_mask(&region->handlers, keymap);
+  WM_event_add_keymap_handler_v2d_mask(&region->runtime->handlers, keymap);
 
   /* add drop boxes */
   lb = WM_dropboxmap_find("Node Editor", SPACE_NODE, RGN_TYPE_WINDOW);
 
-  WM_event_add_dropbox_handler(&region->handlers, lb);
+  WM_event_add_dropbox_handler(&region->runtime->handlers, lb);
 
   /* The backdrop image gizmo needs to change together with the view. So always refresh gizmos on
    * region size changes. */
-  WM_gizmomap_tag_refresh(region->gizmo_map);
+  WM_gizmomap_tag_refresh(region->runtime->gizmo_map);
 }
 
 static void node_main_region_draw(const bContext *C, ARegion *region)
@@ -966,7 +966,7 @@ static void node_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
   const wmNotifier *wmn = params->notifier;
-  wmGizmoMap *gzmap = region->gizmo_map;
+  wmGizmoMap *gzmap = region->runtime->gizmo_map;
 
   /* context changes */
   switch (wmn->category) {
