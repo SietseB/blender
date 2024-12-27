@@ -1636,6 +1636,11 @@ static void paint_draw_2D_view_brush_cursor(PaintCursorContext *pcontext)
     case PaintMode::VertexGPencil:
       grease_pencil_brush_cursor_draw(pcontext);
       break;
+    case PaintMode::WeightGPencil:
+      if (pcontext->brush->gpencil_weight_brush_type != GPWEIGHT_BRUSH_TYPE_GRADIENT) {
+        paint_draw_2D_view_brush_cursor_default(pcontext);
+      }
+      break;
     default:
       paint_draw_2D_view_brush_cursor_default(pcontext);
   }

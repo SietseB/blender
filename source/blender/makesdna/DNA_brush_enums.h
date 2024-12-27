@@ -590,6 +590,7 @@ typedef enum eBrushGPWeightType {
   GPWEIGHT_BRUSH_TYPE_BLUR = 1,
   GPWEIGHT_BRUSH_TYPE_AVERAGE = 2,
   GPWEIGHT_BRUSH_TYPE_SMEAR = 3,
+  GPWEIGHT_BRUSH_TYPE_GRADIENT = 4,
 } eBrushGPWeightType;
 
 /* direction that the brush displaces along */

@@ -1781,6 +1781,16 @@ if(EXISTS "${ASSET_BUNDLE_DIR}")
   )
 endif()
 
+# Ondine custom assets
+set(ONDINE_ASSET_BUNDLE_DIR ${CMAKE_SOURCE_DIR}/release_ondine/assets/)
+
+if(EXISTS "${ONDINE_ASSET_BUNDLE_DIR}")
+  install(
+    DIRECTORY ${ONDINE_ASSET_BUNDLE_DIR}
+    DESTINATION ${TARGETDIR_VER}/datafiles/assets
+  )
+endif()
+
 
 # -----------------------------------------------------------------------------
 # Setup link libraries

@@ -2743,6 +2743,16 @@ class _defs_grease_pencil_weight:
             brush_type='SMEAR',
         )
 
+    @ToolDef.from_fn
+    def gradient():
+        return dict(
+            idname="builtin_brush.gradient",
+            label="Gradient",
+            icon="ops.paint.weight_gradient",
+            options={'USE_BRUSHES'},
+            brush_type='GRADIENT',
+        )
+
 
 class _defs_grease_pencil_vertex:
 
