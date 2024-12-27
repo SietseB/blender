@@ -805,46 +805,46 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
-  uiItemR(layout, ptr, "object", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(layout, ptr, "object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "curve_resolution", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "curve_resolution", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   uiItemS(layout);
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "entire_object", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "entire_object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   if (entire_object) {
     row = uiLayoutRow(col, false);
-    uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
+    uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
     uiItemS(layout);
   }
 
   col = uiLayoutColumn(layout, false);
-  uiItemR(col, ptr, "angle", UI_ITEM_NONE, nullptr, ICON_NONE);
-  uiItemR(col, ptr, "spirals", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "angle", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+  uiItemR(col, ptr, "spirals", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   row = uiLayoutRow(col, false);
-  uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, nullptr, ICON_NONE);
+  uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
 
   if (!entire_object) {
     uiItemS(layout);
     col = uiLayoutColumn(layout, false);
-    uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "seed", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "seed", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
   col = uiLayoutColumn(layout, true);
   if (!entire_object) {
-    uiItemR(col, ptr, "vary_dir", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "vary_dir", UI_ITEM_NONE, std::nullopt, ICON_NONE);
     uiItemS(layout);
     col = uiLayoutColumn(layout, false);
-    uiItemR(col, ptr, "tail_first", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "repeat", UI_ITEM_NONE, nullptr, ICON_NONE);
-    uiItemR(col, ptr, "scatter", UI_ITEM_NONE, nullptr, ICON_NONE);
+    uiItemR(col, ptr, "tail_first", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "repeat", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+    uiItemR(col, ptr, "scatter", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
-  uiItemR(col, ptr, "dissolve", UI_ITEM_NONE, nullptr, ICON_NONE);
+  uiItemR(col, ptr, "dissolve", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   if (uiLayout *influence_panel = uiLayoutPanelProp(
           C, layout, ptr, "open_influence_panel", "Influence"))

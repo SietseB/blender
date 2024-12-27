@@ -2811,7 +2811,7 @@ Image *BKE_image_ensure_viewer_ondine(Main *bmain, int type, const char *name)
   }
 
   if (ima == nullptr) {
-    ima = image_alloc(bmain, name, IMA_SRC_VIEWER, type);
+    ima = image_alloc(bmain, std::nullopt, name, IMA_SRC_VIEWER, type);
   }
 
   /* Happens on reload, image-window cannot be image user when hidden. */

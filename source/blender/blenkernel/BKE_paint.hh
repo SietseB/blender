@@ -20,6 +20,7 @@
 #include "BLI_vector.hh"
 
 #include "DNA_brush_enums.h"
+#include "DNA_brush_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_enums.h"
 
