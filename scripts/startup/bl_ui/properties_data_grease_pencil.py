@@ -365,6 +365,12 @@ class DATA_PT_grease_pencil_layers(DataButtonsPanel, Panel):
             col.enabled = True
             col.prop(layer, "stroke_dryness", slider=True)
 
+    def draw(self, context):
+        layout = self.layout
+        grease_pencil = context.grease_pencil
+
+        self.draw_settings(layout, grease_pencil)
+
 
 class DATA_PT_grease_pencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePencilLayerEdgeDarkeningPanel, Panel):
     bl_label = "Edge Darkening"
@@ -376,12 +382,6 @@ class DATA_PT_grease_pencil_layer_edge_darkening(LayerDataButtonsPanel, GreasePe
             return False
         grease_pencil = context.object.data
         return grease_pencil.layers.active and grease_pencil.watercolor
-
-    def draw(self, context):
-        layout = self.layout
-        grease_pencil = context.grease_pencil
-
-        self.draw_settings(layout, grease_pencil)
 
 
 class DATA_PT_grease_pencil_layer_masks(LayerDataButtonsPanel, GreasePencil_LayerMaskPanel, Panel):
