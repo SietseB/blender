@@ -44,14 +44,9 @@ endif()
 set(INC
   .
   ../common
-  ../../blenloader
-  ../../blentranslation
   ../../editors/include
-  ../../imbuf
   ../../makesrna
-  ../../nodes
   ../../python/intern
-  ../../windowmanager
   ../../../../intern/utfconv
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -195,15 +190,19 @@ endif()
 set(LIB
   PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::blenloader
+  PRIVATE bf::blentranslation
   PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::animrig
-  bf_imbuf
+  PRIVATE bf::imbuf
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
   bf_io_common
   PRIVATE bf::extern::fmtlib
+  PRIVATE bf::nodes
+  PRIVATE bf::windowmanager
 )
 
 list(APPEND LIB

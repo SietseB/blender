@@ -5,8 +5,6 @@
 set(INC
   ../include
   ../../makesrna
-  ../../render
-  ../../windowmanager
 )
 
 set(INC_SYS
@@ -29,6 +27,8 @@ set(LIB
   PRIVATE bf::dna
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
+  PRIVATE bf::render
+  PRIVATE bf::windowmanager
 )
 
 blender_add_lib(bf_editor_lattice "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

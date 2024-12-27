@@ -6,18 +6,10 @@ set(INC
   .
   ../asset
   ../include
-  ../../asset_system
-  ../../blenloader
-  ../../blentranslation
   ../../draw
-  ../../functions
-  ../../imbuf
   ../../imbuf/movie
   ../../makesrna
-  ../../nodes
   ../../python
-  ../../render
-  ../../windowmanager
   ../../../../intern/ghost
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -98,18 +90,26 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf::asset_system
   PRIVATE bf::blenfont
   PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
+  PRIVATE bf::blenloader
+  PRIVATE bf::blentranslation
   PRIVATE bf::bmesh
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_editor_datafiles
   bf_editor_id_management
   PRIVATE bf::extern::fmtlib
+  PRIVATE bf::functions
   PRIVATE bf::gpu
+  PRIVATE bf::imbuf
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::animrig
+  PRIVATE bf::nodes
+  PRIVATE bf::render
+  PRIVATE bf::windowmanager
 )
 
 if(WITH_INTERNATIONAL)

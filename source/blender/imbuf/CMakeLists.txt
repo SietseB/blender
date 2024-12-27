@@ -5,9 +5,8 @@
 add_subdirectory(movie)
 
 set(INC
-  .
+  PUBLIC .
   ./movie
-  ../blenloader
   ../makesrna
   ../sequencer
   ../../../intern/memutil
@@ -73,7 +72,7 @@ set(SRC
 set(LIB
   PRIVATE bf::blenkernel
   PRIVATE bf::blenlib
-  bf_blenloader
+  PRIVATE bf::blenloader
   PRIVATE bf::dna
   PRIVATE bf::gpu
   bf_imbuf_openimageio
@@ -162,6 +161,7 @@ set_source_files_properties(
 )
 
 blender_add_lib(bf_imbuf "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+add_library(bf::imbuf ALIAS bf_imbuf)
 
 if(WITH_GTESTS)
   set(TEST_SRC
