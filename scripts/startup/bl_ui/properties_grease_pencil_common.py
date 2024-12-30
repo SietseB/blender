@@ -860,10 +860,42 @@ class GREASE_PENCIL_MT_stroke_simplify(Menu):
         layout.operator("grease_pencil.stroke_simplify", text="Merge").mode = 'MERGE'
 
 
+class GREASE_PENCIL_UL_shape_keys(UIList):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            shape_key = item
+            split = layout.split(factor=0.66, align=False)
+            split.prop(shape_key, "name", text="", emboss=False, icon_value=icon)
+            row = split.row(align=True)
+            row.prop(shape_key, "value", text="", emboss=False, slider=True)
+            row.prop(shape_key, "mute", text="", emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, _context, data, propname):
+        shape_keys = getattr(data, propname)
+        helper_funcs = bpy.types.UI_UL_list
+
+        # Default return values
+        flt_flags = []
+        flt_order = []
+
+        # Filtering by name
+        if self.filter_name:
+            flt_flags = helper_funcs.filter_items_by_name(
+                self.filter_name, self.bitflag_filter_item, shape_keys, "name")
+        if not flt_flags:
+            flt_flags = [self.bitflag_filter_item] * len(shape_keys)
+
+        return flt_flags, flt_order
+
+
 classes = (
     GPENCIL_UL_annotation_layer,
     GPENCIL_UL_layer,
     GPENCIL_UL_masks,
+    GREASE_PENCIL_UL_shape_keys,
 
     GREASE_PENCIL_MT_move_to_layer,
     GREASE_PENCIL_MT_layer_active,

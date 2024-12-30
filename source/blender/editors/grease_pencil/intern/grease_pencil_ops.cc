@@ -317,6 +317,7 @@ void ED_operatortypes_grease_pencil()
   ED_operatortypes_grease_pencil_lineart();
   ED_operatortypes_grease_pencil_trace();
   ED_operatortypes_grease_pencil_bake_animation();
+  ED_operatortypes_grease_pencil_shape_keys();
 }
 
 void ED_operatormacros_grease_pencil()

@@ -6,10 +6,14 @@
  * \ingroup RNA
  */
 
+#include "BKE_animsys.h"
 #include "BKE_attribute.h"
 #include "BKE_global.hh"
 
 #include "BLI_string.h"
+#include "BLI_string_utils.hh"
+
+#include "BLT_translation.hh"
 
 #include "DNA_grease_pencil_types.h"
 #include "DNA_scene_types.h"
@@ -685,6 +689,178 @@ static void rna_group_color_tag_set(PointerRNA *ptr, int value)
   GreasePencilLayerTreeGroup *group = static_cast<GreasePencilLayerTreeGroup *>(ptr->data);
   group->color_tag = value;
   WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
+}
+
+static std::optional<std::string> rna_GreasePencilShapeKey_path(const PointerRNA *ptr)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  char name_esc[sizeof(shape_key->name) * 2];
+  BLI_str_escape(name_esc, shape_key->name, sizeof(name_esc));
+  return BLI_sprintfN("shape_keys[\"%s\"]", name_esc);
+}
+
+static void rna_GreasePencilShapeKey_name_set(PointerRNA *ptr, const char *value)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+
+  char oldname[128] = "";
+  BLI_strncpy(oldname, shape_key->name, sizeof(oldname));
+
+  /* Copy the new name into the name slot. */
+  BLI_strncpy_utf8(shape_key->name, value, sizeof(shape_key->name));
+  BLI_uniquename(&grease_pencil->shape_keys,
+                 shape_key,
+                 DATA_("ShapeKey"),
+                 '.',
+                 offsetof(GreasePencilShapeKey, name),
+                 sizeof(shape_key->name));
+
+  /* Fix animation paths. */
+  BKE_animdata_fix_paths_rename_all(&grease_pencil->id, "shape_keys", oldname, shape_key->name);
+}
+
+static PointerRNA rna_GreasePencilShapeKeys_active_get(PointerRNA *ptr)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+  GreassePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(
+      BLI_findlink(&grease_pencil->shape_keys, grease_pencil->active_shape_key_index));
+  if (shape_key) {
+    return rna_pointer_inherit_refine(ptr, &RNA_GreasePencilShapeKey, shape_key);
+  }
+  return PointerRNA_NULL;
+}
+
+static void rna_GreasePencilShapeKeys_active_set(PointerRNA *ptr,
+                                                 PointerRNA value,
+                                                 ReportList *reports)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
+  if (value.data == nullptr) {
+    BKE_reportf(reports, RPT_ERROR, "Setting active shape key to None is not allowed.");
+    return;
+  }
+
+  const int index = BLI_findindex(&grease_pencil->shape_keys, value.data);
+  if (index == -1) {
+    BKE_reportf(reports, RPT_ERROR, "Given shape key not found in Grease Pencil object.");
+    return;
+  }
+
+  grease_pencil->active_shape_key_index = index;
+
+  WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
+}
+
+static int rna_GreasePencilShapeKeys_active_index_get(PointerRNA *ptr)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
+  return (grease_pencil->active_shape_key_index < BLI_listbase_count(&grease_pencil->shape_keys)) ?
+             grease_pencil->active_shape_key_index :
+             -1;
+}
+
+static void rna_GreasePencilShapeKeys_active_index_set(PointerRNA *ptr, int index)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
+  BKE_grease_pencil_shape_key_active_set(grease_pencil, index);
+}
+
+static void rna_GreasePencilShapeKeys_active_index_range(
+    PointerRNA *ptr, int *min, int *max, int *softmin, int *softmax)
+{
+  using namespace blender::bke::greasepencil;
+  GreasePencil *grease_pencil = rna_grease_pencil(ptr);
+
+  *min = 0;
+  *max = max_ii(0, BLI_listbase_count(&grease_pencil->shape_keys) - 1);
+
+  *softmin = *min;
+  *softmax = *max;
+}
+
+static void rna_GreasePencilShapeKey_value_set(PointerRNA *ptr, float value)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  CLAMP(value, shape_key->range_min, shape_key->range_max);
+  shape_key->value = value;
+}
+
+static void rna_GreasePencilShapeKey_value_range(
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  *min = shape_key->range_min;
+  *max = shape_key->range_max;
+}
+
+static void rna_GreasePencilShapeKey_layer_order_value_set(PointerRNA *ptr, float value)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  CLAMP(value, shape_key->range_min, shape_key->range_max);
+  shape_key->layer_order_value = value;
+}
+
+static constexpr float SHAPE_KEY_SLIDER_TOLERANCE = 0.001f;
+
+static void rna_GreasePencilShapeKey_slider_min_range(
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  *min = -10.0f;
+  *max = shape_key->range_max - SHAPE_KEY_SLIDER_TOLERANCE;
+}
+
+static void rna_GreasePencilShapeKey_slider_min_set(PointerRNA *ptr, float value)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  float min, max, softmin, softmax;
+  rna_GreasePencilShapeKey_slider_min_range(ptr, &min, &max, &softmin, &softmax);
+  CLAMP(value, min, max);
+  shape_key->range_min = value;
+}
+
+static void rna_GreasePencilShapeKey_slider_max_range(
+    PointerRNA *ptr, float *min, float *max, float * /*softmin*/, float * /*softmax*/)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  *min = shape_key->range_min + SHAPE_KEY_SLIDER_TOLERANCE;
+  *max = 10.0f;
+}
+static void rna_GreasePencilShapeKey_slider_max_set(PointerRNA *ptr, float value)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  float min, max, softmin, softmax;
+  rna_GreasePencilShapeKey_slider_max_range(ptr, &min, &max, &softmin, &softmax);
+  CLAMP(value, min, max);
+  shape_key->range_max = value;
+}
+
+static void rna_GreasePencilShapeKey_update_minmax(Main * /*bmain*/,
+                                                   Scene * /*scene*/,
+                                                   PointerRNA *ptr)
+{
+  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
+  if (IN_RANGE_INCL(shape_key->value, shape_key->range_min, shape_key->range_max)) {
+    return;
+  }
+  CLAMP(shape_key->value, shape_key->range_min, shape_key->range_max);
+  CLAMP(shape_key->layer_order_value, shape_key->range_min, shape_key->range_max);
+
+  rna_grease_pencil_update(nullptr, nullptr, ptr);
+}
+
+static bool rna_GreasePencilShapeKey_in_edit_mode_get(PointerRNA * /*ptr*/)
+{
+  return ED_grease_pencil_shape_key_in_edit_mode();
 }
 
 #else
@@ -1576,6 +1752,136 @@ static void rna_def_grease_pencil_onion_skinning(StructRNA *srna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
 }
 
+static void rna_def_grease_pencil_shape_key(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  static const EnumPropertyItem prop_layer_order_compare_items[] = {
+      {GREASE_PENCIL_SHAPE_KEY_COMPARE_GREATER_THAN, "GREATER", 0, "Greater Than", ""},
+      {GREASE_PENCIL_SHAPE_KEY_COMPARE_LESS_THAN, "LESS", 0, "Less Than", ""},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+
+  srna = RNA_def_struct(brna, "GreasePencilShapeKey", nullptr);
+  RNA_def_struct_sdna(srna, "GreasePencilShapeKey");
+  RNA_def_struct_ui_text(srna, "Grease Pencil Shape Keys", "List of shape keys");
+  RNA_def_struct_path_func(srna, "rna_GreasePencilShapeKey_path");
+  RNA_def_struct_ui_icon(srna, ICON_SHAPEKEY_DATA);
+
+  /* Name. */
+  prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Name", "Shape key name");
+  RNA_def_property_string_funcs(prop, nullptr, nullptr, "rna_GreasePencilShapeKey_name_set");
+  RNA_def_struct_name_property(srna, prop);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_RENAME, "rna_grease_pencil_update");
+
+  /* Value. */
+  prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "value");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_float_funcs(
+      prop, nullptr, "rna_GreasePencilShapeKey_value_set", "rna_GreasePencilShapeKey_value_range");
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
+  RNA_def_property_ui_text(prop, "Value", "Value of the shape key");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
+  /* Value range minimum. */
+  prop = RNA_def_property(srna, "slider_min", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "range_min");
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_float_funcs(prop,
+                               nullptr,
+                               "rna_GreasePencilShapeKey_slider_min_set",
+                               "rna_GreasePencilShapeKey_slider_min_range");
+  RNA_def_property_range(prop, -10.0f, 10.0f);
+  RNA_def_property_ui_text(prop, "Range Min", "Minimum for slider");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GreasePencilShapeKey_update_minmax");
+
+  /* Value range maximum. */
+  prop = RNA_def_property(srna, "slider_max", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "range_max");
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_float_funcs(prop,
+                               nullptr,
+                               "rna_GreasePencilShapeKey_slider_max_set",
+                               "rna_GreasePencilShapeKey_slider_max_range");
+  RNA_def_property_range(prop, -10.0f, 10.0f);
+  RNA_def_property_ui_text(prop, "Range Max", "Maximum for slider");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GreasePencilShapeKey_update_minmax");
+
+  /* Mute. */
+  prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", GREASE_PENCIL_SHAPE_KEY_MUTED);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Mute", "Toggle this shape key");
+  RNA_def_property_ui_icon(prop, ICON_CHECKBOX_HLT, -1);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
+  /* Flipping point of layer order change. */
+  prop = RNA_def_property(srna, "layer_order_compare", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, nullptr, "layer_order_compare");
+  RNA_def_property_enum_items(prop, prop_layer_order_compare_items);
+  RNA_def_property_ui_text(prop,
+                           "Shape Key Order If",
+                           "Comparison operator for the flipping point of a layer order change");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
+  prop = RNA_def_property(srna, "layer_order_value", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "layer_order_value");
+  RNA_def_property_float_funcs(prop,
+                               nullptr,
+                               "rna_GreasePencilShapeKey_layer_order_value_set",
+                               "rna_GreasePencilShapeKey_value_range");
+  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
+  RNA_def_property_ui_text(
+      prop, "Flip Order Value", "Value for the flipping point of a layer order change");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update");
+
+  /*
+  prop = RNA_def_property(srna, "changed_layer_order", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(
+      prop, "rna_GreasePencilShapeKey_changes_layer_order_get", nullptr);
+  RNA_def_property_ui_text(
+      prop, "Changed Layer Order", "True when the shape key changes the layer order");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  */
+}
+
+static void rna_def_grease_pencil_shape_keys(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  RNA_def_property_srna(cprop, "GreasePencilShapeKeys");
+  srna = RNA_def_struct(brna, "GreasePencilShapeKeys", nullptr);
+  RNA_def_struct_sdna(srna, "GreasePencilShapeKey");
+  RNA_def_struct_ui_text(
+      srna, "Grease Pencil Shape Keys", "Collection of Grease Pencil shape keys");
+
+  prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "GreasePencilShapeKey");
+  RNA_def_property_pointer_funcs(prop,
+                                 "rna_GreasePencilShapeKeys_active_get",
+                                 "rna_GreasePencilShapeKeys_active_set",
+                                 nullptr,
+                                 nullptr);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Active Shape Key", "Active grease pencil shape key");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_SELECTED, nullptr);
+
+  prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_int_funcs(prop,
+                             "rna_GreasePencilShapeKeys_active_index_get",
+                             "rna_GreasePencilShapeKeys_active_index_set",
+                             "rna_GreasePencilShapeKeys_active_index_range");
+  RNA_def_property_ui_text(prop, "Active Shape Key Index", "Active index in shape key array");
+}
+
 static void rna_def_grease_pencil_data(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -1676,6 +1982,18 @@ static void rna_def_grease_pencil_data(BlenderRNA *brna)
 
   /* Onion skinning. */
   rna_def_grease_pencil_onion_skinning(srna);
+
+  /* Shape keys. */
+  prop = RNA_def_property(srna, "shape_keys", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, nullptr, "shape_keys", nullptr);
+  RNA_def_property_struct_type(prop, "GreasePencilShapeKey");
+  RNA_def_property_ui_text(prop, "Shape Keys", "List of shape keys");
+  rna_def_grease_pencil_shape_keys(brna, prop);
+
+  prop = RNA_def_property(srna, "in_shape_key_edit_mode", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_GreasePencilShapeKey_in_edit_mode_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Shape Key Edit Mode", "A shape key is currently be edited");
 
   /* Ondine watercolor additions. */
 
@@ -1856,6 +2174,7 @@ void RNA_def_grease_pencil(BlenderRNA *brna)
   rna_def_grease_pencil_layer_group(brna);
   rna_def_grease_pencil_frame(brna);
   rna_def_grease_pencil_drawing(brna);
+  rna_def_grease_pencil_shape_key(brna);
 }
 
 #endif

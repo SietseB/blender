@@ -505,6 +505,34 @@ typedef struct GreasePencilOnionSkinningSettings {
   char _pad2[4];
 } GreasePencilOnionSkinningSettings;
 
+typedef struct GreasePencilShapeKey {
+  struct GreasePencilShapeKey *next, *prev;
+
+  char name[128];
+  float value;
+  float range_min;
+  float range_max;
+  short flag;
+  char _pad0[2];
+
+  /* Flipping point condition when layer order change is applied. */
+  int layer_order_compare;
+  float layer_order_value;
+} GreassePencilShapeKey;
+
+typedef enum GreasePencilShapeKeyFlag {
+  /* Shape key is muted. */
+  GREASE_PENCIL_SHAPE_KEY_MUTED = (1 << 0),
+  /* Layer order is changed by the shape key. */
+  GREASE_PENCIL_SHAPE_KEY_CHANGED_LAYER_ORDER = (1 << 1),
+} GreasePencilShapeKeyFlag;
+
+/* Comparison types for the flipping point when changing layer order by a shape key. */
+typedef enum GreasePencilShapeKeyLayerOrderCompare {
+  GREASE_PENCIL_SHAPE_KEY_COMPARE_GREATER_THAN = 0,
+  GREASE_PENCIL_SHAPE_KEY_COMPARE_LESS_THAN = 0,
+} GreasePencilShapeKeyLayerOrderCompare;
+
 /**
  * The grease pencil data-block.
  */
@@ -558,6 +586,10 @@ typedef struct GreasePencil {
   int vertex_group_active_index;
   char _pad4[4];
 
+  ListBase shape_keys;
+  int active_shape_key_index;
+  char _pad5[4];
+
   /* Ondine watercolor additions. */
   uint32_t ondine_flag;
   int randomize_seed_step;
@@ -574,7 +606,7 @@ typedef struct GreasePencil {
   int pparticle_len_min;
   int pparticle_len_max;
   float pparticle_hairiness;
-  char _pad5[4];
+  char _pad6[4];
 
   /**
    * Onion skinning settings.

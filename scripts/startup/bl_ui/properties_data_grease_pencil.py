@@ -563,6 +563,79 @@ class DATA_PT_grease_pencil_attributes(DataButtonsPanel, Panel):
         col.operator("geometry.attribute_remove", icon='REMOVE', text="")
 
 
+class GREASE_PENCIL_MT_shape_keys_context_menu(Menu):
+    bl_label = "Grease Pencil Shape Keys"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("grease_pencil.shape_key_duplicate", icon='DUPLICATE', text="Duplicate")
+        layout.separator()
+        # layout.operator("grease_pencil.shape_key_remove_all", icon='X', text="Delete All")
+        # layout.operator("grease_pencil.shape_key_apply_all", icon='NODE_COMPOSITING', text="Apply All")
+
+
+class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
+    bl_label = "Shape Keys"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        grease_pencil = context.grease_pencil
+        shape_key = grease_pencil.shape_keys.active
+
+        row = layout.row()
+        mt_rows = 6
+
+        col = row.column()
+        col.template_list("GREASE_PENCIL_UL_shape_keys", "", grease_pencil, "shape_keys", grease_pencil.shape_keys,
+                          "active_index", rows=mt_rows, sort_reverse=False)
+
+        col = row.column()
+        sub = col.column(align=True)
+        sub.operator("grease_pencil.shape_key_add", icon='ADD', text="")
+        sub.operator("grease_pencil.shape_key_remove", icon='REMOVE', text="")
+
+        if shape_key:
+            col.separator()
+            col.operator("grease_pencil.shape_key_move", icon='TRIA_UP', text="").direction = 'UP'
+            col.operator("grease_pencil.shape_key_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+        sub.separator()
+        sub.menu("GREASE_PENCIL_MT_shape_keys_context_menu", icon='DOWNARROW_HLT', text="")
+
+        if shape_key:
+            row = layout.row()
+            sub = row.column()
+            sub.active = not grease_pencil.in_shape_key_edit_mode
+            # sub.operator("grease_pencil.shape_key_edit", text="Edit")
+            sub = row.column()
+            sub.active = grease_pencil.in_shape_key_edit_mode
+            # sub.operator("grease_pencil.shape_key_edit_finish", text="Finish Edit", depress=sub.active)
+
+            if sub.active:
+                row = layout.row()
+                row.label(text="Note: do not add or remove points while editing.", icon='INFO')
+
+            layout.use_property_split = True
+            layout.separator()
+            col = layout.column()
+            col.prop(shape_key, "value", slider=True)
+
+            col = layout.column(align=True)
+            col.prop(shape_key, "slider_min", text="Range Min")
+            col.prop(shape_key, "slider_max", text="Max")
+
+            '''
+            if shape_key.changed_layer_order:
+                layout.separator()
+                col = layout.column(align=True)
+                col.prop(shape_key, "layer_order_compare")
+                col.prop(shape_key, "layer_order_value", text=" ", slider=True)
+            '''
+
+
 classes = (
     GREASE_PENCIL_UL_masks,
     GREASE_PENCIL_MT_layer_mask_add,
@@ -584,6 +657,8 @@ classes = (
     DATA_PT_grease_pencil_animation,
     GREASE_PENCIL_UL_attributes,
     DATA_PT_grease_pencil_attributes,
+    DATA_PT_grease_pencil_shape_keys,
+    GREASE_PENCIL_MT_shape_keys_context_menu,
 )
 
 

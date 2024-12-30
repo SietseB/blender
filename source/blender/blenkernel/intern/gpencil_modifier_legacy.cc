@@ -151,6 +151,9 @@ static void gpencil_modifier_free_data(GpencilModifierData *md)
     case eGpencilModifierType_Envelope:
     case eGpencilModifierType_Outline:
     case eGpencilModifierType_Armature:
+    case eGpencilModifierType_None1:
+    case eGpencilModifierType_MorphTargets:
+    case eGpencilModifierType_FollowCurve:
       break;
     case NUM_GREASEPENCIL_MODIFIER_TYPES:
       BLI_assert_unreachable();
@@ -344,6 +347,9 @@ static void gpencil_modifier_foreach_ID_link(GpencilModifierData *md,
       walk(user_data, ob, (ID **)&mmd->object, IDWALK_CB_NOP);
       break;
     }
+    case eGpencilModifierType_None1:
+    case eGpencilModifierType_MorphTargets:
+    case eGpencilModifierType_FollowCurve:
     case NUM_GREASEPENCIL_MODIFIER_TYPES:
       BLI_assert_unreachable();
       break;

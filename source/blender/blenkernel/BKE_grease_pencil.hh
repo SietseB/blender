@@ -1163,3 +1163,6 @@ void BKE_grease_pencil_material_index_remove(GreasePencil *grease_pencil, int in
 bool BKE_grease_pencil_references_cyclic_check(const GreasePencil *id_reference,
                                                const GreasePencil *grease_pencil);
 bool BKE_grease_pencil_material_index_used(GreasePencil *grease_pencil, int index);
+
+GreasePencilShapeKey *BKE_grease_pencil_shape_key_active_get(GreasePencil *grease_pencil);
+void BKE_grease_pencil_shape_key_active_set(GreasePencil *grease_pencil, int index);

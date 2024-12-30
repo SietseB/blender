@@ -1,41 +1,42 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import bpy
 
-class GPENCIL_PT_MorphTargetsNPanel(bpy.types.Panel):
-    """N-Panel for morph targets of Grease Pencil object"""
-    bl_label = 'Morph Targets'
-    bl_idname = 'GPENCIL_PT_MorphTargetsPanel'
+
+class GREASE_PENCIL_PT_ShapeKeysNPanel(bpy.types.Panel):
+    """N-Panel for the shape keys of a Grease Pencil object"""
+    bl_label = 'Shape Keys'
+    bl_idname = 'GREASE_PENCIL_PT_ShapeKeysNPanel'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'GP Morphs'
+    bl_category = 'GP Shape Keys'
 
     @classmethod
     def poll(cls, context):
-        if context.object is None or context.object.type != 'GPENCIL':
+        if context.object is None or context.object.type != 'GREASE_PENCIL':
             return False
-        gpd = context.object.data
-        return len(gpd.morph_targets) > 0
-    
+        grease_pencil = context.grease_pencil
+        return len(grease_pencil.shape_keys) > 0
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_decorate = True
         layout.use_property_split = True
-        gpd = context.object.data
-        
+        grease_pencil = context.grease_pencil
+
         col = layout.column(align=True)
-        for mt in gpd.morph_targets:
+        for shape_key in grease_pencil.shape_keys:
             sub = col.split(factor=0.9, align=True)
-            sub.prop(mt, "value", text=mt.name, slider=True)
+            sub.prop(shape_key, "value", text=shape_key.name, slider=True)
             row = sub.row(align=True)
             row.use_property_decorate = False
             row.emboss = 'NONE'
-            row.prop(mt, "mute")
-        
+            row.prop(shape_key, "mute")
+
         layout.separator(factor=0.2)
 
 
 classes = (
-    GPENCIL_PT_MorphTargetsNPanel,
+    GREASE_PENCIL_PT_ShapeKeysNPanel,
 )
 
 if __name__ == "__main__":  # only for live edit.

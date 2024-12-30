@@ -88,7 +88,7 @@ _modules = [
     "space_userpref",
     "space_view3d",
     "space_view3d_toolbar",
-    "space_gpencil_morph_targets",
+    "space_grease_pencil_shape_keys",
 
     # XXX, keep last so panels show after all other tool options.
     "properties_workspace",

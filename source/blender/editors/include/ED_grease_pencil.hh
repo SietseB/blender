@@ -77,6 +77,7 @@ void ED_operatortypes_grease_pencil_interpolate();
 void ED_operatortypes_grease_pencil_lineart();
 void ED_operatortypes_grease_pencil_trace();
 void ED_operatortypes_grease_pencil_bake_animation();
+void ED_operatortypes_grease_pencil_shape_keys();
 void ED_operatormacros_grease_pencil();
 void ED_keymap_grease_pencil(wmKeyConfig *keyconf);
 void ED_primitivetool_modal_keymap(wmKeyConfig *keyconf);
@@ -106,6 +107,8 @@ bool ED_grease_pencil_sculpt_segment_selection_enabled(const ToolSettings *tool_
 bool ED_grease_pencil_vertex_segment_selection_enabled(const ToolSettings *tool_settings);
 bool ED_grease_pencil_segment_selection_enabled(const ToolSettings *tool_settings,
                                                 const Object *object);
+
+bool ED_grease_pencil_shape_key_in_edit_mode();
 
 /** \} */
 

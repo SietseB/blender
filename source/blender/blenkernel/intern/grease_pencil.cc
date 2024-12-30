@@ -164,6 +164,15 @@ static void grease_pencil_copy_data(Main * /*bmain*/,
   BKE_defgroup_copy_list(&grease_pencil_dst->vertex_group_names,
                          &grease_pencil_src->vertex_group_names);
 
+  /* Duplicate shape keys. */
+  BLI_listbase_clear(&grease_pencil_dst->shape_keys);
+  LISTBASE_FOREACH (GreasePencilShapeKey *, shape_key_src, &grease_pencil_src->shape_keys) {
+    GreasePencilShapeKey *shape_key_dst = static_cast<GreasePencilShapeKey *>(
+        MEM_dupallocN(shape_key_src));
+    shape_key_dst->prev = shape_key_dst->next = nullptr;
+    BLI_addtail(&grease_pencil_dst->shape_keys, shape_key_dst);
+  }
+
   /* Make sure the runtime pointer exists. */
   grease_pencil_dst->runtime = MEM_new<bke::GreasePencilRuntime>(__func__);
 
@@ -202,6 +211,8 @@ static void grease_pencil_free_data(ID *id)
   MEM_delete(&grease_pencil->root_group());
 
   BLI_freelistN(&grease_pencil->vertex_group_names);
+
+  BLI_freelistN(&grease_pencil->shape_keys);
 
   BKE_grease_pencil_batch_cache_free(grease_pencil);
 
@@ -255,6 +266,10 @@ static void grease_pencil_blend_write(BlendWriter *writer, ID *id, const void *i
   /* Write materials. */
   BLO_write_pointer_array(
       writer, grease_pencil->material_array_num, grease_pencil->material_array);
+
+  /* Write shape keys. */
+  BLO_write_struct_list(writer, GreasePencilShapeKey, &grease_pencil->shape_keys);
+
   /* Write vertex group names. */
   BKE_defbase_blend_write(writer, &grease_pencil->vertex_group_names);
 }
@@ -275,8 +290,12 @@ static void grease_pencil_blend_read_data(BlendDataReader *reader, ID *id)
   BLO_read_pointer_array(reader,
                          grease_pencil->material_array_num,
                          reinterpret_cast<void **>(&grease_pencil->material_array));
+
   /* Read vertex group names. */
   BLO_read_struct_list(reader, bDeformGroup, &grease_pencil->vertex_group_names);
+
+  /* Read shape key names. */
+  BLO_read_struct_list(reader, GreasePencilShapeKey, &grease_pencil->shape_keys);
 
   grease_pencil->runtime = MEM_new<blender::bke::GreasePencilRuntime>(__func__);
 }
@@ -2039,6 +2058,8 @@ void BKE_grease_pencil_copy_parameters(const GreasePencil &src, GreasePencil &ds
   dst.flag = src.flag;
   BLI_duplicatelist(&dst.vertex_group_names, &src.vertex_group_names);
   dst.vertex_group_active_index = src.vertex_group_active_index;
+  BLI_duplicatelist(&dst.shape_keys, &src.shape_keys);
+  dst.active_shape_key_index = src.active_shape_key_index;
   dst.onion_skinning_settings = src.onion_skinning_settings;
 }
 
@@ -4289,3 +4310,28 @@ static void write_layer_tree(GreasePencil &grease_pencil, BlendWriter *writer)
   grease_pencil.root_group_ptr->wrap().prepare_for_dna_write();
   write_layer_tree_group(writer, grease_pencil.root_group_ptr);
 }
+
+/** \} */
+
+/* ------------------------------------------------------------------- */
+/** \name Shape key functions
+ * \{ */
+
+GreasePencilShapeKey *BKE_grease_pencil_shape_key_active_get(GreasePencil *grease_pencil)
+{
+  if (BLI_listbase_is_empty(&grease_pencil->shape_keys)) {
+    return nullptr;
+  }
+  return static_cast<GreasePencilShapeKey *>(
+      BLI_findlink(&grease_pencil->shape_keys, grease_pencil->active_shape_key_index));
+}
+
+void BKE_grease_pencil_shape_key_active_set(GreasePencil *grease_pencil, int index)
+{
+  if (index < 0 || index >= BLI_listbase_count(&grease_pencil->shape_keys)) {
+    return;
+  }
+  grease_pencil->active_shape_key_index = index;
+}
+
+/** \} */
