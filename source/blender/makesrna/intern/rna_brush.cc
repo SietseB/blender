@@ -1523,6 +1523,17 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, ParameterFlag(0));
   RNA_def_property_update(prop, 0, "rna_BrushGpencilSettings_update");
 
+  /* Ondine: Subdivision level for new strokes. */
+  prop = RNA_def_property(srna, "subdivision_level", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, nullptr, "subdivision_level");
+  RNA_def_property_range(prop, 0, 12);
+  RNA_def_property_ui_text(
+      prop,
+      "Subdiv Level",
+      "Level of subdivision for new strokes, to create evenly spaced stroke points");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, nullptr);
+
   /* Curves for pressure */
   prop = RNA_def_property(srna, "curve_sensitivity", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "curve_sensitivity");

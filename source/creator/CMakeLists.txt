@@ -1778,6 +1778,7 @@ if(EXISTS "${ASSET_BUNDLE_DIR}")
   install(
     DIRECTORY ${ASSET_BUNDLE_DIR}
     DESTINATION ${TARGETDIR_VER}/datafiles/assets
+    PATTERN "essentials_brushes-gp_*.blend" EXCLUDE
   )
 endif()
 
