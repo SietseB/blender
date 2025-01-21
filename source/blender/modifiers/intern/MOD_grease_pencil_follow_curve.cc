@@ -83,7 +83,7 @@ static void foreach_ID_link(ModifierData *md, Object *ob, IDWalkFunc walk, void 
 
 static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
-  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+  const auto mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
   if (mmd->object != nullptr) {
     DEG_add_object_relation(
         ctx->node, mmd->object, DEG_OB_COMP_TRANSFORM, "Grease Pencil Follow Curve Modifier");
@@ -95,60 +95,75 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
 
 static bool is_disabled(const Scene * /*scene*/, ModifierData *md, bool /*use_render_params*/)
 {
-  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+  const auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
 
   return (mmd->object == nullptr);
 }
 
-static void frame_init(GreasePencilFollowCurveModifierData *mmd,
+static void blend_read(BlendDataReader *reader, ModifierData *md)
+{
+  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+
+  modifier::greasepencil::read_influence_data(reader, &mmd->influence);
+}
+
+static void blend_write(BlendWriter *writer, const ID * /*id_owner*/, const ModifierData *md)
+{
+  const auto *mmd = reinterpret_cast<const GreasePencilFollowCurveModifierData *>(md);
+
+  BLO_write_struct(writer, GreasePencilFollowCurveModifierData, &mmd);
+  modifier::greasepencil::write_influence_data(writer, &mmd->influence);
+}
+
+static void frame_init(GreasePencilFollowCurveModifierData &mmd,
                        const ModifierEvalContext *ctx,
                        GreasePencil &grease_pencil)
 {
   /* Get animated speed and speed variation. */
-  mmd->speed_per_frame_len = 0;
+  mmd.speed_per_frame_len = 0;
   FCurve *speed_fcurve = id_data_find_fcurve(
-      &ctx->object->id, mmd, &RNA_GreasePencilFollowCurveModifier, "speed", 0, nullptr);
+      &ctx->object->id, &mmd, &RNA_GreasePencilFollowCurveModifier, "speed", 0, nullptr);
   FCurve *speed_var_fcurve = id_data_find_fcurve(
-      &ctx->object->id, mmd, &RNA_GreasePencilFollowCurveModifier, "speed_variation", 0, nullptr);
+      &ctx->object->id, &mmd, &RNA_GreasePencilFollowCurveModifier, "speed_variation", 0, nullptr);
   if (speed_fcurve != nullptr || speed_var_fcurve != nullptr) {
-    mmd->speed_per_frame_len = mmd->cfra;
+    mmd.speed_per_frame_len = mmd.cfra;
   }
 
   /* When animated, create array with speed and speed variation per frame. */
-  mmd->speed_per_frame = nullptr;
-  if (mmd->speed_per_frame_len > 0) {
+  mmd.speed_per_frame = nullptr;
+  if (mmd.speed_per_frame_len > 0) {
     /* One stride contains: speed, speed variation. */
-    mmd->speed_per_frame = static_cast<float *>(
-        MEM_malloc_arrayN(mmd->cfra * 2, sizeof(float), __func__));
-    for (int frame = 1; frame <= mmd->cfra; frame++) {
-      float speed = speed_fcurve ? evaluate_fcurve(speed_fcurve, float(frame)) : mmd->speed;
+    mmd.speed_per_frame = static_cast<float *>(
+        MEM_malloc_arrayN(mmd.cfra * 2, sizeof(float), __func__));
+    for (int frame = 1; frame <= mmd.cfra; frame++) {
+      float speed = speed_fcurve ? evaluate_fcurve(speed_fcurve, float(frame)) : mmd.speed;
       float speed_var = speed_var_fcurve ? evaluate_fcurve(speed_var_fcurve, float(frame)) :
-                                           mmd->speed_variation;
+                                           mmd.speed_variation;
       int stride = frame * 2;
-      mmd->speed_per_frame[stride] = speed;
-      mmd->speed_per_frame[stride + 1] = speed_var;
+      mmd.speed_per_frame[stride] = speed;
+      mmd.speed_per_frame[stride + 1] = speed_var;
     }
   }
 
   /* Count Bezier curves in object. */
-  mmd->curves_len = 0;
-  if (mmd->object && mmd->object->type == OB_CURVES_LEGACY) {
+  mmd.curves_len = 0;
+  if (mmd.object && mmd.object->type == OB_CURVES_LEGACY) {
     /* Loop splines. */
-    Curve *curve = static_cast<Curve *>(mmd->object->data);
+    Curve *curve = static_cast<Curve *>(mmd.object->data);
     LISTBASE_FOREACH (Nurb *, nurb, &curve->nurb) {
       if (nurb->type == CU_BEZIER) {
-        mmd->curves_len++;
+        mmd.curves_len++;
       }
     }
   }
 
   /* Convert Bezier curves to points. */
   const Object *ob_eval = static_cast<Object *>(
-      DEG_get_evaluated_object(ctx->depsgraph, mmd->object));
-  mmd->curves = nullptr;
-  if (mmd->curves_len > 0) {
-    mmd->curves = static_cast<GreasePencilFollowCurve *>(
-        MEM_calloc_arrayN(mmd->curves_len, sizeof(GreasePencilFollowCurve), __func__));
+      DEG_get_evaluated_object(ctx->depsgraph, mmd.object));
+  mmd.curves = nullptr;
+  if (mmd.curves_len > 0) {
+    mmd.curves = static_cast<GreasePencilFollowCurve *>(
+        MEM_calloc_arrayN(mmd.curves_len, sizeof(GreasePencilFollowCurve), __func__));
 
     Curve *curve = static_cast<Curve *>(ob_eval->data);
     int curve_index = -1;
@@ -159,14 +174,14 @@ static void frame_init(GreasePencilFollowCurveModifierData *mmd,
         continue;
       }
       curve_index++;
-      GreasePencilFollowCurve *follow_curve = &mmd->curves[curve_index];
+      GreasePencilFollowCurve *follow_curve = &mmd.curves[curve_index];
 
       /* Count points in spline segments. */
       int segments = nurb->pntsu;
       if ((nurb->flagu & CU_NURB_CYCLIC) == 0) {
         segments--;
       }
-      follow_curve->points_len = segments * mmd->curve_resolution;
+      follow_curve->points_len = segments * mmd.curve_resolution;
       follow_curve->curve = curve;
 
       /* Create array for curve point data. */
@@ -188,11 +203,11 @@ static void frame_init(GreasePencilFollowCurveModifierData *mmd,
                 bezt_next->vec[0][axis],
                 bezt_next->vec[1][axis],
                 static_cast<float *>(POINTER_OFFSET(point_offset, sizeof(float) * axis)),
-                mmd->curve_resolution,
+                mmd.curve_resolution,
                 stride);
           }
           point_offset = static_cast<GreasePencilFollowCurvePoint *>(
-              POINTER_OFFSET(point_offset, stride * mmd->curve_resolution));
+              POINTER_OFFSET(point_offset, stride * mmd.curve_resolution));
         }
       });
 
@@ -226,8 +241,8 @@ static void frame_init(GreasePencilFollowCurveModifierData *mmd,
   }
 
   /* When projecting the entire GP object to the curve, create an object profile. */
-  mmd->flag &= ~MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST;
-  if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
+  mmd.flag &= ~MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST;
+  if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
     std::optional<Bounds<float3>> maybe_bbox = grease_pencil.bounds_min_max_eval();
     if (!maybe_bbox.has_value()) {
       return;
@@ -235,66 +250,65 @@ static void frame_init(GreasePencilFollowCurveModifierData *mmd,
     Bounds<float3> bbox = maybe_bbox.value();
 
     /* Calculate profile using GP object bounding box. */
-    zero_v3(mmd->profile_vec);
+    zero_v3(mmd.profile_vec);
 
-    switch (mmd->object_axis) {
+    switch (mmd.object_axis) {
       case MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_X: {
-        mmd->profile_start[0] = bbox.min.x;
-        mmd->profile_start[1] = bbox.min.y + (bbox.max.y - bbox.min.y) * mmd->object_center;
-        mmd->profile_start[2] = bbox.min.z + (bbox.max.z - bbox.min.z) * mmd->object_center;
-        mmd->profile_vec[0] = bbox.max.x - bbox.min.x;
+        mmd.profile_start[0] = bbox.min.x;
+        mmd.profile_start[1] = bbox.min.y + (bbox.max.y - bbox.min.y) * mmd.object_center;
+        mmd.profile_start[2] = bbox.min.z + (bbox.max.z - bbox.min.z) * mmd.object_center;
+        mmd.profile_vec[0] = bbox.max.x - bbox.min.x;
         break;
       }
 
       case MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Y: {
-        mmd->profile_start[0] = bbox.min.x + (bbox.max.x - bbox.min.x) * mmd->object_center;
-        mmd->profile_start[1] = bbox.min.y;
-        mmd->profile_start[2] = bbox.min.z + (bbox.max.z - bbox.min.z) * mmd->object_center;
-        mmd->profile_vec[1] = bbox.max.y - bbox.min.y;
+        mmd.profile_start[0] = bbox.min.x + (bbox.max.x - bbox.min.x) * mmd.object_center;
+        mmd.profile_start[1] = bbox.min.y;
+        mmd.profile_start[2] = bbox.min.z + (bbox.max.z - bbox.min.z) * mmd.object_center;
+        mmd.profile_vec[1] = bbox.max.y - bbox.min.y;
         break;
       }
 
       case MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Z: {
-        mmd->profile_start[0] = bbox.min.x + (bbox.max.x - bbox.min.x) * mmd->object_center;
-        mmd->profile_start[1] = bbox.min.y + (bbox.max.y - bbox.min.y) * mmd->object_center;
-        mmd->profile_start[2] = bbox.min.z;
-        mmd->profile_vec[2] = bbox.max.z - bbox.min.z;
+        mmd.profile_start[0] = bbox.min.x + (bbox.max.x - bbox.min.x) * mmd.object_center;
+        mmd.profile_start[1] = bbox.min.y + (bbox.max.y - bbox.min.y) * mmd.object_center;
+        mmd.profile_start[2] = bbox.min.z;
+        mmd.profile_vec[2] = bbox.max.z - bbox.min.z;
         break;
       }
     }
-    mul_m4_v3(ctx->object->object_to_world().ptr(), mmd->profile_start);
-    float profile_length = len_v3(mmd->profile_vec);
-    normalize_v3(mmd->profile_vec);
+    mul_m4_v3(ctx->object->object_to_world().ptr(), mmd.profile_start);
+    float profile_length = len_v3(mmd.profile_vec);
+    normalize_v3(mmd.profile_vec);
 
-    if (mmd->curves_len > 0) {
+    if (mmd.curves_len > 0) {
       /* Set profile scale so that the GP object covers the curve over the full length. */
-      mmd->profile_scale = (profile_length != 0.0f) ? mmd->curves[0].length / profile_length :
-                                                      1.0f;
+      mmd.profile_scale = (profile_length != 0.0f) ? mmd.curves[0].length / profile_length : 1.0f;
 
       /* Find nearest curve point to profile start: curve head or tail. */
       const float dist_head = fabsf(
-          len_squared_v3v3(mmd->curves[0].points[0].co, mmd->profile_start));
+          len_squared_v3v3(mmd.curves[0].points[0].co, mmd.profile_start));
       const float dist_tail = fabsf(len_squared_v3v3(
-          mmd->curves[0].points[mmd->curves[0].points_len - 1].co, mmd->profile_start));
+          mmd.curves[0].points[mmd.curves[0].points_len - 1].co, mmd.profile_start));
       if (dist_tail < dist_head) {
-        mmd->flag |= MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST;
+        mmd.flag |= MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST;
       }
     }
   }
 }
 
-static void frame_clear(GreasePencilFollowCurveModifierData *mmd)
+static void frame_clear(GreasePencilFollowCurveModifierData &mmd)
 {
   /* Clear animated speed data. */
-  MEM_SAFE_FREE(mmd->speed_per_frame);
+  MEM_SAFE_FREE(mmd.speed_per_frame);
 
   /* Clear curve data. */
-  for (int i = 0; i < mmd->curves_len; i++) {
-    GreasePencilFollowCurve *curve = &mmd->curves[i];
+  for (int i = 0; i < mmd.curves_len; i++) {
+    GreasePencilFollowCurve *curve = &mmd.curves[i];
     MEM_SAFE_FREE(curve->points);
   }
-  MEM_SAFE_FREE(mmd->curves);
-  mmd->curves_len = 0;
+  MEM_SAFE_FREE(mmd.curves);
+  mmd.curves_len = 0;
 }
 
 static void get_random_float(const int seed, const int count, float *r_random_value)
@@ -377,7 +391,7 @@ static float stroke_get_length(Span<float3> positions,
 }
 
 static GreasePencilFollowCurve *object_stroke_get_current_curve_and_distance(
-    const GreasePencilFollowCurveModifierData *mmd,
+    const GreasePencilFollowCurveModifierData &mmd,
     Span<float3> positions,
     const IndexRange point_range,
     const float3 &side_plane,
@@ -389,8 +403,8 @@ static GreasePencilFollowCurve *object_stroke_get_current_curve_and_distance(
   /* Get distance of stroke start to object profile. */
   float dist_on_profile;
   get_distance_of_point_to_line(positions[point_range.first()],
-                                mmd->profile_start,
-                                mmd->profile_vec,
+                                mmd.profile_start,
+                                mmd.profile_vec,
                                 side_plane,
                                 &dist_on_profile,
                                 r_radius_initial);
@@ -398,13 +412,13 @@ static GreasePencilFollowCurve *object_stroke_get_current_curve_and_distance(
   *r_dist_on_curve = 0.0f;
 
   /* Set initial spiral angle. */
-  *r_angle_initial = mmd->angle;
+  *r_angle_initial = mmd.angle;
 
   /* Start at tail of curve? */
-  *r_start_at_tail = ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST) != 0);
+  *r_start_at_tail = ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST) != 0);
 
   /* Objects can follow only one curve, so return the first. */
-  return &mmd->curves[0];
+  return &mmd.curves[0];
 }
 
 static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const ModifierData *md,
@@ -419,11 +433,11 @@ static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const Modi
                                                                       float *r_angle_initial,
                                                                       bool *r_start_at_tail)
 {
-  const GreasePencilFollowCurveModifierData *mmd =
-      reinterpret_cast<const GreasePencilFollowCurveModifierData *>(md);
+  const GreasePencilFollowCurveModifierData &mmd =
+      *reinterpret_cast<const GreasePencilFollowCurveModifierData *>(md);
 
   /* Handle stroke projection when projecting the entire GP object on a curve. */
-  if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
+  if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0) {
     return object_stroke_get_current_curve_and_distance(mmd,
                                                         positions,
                                                         point_range,
@@ -436,39 +450,39 @@ static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const Modi
 
   /* Get random values for this stroke. */
   float random_val[3];
-  int seed = mmd->seed;
+  int seed = mmd.seed;
   seed += BLI_hash_string(ob->id.name + 2);
   seed += BLI_hash_string(md->name);
   seed += stroke_index;
   get_random_float(seed, 3, random_val);
 
   const float speed_var_f = (random_val[0] - 0.5f) * 2.0f;
-  float speed = mmd->speed + mmd->speed_variation * speed_var_f;
-  if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR) && random_val[1] < 0.5f) {
+  float speed = mmd.speed + mmd.speed_variation * speed_var_f;
+  if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR) && random_val[1] < 0.5f) {
     speed *= -1.0f;
   }
   *r_start_at_tail = (speed < 0.0f);
-  *r_angle_initial = mmd->angle;
+  *r_angle_initial = mmd.angle;
 
   /* Get stroke starting point. */
-  const bool stroke_tail_first = ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST) !=
+  const bool stroke_tail_first = ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST) !=
                                   0);
   float3 stroke_start = (stroke_tail_first) ? positions[point_range.last()] :
                                               positions[point_range.first()];
 
   /* Get the curve this stroke belongs to (= the nearest curve). */
   int curve_index = 0;
-  if (mmd->curves_len > 1) {
+  if (mmd.curves_len > 1) {
     float dist_min = FLT_MAX;
-    for (int i = 0; i < mmd->curves_len; i++) {
-      const float dist = len_squared_v3v3(stroke_start, mmd->curves[i].points[0].co);
+    for (int i = 0; i < mmd.curves_len; i++) {
+      const float dist = len_squared_v3v3(stroke_start, mmd.curves[i].points[0].co);
       if (dist < dist_min) {
         dist_min = dist;
         curve_index = i;
       }
     }
   }
-  GreasePencilFollowCurve *curve = &mmd->curves[curve_index];
+  GreasePencilFollowCurve *curve = &mmd.curves[curve_index];
 
   /* Get initial distance from stroke to curve. */
   float dist_on_curve_initial;
@@ -485,8 +499,8 @@ static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const Modi
   }
 
   /* Take care of scatter when there is no animation. */
-  if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER) && mmd->speed_per_frame_len == 0 &&
-      fabsf(mmd->speed) < FLT_EPSILON && mmd->speed_variation < FLT_EPSILON)
+  if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER) && mmd.speed_per_frame_len == 0 &&
+      fabsf(mmd.speed) < FLT_EPSILON && mmd.speed_variation < FLT_EPSILON)
   {
     /* Distribute stroke randomly over curve. */
     float delta = curve->length - stroke_length;
@@ -496,28 +510,28 @@ static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const Modi
   }
 
   /* Scatter when animated: vary the starting point of the stroke. */
-  if (mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER) {
+  if (mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER) {
     dist_on_curve_initial -= curve->length * 0.5 * random_val[2];
   }
 
   /* Get the distance the stroke travelled so far, up to current keyframe. */
   float dist_travelled = 0.0f;
-  if (mmd->speed_per_frame_len > 0) {
+  if (mmd.speed_per_frame_len > 0) {
     /* Speed is animated, sum the speed of all the frames up to current (but not inclusive). */
-    for (int frame = 0; frame < mmd->speed_per_frame_len - 1; frame++) {
+    for (int frame = 0; frame < mmd.speed_per_frame_len - 1; frame++) {
       int stride = frame * 2;
-      dist_travelled += mmd->speed_per_frame[stride] +
-                        mmd->speed_per_frame[stride + 1] * speed_var_f;
+      dist_travelled += mmd.speed_per_frame[stride] +
+                        mmd.speed_per_frame[stride + 1] * speed_var_f;
     }
   }
   else {
     /* Fixed speed. */
-    dist_travelled = (mmd->cfra - 1) * (mmd->speed + mmd->speed_variation * speed_var_f);
+    dist_travelled = (mmd.cfra - 1) * (mmd.speed + mmd.speed_variation * speed_var_f);
   }
   dist_travelled = fabsf(dist_travelled) + dist_on_curve_initial;
 
   /* When the animation is not repeated, we can finish here. */
-  if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT) == 0) {
+  if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT) == 0) {
     *r_dist_on_curve = dist_travelled;
 
     return curve;
@@ -526,11 +540,11 @@ static GreasePencilFollowCurve *stroke_get_current_curve_and_distance(const Modi
   /* When the animation is repeated, we take the modulo to get the current distance
    * on the curve. */
   const float curve_gps_length = curve->length + stroke_length;
-  if ((dist_travelled > curve_gps_length) && (fabsf(mmd->spirals) > FLT_EPSILON)) {
+  if ((dist_travelled > curve_gps_length) && (fabsf(mmd.spirals) > FLT_EPSILON)) {
     /* When spiraling, pick a random start angle (for variation). */
     seed += ((int)(dist_travelled / curve_gps_length) * 1731);
     get_random_float(seed, 1, random_val);
-    *r_angle_initial = mmd->angle + M_PI * 2 * random_val[0];
+    *r_angle_initial = mmd.angle + M_PI * 2 * random_val[0];
   }
   dist_travelled = fmodf(dist_travelled, curve_gps_length);
 
@@ -613,24 +627,28 @@ static void curve_get_point_by_distance(const float dist_init,
 
 static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Drawing &drawing)
 {
-  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+  const GreasePencilFollowCurveModifierData &mmd =
+      *reinterpret_cast<const GreasePencilFollowCurveModifierData *>(md);
+
+  modifier::greasepencil::ensure_no_bezier_curves(drawing);
+
   bke::CurvesGeometry &strokes = drawing.strokes_for_write();
   if (strokes.points_num() == 0) {
     return;
   }
   IndexMaskMemory memory;
   const IndexMask filtered_strokes = modifier::greasepencil::get_filtered_stroke_mask(
-      ctx->object, strokes, mmd->influence, memory);
+      ctx->object, strokes, mmd.influence, memory);
   if (filtered_strokes.is_empty()) {
     return;
   }
 
   /* Get 'entire object' settings. */
-  const bool entire_object = ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0);
+  const bool entire_object = ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) != 0);
 
   /* Get plane for sprial radius direction (on which side of the curve is a stroke point.) */
   float side_plane[3] = {0.0f};
-  switch (mmd->angle_axis) {
+  switch (mmd.angle_axis) {
     case MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_X: {
       side_plane[0] = 1.0f;
       break;
@@ -671,8 +689,8 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
 
     /* Get the direction of the stroke points. */
     const bool stroke_start_at_tail =
-        ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0) &&
-        ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) == 0);
+        ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST) != 0) &&
+        ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT) == 0);
     const int stroke_dir = (stroke_start_at_tail) ? -1 : 1;
     const int stroke_start_index = (stroke_start_at_tail) ? points.last() : points.first();
     const int stroke_end_index = (stroke_start_at_tail) ? points.first() : points.last();
@@ -681,8 +699,8 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
 
     /* Create profile: a line along which the stroke is projected on the curve. */
     float3 profile_start, profile_vector;
-    copy_v3_v3(profile_start, mmd->profile_start);
-    copy_v3_v3(profile_vector, mmd->profile_vec);
+    copy_v3_v3(profile_start, mmd.profile_start);
+    copy_v3_v3(profile_vector, mmd.profile_vec);
     if (!entire_object) {
       /* Create stroke profile. For now this is just a straight line between the
        * first and last point of the stroke.
@@ -700,10 +718,10 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
 
     /* Get rotation plane for spiral angle. */
     float3 rotation_plane = {0.0f, 0.0f, 0.0f};
-    get_rotation_plane(mmd->angle_axis, angle_initial, rotation_plane);
+    get_rotation_plane(mmd.angle_axis, angle_initial, rotation_plane);
 
     /* Get spiral setting. */
-    const bool use_spiral = (math::abs(mmd->spirals) > FLT_EPSILON);
+    const bool use_spiral = (math::abs(mmd.spirals) > FLT_EPSILON);
 
     /* Loop all stroke points and project them on the curve. */
     for (int point_i = stroke_start_index; point_i >= 0 && point_i <= points.last();
@@ -719,8 +737,8 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
                                     &stroke_p_radius);
 
       /* Find closest point on curve given a distance. */
-      float curve_dist = (entire_object) ? (stroke_p_dist * mmd->profile_scale +
-                                            (mmd->completion - 1.0f) * curve->length) :
+      float curve_dist = (entire_object) ? (stroke_p_dist * mmd.profile_scale +
+                                            (mmd.completion - 1.0f) * curve->length) :
                                            (dist_on_curve - stroke_p_dist);
       if (curve_start_at_tail) {
         curve_dist = curve->length - curve_dist;
@@ -732,8 +750,8 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
        * in the plane of the spiral angle. */
       float3 p_rotated;
       if (use_spiral) {
-        const float angle = angle_initial + mmd->spirals * M_PI * 2 * (curve_dist / curve->length);
-        get_rotation_plane(mmd->angle_axis, angle, rotation_plane);
+        const float angle = angle_initial + mmd.spirals * M_PI * 2 * (curve_dist / curve->length);
+        get_rotation_plane(mmd.angle_axis, angle, rotation_plane);
       }
       cross_v3_v3v3(p_rotated, curve_p_vec, rotation_plane);
 
@@ -748,7 +766,7 @@ static void deform_drawing(ModifierData *md, const ModifierEvalContext *ctx, Dra
       positions[point_i] = p_rotated;
 
       /* Dissolve when outside the curve. */
-      if ((mmd->flag & MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE) &&
+      if ((mmd.flag & MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE) &&
           (curve_dist < 0.0f || curve_dist > curve->length))
       {
         opacities[point_i] = 0.0f;
@@ -763,24 +781,25 @@ static void modify_geometry_set(ModifierData *md,
                                 const ModifierEvalContext *ctx,
                                 bke::GeometrySet *geometry_set)
 {
-  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+  GreasePencilFollowCurveModifierData &mmd =
+      *reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
 
   if (!geometry_set->has_grease_pencil()) {
     return;
   }
   GreasePencil &grease_pencil = *geometry_set->get_grease_pencil_for_write();
   const int frame = grease_pencil.runtime->eval_frame;
-  mmd->cfra = frame;
+  mmd.cfra = frame;
 
   /* Init curve data for this frame. */
   frame_init(mmd, ctx, grease_pencil);
-  if (mmd->curves_len == 0) {
+  if (mmd.curves_len == 0) {
     return;
   }
 
   IndexMaskMemory mask_memory;
   const IndexMask layer_mask = modifier::greasepencil::get_filtered_layer_mask(
-      grease_pencil, mmd->influence, mask_memory);
+      grease_pencil, mmd.influence, mask_memory);
 
   const Vector<Drawing *> drawings = modifier::greasepencil::get_drawings_for_write(
       grease_pencil, layer_mask, frame);
@@ -859,21 +878,6 @@ static void panel_draw(const bContext *C, Panel *panel)
 static void panel_register(ARegionType *region_type)
 {
   modifier_panel_register(region_type, eModifierType_GreasePencilFollowCurve, panel_draw);
-}
-
-static void blend_write(BlendWriter *writer, const ID * /*id_owner*/, const ModifierData *md)
-{
-  const auto *mmd = reinterpret_cast<const GreasePencilFollowCurveModifierData *>(md);
-
-  BLO_write_struct(writer, GreasePencilFollowCurveModifierData, mmd);
-  modifier::greasepencil::write_influence_data(writer, &mmd->influence);
-}
-
-static void blend_read(BlendDataReader *reader, ModifierData *md)
-{
-  auto *mmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
-
-  modifier::greasepencil::read_influence_data(reader, &mmd->influence);
 }
 
 }  // namespace blender
