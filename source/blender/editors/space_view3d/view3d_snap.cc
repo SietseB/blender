@@ -6,8 +6,6 @@
  * \ingroup spview3d
  */
 
-#include "MEM_guardedalloc.h"
-
 #include "DNA_armature_types.h"
 #include "DNA_object_types.h"
 
@@ -1027,7 +1025,7 @@ bool ED_view3d_minmax_verts(const Scene *scene, Object *obedit, float r_min[3], 
   TransVert *tv;
   float centroid[3], vec[3], bmat[3][3];
 
-  /* Metaballs are an exception. */
+  /* Meta-balls are an exception. */
   if (obedit->type == OB_MBALL) {
     float ob_min[3], ob_max[3];
     bool changed;

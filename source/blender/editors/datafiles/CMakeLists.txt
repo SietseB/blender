@@ -459,7 +459,7 @@ if(WITH_BLENDER)
       keyframe
       keyframe_hlt
       keyingset
-	    key_backspace
+      key_backspace
       key_backspace_filled
       key_command
       key_command_filled

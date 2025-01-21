@@ -9,13 +9,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_array_utils.hh"
 #include "BLI_enumerable_thread_specific.hh"
-#include "BLI_ghash.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.hh"
-#include "BLI_task.h"
-#include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
 
@@ -73,7 +69,6 @@
 #include "UI_interface.hh"
 #include "UI_resources.hh"
 
-#include "CLG_log.h"
 #include "bmesh.hh"
 
 #include <cmath>
@@ -825,6 +820,10 @@ static int mask_by_color_invoke(bContext *C, wmOperator *op, const wmEvent *even
 
   /* Color data is not available in multi-resolution or dynamic topology. */
   if (!color_supported_check(scene, ob, op->reports)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  if (std::holds_alternative<std::monostate>(ss.active_vert())) {
     return OPERATOR_CANCELLED;
   }
 

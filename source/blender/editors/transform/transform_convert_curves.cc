@@ -21,7 +21,6 @@
 #include "BKE_curves.hh"
 #include "BKE_curves_utils.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_object_types.hh"
 
 #include "ED_curves.hh"
 
@@ -544,7 +543,7 @@ void curve_populate_trans_data_structs(
             center = point_positions[domain_i];
           }
           else {
-            center = td.iloc;
+            center = *elem;
           }
 
           copy_v3_v3(td.iloc, *elem);

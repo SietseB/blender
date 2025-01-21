@@ -72,6 +72,9 @@ class VKRenderGraph : public NonCopyable {
   Vector<VKRenderGraphNodeLinks> links_;
   /** All nodes inside the graph indexable via NodeHandle. */
   Vector<VKRenderGraphNode> nodes_;
+  /** Storage for large node datas to improve CPU cache pre-loading. */
+  VKRenderGraphStorage storage_;
+
   /** Scheduler decides which nodes to select and in what order to execute them. */
   VKScheduler scheduler_;
   /**
@@ -164,7 +167,7 @@ class VKRenderGraph : public NonCopyable {
       links_.resize(nodes_.size());
     }
     VKRenderGraphNode &node = nodes_[node_handle];
-    node.set_node_data<NodeInfo>(create_info);
+    node.set_node_data<NodeInfo>(storage_, create_info);
 
     VKRenderGraphNodeLinks &node_links = links_[node_handle];
     BLI_assert(node_links.inputs.is_empty());
@@ -222,7 +225,7 @@ class VKRenderGraph : public NonCopyable {
    * After calling this function the mapped memory of the vk_buffer would contain the data of the
    * buffer.
    */
-  void submit_buffer_for_read(VkBuffer vk_buffer);
+  void submit_for_read();
 
   /**
    * Submit partial graph to be able to present the expected result of the rendering commands
@@ -230,7 +233,7 @@ class VKRenderGraph : public NonCopyable {
    * swap chain swap.
    *
    * Pre conditions:
-   * - `vk_swapchain_image` needs to be a created using ResourceOwner::SWAP_CHAIN`.
+   * - `vk_swapchain_image` needs to be registered in VKResourceStateTracker.
    *
    * Post conditions:
    * - `vk_swapchain_image` layout is transitioned to `VK_IMAGE_LAYOUT_SRC_PRESENT`.

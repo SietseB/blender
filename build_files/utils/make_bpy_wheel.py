@@ -27,6 +27,9 @@ NOTE:
 Some type annotations are quoted to avoid errors in Python 3.9.
 These can be unquoted eventually.
 """
+__all__ = (
+    "main",
+)
 
 import argparse
 import make_utils
@@ -49,7 +52,7 @@ from typing import (
 
 long_description = """# Blender
 
-[Blender](https://www.blender.org) is the free and open source 3D creation suite. It supports the entirety of the 3D pipeline—modeling, rigging, animation, simulation, rendering, compositing and motion tracking, even video editing.
+[Blender](https://www.blender.org) is the free and open source 3D creation suite. It supports the entirety of the 3D pipeline: modeling, rigging, animation, simulation, rendering, compositing and motion tracking, even video editing.
 
 This package provides Blender as a Python module for use in studio pipelines, web services, scientific research, and more.
 

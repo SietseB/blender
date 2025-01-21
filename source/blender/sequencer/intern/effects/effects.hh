@@ -11,42 +11,27 @@
 #include "BLI_array.hh"
 #include "BLI_math_color.h"
 #include "BLI_math_vector_types.hh"
+#include "BLI_task.hh"
+#include "IMB_imbuf_types.hh"
 #include "SEQ_effects.hh"
 
 struct ImBuf;
 struct Scene;
-struct Sequence;
+struct Strip;
 
-SeqEffectHandle seq_effect_get_sequence_blend(Sequence *seq);
+SeqEffectHandle strip_effect_get_sequence_blend(Strip *strip);
 /**
  * Build frame map when speed in mode #SEQ_SPEED_MULTIPLY is animated.
  * This is, because `target_frame` value is integrated over time.
  */
-void seq_effect_speed_rebuild_map(Scene *scene, Sequence *seq);
+void strip_effect_speed_rebuild_map(Scene *scene, Strip *strip);
 /**
  * Override timeline_frame when rendering speed effect input.
  */
-float seq_speed_effect_target_frame_get(Scene *scene,
-                                        Sequence *seq_speed,
-                                        float timeline_frame,
-                                        int input);
-
-void slice_get_byte_buffers(const SeqRenderData *context,
-                            const ImBuf *ibuf1,
-                            const ImBuf *ibuf2,
-                            const ImBuf *out,
-                            int start_line,
-                            uchar **rect1,
-                            uchar **rect2,
-                            uchar **rect_out);
-void slice_get_float_buffers(const SeqRenderData *context,
-                             const ImBuf *ibuf1,
-                             const ImBuf *ibuf2,
-                             const ImBuf *out,
-                             int start_line,
-                             float **rect1,
-                             float **rect2,
-                             float **rect_out);
+float strip_speed_effect_target_frame_get(Scene *scene,
+                                          Strip *strip_speed,
+                                          float timeline_frame,
+                                          int input);
 
 ImBuf *prepare_effect_imbufs(const SeqRenderData *context,
                              ImBuf *ibuf1,
@@ -93,15 +78,15 @@ inline void store_opaque_black_pixel(float *dst)
   dst[3] = 1.0f;
 }
 
-StripEarlyOut early_out_mul_input1(const Sequence * /*seq*/, float fac);
-StripEarlyOut early_out_mul_input2(const Sequence * /*seq*/, float fac);
-StripEarlyOut early_out_fade(const Sequence * /*seq*/, float fac);
+StripEarlyOut early_out_mul_input1(const Strip * /*seq*/, float fac);
+StripEarlyOut early_out_mul_input2(const Strip * /*seq*/, float fac);
+StripEarlyOut early_out_fade(const Strip * /*seq*/, float fac);
 void get_default_fac_fade(const Scene *scene,
-                          const Sequence *seq,
+                          const Strip *strip,
                           float timeline_frame,
                           float *fac);
 
-SeqEffectHandle get_sequence_effect_impl(int seq_type);
+SeqEffectHandle get_sequence_effect_impl(int strip_type);
 
 void add_effect_get_handle(SeqEffectHandle &rval);
 void adjustment_effect_get_handle(SeqEffectHandle &rval);
@@ -122,3 +107,38 @@ void sub_effect_get_handle(SeqEffectHandle &rval);
 void text_effect_get_handle(SeqEffectHandle &rval);
 void transform_effect_get_handle(SeqEffectHandle &rval);
 void wipe_effect_get_handle(SeqEffectHandle &rval);
+
+/* Given `OpT` that implements an `apply` function:
+ *
+ *    template <typename T>
+ *    void apply(const T *src1, const T *src2, T *dst, int64_t size) const;
+ *
+ * this function calls the apply() function in parallel
+ * chunks of the image to process, and with uchar or float types
+ * All images are expected to have 4 (RGBA) color channels. */
+template<typename OpT>
+static void apply_effect_op(const OpT &op, const ImBuf *src1, const ImBuf *src2, ImBuf *dst)
+{
+  BLI_assert_msg(src1->channels == 0 || src1->channels == 4,
+                 "Sequencer only supports 4 channel images");
+  BLI_assert_msg(src2->channels == 0 || src2->channels == 4,
+                 "Sequencer only supports 4 channel images");
+  BLI_assert_msg(dst->channels == 0 || dst->channels == 4,
+                 "Sequencer only supports 4 channel images");
+  blender::threading::parallel_for(
+      blender::IndexRange(size_t(dst->x) * dst->y), 32 * 1024, [&](blender::IndexRange range) {
+        int64_t offset = range.first() * 4;
+        if (dst->float_buffer.data) {
+          const float *src1_ptr = src1->float_buffer.data + offset;
+          const float *src2_ptr = src2->float_buffer.data + offset;
+          float *dst_ptr = dst->float_buffer.data + offset;
+          op.apply(src1_ptr, src2_ptr, dst_ptr, range.size());
+        }
+        else {
+          const uchar *src1_ptr = src1->byte_buffer.data + offset;
+          const uchar *src2_ptr = src2->byte_buffer.data + offset;
+          uchar *dst_ptr = dst->byte_buffer.data + offset;
+          op.apply(src1_ptr, src2_ptr, dst_ptr, range.size());
+        }
+      });
+}

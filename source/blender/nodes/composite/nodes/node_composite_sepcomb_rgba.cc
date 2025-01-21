@@ -6,6 +6,13 @@
  * \ingroup cmpnodes
  */
 
+#include "BLI_math_color.h"
+#include "BLI_math_vector_types.hh"
+
+#include "FN_multi_function_builder.hh"
+
+#include "NOD_multi_function.hh"
+
 #include "GPU_material.hh"
 
 #include "COM_shader_node.hh"
@@ -47,6 +54,20 @@ static ShaderNode *get_compositor_shader_node(DNode node)
   return new SeparateRGBAShaderNode(node);
 }
 
+static void node_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  static auto function = mf::build::SI1_SO4<float4, float, float, float, float>(
+      "Separate Color RGBA",
+      [](const float4 &color, float &r, float &g, float &b, float &a) -> void {
+        r = color.x;
+        g = color.y;
+        b = color.z;
+        a = color.w;
+      },
+      mf::build::exec_presets::AllSpanOrSingle());
+  builder.set_matching_fn(function);
+}
+
 }  // namespace blender::nodes::node_composite_separate_rgba_cc
 
 void register_node_type_cmp_seprgba()
@@ -55,12 +76,15 @@ void register_node_type_cmp_seprgba()
 
   static blender::bke::bNodeType ntype;
 
-  cmp_node_type_base(
-      &ntype, CMP_NODE_SEPRGBA_LEGACY, "Separate RGBA (Legacy)", NODE_CLASS_CONVERTER);
+  cmp_node_type_base(&ntype, "CompositorNodeSepRGBA", CMP_NODE_SEPRGBA_LEGACY);
+  ntype.ui_name = "Separate RGBA (Legacy)";
+  ntype.ui_description = "Deprecated";
   ntype.enum_name_legacy = "SEPRGBA";
+  ntype.nclass = NODE_CLASS_CONVERTER;
   ntype.declare = file_ns::cmp_node_seprgba_declare;
   ntype.gather_link_search_ops = nullptr;
   ntype.get_compositor_shader_node = file_ns::get_compositor_shader_node;
+  ntype.build_multi_function = file_ns::node_build_multi_function;
 
   blender::bke::node_register_type(&ntype);
 }
@@ -115,6 +139,17 @@ static ShaderNode *get_compositor_shader_node(DNode node)
   return new CombineRGBAShaderNode(node);
 }
 
+static void node_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  static auto function = mf::build::SI4_SO<float, float, float, float, float4>(
+      "Combine Color RGBA",
+      [](const float r, const float g, const float b, const float a) -> float4 {
+        return float4(r, g, b, a);
+      },
+      mf::build::exec_presets::Materialized());
+  builder.set_matching_fn(function);
+}
+
 }  // namespace blender::nodes::node_composite_combine_rgba_cc
 
 void register_node_type_cmp_combrgba()
@@ -123,12 +158,15 @@ void register_node_type_cmp_combrgba()
 
   static blender::bke::bNodeType ntype;
 
-  cmp_node_type_base(
-      &ntype, CMP_NODE_COMBRGBA_LEGACY, "Combine RGBA (Legacy)", NODE_CLASS_CONVERTER);
+  cmp_node_type_base(&ntype, "CompositorNodeCombRGBA", CMP_NODE_COMBRGBA_LEGACY);
+  ntype.ui_name = "Combine RGBA (Legacy)";
+  ntype.ui_description = "Deprecated";
   ntype.enum_name_legacy = "COMBRGBA";
+  ntype.nclass = NODE_CLASS_CONVERTER;
   ntype.declare = file_ns::cmp_node_combrgba_declare;
   ntype.gather_link_search_ops = nullptr;
   ntype.get_compositor_shader_node = file_ns::get_compositor_shader_node;
+  ntype.build_multi_function = file_ns::node_build_multi_function;
 
   blender::bke::node_register_type(&ntype);
 }

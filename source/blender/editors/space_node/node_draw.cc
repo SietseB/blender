@@ -27,6 +27,8 @@
 #include "BLI_convexhull_2d.h"
 #include "BLI_function_ref.hh"
 #include "BLI_map.hh"
+#include "BLI_math_matrix.hh"
+#include "BLI_math_quaternion.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
 #include "BLI_string.h"
@@ -42,8 +44,10 @@
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
+#include "BKE_main_invariants.hh"
 #include "BKE_node.hh"
 #include "BKE_node_enum.hh"
+#include "BKE_node_legacy_types.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.hh"
 #include "BKE_node_tree_zones.hh"
@@ -65,7 +69,6 @@
 #include "GPU_immediate.hh"
 #include "GPU_immediate_util.hh"
 #include "GPU_matrix.hh"
-#include "GPU_shader_shared.hh"
 #include "GPU_state.hh"
 #include "GPU_viewport.hh"
 
@@ -86,14 +89,11 @@
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
 
-#include "NOD_geometry_exec.hh"
 #include "NOD_geometry_nodes_gizmos.hh"
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_node_declaration.hh"
 #include "NOD_node_extra_info.hh"
 #include "NOD_socket_declarations_geometry.hh"
-
-#include "FN_field.hh"
 
 #include "GEO_fillet_curves.hh"
 
@@ -107,6 +107,8 @@ using blender::bke::bNodeTreeZone;
 using blender::bke::bNodeTreeZones;
 using blender::ed::space_node::NestedTreePreviews;
 using blender::nodes::NodeExtraInfoRow;
+
+namespace blender::ed::space_node {
 
 /**
  * This is passed to many functions which draw the node editor.
@@ -130,7 +132,7 @@ struct TreeDrawContext {
    * Geometry nodes logs various data during execution. The logged data that corresponds to the
    * currently drawn node tree can be retrieved from the log below.
    */
-  blender::Map<const bNodeTreeZone *, geo_log::GeoTreeLog *> geo_log_by_zone;
+  Map<const bNodeTreeZone *, geo_log::GeoTreeLog *> geo_log_by_zone;
 
   NestedTreePreviews *nested_group_infos = nullptr;
   /**
@@ -138,24 +140,21 @@ struct TreeDrawContext {
    */
   bool used_by_compositor = false;
 
-  blender::Map<bNodeInstanceKey, blender::timeit::Nanoseconds>
-      *compositor_per_node_execution_time = nullptr;
+  Map<bNodeInstanceKey, timeit::Nanoseconds> *compositor_per_node_execution_time = nullptr;
 
   /**
    * Label for reroute nodes that is derived from upstream reroute nodes.
    */
-  blender::Map<const bNode *, blender::StringRefNull> reroute_auto_labels;
+  Map<const bNode *, StringRef> reroute_auto_labels;
 };
 
-float ED_node_grid_size()
+float grid_size_get()
 {
   return NODE_GRID_STEP_SIZE;
 }
 
-void ED_node_tree_update(const bContext *C)
+void tree_update(const bContext *C)
 {
-  using namespace blender::ed::space_node;
-
   SpaceNode *snode = CTX_wm_space_node(C);
   if (snode) {
     snode_set_context(*C);
@@ -173,13 +172,13 @@ static bNodeTree *node_tree_from_ID(ID *id)
     if (GS(id->name) == ID_NT) {
       return (bNodeTree *)id;
     }
-    return blender::bke::node_tree_from_id(id);
+    return bke::node_tree_from_id(id);
   }
 
   return nullptr;
 }
 
-void ED_node_tag_update_id(ID *id)
+void tag_update_id(ID *id)
 {
   bNodeTree *ntree = node_tree_from_ID(id);
   if (id == nullptr || ntree == nullptr) {
@@ -218,8 +217,6 @@ void ED_node_tag_update_id(ID *id)
     DEG_id_tag_update(id, 0);
   }
 }
-
-namespace blender::ed::space_node {
 
 static std::string node_socket_get_tooltip(const SpaceNode *snode,
                                            const bNodeTree &ntree,
@@ -426,7 +423,7 @@ static bool node_update_basis_buttons(const bContext &C,
                                      0,
                                      UI_style_get_dpi());
 
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     uiLayoutSetActive(layout, false);
   }
 
@@ -509,7 +506,7 @@ static bool node_update_basis_socket(const bContext &C,
                                      0,
                                      UI_style_get_dpi());
 
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     uiLayoutSetActive(layout, false);
   }
 
@@ -698,13 +695,19 @@ static void determine_visible_panels(const bNode &node, MutableSpan<bool> r_visi
 static void add_flat_items_for_socket(bNode &node,
                                       const nodes::SocketDeclaration &socket_decl,
                                       const nodes::PanelDeclaration *panel_decl,
+                                      const nodes::SocketDeclaration *prev_socket_decl,
                                       Vector<FlatNodeItem> &r_items)
 {
   bNodeSocket &socket = node.socket_by_decl(socket_decl);
   if (!socket.is_visible()) {
     return;
   }
-  if (!socket_decl.align_with_previous_socket) {
+  if (socket_decl.align_with_previous_socket) {
+    if (!prev_socket_decl || !node.socket_by_decl(*prev_socket_decl).is_visible()) {
+      r_items.append({flat_item::Socket()});
+    }
+  }
+  else {
     r_items.append({flat_item::Socket()});
   }
   flat_item::Socket &item = std::get<flat_item::Socket>(r_items.last().item);
@@ -748,19 +751,24 @@ static void add_flat_items_for_panel(bNode &node,
     return;
   }
   r_items.append({flat_item::PanelContentBegin{&panel_decl}});
+  const nodes::SocketDeclaration *prev_socket_decl = nullptr;
   for (const nodes::ItemDeclaration *item_decl : panel_decl.items) {
     if (const auto *socket_decl = dynamic_cast<const nodes::SocketDeclaration *>(item_decl)) {
-      add_flat_items_for_socket(node, *socket_decl, &panel_decl, r_items);
+      add_flat_items_for_socket(node, *socket_decl, &panel_decl, prev_socket_decl, r_items);
+      prev_socket_decl = socket_decl;
     }
-    else if (const auto *sub_panel_decl = dynamic_cast<const nodes::PanelDeclaration *>(item_decl))
-    {
-      add_flat_items_for_panel(node, *sub_panel_decl, panel_visibility, r_items);
-    }
-    else if (dynamic_cast<const nodes::SeparatorDeclaration *>(item_decl)) {
-      add_flat_items_for_separator(r_items);
-    }
-    else if (const auto *layout_decl = dynamic_cast<const nodes::LayoutDeclaration *>(item_decl)) {
-      add_flat_items_for_layout(node, *layout_decl, r_items);
+    else {
+      if (const auto *sub_panel_decl = dynamic_cast<const nodes::PanelDeclaration *>(item_decl)) {
+        add_flat_items_for_panel(node, *sub_panel_decl, panel_visibility, r_items);
+      }
+      else if (dynamic_cast<const nodes::SeparatorDeclaration *>(item_decl)) {
+        add_flat_items_for_separator(r_items);
+      }
+      else if (const auto *layout_decl = dynamic_cast<const nodes::LayoutDeclaration *>(item_decl))
+      {
+        add_flat_items_for_layout(node, *layout_decl, r_items);
+      }
+      prev_socket_decl = nullptr;
     }
   }
   r_items.append({flat_item::PanelContentEnd{&panel_decl}});
@@ -778,19 +786,26 @@ static Vector<FlatNodeItem> make_flat_node_items(bNode &node)
   Array<bool> panel_visibility(panels_num, false);
   determine_visible_panels(node, panel_visibility);
 
+  const nodes::SocketDeclaration *prev_socket_decl = nullptr;
+
   Vector<FlatNodeItem> items;
   for (const nodes::ItemDeclaration *item_decl : node.declaration()->root_items) {
     if (const auto *socket_decl = dynamic_cast<const nodes::SocketDeclaration *>(item_decl)) {
-      add_flat_items_for_socket(node, *socket_decl, nullptr, items);
+      add_flat_items_for_socket(node, *socket_decl, nullptr, prev_socket_decl, items);
+      prev_socket_decl = socket_decl;
     }
-    else if (const auto *panel_decl = dynamic_cast<const nodes::PanelDeclaration *>(item_decl)) {
-      add_flat_items_for_panel(node, *panel_decl, panel_visibility, items);
-    }
-    else if (dynamic_cast<const nodes::SeparatorDeclaration *>(item_decl)) {
-      add_flat_items_for_separator(items);
-    }
-    else if (const auto *layout_decl = dynamic_cast<const nodes::LayoutDeclaration *>(item_decl)) {
-      add_flat_items_for_layout(node, *layout_decl, items);
+    else {
+      if (const auto *panel_decl = dynamic_cast<const nodes::PanelDeclaration *>(item_decl)) {
+        add_flat_items_for_panel(node, *panel_decl, panel_visibility, items);
+      }
+      else if (dynamic_cast<const nodes::SeparatorDeclaration *>(item_decl)) {
+        add_flat_items_for_separator(items);
+      }
+      else if (const auto *layout_decl = dynamic_cast<const nodes::LayoutDeclaration *>(item_decl))
+      {
+        add_flat_items_for_layout(node, *layout_decl, items);
+      }
+      prev_socket_decl = nullptr;
     }
   }
   return items;
@@ -1107,7 +1122,7 @@ static void node_update_basis_from_declaration(
                                                0,
                                                0,
                                                UI_style_get_dpi());
-            if (node.flag & NODE_MUTED) {
+            if (node.is_muted()) {
               uiLayoutSetActive(layout, false);
             }
             PointerRNA node_ptr = RNA_pointer_create(&ntree.id, &RNA_Node, &node);
@@ -1326,11 +1341,11 @@ static int node_get_colorid(TreeDrawContext &tree_draw_ctx, const bNode &node)
     case NODE_CLASS_INPUT:
       return TH_NODE_INPUT;
     case NODE_CLASS_OUTPUT: {
-      if (node.type == GEO_NODE_VIEWER) {
+      if (node.type_legacy == GEO_NODE_VIEWER) {
         return &node == tree_draw_ctx.active_geometry_nodes_viewer ? TH_NODE_OUTPUT : TH_NODE;
       }
       const bool is_output_node = (node.flag & NODE_DO_OUTPUT) ||
-                                  (node.type == CMP_NODE_OUTPUT_FILE);
+                                  (node.type_legacy == CMP_NODE_OUTPUT_FILE);
       return is_output_node ? TH_NODE_OUTPUT : TH_NODE;
     }
     case NODE_CLASS_CONVERTER:
@@ -1837,8 +1852,6 @@ static std::optional<std::string> create_description_inspection_string(const bNo
 static std::optional<std::string> create_log_inspection_string(geo_log::GeoTreeLog *geo_tree_log,
                                                                const bNodeSocket &socket)
 {
-  using namespace blender::nodes::geo_eval_log;
-
   if (geo_tree_log == nullptr) {
     return std::nullopt;
   }
@@ -1847,7 +1860,7 @@ static std::optional<std::string> create_log_inspection_string(geo_log::GeoTreeL
   }
 
   geo_tree_log->ensure_socket_values();
-  ValueLog *value_log = geo_tree_log->find_socket_value_log(socket);
+  geo_log::ValueLog *value_log = geo_tree_log->find_socket_value_log(socket);
   fmt::memory_buffer buf;
   if (const geo_log::GenericValueLog *generic_value_log =
           dynamic_cast<const geo_log::GenericValueLog *>(value_log))
@@ -2334,8 +2347,11 @@ static void node_draw_socket(const bContext &C,
       block, sock.index_in_tree(), socket_location, float2(2.0f * half_width, 2.0f * half_height));
 }
 
-static void node_draw_sockets(
-    const bContext &C, uiBlock &block, const SpaceNode &snode, bNodeTree &ntree, const bNode &node)
+static void node_draw_sockets(const bContext &C,
+                              uiBlock &block,
+                              const SpaceNode &snode,
+                              const bNodeTree &ntree,
+                              const bNode &node)
 {
   if (!draw_node_details(snode)) {
     return;
@@ -2381,7 +2397,7 @@ static void node_panel_toggle_button_cb(bContext *C, void *panel_state_argv, voi
 
   panel_state->flag ^= NODE_PANEL_COLLAPSED;
 
-  ED_node_tree_propagate_change(C, bmain, ntree);
+  BKE_main_ensure_invariants(*bmain, ntree->id);
 }
 
 /* Draw panel backgrounds first, so other node elements can be rendered on top. */
@@ -2429,6 +2445,34 @@ static void node_draw_panels_background(const bNode &node)
   }
 }
 
+/**
+ * Note that this is different from #panel_has_input_affecting_node_output in how it treats output
+ * sockets. Within the node UI, the panel should not be grayed out if it has an output socket.
+ * However, the sidebar only shows inputs, so output sockets should be ignored.
+ */
+static bool panel_has_only_inactive_inputs(const bNode &node,
+                                           const nodes::PanelDeclaration &panel_decl)
+{
+  for (const nodes::ItemDeclaration *item_decl : panel_decl.items) {
+    if (const auto *socket_decl = dynamic_cast<const nodes::SocketDeclaration *>(item_decl)) {
+      if (socket_decl->in_out == SOCK_OUT) {
+        return false;
+      }
+      const bNodeSocket &socket = node.socket_by_decl(*socket_decl);
+      if (socket.affects_node_output()) {
+        return false;
+      }
+    }
+    else if (const auto *sub_panel_decl = dynamic_cast<const nodes::PanelDeclaration *>(item_decl))
+    {
+      if (!panel_has_only_inactive_inputs(node, *sub_panel_decl)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 static void node_draw_panels(bNodeTree &ntree, const bNode &node, uiBlock &block)
 {
   BLI_assert(is_node_panels_supported(node));
@@ -2473,12 +2517,14 @@ static void node_draw_panels(bNodeTree &ntree, const bNode &node, uiBlock &block
         int(draw_bounds.xmin + NODE_MARGIN_X + 0.4f),
         int(*panel_runtime.header_center_y - NODE_DYS),
         short(draw_bounds.xmax - draw_bounds.xmin - (30.0f * UI_SCALE_FAC)),
-        short(NODE_DY),
+        NODE_DY,
         nullptr,
         0,
         0,
         "");
-    if (node.flag & NODE_MUTED) {
+
+    const bool only_inactive_inputs = panel_has_only_inactive_inputs(node, panel_decl);
+    if (node.is_muted() || only_inactive_inputs) {
       UI_but_flag_enable(label_but, UI_BUT_INACTIVE);
     }
 
@@ -2648,7 +2694,7 @@ static std::optional<std::chrono::nanoseconds> geo_node_get_execution_time(
   if (tree_log == nullptr) {
     return std::nullopt;
   }
-  if (node.type == NODE_GROUP_OUTPUT) {
+  if (node.is_group_output()) {
     return tree_log->execution_time;
   }
   if (node.is_frame()) {
@@ -2755,8 +2801,9 @@ static std::optional<std::chrono::nanoseconds> node_get_execution_time(
       return geo_node_get_execution_time(tree_draw_ctx, snode, node);
     case NTREE_COMPOSIT:
       return compositor_node_get_execution_time(tree_draw_ctx, snode, node);
+    default:
+      return std::nullopt;
   }
-  return std::nullopt;
 }
 
 static std::string node_get_execution_time_label(TreeDrawContext &tree_draw_ctx,
@@ -2881,7 +2928,7 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(
   if (geo_tree_log == nullptr) {
     return std::nullopt;
   }
-  if (ELEM(node.type,
+  if (ELEM(node.type_legacy,
            GEO_NODE_STORE_NAMED_ATTRIBUTE,
            GEO_NODE_REMOVE_ATTRIBUTE,
            GEO_NODE_INPUT_NAMED_ATTRIBUTE))
@@ -3012,7 +3059,7 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const bContext &C,
 
   if (snode.overlay.flag & SN_OVERLAY_SHOW_TIMINGS &&
       (ELEM(node.typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP, NODE_CLASS_ATTRIBUTE) ||
-       ELEM(node.type,
+       ELEM(node.type_legacy,
             NODE_FRAME,
             NODE_GROUP_OUTPUT,
             GEO_NODE_SIMULATION_OUTPUT,
@@ -3093,7 +3140,7 @@ static void node_draw_extra_info_row(const bNode &node,
                              int(but_text_left),
                              int(rect.ymin + row * (20.0f * UI_SCALE_FAC)),
                              short(but_text_width),
-                             short(NODE_DY),
+                             NODE_DY,
                              nullptr,
                              0,
                              0,
@@ -3105,7 +3152,7 @@ static void node_draw_extra_info_row(const bNode &node,
         but_text, extra_info_row.tooltip_fn, extra_info_row.tooltip_fn_arg, nullptr);
   }
 
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     UI_but_flag_enable(but_text, UI_BUT_INACTIVE);
     UI_but_flag_enable(but_icon, UI_BUT_INACTIVE);
   }
@@ -3121,7 +3168,7 @@ static void node_draw_extra_info_panel_back(const bNode &node, const rctf &extra
   }
 
   ColorTheme4f color;
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.2f, color);
   }
   else {
@@ -3251,7 +3298,7 @@ static void node_draw_basis(const bContext &C,
   }
 
   /* Shadow. */
-  if (!bke::all_zone_node_types().contains(node.type)) {
+  if (!bke::all_zone_node_types().contains(node.type_legacy)) {
     node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
   }
 
@@ -3307,7 +3354,7 @@ static void node_draw_basis(const bContext &C,
     float color_header[4];
 
     /* Muted nodes get a mix of the background with the node color. */
-    if (node.flag & NODE_MUTED) {
+    if (node.is_muted()) {
       UI_GetThemeColorBlend4f(TH_BACK, color_id, 0.1f, color_header);
     }
     else {
@@ -3321,8 +3368,9 @@ static void node_draw_basis(const bContext &C,
   /* Show/hide icons. */
   float iconofs = rct.xmax - 0.35f * U.widget_unit;
 
-  /* Group edit. This icon should be the first for the node groups. */
-  if (node.type == NODE_GROUP) {
+  /* Group edit. This icon should be the first for the node groups. Note that we intentionally
+   * don't check for NODE_GROUP_CUSTOM here. */
+  if (node.type_legacy == NODE_GROUP) {
     iconofs -= iconbutw;
     UI_block_emboss_set(&block, UI_EMBOSS_NONE);
     uiBut *but = uiDefIconBut(&block,
@@ -3369,7 +3417,9 @@ static void node_draw_basis(const bContext &C,
                     (void *)"NODE_OT_preview_toggle");
     UI_block_emboss_set(&block, UI_EMBOSS);
   }
-  if (ELEM(node.type, NODE_CUSTOM, NODE_CUSTOM_GROUP) && node.typeinfo->ui_icon != ICON_NONE) {
+  if (ELEM(node.type_legacy, NODE_CUSTOM, NODE_CUSTOM_GROUP) &&
+      node.typeinfo->ui_icon != ICON_NONE)
+  {
     iconofs -= iconbutw;
     UI_block_emboss_set(&block, UI_EMBOSS_NONE);
     uiDefIconBut(&block,
@@ -3386,7 +3436,7 @@ static void node_draw_basis(const bContext &C,
                  "");
     UI_block_emboss_set(&block, UI_EMBOSS);
   }
-  if (node.type == GEO_NODE_VIEWER) {
+  if (node.type_legacy == GEO_NODE_VIEWER) {
     const bool is_active = &node == tree_draw_ctx.active_geometry_nodes_viewer;
     iconofs -= iconbutw;
     UI_block_emboss_set(&block, UI_EMBOSS_NONE);
@@ -3454,11 +3504,11 @@ static void node_draw_basis(const bContext &C,
                         int(rct.xmin + NODE_MARGIN_X + 0.4f),
                         int(rct.ymax - NODE_DY),
                         short(iconofs - rct.xmin - NODE_MARGIN_X),
-                        short(NODE_DY),
+                        NODE_DY,
                         nullptr,
                         0,
                         0,
-                        TIP_(node.typeinfo->ui_description));
+                        TIP_(node.typeinfo->ui_description.c_str()));
   UI_but_func_tooltip_set(
       but,
       [](bContext * /*C*/, void *arg, const char *tip) -> std::string {
@@ -3471,12 +3521,12 @@ static void node_draw_basis(const bContext &C,
       const_cast<bNode *>(&node),
       nullptr);
 
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     UI_but_flag_enable(but, UI_BUT_INACTIVE);
   }
 
   /* Wire across the node when muted/disabled. */
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     node_draw_mute_line(C, v2d, snode, node);
   }
 
@@ -3488,7 +3538,7 @@ static void node_draw_basis(const bContext &C,
       UI_GetThemeColorBlend4f(TH_REDALERT, TH_NODE, 0.4f, color);
     }
     /* Muted nodes get a mix of the background with the node color. */
-    else if (node.flag & NODE_MUTED) {
+    else if (node.is_muted()) {
       UI_GetThemeColorBlend4f(TH_BACK, TH_NODE, 0.2f, color);
     }
     else if (node.flag & NODE_CUSTOM_COLOR) {
@@ -3504,7 +3554,7 @@ static void node_draw_basis(const bContext &C,
     }
 
     /* Draw muted nodes slightly transparent so the wires inside are visible. */
-    if (node.flag & NODE_MUTED) {
+    if (node.is_muted()) {
       color[3] -= 0.2f;
     }
 
@@ -3528,7 +3578,7 @@ static void node_draw_basis(const bContext &C,
   {
     float color_underline[4];
 
-    if (node.flag & NODE_MUTED) {
+    if (node.is_muted()) {
       UI_GetThemeColorBlend4f(TH_BACK, color_id, 0.05f, color_underline);
       color_underline[3] = 1.0f;
     }
@@ -3565,7 +3615,7 @@ static void node_draw_basis(const bContext &C,
     else if (bke::node_type_is_undefined(&node)) {
       UI_GetThemeColor4fv(TH_REDALERT, color_outline);
     }
-    else if (const bke::bNodeZoneType *zone_type = bke::zone_type_by_node_type(node.type)) {
+    else if (const bke::bNodeZoneType *zone_type = bke::zone_type_by_node_type(node.type_legacy)) {
       UI_GetThemeColor4fv(zone_type->theme_id, color_outline);
       color_outline[3] = 1.0f;
     }
@@ -3619,7 +3669,7 @@ static void node_draw_hidden(const bContext &C,
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
 
   /* Wire across the node when muted/disabled. */
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     node_draw_mute_line(C, v2d, snode, node);
   }
 
@@ -3630,7 +3680,7 @@ static void node_draw_hidden(const bContext &C,
       /* Use warning color to indicate undefined types. */
       UI_GetThemeColorBlend4f(TH_REDALERT, TH_NODE, 0.4f, color);
     }
-    else if (node.flag & NODE_MUTED) {
+    else if (node.is_muted()) {
       /* Muted nodes get a mix of the background with the node color. */
       UI_GetThemeColorBlendShade4fv(TH_BACK, color_id, 0.1f, 0, color);
     }
@@ -3647,7 +3697,7 @@ static void node_draw_hidden(const bContext &C,
     }
 
     /* Draw muted nodes slightly transparent so the wires inside are visible. */
-    if (node.flag & NODE_MUTED) {
+    if (node.is_muted()) {
       color[3] -= 0.2f;
     }
 
@@ -3706,11 +3756,11 @@ static void node_draw_hidden(const bContext &C,
                         round_fl_to_int(rct.xmin + NODE_MARGIN_X),
                         round_fl_to_int(centy - NODE_DY * 0.5f),
                         short(BLI_rctf_size_x(&rct) - (2 * U.widget_unit)),
-                        short(NODE_DY),
+                        NODE_DY,
                         nullptr,
                         0,
                         0,
-                        TIP_(node.typeinfo->ui_description));
+                        TIP_(node.typeinfo->ui_description.c_str()));
 
   /* Outline. */
   {
@@ -3739,7 +3789,7 @@ static void node_draw_hidden(const bContext &C,
     UI_draw_roundbox_4fv(&rect, false, hiddenrad + outline_width, color_outline);
   }
 
-  if (node.flag & NODE_MUTED) {
+  if (node.is_muted()) {
     UI_but_flag_enable(but, UI_BUT_INACTIVE);
   }
 
@@ -4213,18 +4263,18 @@ static const bNode *reroute_node_get_linked_reroute(const bNode &reroute)
  * The auto label overlay displays a label on reroute nodes based on the user-defined label of a
  * linked reroute upstream.
  */
-static StringRefNull reroute_node_get_auto_label(TreeDrawContext &tree_draw_ctx,
-                                                 const bNode &src_reroute)
+static StringRef reroute_node_get_auto_label(TreeDrawContext &tree_draw_ctx,
+                                             const bNode &src_reroute)
 {
   BLI_assert(src_reroute.is_reroute());
 
   if (src_reroute.label[0] != '\0') {
-    return StringRefNull(src_reroute.label);
+    return src_reroute.label;
   }
 
-  Map<const bNode *, StringRefNull> &reroute_auto_labels = tree_draw_ctx.reroute_auto_labels;
+  Map<const bNode *, StringRef> &reroute_auto_labels = tree_draw_ctx.reroute_auto_labels;
 
-  StringRefNull label;
+  StringRef label;
   Vector<const bNode *> reroute_path;
 
   /* Traverse reroute path backwards until label, non-reroute node or link-cycle is found. */
@@ -4232,7 +4282,7 @@ static StringRefNull reroute_node_get_auto_label(TreeDrawContext &tree_draw_ctx,
        reroute = reroute_node_get_linked_reroute(*reroute))
   {
     reroute_path.append(reroute);
-    if (const StringRefNull *label_ptr = reroute_auto_labels.lookup_ptr(reroute)) {
+    if (const StringRef *label_ptr = reroute_auto_labels.lookup_ptr(reroute)) {
       label = *label_ptr;
       break;
     }
@@ -4304,16 +4354,17 @@ static void reroute_node_draw_label(TreeDrawContext &tree_draw_ctx,
     return;
   }
 
-  char showname[128];
-  STRNCPY(showname,
-          has_label ? node.label : reroute_node_get_auto_label(tree_draw_ctx, node).c_str());
+  const StringRef text = has_label ? node.label : reroute_node_get_auto_label(tree_draw_ctx, node);
+  if (text.is_empty()) {
+    return;
+  }
 
   const short width = 512;
   const int x = BLI_rctf_cent_x(&node.runtime->draw_bounds) - (width / 2);
   const int y = node.runtime->draw_bounds.ymax;
 
   uiBut *label_but = uiDefBut(
-      &block, UI_BTYPE_LABEL, 0, showname, x, y, width, short(NODE_DY), nullptr, 0, 0, nullptr);
+      &block, UI_BTYPE_LABEL, 0, text, x, y, width, NODE_DY, nullptr, 0, 0, nullptr);
 
   UI_but_drawflag_disable(label_but, UI_BUT_TEXT_LEFT);
 
@@ -4522,7 +4573,7 @@ static void node_draw_zones_and_frames(const bContext &C,
 
   const auto get_theme_id = [&](const int zone_i) {
     const bNode *node = zones->zones[zone_i]->output_node;
-    return bke::zone_type_by_node_type(node->type)->theme_id;
+    return bke::zone_type_by_node_type(node->type_legacy)->theme_id;
   };
 
   const uint pos = GPU_vertformat_attr_add(

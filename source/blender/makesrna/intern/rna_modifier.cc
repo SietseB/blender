@@ -23,6 +23,9 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_math_base.h"
+#include "BLI_math_rotation.h"
+
 #include "BLT_translation.hh"
 
 #include "BKE_animsys.h"
@@ -873,7 +876,7 @@ static const EnumPropertyItem grease_pencil_build_time_mode_items[] = {
 #  include "BKE_cachefile.hh"
 #  include "BKE_context.hh"
 #  include "BKE_deform.hh"
-#  include "BKE_material.h"
+#  include "BKE_material.hh"
 #  include "BKE_mesh_runtime.hh"
 #  include "BKE_modifier.hh"
 #  include "BKE_object.hh"
@@ -2191,7 +2194,6 @@ RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilArmature);
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilSimplify);
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilEnvelope);
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilShrinkwrap);
-RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilTexture);
 
 static void rna_GreasePencilLineartModifier_material_set(PointerRNA *ptr,
                                                          PointerRNA value,
@@ -2953,20 +2955,17 @@ static void rna_def_modifier_mirror(BlenderRNA *brna)
   RNA_define_lib_overridable(true);
 
   prop = RNA_def_property(srna, "use_axis", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_MIR_AXIS_X);
-  RNA_def_property_array(prop, 3);
+  RNA_def_property_boolean_bitset_array_sdna(prop, nullptr, "flag", MOD_MIR_AXIS_X, 3);
   RNA_def_property_ui_text(prop, "Mirror Axis", "Enable axis mirror");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_bisect_axis", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_MIR_BISECT_AXIS_X);
-  RNA_def_property_array(prop, 3);
+  RNA_def_property_boolean_bitset_array_sdna(prop, nullptr, "flag", MOD_MIR_BISECT_AXIS_X, 3);
   RNA_def_property_ui_text(prop, "Bisect Axis", "Cuts the mesh across the mirror plane");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_bisect_flip_axis", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOD_MIR_BISECT_FLIP_AXIS_X);
-  RNA_def_property_array(prop, 3);
+  RNA_def_property_boolean_bitset_array_sdna(prop, nullptr, "flag", MOD_MIR_BISECT_FLIP_AXIS_X, 3);
   RNA_def_property_ui_text(prop, "Bisect Flip Axis", "Flips the direction of the slice");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -3935,6 +3934,7 @@ static void rna_def_modifier_displace(BlenderRNA *brna)
   RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
   RNA_def_property_ui_range(prop, -100, 100, 10, 3);
   RNA_def_property_ui_text(prop, "Strength", "Amount to displace geometry");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_AMOUNT);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "direction", PROP_ENUM, PROP_NONE);
@@ -4078,7 +4078,7 @@ static void rna_def_modifier_smooth(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Factor", "Strength of modifier effect");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "repeat");
   RNA_def_property_ui_range(prop, 0, 30, 1, -1);
   RNA_def_property_ui_text(prop, "Repeat", "");
@@ -4149,7 +4149,7 @@ static void rna_def_modifier_correctivesmooth(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Lambda Factor", "Smooth effect factor");
   RNA_def_property_update(prop, 0, "rna_CorrectiveSmoothModifier_update");
 
-  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "repeat");
   RNA_def_property_ui_range(prop, 0, 200, 1, -1);
   RNA_def_property_ui_text(prop, "Repeat", "");
@@ -4261,7 +4261,7 @@ static void rna_def_modifier_laplaciansmooth(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Lambda Border", "Lambda factor in border");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "repeat");
   RNA_def_property_ui_range(prop, 0, 200, 1, -1);
   RNA_def_property_ui_text(prop, "Repeat", "");
@@ -6352,6 +6352,7 @@ static void rna_def_modifier_remesh(BlenderRNA *brna)
   prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, mode_items);
   RNA_def_property_ui_text(prop, "Mode", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_MODIFIER);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_NONE);
@@ -6934,10 +6935,9 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Up", "");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-  prop = RNA_def_property(srna, "flip_axis", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, nullptr, "flip_axis");
-  RNA_def_property_enum_items(prop, rna_enum_axis_flag_xyz_items);
-  RNA_def_property_flag(prop, PROP_ENUM_FLAG);
+  prop = RNA_def_property(srna, "flip_axis", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_bitset_array_sdna(
+      prop, nullptr, "flip_axis", MOD_MESHCACHE_FLIP_AXIS_X, 3);
   RNA_def_property_ui_text(prop, "Flip Axis", "");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -7056,7 +7056,7 @@ static void rna_def_modifier_laplaciandeform(BlenderRNA *brna)
   RNA_def_property_string_funcs(
       prop, nullptr, nullptr, "rna_LaplacianDeformModifier_anchor_grp_name_set");
 
-  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "repeat");
   RNA_def_property_ui_range(prop, 1, 50, 1, -1);
   RNA_def_property_ui_text(prop, "Repeat", "");
@@ -7901,6 +7901,7 @@ static void rna_def_modifier_nodes_data_block(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "id_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ID);
   RNA_def_property_enum_items(prop, rna_enum_id_type_items);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
 
@@ -9058,6 +9059,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
                            "Shadow Region Filtering",
                            "Select feature lines that comes from lit or shaded regions. Will not "
                            "affect cast shadow and light contour since they are at the border.");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "silhouette_filtering", PROP_ENUM, PROP_NONE);
@@ -9166,8 +9168,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_material_mask_bits", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "material_mask_bits", 1);
-  RNA_def_property_array(prop, 8);
+  RNA_def_property_boolean_bitset_array_sdna(prop, nullptr, "material_mask_bits", 1 << 0, 8);
   RNA_def_property_ui_text(prop, "Masks", "Mask bits to match from Material Line Art settings");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -9179,8 +9180,7 @@ static void rna_def_modifier_grease_pencil_lineart(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_intersection_mask", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "intersection_mask", 1);
-  RNA_def_property_array(prop, 8);
+  RNA_def_property_boolean_bitset_array_sdna(prop, nullptr, "intersection_mask", 1 << 0, 8);
   RNA_def_property_ui_text(prop, "Masks", "Mask bits to match from Collection Line Art settings");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -9520,6 +9520,7 @@ static void rna_def_modifier_grease_pencil_noise(BlenderRNA *brna)
   prop = RNA_def_property(srna, "random_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "noise_mode");
   RNA_def_property_enum_items(prop, modifier_noise_random_mode_items);
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_ui_text(prop, "Mode", "Where to perform randomization");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -10421,7 +10422,7 @@ static void rna_def_modifier_grease_pencil_simplify(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Mode", "How to simplify the stroke");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-  prop = RNA_def_property(srna, "step", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "step", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "step");
   RNA_def_property_range(prop, 1, 50);
   RNA_def_property_ui_text(prop, "Iterations", "Number of times to apply simplify");
@@ -10742,6 +10743,7 @@ static void rna_def_modifier_grease_pencil_envelope(BlenderRNA *brna)
   RNA_def_property_range(prop, 0, FLT_MAX);
   RNA_def_property_ui_range(prop, 0, 1, 10, 3);
   RNA_def_property_ui_text(prop, "Strength", "Multiplier for the strength of the new strokes");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "skip", PROP_INT, PROP_NONE);
@@ -11039,6 +11041,7 @@ static void rna_def_modifier_grease_pencil_build(BlenderRNA *brna)
   prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, prop_gpencil_build_mode_items);
   RNA_def_property_ui_text(prop, "Mode", "How strokes are being built");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "transition", PROP_ENUM, PROP_NONE);
@@ -11219,8 +11222,6 @@ static void rna_def_modifier_grease_pencil_texture(BlenderRNA *brna)
   rna_def_modifier_grease_pencil_layer_filter(srna);
   rna_def_modifier_grease_pencil_material_filter(
       srna, "rna_GreasePencilTextureModifier_material_filter_set");
-  rna_def_modifier_grease_pencil_vertex_group(
-      srna, "rna_GreasePencilTextureModifier_vertex_group_name_set");
 
   rna_def_modifier_panel_open_prop(srna, "open_influence_panel", 0);
 

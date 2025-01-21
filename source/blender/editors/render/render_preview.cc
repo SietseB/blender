@@ -58,7 +58,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_light.h"
 #include "BKE_main.hh"
-#include "BKE_material.h"
+#include "BKE_material.hh"
 #include "BKE_node.hh"
 #include "BKE_object.hh"
 #include "BKE_pose_backup.h"
@@ -179,8 +179,7 @@ static Main *load_main_from_memory(const void *blend, int blend_size)
   bfd = BLO_read_from_memory(blend, blend_size, BLO_READ_SKIP_NONE, nullptr);
   if (bfd) {
     bmain = bfd->main;
-
-    MEM_freeN(bfd);
+    MEM_delete(bfd);
   }
   G.fileflags = fileflags;
 
@@ -977,14 +976,22 @@ static PoseBackup *action_preview_render_prepare(IconPreview *preview)
   }
 
   /* Create a backup of the current pose. */
-  bAction *action = (bAction *)preview->id;
-  PoseBackup *pose_backup = BKE_pose_backup_create_all_bones(object, action);
+  blender::animrig::Action &pose_action = reinterpret_cast<bAction *>(preview->id)->wrap();
+
+  if (pose_action.slot_array_num == 0) {
+    WM_report(RPT_WARNING, "Action has no data, cannot render preview");
+    return nullptr;
+  }
+
+  blender::animrig::Slot &slot = blender::animrig::get_best_pose_slot_for_id(object->id,
+                                                                             pose_action);
+  PoseBackup *pose_backup = BKE_pose_backup_create_all_bones({object}, &pose_action);
 
   /* Apply the Action as pose, so that it can be rendered. This assumes the Action represents a
    * single pose, and that thus the evaluation time doesn't matter. */
   AnimationEvalContext anim_eval_context = {preview->depsgraph, 0.0f};
-  const blender::animrig::slot_handle_t slot_handle = blender::animrig::first_slot_handle(*action);
-  blender::animrig::pose_apply_action_all_bones(object, action, slot_handle, &anim_eval_context);
+  blender::animrig::pose_apply_action_all_bones(
+      object, &pose_action, slot.handle, &anim_eval_context);
 
   /* Force evaluation of the new pose, before the preview is rendered. */
   DEG_id_tag_update(&object->id, ID_RECALC_GEOMETRY);

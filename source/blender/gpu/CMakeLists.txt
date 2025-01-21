@@ -9,7 +9,6 @@ set(INC
   metal
   opengl
   vulkan
-  ../draw
   ../makesrna
 
   # For theme color access.
@@ -380,6 +379,7 @@ set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::bmesh
   PRIVATE bf::dna
+  PRIVATE bf::draw
   PRIVATE bf::imbuf
   PRIVATE bf::intern::atomic
   PRIVATE bf::intern::clog
@@ -752,7 +752,7 @@ target_link_libraries(bf_gpu PUBLIC
 )
 
 if(WITH_OPENGL_BACKEND AND UNIX)
-target_link_libraries(bf_gpu PUBLIC rt)
+  target_link_libraries(bf_gpu PUBLIC rt)
 endif()
 
 if(WITH_OPENCOLORIO)
@@ -811,7 +811,8 @@ if(WITH_GTESTS)
   endif()
 
   # Enable shader validation on build-bot for Metal
-  if(WITH_METAL_BACKEND AND NOT WITH_GPU_DRAW_TESTS)
+  if(WITH_METAL_BACKEND AND NOT WITH_GPU_DRAW_TESTS AND
+     NOT (WITH_GTESTS AND WITH_GPU_BACKEND_TESTS)) # Avoid duplicate source file
     list(APPEND TEST_SRC
       tests/shader_create_info_test.cc
     )

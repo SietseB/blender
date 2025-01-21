@@ -7,24 +7,21 @@
  */
 
 #include <cmath>
-#include <cstddef>
 #include <cstring>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_curve_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_array.hh"
 #include "BLI_bitmap.h"
-#include "BLI_blenlib.h"
 #include "BLI_listbase.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 #include "BLI_utildefines_stack.h"
 #include "BLI_vector.hh"
@@ -4064,7 +4061,7 @@ void OBJECT_OT_vertex_weight_paste(wmOperatorType *ot)
                      "Index of source weight in active vertex group",
                      -1,
                      INT_MAX);
-  RNA_def_property_flag(prop, (PropertyFlag)(PROP_SKIP_SAVE | PROP_HIDDEN));
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
 /** \} */
@@ -4114,7 +4111,7 @@ void OBJECT_OT_vertex_weight_delete(wmOperatorType *ot)
                      "Index of source weight in active vertex group",
                      -1,
                      INT_MAX);
-  RNA_def_property_flag(prop, (PropertyFlag)(PROP_SKIP_SAVE | PROP_HIDDEN));
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
 /** \} */
@@ -4161,7 +4158,7 @@ void OBJECT_OT_vertex_weight_set_active(wmOperatorType *ot)
                      "Index of source weight in active vertex group",
                      -1,
                      INT_MAX);
-  RNA_def_property_flag(prop, (PropertyFlag)(PROP_SKIP_SAVE | PROP_HIDDEN));
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
 /** \} */

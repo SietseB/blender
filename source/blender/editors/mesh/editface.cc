@@ -6,19 +6,12 @@
  * \ingroup edmesh
  */
 
-#include "MEM_guardedalloc.h"
-
 #include "BLI_atomic_disjoint_set.hh"
-#include "BLI_bitmap.h"
-#include "BLI_blenlib.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_math_vector.hh"
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
-
-#include "IMB_imbuf.hh"
-#include "IMB_imbuf_types.hh"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -27,11 +20,9 @@
 #include "BKE_attribute.hh"
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
-#include "BKE_global.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 #include "BKE_object.hh"
-#include "BKE_object_types.hh"
 
 #include "ED_mesh.hh"
 #include "ED_screen.hh"
@@ -363,7 +354,7 @@ static int find_closest_edge_in_poly(ARegion *region,
                                      const int mval[2])
 {
   using namespace blender;
-  int closest_edge_index;
+  int closest_edge_index = -1;
 
   const float2 mval_f = {float(mval[0]), float(mval[1])};
   float min_distance = FLT_MAX;
@@ -485,6 +476,9 @@ void paintface_select_loop(bContext *C, Object *ob, const int mval[2], const boo
   const IndexRange face = faces[poly_pick_index];
   const int closest_edge_index = find_closest_edge_in_poly(
       region, edges, corner_edges.slice(face), verts, mval);
+  if (closest_edge_index == -1) {
+    return;
+  }
 
   Array<int> edge_to_face_offsets;
   Array<int> edge_to_face_indices;

@@ -47,6 +47,21 @@ function(add_blender_test testname)
   )
 endfunction()
 
+function(add_blender_test_io testname)
+  # Remove `--debug-exit-on-error` since errors
+  # are printed on e.g. meshes with invalid data. But
+  # we do want to test those in import tests.
+  set(EXE_PARAMS ${TEST_BLENDER_EXE_PARAMS})
+  list(REMOVE_ITEM EXE_PARAMS --debug-exit-on-error)
+  add_blender_test_impl(
+    "${testname}"
+    ""
+    "${TEST_BLENDER_EXE}"
+    ${EXE_PARAMS}
+    ${ARGN}
+  )
+endfunction()
+
 if(WITH_UI_TESTS)
   set(_blender_headless_env_vars "BLENDER_BIN=${TEST_BLENDER_EXE}")
 
@@ -237,6 +252,11 @@ add_blender_test(
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_id_management.py
 )
 
+add_blender_test(
+  bl_rna_paths
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_rna_paths.py
+)
+
 # ------------------------------------------------------------------------------
 # BLEND IO & LINKING
 
@@ -267,6 +287,14 @@ endforeach()
 add_blender_test(
   blendfile_liblink
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_blendfile_liblink.py --
+  --src-test-dir ${TEST_SRC_DIR}/
+  --output-dir ${TEST_OUT_DIR}/blendfile_io/
+)
+
+add_blender_test(
+  blendfile_relationships
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_blendfile_relationships.py --
+  --src-test-dir ${TEST_SRC_DIR}/
   --output-dir ${TEST_OUT_DIR}/blendfile_io/
 )
 
@@ -487,160 +515,6 @@ add_blender_test(
   --testdir "${TEST_SRC_DIR}/node_group"
 )
 
-# ------------------------------------------------------------------------------
-# IO TESTS
-
-# X3D Import
-# disabled until updated & working
-if(FALSE)
-add_blender_test(
-  import_x3d_cube
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.x3d\(filepath='${TEST_SRC_DIR}/io_tests/x3d/color_cube.x3d'\)
-  --md5=3fae9be004199c145941cd3f9f80ad7b --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_x3d_cube.blend
-)
-
-add_blender_test(
-  import_x3d_teapot
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.x3d\(filepath='${TEST_SRC_DIR}/io_tests/x3d/teapot.x3d'\)
-  --md5=8ee196c71947dce4199d55698501691e --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_x3d_teapot.blend
-)
-
-add_blender_test(
-  import_x3d_suzanne_material
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.x3d\(filepath='${TEST_SRC_DIR}/io_tests/x3d/suzanne_material.x3d'\)
-  --md5=3edea1353257d8b5a5f071942f417be6 --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_x3d_suzanne_material.blend
-)
-
-# X3D Export
-add_blender_test(
-  export_x3d_cube
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/all_quads.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.x3d\(filepath='${TEST_OUT_DIR}/io_tests/export_x3d_cube.x3d',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_x3d_cube.x3d
-  --md5=05312d278fe41da33560fdfb9bdb268f --md5_method=FILE
-)
-
-add_blender_test(
-  export_x3d_nurbs
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/nurbs.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.x3d\(filepath='${TEST_OUT_DIR}/io_tests/export_x3d_nurbs.x3d',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_x3d_nurbs.x3d
-  --md5=4286d4a2aa507ef78b22ddcbdcc88481 --md5_method=FILE
-)
-
-add_blender_test(
-  export_x3d_all_objects
-  ${TEST_SRC_DIR}/io_tests/blend_scene/all_objects.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.x3d\(filepath='${TEST_OUT_DIR}/io_tests/export_x3d_all_objects.x3d',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_x3d_all_objects.x3d
-  --md5=f5f9fa4c5619a0eeab66685aafd2f7f0 --md5_method=FILE
-)
-endif()
-
-
-
-# 3DS Import
-# disabled until updated & working
-if(FALSE)
-add_blender_test(
-  import_3ds_cube
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.autodesk_3ds\(filepath='${TEST_SRC_DIR}/io_tests/3ds/cube.3ds'\)
-  --md5=cb5a45c35a343c3f5beca2a918472951 --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_3ds_cube.blend
-)
-
-add_blender_test(
-  import_3ds_hierarchy_lara
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.autodesk_3ds\(filepath='${TEST_SRC_DIR}/io_tests/3ds/hierarchy_lara.3ds'\)
-  --md5=766c873d9fdb5f190e43796cfbae63b6 --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_3ds_hierarchy_lara.blend
-)
-
-add_blender_test(
-  import_3ds_hierarchy_greek_trireme
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.import_scene.autodesk_3ds\(filepath='${TEST_SRC_DIR}/io_tests/3ds/hierarchy_greek_trireme.3ds'\)
-  --md5=b62ee30101e8999cb91ef4f8a8760056 --md5_method=SCENE
-  --write-blend=${TEST_OUT_DIR}/io_tests/import_3ds_hierarchy_greek_trireme.blend
-)
-endif()
-
-# 3DS Export
-# disabled until updated & working
-if(FALSE)
-add_blender_test(
-  export_3ds_cube
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/all_quads.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.autodesk_3ds\(filepath='${TEST_OUT_DIR}/io_tests/export_3ds_cube.3ds',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_3ds_cube.3ds
-  --md5=a31f5071b6c6dc7445b9099cdc7f63b3 --md5_method=FILE
-)
-
-add_blender_test(
-  export_3ds_nurbs
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/nurbs.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.autodesk_3ds\(filepath='${TEST_OUT_DIR}/io_tests/export_3ds_nurbs.3ds',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_3ds_nurbs.3ds
-  --md5=5bdd21be3c80d814fbc83cb25edb08c2 --md5_method=FILE
-)
-
-add_blender_test(
-  export_3ds_all_objects
-  ${TEST_SRC_DIR}/io_tests/blend_scene/all_objects.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.autodesk_3ds\(filepath='${TEST_OUT_DIR}/io_tests/export_3ds_all_objects.3ds',use_selection=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_3ds_all_objects.3ds
-  --md5=68447761ab0ca38e1e22e7c177ed48a8 --md5_method=FILE
-)
-endif()
-
-
-
-# FBX Export
-# 'use_metadata=False' for reliable md5's
-# disabled until updated & working
-if(FALSE)
-add_blender_test(
-  export_fbx_cube
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/all_quads.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.fbx\(filepath='${TEST_OUT_DIR}/io_tests/export_fbx_cube.fbx',use_selection=False,use_metadata=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_fbx_cube.fbx
-  --md5=59a35577462f95f9a0b4e6035226ce9b --md5_method=FILE
-)
-
-add_blender_test(
-  export_fbx_nurbs
-  ${TEST_SRC_DIR}/io_tests/blend_geometry/nurbs.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.fbx\(filepath='${TEST_OUT_DIR}/io_tests/export_fbx_nurbs.fbx',use_selection=False,use_metadata=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_fbx_nurbs.fbx
-  --md5=d31875f18f613fa0c3b16e978f87f6f8 --md5_method=FILE
-)
-
-add_blender_test(
-  export_fbx_all_objects
-  ${TEST_SRC_DIR}/io_tests/blend_scene/all_objects.blend
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_test.py --
-  --run={'FINISHED'}&bpy.ops.export_scene.fbx\(filepath='${TEST_OUT_DIR}/io_tests/export_fbx_all_objects.fbx',use_selection=False,use_metadata=False\)
-  --md5_source=${TEST_OUT_DIR}/io_tests/export_fbx_all_objects.fbx
-  --md5=b35eb2a9d0e73762ecae2278c25a38ac --md5_method=FILE
-)
-endif()
-
 # SVG Import
 if(TRUE)
   if(NOT OPENIMAGEIO_TOOL)
@@ -689,6 +563,7 @@ if(WITH_CYCLES OR WITH_GPU_RENDER_TESTS)
       shader
       shadow_catcher
       sss
+      texture
     )
 
     if(WITH_OPENSUBDIV)
@@ -889,7 +764,7 @@ if(WITH_CYCLES OR WITH_GPU_RENDER_TESTS)
           )
         endforeach()
       endif()
-    unset(_gpu_render_tests_arguments)
+      unset(_gpu_render_tests_arguments)
     endif()
   endif()
 endif()
@@ -928,15 +803,15 @@ if(WITH_GPU_COMPOSITOR_TESTS)
     message(WARNING "Disabling compositor tests because OIIO oiiotool does not exist")
   else()
     set(compositor_tests
-        color
-        converter
-        filter
-        input
-        output
-        vector
+      color
+      converter
+      filter
+      input
+      output
+      vector
 
-        multiple_node_setups
-      )
+      multiple_node_setups
+    )
 
     if(WITH_LIBMV)
       list(APPEND compositor_tests distort matte)
@@ -997,7 +872,7 @@ foreach(geo_node_test ${geo_node_tests})
         ${file}
         --python ${TEST_PYTHON_DIR}/geo_node_test.py
       )
-      endforeach()
+    endforeach()
   else()
     message(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
   endif()
@@ -1084,6 +959,44 @@ if(WITH_USD)
     --python ${CMAKE_CURRENT_LIST_DIR}/bl_usd_import_test.py
     --
     --testdir "${TEST_SRC_DIR}/usd"
+  )
+endif()
+
+add_blender_test_io(
+  io_fbx_import
+  --python ${CMAKE_CURRENT_LIST_DIR}/io_fbx_import_test.py
+  --
+  --testdir "${TEST_SRC_DIR}/io_tests/fbx"
+  --outdir "${TEST_OUT_DIR}/io_fbx"
+)
+
+if(WITH_IO_WAVEFRONT_OBJ)
+  add_blender_test_io(
+    io_obj_import
+    --python ${CMAKE_CURRENT_LIST_DIR}/io_obj_import_test.py
+    --
+    --testdir "${TEST_SRC_DIR}/io_tests/obj"
+    --outdir "${TEST_OUT_DIR}/io_obj"
+  )
+endif()
+
+if(WITH_IO_PLY)
+  add_blender_test_io(
+    io_ply_import
+    --python ${CMAKE_CURRENT_LIST_DIR}/io_ply_import_test.py
+    --
+    --testdir "${TEST_SRC_DIR}/io_tests/ply"
+    --outdir "${TEST_OUT_DIR}/io_ply"
+  )
+endif()
+
+if(WITH_IO_STL)
+  add_blender_test_io(
+    io_stl_import
+    --python ${CMAKE_CURRENT_LIST_DIR}/io_stl_import_test.py
+    --
+    --testdir "${TEST_SRC_DIR}/io_tests/stl"
+    --outdir "${TEST_OUT_DIR}/io_stl"
   )
 endif()
 
@@ -1206,10 +1119,18 @@ add_subdirectory(collada)
 
 if(WITH_LINUX_OFFICIAL_RELEASE_TESTS)
   get_filename_component(release_root_folder ${TEST_BLENDER_EXE} DIRECTORY)
+  set(extra_args "")
+  if(WITH_COMPILER_ASAN)
+    set(extra_args
+      ${extra_args}
+      --sanitizer-build
+    )
+  endif()
   add_python_test(
     linux_release_sanity_checks
     ${CMAKE_SOURCE_DIR}/tools/check_blender_release/check_release.py
-    -- ${release_root_folder}
+    -- --directory "${release_root_folder}" ${extra_args}
   )
+  unset(extra_args)
   unset(release_root_folder)
 endif()

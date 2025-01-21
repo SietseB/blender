@@ -9,7 +9,7 @@ import pathlib
 import bpy
 
 """
-blender -b --factory-startup --python tests/python/bl_animation_action.py
+blender -b --factory-startup --python tests/python/bl_animation_action.py -- --testdir tests/data/animation/
 """
 
 
@@ -27,13 +27,13 @@ class ActionSlotCreationTest(unittest.TestCase):
         slot3 = self.action.slots.new('LIGHT', "Bob")
 
         self.assertEqual("OBBob", slot1.identifier)
-        self.assertEqual('OBJECT', slot1.id_root)
+        self.assertEqual('OBJECT', slot1.target_id_type)
 
         self.assertEqual("CABob", slot2.identifier)
-        self.assertEqual('CAMERA', slot2.id_root)
+        self.assertEqual('CAMERA', slot2.target_id_type)
 
         self.assertEqual("LABob", slot3.identifier)
-        self.assertEqual('LIGHT', slot3.id_root)
+        self.assertEqual('LIGHT', slot3.target_id_type)
 
     def test_same_name_same_type(self):
         slot1 = self.action.slots.new('OBJECT', "Bob")
@@ -41,13 +41,13 @@ class ActionSlotCreationTest(unittest.TestCase):
         slot3 = self.action.slots.new('OBJECT', "Bob")
 
         self.assertEqual("OBBob", slot1.identifier)
-        self.assertEqual('OBJECT', slot1.id_root)
+        self.assertEqual('OBJECT', slot1.target_id_type)
 
         self.assertEqual("OBBob.001", slot2.identifier)
-        self.assertEqual('OBJECT', slot2.id_root)
+        self.assertEqual('OBJECT', slot2.target_id_type)
 
         self.assertEqual("OBBob.002", slot3.identifier)
-        self.assertEqual('OBJECT', slot3.id_root)
+        self.assertEqual('OBJECT', slot3.target_id_type)
 
     def test_invalid_arguments(self):
         with self.assertRaises(TypeError):
@@ -66,6 +66,31 @@ class ActionSlotCreationTest(unittest.TestCase):
             # Creating slots with unspecified ID type is
             # not supported in the Python API.
             self.action.slots.new('UNSPECIFIED', "Bob")
+
+    def test_long_identifier(self):
+        # Test a 65-character identifier, using a 63-character name. This is the
+        # maximum length allowed (the DNA field is MAX_ID_NAME=66 long, which
+        # includes the trailing zero byte).
+        long_but_ok_name = "This name is so long! It might look long, but it is just right!"
+        slot_ok = self.action.slots.new('OBJECT', long_but_ok_name)
+        self.assertEqual(long_but_ok_name, slot_ok.name_display, "this name should fit")
+        self.assertEqual('OB' + long_but_ok_name, slot_ok.identifier, "this identifier should fit")
+
+        # Test one character more.
+        too_long_name = "This name is so long! It might look long, and that it is indeed."
+        too_long_name_truncated = too_long_name[:63]
+        slot_long = self.action.slots.new('OBJECT', too_long_name)
+        self.assertEqual(too_long_name_truncated, slot_long.name_display, "this name should be truncated")
+        self.assertEqual('OB' + too_long_name_truncated, slot_long.identifier, "this identifier should be truncated")
+
+        # Test with different trailing character.
+        other_long_name = "This name is so long! It might look long, and that it is indeed!"
+        truncated_and_unique = other_long_name[:59] + ".001"
+        slot_long2 = self.action.slots.new('OBJECT', too_long_name)
+        self.assertEqual(truncated_and_unique, slot_long2.name_display,
+                         "this name should be truncated and made unique")
+        self.assertEqual('OB' + truncated_and_unique, slot_long2.identifier,
+                         "this identifier should be truncated and made unique")
 
 
 class ActionSlotAssignmentTest(unittest.TestCase):
@@ -488,8 +513,8 @@ class VersioningTest(unittest.TestCase):
         self.assertEqual(len(strip.channelbags[0].groups), 1)
         self.assertEqual(len(strip.channelbags[0].groups[0].channels), 9)
 
-        # Multi user slots do not get named after their users.
-        self.assertEqual(action.slots[0].identifier, "OBSlot")
+        # Slots created from legacy Actions are always called "Legacy SLot".
+        self.assertEqual(action.slots[0].identifier, "OBLegacy Slot")
 
     def test_action_constraint(self):
         constrained_object = bpy.data.objects["action_constraint_constrained"]
@@ -521,8 +546,8 @@ class VersioningTest(unittest.TestCase):
         self.assertEqual(len(strip.channelbags[0].groups[0].channels), 10)
         self.assertEqual(len(strip.channelbags[0].groups[1].channels), 10)
 
-        # Slots with a single user are named after their user.
-        self.assertEqual(action.slots[0].identifier, "OBarmature_object")
+        # Slots on converted Actions are always called "Legacy Slot"
+        self.assertEqual(action.slots[0].identifier, "OBLegacy Slot")
 
         for fcurve in strip.channelbags[0].groups[0].channels:
             self.assertEqual(fcurve.group.name, "Bone")

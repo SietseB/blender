@@ -15,6 +15,8 @@
 #include <cstring>
 #include <thread>
 
+#include <fmt/format.h>
+
 #include "CLG_log.h"
 
 #include "DNA_listBase.h"
@@ -44,9 +46,7 @@
 #include "BKE_workspace.hh"
 
 #include "RNA_access.hh"
-#include "RNA_define.hh"
 #include "RNA_enum_types.hh"
-#include "RNA_prototypes.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -54,7 +54,6 @@
 #include "wm_draw.hh"
 #include "wm_event_system.hh"
 #include "wm_files.hh"
-#include "wm_platform_support.hh"
 #include "wm_window.hh"
 #include "wm_window_private.hh"
 #ifdef WITH_XR_OPENXR
@@ -74,15 +73,9 @@
 #include "UI_interface_icons.hh"
 
 #include "BLF_api.hh"
-#include "GPU_batch.hh"
-#include "GPU_batch_presets.hh"
 #include "GPU_context.hh"
 #include "GPU_framebuffer.hh"
-#include "GPU_immediate.hh"
 #include "GPU_init_exit.hh"
-#include "GPU_platform.hh"
-#include "GPU_state.hh"
-#include "GPU_texture.hh"
 
 #include "UI_resources.hh"
 
@@ -517,41 +510,45 @@ void WM_window_title(wmWindowManager *wm, wmWindow *win, const char *title)
   const char *filename = BLI_path_basename(filepath);
 
   const bool has_filepath = filepath[0] != '\0';
-  const bool include_filepath = has_filepath && (filepath != filename) &&
-                                (GHOST_SetPath(handle, filepath) == GHOST_kFailure);
+  const bool native_filepath_display = GHOST_SetPath(handle, filepath) == GHOST_kSuccess;
+  const bool include_filepath = has_filepath && (filepath != filename) && !native_filepath_display;
 
-  std::string str;
-  if (!wm->file_saved) {
-    str += "* ";
-  }
+  /* File saved state. */
+  std::string win_title = wm->file_saved ? "" : "* ";
 
-  if (has_filepath) {
+  /* File name. Show the file extension if the full file path is not included in the title. */
+  if (include_filepath) {
     const size_t filename_no_ext_len = BLI_path_extension_or_end(filename) - filename;
-    str.append(filename, filename_no_ext_len);
+    win_title.append(filename, filename_no_ext_len);
   }
+  else if (has_filepath) {
+    win_title.append(BLI_path_basename(filename));
+  }
+  /* New / Unsaved file default title. Shows "Untitled" on macOS following the Apple HIGs.*/
   else {
-    str += IFACE_("(Unsaved)");
+#ifdef __APPLE__
+    win_title.append(IFACE_("Untitled"));
+#else
+    win_title.append(IFACE_("(Unsaved)"));
+#endif
   }
 
   if (G_MAIN->recovered) {
-    str += IFACE_(" (Recovered)");
+    win_title.append(IFACE_(" (Recovered)"));
   }
 
   if (include_filepath) {
-    str += " [";
-    str += filepath;
-    str += "]";
+    win_title.append(fmt::format(" [{}]", filepath));
   }
 
-  str += " - Blender ";
-  str += BKE_blender_version_string();
+  win_title.append(fmt::format(" - Blender {}", BKE_blender_version_string()));
 
-  GHOST_SetTitle(handle, str.c_str());
+  GHOST_SetTitle(handle, win_title.c_str());
 
   /* Informs GHOST of unsaved changes to set the window modified visual indicator (macOS)
    * and to give a hint of unsaved changes for a user warning mechanism in case of OS application
    * terminate request (e.g., OS Shortcut Alt+F4, Command+Q, (...) or session end). */
-  GHOST_SetWindowModifiedState(handle, bool(!wm->file_saved));
+  GHOST_SetWindowModifiedState(handle, !wm->file_saved);
 }
 
 void WM_window_set_dpi(const wmWindow *win)
@@ -1475,14 +1472,14 @@ static bool ghost_event_proc(GHOST_EventHandle ghost_event, GHOST_TUserDataPtr C
 
       wm_window_make_drawable(wm, win);
 
-      /* Window might be focused by mouse click in configuration of window manager
+      /* NOTE(@sergey): Window might be focused by mouse click in configuration of window manager
        * when focus is not following mouse
        * click could have been done on a button and depending on window manager settings
        * click would be passed to blender or not, but in any case button under cursor
        * should be activated, so at max next click on button without moving mouse
        * would trigger its handle function
        * currently it seems to be common practice to generate new event for, but probably
-       * we'll need utility function for this? (sergey)
+       * we'll need utility function for this?
        */
       wmEvent event;
       wm_event_init_from_window(win, &event);

@@ -129,11 +129,8 @@ static void rna_Pose_apply_pose_from_action(ID *pose_owner,
   BLI_assert(GS(pose_owner->name) == ID_OB);
   Object *pose_owner_ob = (Object *)pose_owner;
 
-  const animrig::slot_handle_t slot_handle = animrig::first_slot_handle(*action);
-
   AnimationEvalContext anim_eval_context = {CTX_data_depsgraph_pointer(C), evaluation_time};
-  animrig::pose_apply_action_selected_bones(
-      pose_owner_ob, action, slot_handle, &anim_eval_context);
+  animrig::pose_apply_action({pose_owner_ob}, action->wrap(), &anim_eval_context, 1.0);
 
   /* Do NOT tag with ID_RECALC_ANIMATION, as that would overwrite the just-applied pose. */
   DEG_id_tag_update(pose_owner, ID_RECALC_GEOMETRY);
@@ -149,11 +146,8 @@ static void rna_Pose_blend_pose_from_action(ID *pose_owner,
   BLI_assert(GS(pose_owner->name) == ID_OB);
   Object *pose_owner_ob = (Object *)pose_owner;
 
-  animrig::slot_handle_t slot_handle = animrig::first_slot_handle(*action);
-
   AnimationEvalContext anim_eval_context = {CTX_data_depsgraph_pointer(C), evaluation_time};
-  animrig::pose_apply_action_blend(
-      pose_owner_ob, action, slot_handle, &anim_eval_context, blend_factor);
+  animrig::pose_apply_action({pose_owner_ob}, action->wrap(), &anim_eval_context, blend_factor);
 
   /* Do NOT tag with ID_RECALC_ANIMATION, as that would overwrite the just-applied pose. */
   DEG_id_tag_update(pose_owner, ID_RECALC_GEOMETRY);
@@ -163,8 +157,12 @@ static void rna_Pose_blend_pose_from_action(ID *pose_owner,
 static void rna_Pose_backup_create(ID *pose_owner, bAction *action)
 {
   BLI_assert(GS(pose_owner->name) == ID_OB);
+  if (!action || action->wrap().slot_array_num == 0) {
+    /* A pose asset without slots has no data, this usually doesn't happen but can happen by
+     * tagging an empty action as a pose asset. */
+    return;
+  }
   Object *pose_owner_ob = (Object *)pose_owner;
-
   BKE_pose_backup_create_on_object(pose_owner_ob, action);
 }
 

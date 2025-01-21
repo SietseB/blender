@@ -15,7 +15,6 @@
 
 #include "BKE_editmesh.hh"
 #include "BKE_layer.hh"
-#include "BKE_node_runtime.hh"
 #include "BKE_object.hh"
 #include "BKE_scene.hh"
 
@@ -149,16 +148,12 @@ bool transform_snap_is_active(const TransInfo *t)
 
 bool transformModeUseSnap(const TransInfo *t)
 {
-  /* The animation editors should not depend on the snapping options of the 3D viewport. */
-  if (ELEM(t->spacetype, SPACE_ACTION, SPACE_GRAPH, SPACE_NLA)) {
+  /* The VSE and animation editors should not depend on the snapping options of the 3D viewport. */
+  if (ELEM(t->spacetype, SPACE_ACTION, SPACE_GRAPH, SPACE_NLA, SPACE_SEQ)) {
     return true;
   }
   ToolSettings *ts = t->settings;
   if (t->mode == TFM_TRANSLATION) {
-    /* VSE preview snapping should also not depend on the 3D viewport. */
-    if (t->spacetype == SPACE_SEQ) {
-      return true;
-    }
     return (ts->snap_transform_mode_flag & SCE_SNAP_TRANSFORM_MODE_TRANSLATE) != 0;
   }
   if (t->mode == TFM_ROTATION) {
@@ -186,6 +181,11 @@ static bool doForceIncrementSnap(const TransInfo *t)
     /* These spaces don't support increment snapping. */
     return false;
   }
+
+  if (t->spacetype == SPACE_SEQ && ELEM(t->mode, TFM_ROTATION, TFM_RESIZE)) {
+    return true;
+  }
+
   if (t->modifiers & MOD_SNAP_FORCED) {
     return false;
   }
@@ -745,7 +745,7 @@ static eSnapTargetOP snap_target_select_from_spacetype(TransInfo *t)
         }
       }
       else if (ELEM(obedit_type, OB_ARMATURE, OB_CURVES_LEGACY, OB_SURF, OB_LATTICE, OB_MBALL)) {
-        /* Temporary limited to edit mode armature, curves, surfaces, lattices, and metaballs. */
+        /* Temporary limited to edit mode armature, curves, surfaces, lattices, and meta-balls. */
         ret |= SCE_SNAP_TARGET_NOT_SELECTED;
       }
     }
@@ -853,7 +853,7 @@ void transform_snap_grid_init(const TransInfo *t, float r_snap[3], float *r_snap
     *r_snap_precision = 0.5f;
   }
   else if (t->spacetype == SPACE_NODE) {
-    r_snap[0] = r_snap[1] = ED_node_grid_size();
+    r_snap[0] = r_snap[1] = blender::ed::space_node::grid_size_get();
   }
 }
 

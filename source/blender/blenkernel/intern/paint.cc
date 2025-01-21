@@ -57,7 +57,7 @@
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
-#include "BKE_material.h"
+#include "BKE_material.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
 #include "BKE_mesh_runtime.hh"
@@ -385,9 +385,6 @@ bool BKE_paint_ensure_from_paintmode(Scene *sce, PaintMode mode)
     case PaintMode::SculptCurves:
       paint_ptr = (Paint **)&ts->curves_sculpt;
       break;
-    case PaintMode::SculptGreasePencil:
-      paint_ptr = (Paint **)&ts->gp_sculptpaint;
-      break;
     case PaintMode::Invalid:
       break;
   }
@@ -423,8 +420,6 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, PaintMode mode)
         return &ts->gp_weightpaint->paint;
       case PaintMode::SculptCurves:
         return &ts->curves_sculpt->paint;
-      case PaintMode::SculptGreasePencil:
-        return &ts->gp_sculptpaint->paint;
       case PaintMode::Invalid:
         return nullptr;
       default:
@@ -456,8 +451,6 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(const PaintMode m
     case PaintMode::WeightGPencil:
       return rna_enum_brush_gpencil_weight_types_items;
     case PaintMode::SculptCurves:
-      return rna_enum_brush_curves_sculpt_brush_type_items;
-    case PaintMode::SculptGreasePencil:
       return rna_enum_brush_gpencil_sculpt_types_items;
     case PaintMode::Invalid:
       break;
@@ -559,7 +552,7 @@ PaintMode BKE_paintmode_get_active_from_context(const bContext *C)
           return PaintMode::Sculpt;
         case OB_MODE_SCULPT_GREASE_PENCIL:
           if (obact->type == OB_GREASE_PENCIL) {
-            return PaintMode::SculptGreasePencil;
+            return PaintMode::SculptGPencil;
           }
           return PaintMode::Invalid;
         case OB_MODE_PAINT_GREASE_PENCIL:
@@ -616,7 +609,7 @@ PaintMode BKE_paintmode_get_from_tool(const bToolRef *tref)
       case CTX_MODE_PAINT_GREASE_PENCIL:
         return PaintMode::GPencil;
       case CTX_MODE_SCULPT_GREASE_PENCIL:
-        return PaintMode::SculptGreasePencil;
+        return PaintMode::SculptGPencil;
     }
   }
   else if (tref->space_type == SPACE_IMAGE) {
@@ -1299,8 +1292,6 @@ uint BKE_paint_get_brush_type_offset_from_paintmode(const PaintMode mode)
       return offsetof(Brush, gpencil_weight_brush_type);
     case PaintMode::SculptCurves:
       return offsetof(Brush, curves_sculpt_brush_type);
-    case PaintMode::SculptGreasePencil:
-      return offsetof(Brush, gpencil_sculpt_brush_type);
     case PaintMode::Invalid:
       break; /* We don't use these yet. */
   }
@@ -1358,8 +1349,6 @@ std::optional<int> BKE_paint_get_brush_type_from_paintmode(const Brush *brush,
       return brush->gpencil_weight_brush_type;
     case PaintMode::SculptCurves:
       return brush->curves_sculpt_brush_type;
-    case PaintMode::SculptGreasePencil:
-      return brush->gpencil_sculpt_brush_type;
     case PaintMode::Invalid:
     default:
       return {};
@@ -1498,7 +1487,6 @@ bool BKE_palette_is_empty(const Palette *palette)
   return BLI_listbase_is_empty(&palette->colors);
 }
 
-/* helper function to sort using qsort */
 static int palettecolor_compare_hsv(const void *a1, const void *a2)
 {
   const tPaletteColorHSV *ps1 = static_cast<const tPaletteColorHSV *>(a1);
@@ -1531,7 +1519,11 @@ static int palettecolor_compare_hsv(const void *a1, const void *a2)
   return 0;
 }
 
-/* helper function to sort using qsort */
+void BKE_palette_sort_hsv(tPaletteColorHSV *color_array, const int totcol)
+{
+  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_hsv);
+}
+
 static int palettecolor_compare_svh(const void *a1, const void *a2)
 {
   const tPaletteColorHSV *ps1 = static_cast<const tPaletteColorHSV *>(a1);
@@ -1562,6 +1554,11 @@ static int palettecolor_compare_svh(const void *a1, const void *a2)
   }
 
   return 0;
+}
+
+void BKE_palette_sort_svh(tPaletteColorHSV *color_array, const int totcol)
+{
+  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_svh);
 }
 
 static int palettecolor_compare_vhs(const void *a1, const void *a2)
@@ -1596,6 +1593,11 @@ static int palettecolor_compare_vhs(const void *a1, const void *a2)
   return 0;
 }
 
+void BKE_palette_sort_vhs(tPaletteColorHSV *color_array, const int totcol)
+{
+  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_vhs);
+}
+
 static int palettecolor_compare_luminance(const void *a1, const void *a2)
 {
   const tPaletteColorHSV *ps1 = static_cast<const tPaletteColorHSV *>(a1);
@@ -1612,24 +1614,6 @@ static int palettecolor_compare_luminance(const void *a1, const void *a2)
   }
 
   return 0;
-}
-
-void BKE_palette_sort_hsv(tPaletteColorHSV *color_array, const int totcol)
-{
-  /* Sort by Hue, Saturation and Value. */
-  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_hsv);
-}
-
-void BKE_palette_sort_svh(tPaletteColorHSV *color_array, const int totcol)
-{
-  /* Sort by Saturation, Value and Hue. */
-  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_svh);
-}
-
-void BKE_palette_sort_vhs(tPaletteColorHSV *color_array, const int totcol)
-{
-  /* Sort by Saturation, Value and Hue. */
-  qsort(color_array, totcol, sizeof(tPaletteColorHSV), palettecolor_compare_vhs);
 }
 
 void BKE_palette_sort_luminance(tPaletteColorHSV *color_array, const int totcol)
@@ -1771,8 +1755,6 @@ eObjectMode BKE_paint_object_mode_from_paintmode(const PaintMode mode)
       return OB_MODE_SCULPT_CURVES;
     case PaintMode::GPencil:
       return OB_MODE_PAINT_GREASE_PENCIL;
-    case PaintMode::SculptGreasePencil:
-      return OB_MODE_SCULPT_GREASE_PENCIL;
     case PaintMode::Invalid:
     default:
       return OB_MODE_OBJECT;

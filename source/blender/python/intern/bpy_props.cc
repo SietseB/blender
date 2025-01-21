@@ -2716,12 +2716,12 @@ static int bpy_prop_arg_parse_tag_defines(PyObject *o, void *p)
   "None]\n"
 
 #define BPY_PROPDEF_POLL_DOC \
-  "   :arg poll: function to be called to determine whether an item is valid for this " \
-  "property.\n" \
-  "              The function must take 2 values (self, object) and return Bool.\n" \
-  "              Note that the poll return value will be checked only when assigning " \
-  "an item from the UI, but it is still possible to assign an \"invalid\" item to " \
-  "the property directly.\n" \
+  "   :arg poll: Function that determines whether an item is valid for this property.\n" \
+  "      The function must take 2 values (self, object) and return a boolean.\n" \
+  "\n" \
+  "      .. note:: The return value will be checked only when assigning an item from the UI, " \
+  "but it is still possible to assign an \"invalid\" item to the property directly.\n" \
+  "\n" \
   "   :type poll: Callable[[:class:`bpy.types.bpy_struct`, :class:`bpy.types.ID`], " \
   "bool]\n"
 
@@ -2757,11 +2757,11 @@ static int bpy_prop_arg_parse_tag_defines(PyObject *o, void *p)
 
 #define BPY_PROPDEF_POINTER_TYPE_DOC \
   "   :arg type: A subclass of a property group or ID types.\n" \
-  "   :type type: :class:`bpy.types.PropertyGroup` | :class:`bpy.types.ID`\n"
+  "   :type type: type[:class:`bpy.types.PropertyGroup` | :class:`bpy.types.ID`]\n"
 
 #define BPY_PROPDEF_COLLECTION_TYPE_DOC \
   "   :arg type: A subclass of a property group.\n" \
-  "   :type type: :class:`bpy.types.PropertyGroup`\n"
+  "   :type type: type[:class:`bpy.types.PropertyGroup`]\n"
 
 #define BPY_PROPDEF_TAGS_DOC \
   "   :arg tags: Enumerator of tags that are defined by parent class.\n" \

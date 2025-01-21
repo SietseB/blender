@@ -53,8 +53,10 @@ struct BoneInstanceData {
 
   BoneInstanceData() = default;
 
-  /* Constructor used by metaball overlays and expected to be used for drawing
-   * metaball edit circles with armature wire shader that produces wide-lines. */
+  /**
+   * Constructor used by meta-ball overlays and expected to be used for drawing
+   * meta-ball edit circles with armature wire shader that produces wide-lines.
+   */
   BoneInstanceData(const float4x4 &ob_mat,
                    const float3 &pos,
                    const float radius,
@@ -143,9 +145,11 @@ struct State {
   bool hide_overlays = false;
   bool xray_enabled = false;
   bool xray_enabled_and_not_wire = false;
-  /* Brings the active pose armature in front of all objects. */
+  /** Can be true even if X-ray Alpha is 1.0. */
+  bool xray_flag_enabled = false;
+  /** Brings the active pose armature in front of all objects. */
   bool do_pose_xray = false;
-  /* Add a veil on top of all surfaces to make the active pose armature pop out. */
+  /** Add a veil on top of all surfaces to make the active pose armature pop out. */
   bool do_pose_fade_geom = false;
   float xray_opacity = 0.0f;
   short v3d_flag = 0;     /* TODO: move to #View3DOverlay. */
@@ -155,7 +159,8 @@ struct State {
   float3 camera_forward = float3(0.0f);
   int clipping_plane_count = 0;
 
-  /* Active Image properties. Only valid image space only. */
+  /** Active Image properties. Only valid image space only. */
+  bool is_image_valid = false;
   int2 image_size = int2(0);
   float2 image_uv_aspect = float2(0.0f);
   float2 image_aspect = float2(0.0f);
@@ -170,17 +175,17 @@ struct State {
 
   /** Convenience functions. */
 
-  /* Scene geometry is solid. Occlude overlays behind scene geometry. */
+  /** Scene geometry is solid. Occlude overlays behind scene geometry. */
   bool is_solid() const
   {
     return xray_opacity == 1.0f;
   }
-  /* Scene geometry is semi-transparent. Fade overlays behind scene geometry (see #XrayFade). */
+  /** Scene geometry is semi-transparent. Fade overlays behind scene geometry (see #XrayFade). */
   bool is_xray() const
   {
     return (xray_opacity < 1.0f) && (xray_opacity > 0.0f);
   }
-  /* Scene geometry is fully transparent. Scene geometry does not occlude overlays. */
+  /** Scene geometry is fully transparent. Scene geometry does not occlude overlays. */
   bool is_wire() const
   {
     return xray_opacity == 0.0f;
@@ -439,6 +444,7 @@ class ShaderModule {
   ShaderPtr armature_shape_outline = shader_selectable("overlay_armature_shape_outline");
   ShaderPtr armature_shape_fill = shader_selectable("overlay_armature_shape_solid");
   ShaderPtr armature_shape_wire = shader_selectable("overlay_armature_shape_wire");
+  ShaderPtr armature_shape_wire_strip = shader_selectable("overlay_armature_shape_wire_strip");
   ShaderPtr armature_sphere_outline = shader_selectable("overlay_armature_sphere_outline");
   ShaderPtr armature_sphere_fill = shader_selectable("overlay_armature_sphere_solid");
   ShaderPtr armature_stick = shader_selectable("overlay_armature_stick");

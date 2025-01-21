@@ -56,7 +56,6 @@ set(INC
   ../animrig
   ../editors/include
   ../depsgraph
-  ../geometry
   ../makesrna
   ../modifiers
 
@@ -90,9 +89,10 @@ set(SRC
   intern/node_util.cc
   intern/partial_eval.cc
   intern/socket_search_link.cc
+  intern/socket_usage_inference.cc
   intern/value_elem.cc
 
-  NOD_common.h
+  NOD_common.hh
   NOD_composite.hh
   NOD_derived_node_tree.hh
   NOD_geometry.hh
@@ -122,7 +122,7 @@ set(SRC
   NOD_socket_items_ops.hh
   NOD_socket_items_ui.hh
   NOD_socket_search_link.hh
-  NOD_static_types.h
+  NOD_socket_usage_inference.hh
   NOD_texture.h
   NOD_value_elem.hh
   NOD_value_elem_eval.hh
@@ -140,6 +140,7 @@ set(LIB
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::functions
+  PRIVATE bf::geometry
   PRIVATE bf::gpu
   PRIVATE bf::imbuf
   PRIVATE bf::intern::guardedalloc

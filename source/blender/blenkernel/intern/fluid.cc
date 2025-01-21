@@ -51,6 +51,7 @@
 
 #  include "BLI_kdopbvh.hh"
 #  include "BLI_kdtree.h"
+#  include "BLI_math_vector.hh"
 #  include "BLI_threads.h"
 #  include "BLI_voxel.h"
 
@@ -3158,8 +3159,8 @@ static void update_effectors_task_cb(void *__restrict userdata,
       mul_v3_fl(retvel, mag);
 
       /* Copy computed force to fluid solver forces. */
-      mul_v3_fl(retvel, 0.2f);     /* Factor from 0e6820cc5d62. */
-      CLAMP3(retvel, -1.0f, 1.0f); /* Restrict forces to +-1 interval. */
+      mul_v3_fl(retvel, 0.2f);       /* Factor from 0e6820cc5d62. */
+      clamp_v3(retvel, -1.0f, 1.0f); /* Restrict forces to +-1 interval. */
       data->force_x[index] = retvel[0];
       data->force_y[index] = retvel[1];
       data->force_z[index] = retvel[2];

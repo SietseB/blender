@@ -22,7 +22,7 @@
 #include "BKE_attribute.hh"
 #include "BKE_customdata.hh"
 #include "BKE_lib_id.hh"
-#include "BKE_material.h"
+#include "BKE_material.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_object.hh"
@@ -34,6 +34,7 @@
 #include "DEG_depsgraph.hh"
 
 #include "DNA_key_types.h"
+#include "DNA_material_types.h"
 #include "DNA_modifier_types.h"
 
 #include "CLG_log.h"
@@ -286,7 +287,7 @@ struct USDMeshData {
   pxr::VtArray<pxr::GfVec3f> points;
   pxr::VtIntArray face_vertex_counts;
   pxr::VtIntArray face_indices;
-  Map<short, pxr::VtIntArray> face_groups;
+  MaterialFaceGroups face_groups;
 
   /* The length of this array specifies the number of creases on the surface. Each element gives
    * the number of (must be adjacent) vertices in each crease, whose indices are linearly laid out
@@ -415,6 +416,8 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context,
     write_normals(mesh, usd_mesh);
   }
 
+  this->author_extent(usd_mesh, mesh->bounds_min_max(), timecode);
+
   /* TODO(Sybren): figure out what happens when the face groups change. */
   if (frame_has_been_written_) {
     return;
@@ -426,14 +429,6 @@ void USDGenericMeshWriter::write_mesh(HierarchyContext &context,
 
   if (usd_export_context_.export_params.export_materials) {
     assign_materials(context, usd_mesh, usd_mesh_data.face_groups);
-  }
-
-  /* Blender grows its bounds cache to cover animated meshes, so only author once. */
-  if (const std::optional<Bounds<float3>> bounds = mesh->bounds_min_max()) {
-    pxr::VtArray<pxr::GfVec3f> extent{
-        pxr::GfVec3f{bounds->min[0], bounds->min[1], bounds->min[2]},
-        pxr::GfVec3f{bounds->max[0], bounds->max[1], bounds->max[2]}};
-    usd_mesh.CreateExtentAttr().Set(extent);
   }
 }
 
@@ -664,7 +659,7 @@ void USDGenericMeshWriter::assign_materials(const HierarchyContext &context,
     auto subset_material_api = pxr::UsdShadeMaterialBindingAPI(subset_prim);
     subset_material_api.Bind(usd_material);
     /* Apply the #MaterialBindingAPI applied schema, as required by USD. */
-    subset_material_api.Apply(subset_prim);
+    pxr::UsdShadeMaterialBindingAPI::Apply(subset_prim);
   }
 }
 

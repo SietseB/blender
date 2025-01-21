@@ -12,7 +12,6 @@
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_math_vector_types.hh"
-#include "BLI_rect.h"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
@@ -269,6 +268,8 @@ struct uiBut {
   uiMenuCreateFunc menu_create_func = nullptr;
 
   uiMenuStepFunc menu_step_func = nullptr;
+  /** See #UI_but_menu_disable_hover_open(). */
+  bool menu_no_hover_open = false;
 
   /* RNA data */
   PointerRNA rnapoin = {};

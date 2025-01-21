@@ -5,7 +5,6 @@
 set(INC
   ../include
   ../../makesrna
-  ../../sequencer
   ../../../../extern/fmtlib/include
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -47,6 +46,7 @@ set(LIB
   PRIVATE bf::gpu
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc
+  PRIVATE bf::sequencer
   PRIVATE bf::windowmanager
 )
 
@@ -62,6 +62,7 @@ add_dependencies(bf_editor_animation bf_rna)
 if(WITH_GTESTS)
   set(TEST_SRC
     anim_filter_test.cc
+    keyframes_general_test.cc
     keyframes_keylist_test.cc
   )
   set(TEST_INC

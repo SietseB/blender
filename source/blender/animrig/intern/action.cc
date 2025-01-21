@@ -251,7 +251,7 @@ Layer &Action::layer_add(const std::optional<StringRefNull> name)
     STRNCPY_UTF8(new_layer.name, name.value().c_str());
   }
   else {
-    STRNCPY_UTF8(new_layer.name, layer_default_name);
+    STRNCPY_UTF8(new_layer.name, DATA_(layer_default_name));
   }
 
   grow_array_and_append<::ActionLayer *>(&this->layer_array, &this->layer_array_num, &new_layer);
@@ -2964,7 +2964,7 @@ Action *convert_to_layered_action(Main &bmain, const Action &legacy_action)
 /**
  * Clone information from the given slot into this slot while retaining important info like the
  * slot handle and runtime data. This copies the identifier which might clash with other
- * identifiers on the action. Call `slot_name_ensure_unique` after.
+ * identifiers on the action. Call `slot_identifier_ensure_unique` after.
  */
 static void clone_slot(Slot &from, Slot &to)
 {

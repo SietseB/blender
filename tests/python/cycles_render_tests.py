@@ -82,7 +82,8 @@ BLOCKLIST_OPTIX_OSL = [
     'both_displacement.blend',
     'bump_with_displacement.blend',
     'ray_portal.blend',
-    # Volumetric textures use a different default texture mapping in OptiX OSL. See 129279
+    # Volumetric textures using the Genereated textures coordinate are different in OptiX OSL. See 129279
+    'texture_coordinate_generated.blend',
     'principled_absorption.blend',
     'denoise_volume.blend',
     # The 3D texture doesn't have the right mappings
