@@ -571,7 +571,7 @@ class GREASE_PENCIL_MT_shape_keys_context_menu(Menu):
 
         layout.operator("grease_pencil.shape_key_duplicate", icon='DUPLICATE', text="Duplicate")
         layout.separator()
-        # layout.operator("grease_pencil.shape_key_remove_all", icon='X', text="Delete All")
+        layout.operator("grease_pencil.shape_key_remove_all", icon='X', text="Delete All")
         # layout.operator("grease_pencil.shape_key_apply_all", icon='NODE_COMPOSITING', text="Apply All")
 
 
@@ -609,10 +609,10 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
             row = layout.row()
             sub = row.column()
             sub.active = not grease_pencil.in_shape_key_edit_mode
-            # sub.operator("grease_pencil.shape_key_edit", text="Edit")
+            sub.operator("grease_pencil.shape_key_edit", text="Edit")
             sub = row.column()
             sub.active = grease_pencil.in_shape_key_edit_mode
-            # sub.operator("grease_pencil.shape_key_edit_finish", text="Finish Edit", depress=sub.active)
+            sub.operator("grease_pencil.shape_key_edit_finish", text="Finish Edit", depress=sub.active)
 
             if sub.active:
                 row = layout.row()

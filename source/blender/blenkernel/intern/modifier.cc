@@ -1024,6 +1024,10 @@ static void modifier_renumber_by_type_name(ModifierData *md)
     md->type = eModifierType_GreasePencilFollowCurve;
     return;
   }
+  if (BLI_strcaseeq(md->type_name, "ShapeKey")) {
+    md->type = eModifierType_GreasePencilShapeKey;
+    return;
+  }
 }
 
 static void modifier_set_type_name(ModifierData *md)
@@ -1035,6 +1039,10 @@ static void modifier_set_type_name(ModifierData *md)
   switch (md->type) {
     case eModifierType_GreasePencilFollowCurve: {
       BLI_strncpy(md->type_name, "FollowCurve", sizeof(md->type_name));
+      break;
+    }
+    case eModifierType_GreasePencilShapeKey: {
+      BLI_strncpy(md->type_name, "ShapeKey", sizeof(md->type_name));
       break;
     }
   }

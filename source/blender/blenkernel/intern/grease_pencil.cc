@@ -336,6 +336,7 @@ constexpr StringRef ATTR_RADIUS = "radius";
 constexpr StringRef ATTR_OPACITY = "opacity";
 constexpr StringRef ATTR_VERTEX_COLOR = "vertex_color";
 constexpr StringRef ATTR_FILL_COLOR = "fill_color";
+constexpr StringRef ATTR_FILL_OPACITY = "fill_opacity";
 constexpr StringRef ATTR_ONDINE_SEED = ".seed";
 
 /* Curves attributes getters */
@@ -395,6 +396,7 @@ Drawing::Drawing(const Drawing &other)
   this->runtime->triangles_cache = other.runtime->triangles_cache;
   this->runtime->curve_plane_normals_cache = other.runtime->curve_plane_normals_cache;
   this->runtime->curve_texture_matrices = other.runtime->curve_texture_matrices;
+  this->runtime->shape_key_edit_index = other.runtime->shape_key_edit_index;
 }
 
 Drawing::Drawing(Drawing &&other)
@@ -830,6 +832,18 @@ MutableSpan<ColorGeometry4f> Drawing::fill_colors_for_write()
                                                 AttrDomain::Curve,
                                                 ATTR_FILL_COLOR,
                                                 ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
+}
+
+VArray<float> Drawing::fill_opacities() const
+{
+  return *this->strokes().attributes().lookup_or_default<float>(
+      ATTR_FILL_OPACITY, AttrDomain::Curve, 1.0f);
+}
+
+MutableSpan<float> Drawing::fill_opacities_for_write()
+{
+  return get_mutable_attribute<float>(
+      this->strokes_for_write(), AttrDomain::Curve, ATTR_FILL_OPACITY, 1.0f);
 }
 
 VArray<int> Drawing::seeds() const
@@ -2205,6 +2219,22 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
     if (mti->modify_geometry_set != nullptr) {
       mti->modify_geometry_set(tmd, &mectx, &geometry_set);
     }
+  }
+
+  /* When a shape key is edited, we calculate the shape key deltas on the fly. This is done before
+   * any other modifier is applied (except time modifiers). */
+  ModifierData *smd = md;
+  for (; smd; smd = smd->next) {
+    const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(smd->type));
+    if (ModifierType(smd->type) != eModifierType_GreasePencilShapeKey) {
+      continue;
+    }
+    const auto skmd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
+    if (skmd.index_edited != -1 && skmd.shape_key_edit_data != nullptr) {
+      const ModifierEvalContext ctx = {depsgraph, object, MOD_APPLY_GET_SHAPE_KEY_DELTAS};
+      mti->modify_geometry_set(md, &ctx, &geometry_set);
+    }
+    break;
   }
 
   /* Evaluate drawing modifiers. */
@@ -3926,6 +3956,14 @@ static GreasePencilModifierInfluenceData *influence_data_from_modifier(ModifierD
     }
     case eModifierType_GreasePencilWeightProximity: {
       auto *wmd = reinterpret_cast<GreasePencilWeightProximityModifierData *>(md);
+      return &wmd->influence;
+    }
+    case eModifierType_GreasePencilFollowCurve: {
+      auto *wmd = reinterpret_cast<GreasePencilFollowCurveModifierData *>(md);
+      return &wmd->influence;
+    }
+    case eModifierType_GreasePencilShapeKey: {
+      auto *wmd = reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
       return &wmd->influence;
     }
     case eModifierType_GreasePencilLineart:

@@ -9,6 +9,7 @@
 #include "BKE_animsys.h"
 #include "BKE_attribute.h"
 #include "BKE_global.hh"
+#include "BKE_modifier.hh"
 
 #include "BLI_string.h"
 #include "BLI_string_utils.hh"
@@ -716,6 +717,24 @@ static void rna_GreasePencilShapeKey_name_set(PointerRNA *ptr, const char *value
                  '.',
                  offsetof(GreasePencilShapeKey, name),
                  sizeof(shape_key->name));
+
+  /* Uggly hack to rename influence shape keys in shape key modifiers. */
+  Main *bmain = G_MAIN;
+  for (Object *ob = static_cast<Object *>(bmain->objects.first); ob != nullptr;
+       ob = static_cast<Object *>(ob->id.next))
+  {
+    if (ob->data == grease_pencil) {
+      LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
+        if (md->type != eModifierType_GreasePencilShapeKey) {
+          continue;
+        }
+        auto &smd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
+        if (BLI_strcaseeq(smd.shape_key_influence, oldname)) {
+          BLI_strncpy(smd.shape_key_influence, shape_key->name, sizeof(shape_key->name));
+        }
+      }
+    }
+  }
 
   /* Fix animation paths. */
   BKE_animdata_fix_paths_rename_all(&grease_pencil->id, "shape_keys", oldname, shape_key->name);

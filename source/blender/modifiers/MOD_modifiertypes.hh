@@ -100,6 +100,7 @@ extern ModifierTypeInfo modifierType_GreasePencilShrinkwrap;
 extern ModifierTypeInfo modifierType_GreasePencilBuild;
 extern ModifierTypeInfo modifierType_GreasePencilTexture;
 extern ModifierTypeInfo modifierType_GreasePencilFollowCurve;
+extern ModifierTypeInfo modifierType_GreasePencilShapeKey;
 
 /* MOD_util.cc */
 

@@ -649,6 +649,33 @@ Vector<MutableDrawingInfo> retrieve_editable_drawings(const Scene &scene,
   return editable_drawings;
 }
 
+Vector<bke::greasepencil::Drawing *> retrieve_editable_drawings_at_frame(
+    const int at_frame, const Scene &scene, GreasePencil &grease_pencil)
+{
+  using namespace blender::bke::greasepencil;
+  const ToolSettings *toolsettings = scene.toolsettings;
+  const bool use_multi_frame_editing = (toolsettings->gpencil_flags &
+                                        GP_USE_MULTI_FRAME_EDITING) != 0;
+
+  Vector<Drawing *> editable_drawings;
+  Span<const Layer *> layers = grease_pencil.layers();
+  for (const int layer_i : layers.index_range()) {
+    const Layer &layer = *layers[layer_i];
+    if (!layer.is_editable()) {
+      continue;
+    }
+    const Array<int> frame_numbers = get_editable_frames_for_layer(
+        grease_pencil, layer, at_frame, use_multi_frame_editing);
+    for (const int frame_number : frame_numbers) {
+      if (Drawing *drawing = grease_pencil.get_editable_drawing_at(layer, frame_number)) {
+        editable_drawings.append(drawing);
+      }
+    }
+  }
+
+  return editable_drawings;
+}
+
 Vector<MutableDrawingInfo> retrieve_editable_drawings_with_falloff(const Scene &scene,
                                                                    GreasePencil &grease_pencil)
 {

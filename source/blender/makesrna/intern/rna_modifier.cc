@@ -13,6 +13,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_gpencil_modifier_types.h"
+#include "DNA_grease_pencil_types.h"
 #include "DNA_lineart_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
@@ -416,6 +417,11 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      ICON_FORCE_CURVE,
      "Follow Curve",
      "Deform stroke points along curves"},
+    {eModifierType_GreasePencilShapeKey,
+     "GREASE_PENCIL_SHAPE_KEY",
+     ICON_SHAPEKEY_DATA,
+     "Shape Key",
+     "Deform stroke points by shape keys"},
 
     RNA_ENUM_ITEM_HEADING(N_("Physics"), nullptr),
     {eModifierType_Cloth, "CLOTH", ICON_MOD_CLOTH, "Cloth", "Physic simulation for cloth"},
@@ -2169,6 +2175,7 @@ RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilShrinkwrap);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilBuild);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilTexture);
 RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilFollowCurve);
+RNA_MOD_GREASE_PENCIL_MATERIAL_FILTER_SET(GreasePencilShapeKey);
 
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilOffset);
 RNA_MOD_GREASE_PENCIL_VERTEX_GROUP_SET(GreasePencilOpacity);
@@ -2436,6 +2443,32 @@ static void rna_GreasePencilShrinkwrapModifier_face_cull_set(PointerRNA *ptr, in
   GreasePencilShrinkwrapModifierData *smd = static_cast<GreasePencilShrinkwrapModifierData *>(
       ptr->data);
   smd->shrink_opts = (smd->shrink_opts & ~MOD_SHRINKWRAP_CULL_TARGET_MASK) | value;
+}
+
+static void rna_GreasePencilShapeKeyModifier_shape_key_influence_set(PointerRNA *ptr,
+                                                                     const char *value)
+{
+  auto *skmd = static_cast<GreasePencilShapeKeyModifierData *>(ptr->data);
+
+  Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
+  const ID *id = static_cast<const ID *>(ob->data);
+
+  skmd->shape_key_influence[0] = '\0';
+
+  if (GS(id->name) != ID_GP) {
+    return;
+  }
+  if (value[0] == '\0') {
+    return;
+  }
+  const GreasePencil *grease_pencil = reinterpret_cast<const GreasePencil *>(id);
+
+  LISTBASE_FOREACH (GreasePencilShapeKey *, shape_key, &grease_pencil->shape_keys) {
+    if (strcmp(shape_key->name, skmd->shape_key_influence)) {
+      BLI_strncpy(skmd->shape_key_influence, value, sizeof(skmd->shape_key_influence));
+      return;
+    }
+  }
 }
 
 #else
@@ -11409,6 +11442,49 @@ static void rna_def_modifier_grease_pencil_follow_curve(BlenderRNA *brna)
   RNA_define_lib_overridable(false);
 }
 
+static void rna_def_modifier_grease_pencil_shape_key(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "GreasePencilShapeKeyModifier", "Modifier");
+  RNA_def_struct_ui_text(srna,
+                         "Grease Pencil Shape Key Modifier",
+                         "Shape Key modifier to deform stroke points by shape key");
+  RNA_def_struct_sdna(srna, "GreasePencilShapeKeyModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_SHAPEKEY_DATA);
+
+  rna_def_modifier_grease_pencil_layer_filter(srna);
+  rna_def_modifier_grease_pencil_material_filter(
+      srna, "rna_GreasePencilShapeKeyModifier_material_filter_set");
+
+  prop = RNA_def_property(srna, "shape_key_name", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, nullptr, "shape_key_influence");
+  RNA_def_property_ui_text(prop, "Shape Key", "Limit the modifier to this shape key");
+  RNA_def_property_string_funcs(
+      prop, nullptr, nullptr, "rna_GreasePencilShapeKeyModifier_shape_key_influence_set");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "invert_shape_key", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY);
+  RNA_def_property_ui_text(prop, "Invert Shape Key", "Invert the shape key influence");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  rna_def_modifier_panel_open_prop(srna, "open_general_panel", 0);
+  rna_def_modifier_panel_open_prop(srna, "open_influence_panel", 1);
+
+  RNA_define_lib_overridable(true);
+
+  prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "factor");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop, "Factor", "Strenght of the shape key modifier");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  RNA_define_lib_overridable(false);
+}
 void RNA_def_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -11613,6 +11689,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_grease_pencil_build(brna);
   rna_def_modifier_grease_pencil_texture(brna);
   rna_def_modifier_grease_pencil_follow_curve(brna);
+  rna_def_modifier_grease_pencil_shape_key(brna);
 }
 
 #endif

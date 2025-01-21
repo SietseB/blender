@@ -351,6 +351,8 @@ struct MutableDrawingInfo {
 };
 Vector<MutableDrawingInfo> retrieve_editable_drawings(const Scene &scene,
                                                       GreasePencil &grease_pencil);
+Vector<bke::greasepencil::Drawing *> retrieve_editable_drawings_at_frame(
+    const int at_frame, const Scene &scene, GreasePencil &grease_pencil);
 Vector<MutableDrawingInfo> retrieve_editable_drawings_with_falloff(const Scene &scene,
                                                                    GreasePencil &grease_pencil);
 Array<Vector<MutableDrawingInfo>> retrieve_editable_drawings_grouped_per_frame(
@@ -913,5 +915,20 @@ GreasePencil *from_context(bContext &C);
  */
 bke::CurvesGeometry remove_points_and_split(const bke::CurvesGeometry &curves,
                                             const IndexMask &point_mask);
+
+namespace shape_key {
+void apply_shape_key_to_layers(GreasePencil &grease_pencil,
+                               const StringRef shape_key_id,
+                               const IndexMask &layer_mask,
+                               const float factor);
+bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
+                                const StringRef shape_key_id,
+                                const IndexMask &stroke_mask,
+                                const float factor);
+struct ShapeKeyEditData;
+void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
+                                      const Span<bke::greasepencil::Drawing *> drawings);
+
+}  // namespace shape_key
 
 }  // namespace blender::ed::greasepencil

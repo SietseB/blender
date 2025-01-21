@@ -1105,4 +1105,13 @@
     .completion = 1.0f, \
   }
 
+#define _DNA_DEFAULT_GreasePencilShapeKeyModifierData \
+  { \
+    .factor = 1.0f, \
+    .index_edited = -1, \
+    .flag = 0, \
+    .shape_key_influence = "", \
+    .shape_key_edit_data = NULL, \
+  }
+
 /* clang-format off */

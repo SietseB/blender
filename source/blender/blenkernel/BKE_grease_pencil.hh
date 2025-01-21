@@ -80,6 +80,11 @@ class DrawingRuntime {
   mutable std::atomic<int> user_count = 1;
 
   /**
+   * Index of the base drawing when editing a shape key, incremented by one.
+   */
+  mutable int shape_key_edit_index;
+
+  /**
    * Ondine: Point data for rendering strokes in 2D space.
    */
   mutable Array<GPStrokePoint> points_2d;
@@ -159,6 +164,12 @@ class Drawing : public ::GreasePencilDrawing {
    */
   VArray<ColorGeometry4f> fill_colors() const;
   MutableSpan<ColorGeometry4f> fill_colors_for_write();
+
+  /**
+   * Fill opacities of the curves. Opacity value used for the fills.
+   */
+  VArray<float> fill_opacities() const;
+  MutableSpan<float> fill_opacities_for_write();
 
   /**
    * Ondine: Random seed for every stroke, used as stroke ID and for randomization of watercolor
@@ -440,6 +451,11 @@ class LayerRuntime {
 
   /* Runtime data used for frame transformations. */
   LayerTransformData trans_data_;
+
+  /**
+   * Index of the base layer when editing a shape key, incremented by one.
+   */
+  mutable int shape_key_edit_index;
 
  public:
   /* Reset all runtime data. */

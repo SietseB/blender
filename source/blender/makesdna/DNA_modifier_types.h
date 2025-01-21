@@ -129,6 +129,7 @@ typedef enum ModifierType {
   eModifierType_GreasePencilSimplify = 85,
   eModifierType_GreasePencilTexture = 86,
   eModifierType_GreasePencilFollowCurve = 87,
+  eModifierType_GreasePencilShapeKey = 88,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
@@ -3594,19 +3595,13 @@ typedef struct GreasePencilFollowCurveModifierData {
 } GreasePencilFollowCurveModifierData;
 
 typedef enum GreasePencilFollowCurveFlag {
-  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_LAYER = (1 << 0),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_PASS = (1 << 1),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_VGROUP = (1 << 2),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_UNIFORM_SPACE = (1 << 3),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_LAYERPASS = (1 << 4),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_INVERT_MATERIAL = (1 << 5),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER = (1 << 6),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE = (1 << 7),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT = (1 << 8),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST = (1 << 9),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR = (1 << 10),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT = (1 << 11),
-  MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST = (1 << 12),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_SCATTER = (1 << 0),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_DISSOLVE = (1 << 1),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_REPEAT = (1 << 2),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_STROKE_TAIL_FIRST = (1 << 3),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_VARY_DIR = (1 << 4),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_ENTIRE_OBJECT = (1 << 5),
+  MOD_GREASE_PENCIL_FOLLOWCURVE_CURVE_TAIL_FIRST = (1 << 6),
 } GreasePencilFollowCurveFlag;
 
 typedef enum GreasePencilFollowCurveAxis {
@@ -3614,3 +3609,25 @@ typedef enum GreasePencilFollowCurveAxis {
   MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Y = 1,
   MOD_GREASE_PENCIL_FOLLOWCURVE_AXIS_Z = 2,
 } GreasePencilFollowCurveAxis;
+
+typedef struct GreasePencilShapeKeyModifierData {
+  ModifierData modifier;
+  GreasePencilModifierInfluenceData influence;
+
+  /** Strength of the shape key modifier. */
+  float factor;
+  /** Index of the currently edited shape key. */
+  int index_edited;
+  /** Flags. */
+  int flag;
+  char _pad0[4];
+  /** Limit the influence of the modifier to a shape key. */
+  char shape_key_influence[128];
+  /** Pointer to the data of the currently edited shape key. */
+  void *shape_key_edit_data;
+  void *_pad;
+} GreasePencilShapeKeyModifierData;
+
+typedef enum GreasePencilShapeKeyModifierFlag {
+  MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY = (1 << 0),
+} GreasePencilShapeKeyModifierFlag;

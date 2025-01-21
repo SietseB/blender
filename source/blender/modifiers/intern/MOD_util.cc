@@ -291,5 +291,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
   INIT_TYPE(GreasePencilBuild);
   INIT_TYPE(GreasePencilTexture);
   INIT_TYPE(GreasePencilFollowCurve);
+  INIT_TYPE(GreasePencilShapeKey);
 #undef INIT_TYPE
 }

@@ -156,6 +156,10 @@ enum ModifierApplyFlag {
    * This flag can be checked to ignore rendering display data to the mesh.
    * See `OBJECT_OT_modifier_apply` operator. */
   MOD_APPLY_TO_ORIGINAL = 1 << 4,
+  /** For Grease Pencil: This modifier requires real time calculation of shape key deltas. Set when
+   * a shape key is currently edited. */
+  MOD_APPLY_GET_SHAPE_KEY_DELTAS = 1 << 5,
+
 };
 ENUM_OPERATORS(ModifierApplyFlag, MOD_APPLY_TO_ORIGINAL);
 
