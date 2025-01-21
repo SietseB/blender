@@ -23,7 +23,7 @@
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_grease_pencil.hh"
-#include "BKE_material.h"
+#include "BKE_material.hh"
 
 #include "UI_interface.hh"
 #include "UI_resources.hh"
@@ -451,11 +451,10 @@ static void panel_draw(const bContext *C, Panel *panel)
   uiItemR(col, ptr, "noise_offset", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "seed", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  if (uiLayout *color_layout = uiLayoutPanelProp(C, layout, ptr, "open_color_panel", IFACE_("Color"))) {
-    uiItemR(color_layout, ptr, "use_color", UI_ITEM_NONE, IFACE_("Color"), ICON_NONE);
-
+  if (uiLayout *color_layout = uiLayoutPanelPropWithBoolHeader(
+          C, layout, ptr, "open_color_panel", "use_color", IFACE_("Color")))
+  {
     uiLayout *color_col = uiLayoutColumn(color_layout, false);
-    uiLayoutSetPropSep(color_col, true);
     uiLayoutSetActive(color_col, RNA_boolean_get(ptr, "use_color"));
 
     uiItemR(color_col, ptr, "modify_color", UI_ITEM_NONE, std::nullopt, ICON_NONE);

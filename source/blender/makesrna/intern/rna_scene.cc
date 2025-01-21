@@ -2999,6 +2999,23 @@ static void rna_FFmpegSettings_codec_update(Main * /*bmain*/, Scene * /*scene*/,
 }
 #  endif
 
+static void rna_Scene_paper_texture_set(PointerRNA *ptr,
+                                        PointerRNA value,
+                                        ReportList * /*reports*/)
+{
+  SceneOndine *ondine = (SceneOndine *)ptr->data;
+  ID *id = (ID *)value.data;
+  id_us_plus(id);
+  ondine->paper_texture = (Image *)id;
+}
+
+static float rna_Scene_ondine_render_progress_get(PointerRNA * /*ptr*/)
+{
+  return OD_get_render_progress();
+}
+
+static void rna_Scene_ondine_render_progress_set(PointerRNA * /*ptr*/, float /*value*/) {}
+
 #else
 
 /* Grease Pencil Interpolation tool settings */
