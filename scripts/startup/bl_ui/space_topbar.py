@@ -638,6 +638,11 @@ class TOPBAR_MT_workspace_menu(Menu):
 
         layout.separator()
 
+        layout.operator("workspace.move_forward", text="Move Left", icon='TRIA_LEFT')
+        layout.operator("workspace.move_backward", text="Move Right", icon='TRIA_RIGHT')
+
+        layout.separator()
+
         layout.operator("workspace.reorder_to_front", text="Reorder to Front", icon='TRIA_LEFT_BAR')
         layout.operator("workspace.reorder_to_back", text="Reorder to Back", icon='TRIA_RIGHT_BAR')
 

@@ -561,6 +561,58 @@ static void WORKSPACE_OT_add(wmOperatorType *ot)
   ot->invoke = workspace_add_invoke;
 }
 
+static int workspace_move_back_exec(bContext *C, wmOperator * /*op*/)
+{
+  Main *bmain = CTX_data_main(C);
+  WorkSpace *workspace = workspace_context_get(C);
+
+  Vector<ID *> workspaces = BKE_id_ordered_list(&bmain->workspaces);
+  if (workspace->order < workspaces.size() - 1) {
+    BKE_id_reorder(&bmain->workspaces, &workspace->id, workspaces[workspace->order + 1], true);
+    WM_event_add_notifier(C, NC_WINDOW, nullptr);
+  }
+
+  return OPERATOR_INTERFACE;
+}
+
+static void WORKSPACE_OT_move_backward(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Workspace Move Back";
+  ot->description = "Move workspace backward in the list";
+  ot->idname = "WORKSPACE_OT_move_backward";
+
+  /* api callbacks */
+  ot->poll = workspace_context_poll;
+  ot->exec = workspace_move_back_exec;
+}
+
+static int workspace_move_forward_exec(bContext *C, wmOperator * /*op*/)
+{
+  Main *bmain = CTX_data_main(C);
+  WorkSpace *workspace = workspace_context_get(C);
+
+  Vector<ID *> workspaces = BKE_id_ordered_list(&bmain->workspaces);
+  if (workspace->order > 0) {
+    BKE_id_reorder(&bmain->workspaces, &workspace->id, workspaces[workspace->order - 1], false);
+    WM_event_add_notifier(C, NC_WINDOW, nullptr);
+  }
+
+  return OPERATOR_INTERFACE;
+}
+
+static void WORKSPACE_OT_move_forward(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Workspace Move Forward";
+  ot->description = "Move workspace forward in the list";
+  ot->idname = "WORKSPACE_OT_move_forward";
+
+  /* api callbacks */
+  ot->poll = workspace_context_poll;
+  ot->exec = workspace_move_forward_exec;
+}
+
 static int workspace_reorder_to_back_exec(bContext *C, wmOperator * /*op*/)
 {
   Main *bmain = CTX_data_main(C);
@@ -644,6 +696,8 @@ void ED_operatortypes_workspace()
   WM_operatortype_append(WORKSPACE_OT_append_activate);
   WM_operatortype_append(WORKSPACE_OT_reorder_to_back);
   WM_operatortype_append(WORKSPACE_OT_reorder_to_front);
+  WM_operatortype_append(WORKSPACE_OT_move_backward);
+  WM_operatortype_append(WORKSPACE_OT_move_forward);
   WM_operatortype_append(WORKSPACE_OT_scene_pin_toggle);
 }
 
