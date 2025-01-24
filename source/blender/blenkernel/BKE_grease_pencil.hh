@@ -83,6 +83,14 @@ class DrawingRuntime {
   mutable int shape_key_edit_index;
 
   /**
+   * Reference to a base drawing when the user is editing a shape key. This is an onion-skin-style
+   * drawing shown in the viewport with all deformations except the edited shape key changes. For
+   * visually showing the difference with and without the edited shape key.
+   */
+  mutable Drawing *shape_key_onion_skin_drawing = nullptr;
+  mutable bool is_shape_key_onion_skin_drawing = false;
+
+  /**
    * Ondine: Point data for rendering strokes in 2D space.
    */
   mutable Array<GPStrokePoint> points_2d;

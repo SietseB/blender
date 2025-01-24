@@ -3635,5 +3635,6 @@ typedef struct GreasePencilShapeKeyModifierData {
 } GreasePencilShapeKeyModifierData;
 
 typedef enum GreasePencilShapeKeyModifierFlag {
-  MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY = (1 << 0),
+  MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE = (1 << 0),
+  MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY = (1 << 1),
 } GreasePencilShapeKeyModifierFlag;

@@ -87,6 +87,21 @@ struct ShapeKeyEditData {
   Array<bke::CurvesGeometry> base_geometry;
 };
 
+float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, const int layer_index)
+{
+  return edit_data.base_layers[layer_index].translation;
+}
+
+float3 get_base_layer_rotation(const ShapeKeyEditData &edit_data, const int layer_index)
+{
+  return edit_data.base_layers[layer_index].rotation;
+}
+
+float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, const int layer_index)
+{
+  return edit_data.base_layers[layer_index].scale;
+}
+
 /* Change shape key attribute '.shapekey-...-<n>' to '.shapekey-...-<n+1>'. */
 static void attribute_increase_index(bke::MutableAttributeAccessor &attributes,
                                      const StringRef shape_key_attribute,
@@ -686,6 +701,7 @@ static void edit_exit(bContext *C, wmOperator *op)
       continue;
     }
     auto &skd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
+    skd.flag &= ~MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE;
     skd.index_edited = -1;
     skd.shape_key_edit_data = nullptr;
   }
@@ -1287,6 +1303,7 @@ static void edit_init(bContext *C, wmOperator *op)
       continue;
     }
     auto &skd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
+    skd.flag |= MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE;
     skd.index_edited = grease_pencil.active_shape_key_index;
     skd.shape_key_edit_data = is_first ? &edit_data : nullptr;
     is_first = false;
@@ -1344,9 +1361,9 @@ static void edit_init(bContext *C, wmOperator *op)
     layer.runtime->shape_key_edit_index = layer_i + 1;
   }
 
-  /* Apply the edited shape key to the layers. During edit, the shape key changes must be visible
-   * in the UI (layer transformation and opacity), so we apply them manually (and not by the
-   * shape key modifier). */
+  /* Apply the edited shape key to the layers. During edit, the shape key changes to layers must be
+   * visible in the UI (layer transformation and opacity), so we apply them manually (and not by
+   * the shape key modifier). */
   IndexMask all_layers(IndexRange(grease_pencil.layers().size()));
   const std::string shape_key_id = std::to_string(edit_data.edited_shape_key_index);
   apply_shape_key_to_layers(grease_pencil, shape_key_id, all_layers, 1.0f);

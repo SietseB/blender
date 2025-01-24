@@ -937,15 +937,21 @@ bke::CurvesGeometry remove_points_and_split(const bke::CurvesGeometry &curves,
 bool ensure_selection_domain(ToolSettings *ts, Object *object);
 
 namespace shape_key {
+struct ShapeKeyEditData;
+
 void apply_shape_key_to_layers(GreasePencil &grease_pencil,
                                const StringRef shape_key_id,
                                const IndexMask &layer_mask,
-                               const float factor);
+                               float factor);
 bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
                                 const StringRef shape_key_id,
                                 const IndexMask &stroke_mask,
-                                const float factor);
-struct ShapeKeyEditData;
+                                float factor);
+
+float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, int layer_index);
+float3 get_base_layer_rotation(const ShapeKeyEditData &edit_data, int layer_index);
+float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, int layer_index);
+
 void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
                                       const Span<bke::greasepencil::Drawing *> drawings);
 

@@ -911,6 +911,12 @@ Vector<DrawingInfo> retrieve_visible_drawings(const Scene &scene,
         grease_pencil, layer, current_frame, use_multi_frame_editing, do_onion_skinning);
     for (const auto &[frame_number, onion_id] : frames) {
       if (const Drawing *drawing = grease_pencil.get_drawing_at(layer, frame_number)) {
+        if (do_onion_skinning && onion_id == 0 &&
+            drawing->runtime->shape_key_onion_skin_drawing != nullptr)
+        {
+          visible_drawings.append(
+              {*drawing->runtime->shape_key_onion_skin_drawing, layer_i, frame_number, -1});
+        }
         visible_drawings.append({*drawing, layer_i, frame_number, onion_id});
       }
     }

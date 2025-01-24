@@ -341,6 +341,9 @@ Vector<bke::greasepencil::Drawing *> get_drawings_for_write(GreasePencil &grease
     /* Set of owned drawings, ignore drawing references to other data blocks. */
     if (Drawing *drawing = grease_pencil.get_drawing_at(layer, frame)) {
       drawings.add(drawing);
+      if (drawing->runtime->shape_key_onion_skin_drawing != nullptr) {
+        drawings.add(drawing->runtime->shape_key_onion_skin_drawing);
+      }
     }
   });
   return Vector<Drawing *>(drawings.as_span());
@@ -366,6 +369,9 @@ Vector<LayerDrawingInfo> get_drawing_infos_by_layer(GreasePencil &grease_pencil,
     if (!drawings.contains(drawing)) {
       drawings.add_new(drawing);
       drawing_infos.append({drawing, int(layer_i)});
+      if (drawing->runtime->shape_key_onion_skin_drawing != nullptr) {
+        drawing_infos.append({drawing->runtime->shape_key_onion_skin_drawing, int(layer_i)});
+      }
     }
   });
   return drawing_infos;
@@ -395,6 +401,9 @@ Vector<FrameDrawingInfo> get_drawing_infos_by_frame(GreasePencil &grease_pencil,
     if (!drawings.contains(drawing)) {
       drawings.add_new(drawing);
       drawing_infos.append({drawing, *start_frame});
+      if (drawing->runtime->shape_key_onion_skin_drawing != nullptr) {
+        drawing_infos.append({drawing->runtime->shape_key_onion_skin_drawing, *start_frame});
+      }
     }
   });
   return drawing_infos;

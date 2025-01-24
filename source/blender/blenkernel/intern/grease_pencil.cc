@@ -396,6 +396,7 @@ Drawing::Drawing(const Drawing &other)
   this->runtime->curve_plane_normals_cache = other.runtime->curve_plane_normals_cache;
   this->runtime->curve_texture_matrices = other.runtime->curve_texture_matrices;
   this->runtime->shape_key_edit_index = other.runtime->shape_key_edit_index;
+  this->runtime->shape_key_onion_skin_drawing = nullptr;
 }
 
 Drawing::Drawing(Drawing &&other)
@@ -434,6 +435,9 @@ Drawing &Drawing::operator=(Drawing &&other)
 Drawing::~Drawing()
 {
   this->strokes().~CurvesGeometry();
+  if (this->runtime) {
+    MEM_delete(this->runtime->shape_key_onion_skin_drawing);
+  }
   MEM_delete(this->runtime);
   this->runtime = nullptr;
 }
@@ -1235,6 +1239,8 @@ Layer::Layer(const Layer &other) : Layer()
   this->runtime->sorted_keys_cache_ = other.runtime->sorted_keys_cache_;
   /* Tag the frames map, so the frame storage is recreated once the DNA is saved. */
   this->tag_frames_map_changed();
+
+  this->runtime->shape_key_edit_index = other.runtime->shape_key_edit_index;
 
   /* TODO: what about masks cache? */
 
@@ -2194,6 +2200,8 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
                                              Object *object,
                                              blender::bke::GeometrySet &geometry_set)
 {
+  using namespace blender::bke::greasepencil;
+
   /* Modifier evaluation modes. */
   const bool use_render = DEG_get_mode(depsgraph) == DAG_EVAL_RENDER;
   ModifierMode required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
@@ -2231,20 +2239,52 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
     }
   }
 
-  /* When a shape key is edited, we calculate the shape key deltas on the fly. This is done before
-   * any other modifier is applied (except time modifiers). */
+  /* When a shape key is edited, we calculate the shape key deltas on the fly. The deltas are the
+   * differences between the base drawing and the edited shape key drawing. By calculating these
+   * deltas in real time, we can show the exact result of the shape key edits (the evaluated
+   * depsgraph result), using the user defined modifier stack, with the exact order of (shape key)
+   * modifiers. */
+  bool shape_key_is_edited = false;
   ModifierData *smd = md;
   for (; smd; smd = smd->next) {
-    const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(smd->type));
     if (ModifierType(smd->type) != eModifierType_GreasePencilShapeKey) {
       continue;
     }
-    const auto skmd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
-    if (skmd.index_edited != -1 && skmd.shape_key_edit_data != nullptr) {
+    const auto &skmd = *reinterpret_cast<const GreasePencilShapeKeyModifierData *>(smd);
+    if ((skmd.flag & MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE) != 0 &&
+        skmd.shape_key_edit_data != nullptr)
+    {
+      shape_key_is_edited = true;
       const ModifierEvalContext ctx = {depsgraph, object, MOD_APPLY_GET_SHAPE_KEY_DELTAS};
-      mti->modify_geometry_set(md, &ctx, &geometry_set);
+      const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(smd->type));
+      mti->modify_geometry_set(smd, &ctx, &geometry_set);
     }
     break;
+  }
+
+  /* When a shape key is edited, we store the grease pencil drawings at the evaluated frame as a
+   * base reference. This reference is shown in the viewport in onion-skin style, so the user can
+   * easily see the difference between drawing with and without the edited shape key. */
+  if (shape_key_is_edited && geometry_set.has_grease_pencil()) {
+    GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
+    const int frame = grease_pencil.runtime->eval_frame;
+    VectorSet<Drawing *> drawings;
+    for (const Layer *layer : grease_pencil.layers()) {
+      if (!layer->is_visible()) {
+        continue;
+      }
+      if (Drawing *drawing = grease_pencil.get_drawing_at(*layer, frame)) {
+        if (drawings.add(drawing)) {
+          Drawing base_drawing = *drawing;
+          drawing->runtime->shape_key_onion_skin_drawing = MEM_new<Drawing>(__func__,
+                                                                            base_drawing);
+          drawing->runtime->shape_key_onion_skin_drawing->runtime = MEM_new<DrawingRuntime>(
+              __func__);
+          drawing->runtime->shape_key_onion_skin_drawing->runtime
+              ->is_shape_key_onion_skin_drawing = true;
+        }
+      }
+    }
   }
 
   /* Evaluate drawing modifiers. */
