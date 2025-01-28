@@ -3096,7 +3096,7 @@ static PointerRNA rna_FileBrowser_params_get(PointerRNA *ptr)
     return rna_pointer_inherit_refine(ptr, params_struct, params);
   }
 
-  return rna_pointer_inherit_refine(ptr, nullptr, nullptr);
+  return PointerRNA_NULL;
 }
 
 static void rna_FileBrowser_FSMenuEntry_path_get(PointerRNA *ptr, char *value)
@@ -3205,7 +3205,8 @@ static void rna_FileBrowser_FSMenu_begin(CollectionPropertyIterator *iter, FSMen
 static PointerRNA rna_FileBrowser_FSMenu_get(CollectionPropertyIterator *iter)
 {
   ListBaseIterator *internal = &iter->internal.listbase;
-  PointerRNA r_ptr = RNA_pointer_create(nullptr, &RNA_FileBrowserFSMenuEntry, internal->link);
+  PointerRNA r_ptr = RNA_pointer_create_discrete(
+      nullptr, &RNA_FileBrowserFSMenuEntry, internal->link);
   return r_ptr;
 }
 

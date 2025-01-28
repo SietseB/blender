@@ -55,6 +55,7 @@
 #include "DEG_depsgraph_query.hh"
 
 #include <fmt/format.h>
+#include <iostream>
 #include <sstream>
 
 namespace blender::nodes {
@@ -4017,6 +4018,11 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
   btree.ensure_topology_cache();
   btree.ensure_interface_cache();
   if (btree.has_available_link_cycle()) {
+    return nullptr;
+  }
+  if (btree.type != NTREE_GEOMETRY) {
+    /* It's possible to get into this situation when localizing a linked node group that is
+     * missing (#133524). */
     return nullptr;
   }
   const bNodeTreeZones *tree_zones = btree.zones();

@@ -4,10 +4,10 @@
 
 #include <utility>
 
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_attribute_math.hh"
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
-#include "BKE_deform.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_type_conversions.hh"
 
@@ -26,9 +26,11 @@
 
 #include "FN_field.hh"
 
-#include "CLG_log.h"
-
 #include "attribute_access_intern.hh"
+
+#ifndef NDEBUG
+#  include <iostream>
+#endif
 
 namespace blender::bke {
 

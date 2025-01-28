@@ -13,10 +13,11 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_endian_switch.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
+#include "BLI_string.h"
+#include "BLI_string_utf8.h"
 #include "BLI_string_utils.hh"
 #include "BLI_utildefines.h"
 
@@ -27,13 +28,12 @@
 
 #include "BKE_attribute.hh"
 #include "DNA_ID.h"
-#include "DNA_anim_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
-#include "DNA_scene_types.h"
 
 #include "BKE_anim_data.hh"
 #include "BKE_curve.hh"
@@ -1960,7 +1960,7 @@ std::optional<std::string> BKE_keyblock_curval_rnapath_get(const Key *key, const
   if (ELEM(nullptr, key, kb)) {
     return std::nullopt;
   }
-  PointerRNA ptr = RNA_pointer_create((ID *)&key->id, &RNA_ShapeKey, (KeyBlock *)kb);
+  PointerRNA ptr = RNA_pointer_create_discrete((ID *)&key->id, &RNA_ShapeKey, (KeyBlock *)kb);
   PropertyRNA *prop = RNA_struct_find_property(&ptr, "value");
   return RNA_path_from_ID_to_property(&ptr, prop);
 }

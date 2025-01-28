@@ -913,7 +913,7 @@ static void rna_Scene_objects_end(CollectionPropertyIterator *iter)
 static PointerRNA rna_Scene_objects_get(CollectionPropertyIterator *iter)
 {
   Object *ob = static_cast<Object *>(((BLI_Iterator *)iter->internal.custom)->current);
-  return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, ob);
+  return RNA_id_pointer_create(reinterpret_cast<ID *>(ob));
 }
 
 /* End of read-only Iterator of all the scene objects. */
@@ -1336,61 +1336,9 @@ static bool rna_RenderSettings_is_movie_format_get(PointerRNA *ptr)
   return BKE_imtype_is_movie(rd->im_format.imtype);
 }
 
-static int get_first_valid_depth(const int valid_depths)
-{
-  /* set first available depth */
-  const char depth_ls[] = {
-      R_IMF_CHAN_DEPTH_32,
-      R_IMF_CHAN_DEPTH_24,
-      R_IMF_CHAN_DEPTH_16,
-      R_IMF_CHAN_DEPTH_12,
-      R_IMF_CHAN_DEPTH_10,
-      R_IMF_CHAN_DEPTH_8,
-      R_IMF_CHAN_DEPTH_1,
-      0,
-  };
-  for (int i = 0; depth_ls[i]; i++) {
-    if (valid_depths & depth_ls[i]) {
-      return depth_ls[i];
-    }
-  }
-  return R_IMF_CHAN_DEPTH_8;
-}
-
 static void rna_ImageFormatSettings_file_format_set(PointerRNA *ptr, int value)
 {
-  ImageFormatData *imf = (ImageFormatData *)ptr->data;
-  ID *id = ptr->owner_id;
-  imf->imtype = value;
-
-  const bool is_render = (id && GS(id->name) == ID_SCE);
-  /* see note below on why this is */
-  const char chan_flag = BKE_imtype_valid_channels(imf->imtype, true) |
-                         (is_render ? IMA_CHAN_FLAG_BW : 0);
-
-  /* ensure depth and color settings match */
-  if ((imf->planes == R_IMF_PLANES_BW) && !(chan_flag & IMA_CHAN_FLAG_BW)) {
-    imf->planes = R_IMF_PLANES_RGBA;
-  }
-  if ((imf->planes == R_IMF_PLANES_RGBA) && !(chan_flag & IMA_CHAN_FLAG_RGBA)) {
-    imf->planes = R_IMF_PLANES_RGB;
-  }
-
-  /* ensure usable depth */
-  {
-    const int depth_ok = BKE_imtype_valid_depths(imf->imtype);
-    if ((imf->depth & depth_ok) == 0) {
-      imf->depth = get_first_valid_depth(depth_ok);
-    }
-  }
-
-  if (id && GS(id->name) == ID_SCE) {
-    Scene *scene = (Scene *)ptr->owner_id;
-    RenderData *rd = &scene->r;
-    MOV_validate_output_settings(rd, imf);
-  }
-
-  BKE_image_format_update_color_space_for_type(imf);
+  BKE_image_format_set((ImageFormatData *)ptr->data, ptr->owner_id, value);
 }
 
 static const EnumPropertyItem *rna_ImageFormatSettings_file_format_itemf(bContext * /*C*/,
@@ -2515,7 +2463,7 @@ PointerRNA rna_FreestyleLineSet_linestyle_get(PointerRNA *ptr)
 {
   FreestyleLineSet *lineset = (FreestyleLineSet *)ptr->data;
 
-  return rna_pointer_inherit_refine(ptr, &RNA_FreestyleLineStyle, lineset->linestyle);
+  return RNA_id_pointer_create(reinterpret_cast<ID *>(lineset->linestyle));
 }
 
 void rna_FreestyleLineSet_linestyle_set(PointerRNA *ptr,
@@ -2993,7 +2941,7 @@ static void rna_FFmpegSettings_codec_update(Main * /*bmain*/, Scene * /*scene*/,
     Scene *scene = (Scene *)ptr->owner_id;
     const int valid_depths = BKE_imtype_valid_depths_with_video(scene->r.im_format.imtype, id);
     if ((scene->r.im_format.depth & valid_depths) == 0) {
-      scene->r.im_format.depth = get_first_valid_depth(valid_depths);
+      scene->r.im_format.depth = BKE_imtype_first_valid_depth(valid_depths);
     }
   }
 }

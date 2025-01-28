@@ -27,7 +27,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_sound_types.h"
 #include "DNA_speaker_types.h"
 
 #include "BKE_action.hh"
@@ -1171,7 +1170,7 @@ void BKE_nlameta_flush_transforms(NlaStrip *mstrip)
     /* only if scale changed, need to perform RNA updates */
     if (scaleChanged) {
       /* use RNA updates to compute scale properly */
-      PointerRNA ptr = RNA_pointer_create(nullptr, &RNA_NlaStrip, strip);
+      PointerRNA ptr = RNA_pointer_create_discrete(nullptr, &RNA_NlaStrip, strip);
 
       RNA_float_set(&ptr, "frame_start", strip->start);
       RNA_float_set(&ptr, "frame_end", strip->end);

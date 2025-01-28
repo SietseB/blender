@@ -16,7 +16,6 @@
 #include "DNA_asset_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_defaults.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_key_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -27,15 +26,12 @@
 #include "DNA_view3d_types.h"
 #include "DNA_workspace_types.h"
 
-#include "BLI_bitmap.h"
 #include "BLI_hash.h"
 #include "BLI_listbase.h"
 #include "BLI_math_color.h"
-#include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 #include "BLI_string.h"
-#include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
@@ -59,12 +55,10 @@
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
-#include "BKE_mesh_mapping.hh"
 #include "BKE_mesh_runtime.hh"
 #include "BKE_modifier.hh"
 #include "BKE_multires.hh"
 #include "BKE_object.hh"
-#include "BKE_object_types.hh"
 #include "BKE_paint.hh"
 #include "BKE_paint_bvh.hh"
 #include "BKE_scene.hh"
@@ -451,7 +445,7 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(const PaintMode m
     case PaintMode::WeightGPencil:
       return rna_enum_brush_gpencil_weight_types_items;
     case PaintMode::SculptCurves:
-      return rna_enum_brush_gpencil_sculpt_types_items;
+      return rna_enum_brush_curves_sculpt_brush_type_items;
     case PaintMode::Invalid:
       break;
   }
@@ -2195,6 +2189,10 @@ void BKE_sculptsession_free_pbvh(Object &object)
   ss->vertex_info.boundary.clear_and_shrink();
   ss->fake_neighbors.fake_neighbor_index = {};
   ss->topology_island_cache.reset();
+
+  ss->sculpt_persistent_co = {};
+  ss->sculpt_persistent_no = {};
+  ss->sculpt_persistent_disp = {};
 
   ss->clear_active_vert(false);
 }

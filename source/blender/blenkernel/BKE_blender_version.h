@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "BLI_utildefines.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +31,7 @@ extern "C" {
 
 /* Blender file format version. */
 #define BLENDER_FILE_VERSION BLENDER_VERSION
-#define BLENDER_FILE_SUBVERSION 25
+#define BLENDER_FILE_SUBVERSION 27
 
 /* Minimum Blender version that supports reading file written with the current
  * version. Older Blender versions will test this and cancel loading the file, showing a warning to

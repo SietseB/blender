@@ -353,7 +353,7 @@ static PointerRNA rna_ID_original_get(PointerRNA *ptr)
 {
   ID *id = (ID *)ptr->data;
 
-  return rna_pointer_inherit_refine(ptr, &RNA_ID, DEG_get_original_id(id));
+  return RNA_id_pointer_create(DEG_get_original_id(id));
 }
 
 short RNA_type_to_ID_code(const StructRNA *type)
@@ -670,7 +670,7 @@ StructRNA *rna_PropertyGroup_register(Main * /*bmain*/,
                                       StructFreeFunc /*free*/)
 {
   /* create dummy pointer */
-  PointerRNA dummy_ptr = RNA_pointer_create(nullptr, &RNA_PropertyGroup, nullptr);
+  PointerRNA dummy_ptr = RNA_pointer_create_discrete(nullptr, &RNA_PropertyGroup, nullptr);
 
   /* validate the python class */
   if (validate(&dummy_ptr, data, nullptr) != 0) {

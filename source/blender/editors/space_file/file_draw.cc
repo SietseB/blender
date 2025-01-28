@@ -79,7 +79,8 @@ void ED_file_path_button(bScreen *screen,
   BLI_assert_msg(params != nullptr,
                  "File select parameters not set. The caller is expected to check this.");
 
-  PointerRNA params_rna_ptr = RNA_pointer_create(&screen->id, &RNA_FileSelectParams, params);
+  PointerRNA params_rna_ptr = RNA_pointer_create_discrete(
+      &screen->id, &RNA_FileSelectParams, params);
 
   /* callbacks for operator check functions */
   UI_block_func_set(block, file_draw_check_cb, nullptr, nullptr);
@@ -371,7 +372,7 @@ static void file_but_enable_drag(uiBut *but,
     const int import_method = ED_fileselect_asset_import_method_get(sfile, file);
     BLI_assert(import_method > -1);
 
-    UI_but_drag_set_asset(but, file->asset, import_method, icon, preview_image, scale);
+    UI_but_drag_set_asset(but, file->asset, import_method, icon, file->preview_icon_id);
   }
   else if (preview_image) {
     UI_but_drag_set_image(but, path, icon, preview_image, scale);
@@ -651,7 +652,7 @@ static void file_draw_preview(const FileDirEntry *file,
     float border_color[4] = {1.0f, 1.0f, 1.0f, 0.15f};
     float bgcolor[4];
     UI_GetThemeColor4fv(TH_BACK, bgcolor);
-    if (rgb_to_grayscale(bgcolor) > 0.5f) {
+    if (srgb_to_grayscale(bgcolor) > 0.5f) {
       border_color[0] = 0.0f;
       border_color[1] = 0.0f;
       border_color[2] = 0.0f;
@@ -719,7 +720,7 @@ static void file_draw_special_image(const FileDirEntry *file,
     /* Small icon in the middle of large image, scaled to fit container and UI scale */
     float icon_opacity = 0.4f;
     uchar icon_color[4] = {0, 0, 0, 255};
-    if (rgb_to_grayscale(document_img_col) < 0.5f) {
+    if (srgb_to_grayscale(document_img_col) < 0.5f) {
       icon_color[0] = 255;
       icon_color[1] = 255;
       icon_color[2] = 255;

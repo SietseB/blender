@@ -29,6 +29,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
+#include "BLI_rect.h"
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
@@ -90,7 +91,7 @@ void ED_view3d_text_colors_get(const Scene *scene,
   /* Default text color from TH_TEXT_HI. If it is too close
    * to the background color, darken or lighten it. */
   UI_GetThemeColor3fv(TH_TEXT_HI, r_text_color);
-  float text_lightness = rgb_to_grayscale(r_text_color);
+  float text_lightness = srgb_to_grayscale(r_text_color);
   float bg_color[3];
   ED_view3d_background_color_get(scene, v3d, bg_color);
   const float distance = len_v3v3(r_text_color, bg_color);
@@ -105,7 +106,7 @@ void ED_view3d_text_colors_get(const Scene *scene,
   }
 
   /* Shadow color is black or white depending on final text lightness. */
-  text_lightness = rgb_to_grayscale(r_text_color);
+  text_lightness = srgb_to_grayscale(r_text_color);
   if (text_lightness > 0.4f) {
     copy_v3_fl(r_shadow_color, 0.0f);
   }

@@ -1401,6 +1401,8 @@ def km_uv_editor(params):
          {"properties": [("clear", False)]}),
         ("uv.pin", {"type": 'P', "value": 'PRESS', "alt": True},
          {"properties": [("clear", True)]}),
+        ("uv.copy", {"type": 'C', "value": 'PRESS', "ctrl": True}, None),
+        ("uv.paste", {"type": 'V', "value": 'PRESS', "ctrl": True}, None),
         op_menu("IMAGE_MT_uvs_unwrap", {"type": 'U', "value": 'PRESS'}),
         (
             op_menu_pie("IMAGE_MT_uvs_snap_pie", {"type": 'S', "value": 'PRESS', "shift": True})
@@ -4080,6 +4082,10 @@ def km_grease_pencil_sculpt_mode(params):
 
         # Active layer
         op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+
+        # Auto-masking menu.
+        op_menu_pie("VIEW3D_MT_grease_pencil_sculpt_automasking_pie", {
+                    "type": 'A', "value": 'PRESS', "shift": True, "alt": True}),
 
         *_template_paint_radial_control("gpencil_sculpt_paint"),
         *_template_asset_shelf_popup("VIEW3D_AST_brush_gpencil_sculpt", params.spacebar_action),

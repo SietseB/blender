@@ -36,6 +36,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_animsys.h"
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
@@ -1343,7 +1344,9 @@ static bool modifier_apply_obdata(ReportList *reports,
       multires_force_sculpt_rebuild(ob);
     }
 
-    if (mmd && mmd->totlvl && mti->type == ModifierTypeType::OnlyDeform) {
+    if (mmd && mmd->totlvl &&
+        (mti->type == ModifierTypeType::OnlyDeform || md_eval->type == eModifierType_Nodes))
+    {
       if (!multiresModifier_reshapeFromDeformModifier(depsgraph, ob, mmd, md_eval)) {
         BKE_report(reports, RPT_ERROR, "Multires modifier returned error, skipping apply");
         return false;

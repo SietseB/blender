@@ -35,10 +35,6 @@ endif()
 #  add_subdirectory(cycles)
 #endif()
 
-if(WITH_INTERNATIONAL)
-  add_subdirectory(locale)
-endif()
-
 if(WITH_BULLET)
   add_subdirectory(rigidbody)
 endif()
