@@ -751,7 +751,7 @@ static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *ar
   BLF_size(font_id, style->widget.points * UI_SCALE_FAC);
   BLF_color4fv(font_id, color);
   BLF_enable(font_id, BLF_SHADOW);
-  BLF_shadow(font_id, FontShadowType::Outline, blender::float4{0.0f, 0.0f, 0.0f, 0.4f});
+  BLF_shadow(font_id, FontShadowType::Outline, blender::float4{0.0f, 0.0f, 0.0f, 0.3f});
   BLF_shadow_offset(font_id, 1, -1);
   const char *text;
   text = TIP_("Editing Shape Key");
@@ -1308,20 +1308,22 @@ static void edit_init(bContext *C, wmOperator *op)
     skd.shape_key_edit_data = is_first ? &edit_data : nullptr;
     is_first = false;
   }
-
-  /* Get largest 3D viewport in screen. */
+  /* Get largest 3D viewport in all windows. */
   edit_data.area = nullptr;
   edit_data.region = nullptr;
   edit_data.header_height = 0;
   edit_data.npanel_width = 0;
-  bScreen *screen = CTX_wm_screen(C);
   int max_width = 0;
-  LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-    if (area->spacetype == SPACE_VIEW3D) {
-      int width = area->totrct.xmax - area->totrct.xmin;
-      if (width > max_width) {
-        edit_data.area = area;
-        max_width = width;
+  const wmWindowManager *wm = CTX_wm_manager(C);
+  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+    bScreen *screen = WM_window_get_active_screen(window);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      if (area->spacetype == SPACE_VIEW3D) {
+        int width = area->totrct.xmax - area->totrct.xmin;
+        if (width > max_width) {
+          edit_data.area = area;
+          max_width = width;
+        }
       }
     }
   }
@@ -1330,7 +1332,9 @@ static void edit_init(bContext *C, wmOperator *op)
       if (region->regiontype == RGN_TYPE_WINDOW) {
         edit_data.region = region;
       }
-      if (region->alignment == RGN_ALIGN_TOP && region->regiontype == RGN_TYPE_TOOL_HEADER) {
+      if (region->alignment == RGN_ALIGN_TOP &&
+          ELEM(region->regiontype, RGN_TYPE_TOOL_HEADER, RGN_TYPE_HEADER))
+      {
         edit_data.header_height += int(region->sizey * UI_SCALE_FAC + 0.5f);
       }
       if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {

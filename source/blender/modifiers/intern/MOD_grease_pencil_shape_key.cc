@@ -317,7 +317,7 @@ static void modify_geometry_set(ModifierData *md,
 
 static void draw_shape_key_filter_settings(uiLayout *layout, PointerRNA *ptr)
 {
-  PointerRNA ob_ptr = RNA_pointer_create(ptr->owner_id, &RNA_Object, ptr->owner_id);
+  PointerRNA ob_ptr = RNA_pointer_create_discrete(ptr->owner_id, &RNA_Object, ptr->owner_id);
   PointerRNA obj_data_ptr = RNA_pointer_get(&ob_ptr, "data");
   const bool has_shape_key = RNA_string_length(ptr, "shape_key_name") != 0;
   uiLayout *row, *col, *sub;
