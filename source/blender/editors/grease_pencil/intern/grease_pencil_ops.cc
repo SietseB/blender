@@ -25,6 +25,10 @@
 
 #include "RNA_access.hh"
 
+#ifdef WITH_ONDINE
+#  include "ondine_ops.hh"
+#endif
+
 namespace blender::ed::greasepencil {
 
 bool grease_pencil_context_poll(bContext *C)
@@ -318,6 +322,10 @@ void ED_operatortypes_grease_pencil()
   ED_operatortypes_grease_pencil_trace();
   ED_operatortypes_grease_pencil_bake_animation();
   ED_operatortypes_grease_pencil_shape_keys();
+
+#ifdef WITH_ONDINE
+  OD_operatortypes_ondine();
+#endif  // WITH_ONDINE
 }
 
 void ED_operatormacros_grease_pencil()

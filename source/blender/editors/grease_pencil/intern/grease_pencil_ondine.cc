@@ -6,12 +6,7 @@
  * Operators for Ondine watercolor Grease Pencil.
  */
 
-#include "DNA_material_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_space_types.h"
-
 #include "BKE_camera.h"
-#include "BKE_context.hh"
 #include "BKE_curves.hh"
 #include "BKE_grease_pencil.hh"
 #include "BKE_main.hh"
@@ -19,18 +14,10 @@
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
 
-#include "BLI_ghash.h"
-#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 
-#include "WM_api.hH"
-
-#include "RNA_access.hh"
-#include "RNA_define.hh"
-
-#include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
 #include "ED_grease_pencil.hh"
@@ -40,106 +27,64 @@
 namespace blender::ondine {
 
 /* Object instance of Ondine runtime render data. */
-GpencilOndine *ondine_render = new GpencilOndine();
-
-ARegion *get_invoke_region(bContext *C)
-{
-  bScreen *screen = CTX_wm_screen(C);
-  if (screen == nullptr) {
-    return nullptr;
-  }
-  ScrArea *area = BKE_screen_find_big_area(screen, SPACE_VIEW3D, 0);
-  if (area == nullptr) {
-    return nullptr;
-  }
-
-  ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
-
-  return region;
-}
-
-View3D *get_invoke_view3d(bContext *C)
-{
-  bScreen *screen = CTX_wm_screen(C);
-  if (screen == nullptr) {
-    return nullptr;
-  }
-  ScrArea *area = BKE_screen_find_big_area(screen, SPACE_VIEW3D, 0);
-  if (area == nullptr) {
-    return nullptr;
-  }
-  if (area) {
-    return (View3D *)area->spacedata.first;
-  }
-
-  return nullptr;
-}
+OndinePrepareRender *ondine_prepare_render = new OndinePrepareRender();
 
 /* Runtime render properties. */
-GpencilOndine::GpencilOndine() {}
+OndinePrepareRender::OndinePrepareRender() {}
 
-void GpencilOndine::init(bContext *C)
+void OndinePrepareRender::init(bContext *C)
 {
   /* Easy access data. */
-  bmain_ = CTX_data_main(C);
-  depsgraph_ = CTX_data_depsgraph_pointer(C);
-  scene_ = CTX_data_scene(C);
-  region_ = get_invoke_region(C);
-  v3d_ = get_invoke_view3d(C);
-  rv3d_ = (RegionView3D *)region_->regiondata;
+  this->depsgraph = CTX_data_depsgraph_pointer(C);
+  this->scene = CTX_data_scene(C);
 }
 
-bool GpencilOndine::prepare_camera_params()
+bool OndinePrepareRender::prepare_camera_params()
 {
   /* Get camera. */
-  Scene *scene = DEG_get_evaluated_scene(depsgraph_);
+  Scene *scene = DEG_get_evaluated_scene(this->depsgraph);
   BKE_scene_camera_switch_update(scene);
-  Object *cam_ob = scene->camera;
+  Object *camera = scene->camera;
 
-  /* Calculate camera matrix. */
-  if (cam_ob != nullptr) {
-    /* Set up parameters. */
-    CameraParams params;
-    BKE_camera_params_init(&params);
-    BKE_camera_params_from_object(&params, cam_ob);
-
-    /* Compute matrix, view-plane, etc. */
-    RenderData *rd = &scene_->r;
-    BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
-    BKE_camera_params_compute_matrix(&params);
-
-    float viewmat[4][4];
-    invert_m4_m4(viewmat, cam_ob->object_to_world().ptr());
-
-    mul_m4_m4m4(persmat_, params.winmat, viewmat);
-
-    /* Store camera position and normal vector. */
-    float cam_mat[3][3];
-    camera_loc_ = cam_ob->loc;
-    transpose_m3_m4(cam_mat, cam_ob->world_to_object().ptr());
-    copy_v3_v3(camera_normal_vec_, cam_mat[2]);
-
-    /* Store camera rotation. */
-    camera_rot_sin_ = fabsf(sin(cam_ob->rot[0]));
-    camera_rot_cos_ = fabsf(cos(cam_ob->rot[0]));
-  }
-  else {
-    unit_m4(persmat_);
-    camera_rot_sin_ = 1.0f;
-    camera_rot_cos_ = 0.0f;
+  if (camera == nullptr) {
+    return false;
   }
 
-  /* Camera position. */
-  /* TODO: Can we get this in another way? Then we won't need `rv3d_` any more! */
-  copy_v3_v3(camera_z_axis_, rv3d_->viewinv[2]);
+  /* Set up camera parameters. */
+  CameraParams params;
+  BKE_camera_params_init(&params);
+  BKE_camera_params_from_object(&params, camera);
 
-  render_x_ = float(scene_->r.xsch * scene_->r.size) / 100.0f;
-  render_y_ = float(scene_->r.ysch * scene_->r.size) / 100.0f;
+  /* Compute camera matrix, view-plane, etc. */
+  RenderData *rd = &this->scene->r;
+  BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
+  BKE_camera_params_compute_matrix(&params);
+
+  const float4x4 viewmat = math::invert(camera->object_to_world());
+  this->camera_perspective_matrix = float4x4(params.winmat) * viewmat;
+
+  /* Store camera position and normal vector. */
+  this->camera_location = camera->loc;
+  float cam_mat[3][3];
+  transpose_m3_m4(cam_mat, camera->world_to_object().ptr());
+  copy_v3_v3(this->camera_normal_vec, cam_mat[2]);
+
+  /* Store camera rotation. */
+  this->camera_rot_sin = math::abs(sin(camera->rot[0]));
+  this->camera_rot_cos = math::abs(cos(camera->rot[0]));
+
+  /* Store camera z-axis, for calculating z-depth of objects. */
+  const float4x4 camera_to_world = math::normalize(camera->object_to_world());
+  copy_v3_v3(this->camera_z_axis, camera_to_world[2]);
+
+  this->render_width = float(this->scene->r.xsch * this->scene->r.size) / 100.0f;
+  this->render_height = float(this->scene->r.ysch * this->scene->r.size) / 100.0f;
+  this->render_size = {this->render_width, this->render_height};
 
   return true;
 }
 
-void GpencilOndine::set_unique_stroke_seeds(bContext *C, const bool current_frame_only)
+void OndinePrepareRender::set_unique_stroke_seeds(bContext *C, const bool current_frame_only)
 {
   const Main *bmain = CTX_data_main(C);
   const Scene &scene = *CTX_data_scene(C);
@@ -187,61 +132,52 @@ void GpencilOndine::set_unique_stroke_seeds(bContext *C, const bool current_fram
   }
 }
 
-float2 GpencilOndine::gpencil_3d_point_to_2d(const float3 co)
+float2 OndinePrepareRender::get_point_in_2d(const float3 &pos) const
 {
-  float3 parent_co = math::transform_point(diff_mat_, co);
+  float2 co_2d = (float2(math::project_point(this->camera_perspective_matrix, pos)) + 1.0f) *
+                 0.5f * this->render_size;
+  co_2d.y = this->render_height - co_2d.y;
 
-  float2 r_co;
-  mul_v2_project_m4_v3(&r_co.x, persmat_, &parent_co.x);
-  r_co.x = (r_co.x + 1.0f) / 2.0f * render_x_;
-  r_co.y = render_y_ - (r_co.y + 1.0f) / 2.0f * render_y_;
-
-  return r_co;
+  return co_2d;
 }
 
-float GpencilOndine::stroke_point_radius_get(const float3 point, const float thickness)
+float OndinePrepareRender::get_stroke_point_radius(const float3 &point,
+                                                   const float4x4 &transform_matrix) const
 {
-  const float stroke_radius = thickness * 0.5f;
-  float3 p1, p2;
-  p1.x = point.x;
-  p1.y = point.y;
-  p1.z = point.z;
-  p2.x = point.x;
-  p2.y = point.y + stroke_radius * camera_rot_cos_;
-  p2.z = point.z + stroke_radius * camera_rot_sin_;
-
-  const float2 screen_co1 = gpencil_3d_point_to_2d(p1);
-  const float2 screen_co2 = gpencil_3d_point_to_2d(p2);
-  const float2 v1 = screen_co1 - screen_co2;
-  float radius = len_v2(v1);
+  const float3 world_co1 = math::project_point(transform_matrix, point);
+  const float3 world_co2 = math::project_point(
+      transform_matrix, point + float3({0.0f, this->camera_rot_cos, this->camera_rot_sin}));
+  const float2 screen_co1 = get_point_in_2d(world_co1);
+  const float2 screen_co2 = get_point_in_2d(world_co2);
+  const float radius = len_v2(screen_co1 - screen_co2);
 
   return math::max(radius, 1.0f);
 }
 
-void GpencilOndine::get_vertex_color(const MaterialGPencilStyle *mat_style,
-                                     const ColorGeometry4f &vertex_color,
-                                     const bool use_texture,
-                                     float *r_color)
+void OndinePrepareRender::get_vertex_color(const MaterialGPencilStyle *mat_style,
+                                           const ColorGeometry4f &vertex_color,
+                                           const bool use_texture,
+                                           float *r_color)
 {
   const float vertex_factor = use_texture ? mat_style->mix_stroke_factor : vertex_color.a;
   interp_v3_v3v3(r_color, mat_style->stroke_rgba, vertex_color, vertex_factor);
 }
 
-void GpencilOndine::set_fill_color(const ColorGeometry4f &fill_color,
-                                   const MaterialGPencilStyle *mat_style,
-                                   const bke::greasepencil::Layer &layer,
-                                   OndineRenderStroke &r_render_stroke)
+void OndinePrepareRender::set_fill_color(const ColorGeometry4f &fill_color,
+                                         const MaterialGPencilStyle *mat_style,
+                                         const bke::greasepencil::Layer &layer,
+                                         OndineRenderStroke &r_render_stroke)
 {
-  float color[3];
   const float vertex_factor = (mat_style->fill_style == GP_MATERIAL_FILL_STYLE_GRADIENT) ?
                                   mat_style->mix_factor :
-                                  fill_color[3];
-  interp_v3_v3v3(color, mat_style->fill_rgba, fill_color, vertex_factor);
-  copy_v3_v3(r_render_stroke.render_fill_color, color);
+                                  fill_color.a;
+  interp_v3_v3v3(
+      r_render_stroke.render_fill_color, mat_style->fill_rgba, fill_color, vertex_factor);
   r_render_stroke.render_fill_opacity = mat_style->fill_rgba[3] * layer.opacity;
 }
 
-void GpencilOndine::set_zdepth(Object *object)
+void OndinePrepareRender::set_zdepth(Object *object,
+                                     const float4x4 &object_instance_transform) const
 {
   /* Grease pencil object? */
   if (object->type != OB_GREASE_PENCIL) {
@@ -254,11 +190,14 @@ void GpencilOndine::set_zdepth(Object *object)
     return;
   }
 
-  /* Save z-depth from view to sort from back to front. */
-  grease_pencil.runtime->render_zdepth = dot_v3v3(camera_z_axis_, object->object_to_world()[3]);
+  /* Save z-depth from camera view to sort from back to front. */
+  // TODO: check if this calculation is correct...
+  grease_pencil.runtime->render_zdepth = math::dot(
+      this->camera_z_axis, (object_instance_transform * object->object_to_world()).location());
 }
 
-void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matrix_world)
+void OndinePrepareRender::set_render_data(Object *object,
+                                          const float4x4 &object_instance_transform)
 {
   /* Grease pencil object? */
   if (object->type != OB_GREASE_PENCIL) {
@@ -272,254 +211,264 @@ void GpencilOndine::set_render_data(Object *object, const blender::float4x4 matr
   }
 
   /* Iterate all layers of GP watercolor object. */
-  for (const bke::greasepencil::Layer *layer : grease_pencil.layers()) {
-    /* Layer is hidden? */
-    if (!layer->is_visible())
-      continue;
+  threading::parallel_for(
+      grease_pencil.layers().index_range(), 1, [&](const IndexRange layer_range) {
+        for (const int layer_i : layer_range) {
+          const bke::greasepencil::Layer &layer = grease_pencil.layer(layer_i);
 
-    /* Active keyframe? */
-    bke::greasepencil::Drawing *drawing = grease_pencil.get_drawing_at(*layer, scene_->r.cfra);
-    if (drawing == nullptr) {
-      continue;
-    }
-    if (drawing->strokes().curves_num() == 0) {
-      continue;
-    }
+          /* Layer is hidden? */
+          if (!layer.is_visible())
+            continue;
 
-    /* TODO: Prepare layer matrix and pixel size. */
-    const float4x4 viewmat = layer->to_world_space(*object);
-    const float object_scale = mat4_to_scale(object->object_to_world().ptr());
-
-    const bke::CurvesGeometry &curves = drawing->strokes();
-    const OffsetIndices<int> points_by_curve = curves.points_by_curve();
-    drawing->runtime->points_2d.reinitialize(curves.points_num());
-    Array<GPStrokePoint> &points_2d = drawing->runtime->points_2d;
-    drawing->runtime->render_strokes.reinitialize(curves.curves_num());
-    Array<OndineRenderStroke> &render_strokes = drawing->runtime->render_strokes;
-    memset(render_strokes.data(), 0, render_strokes.as_span().size_in_bytes());
-
-    const Span<float3> positions = curves.positions();
-    const VArray<ColorGeometry4f> fill_colors = drawing->fill_colors();
-    const VArray<bool> cyclic = curves.cyclic();
-    const VArray<int> materials = *curves.attributes().lookup_or_default<int>(
-        "material_index", bke::AttrDomain::Curve, 0);
-    const VArray<float> opacities = drawing->opacities();
-    const VArray<float> radii = drawing->radii();
-    const VArray<ColorGeometry4f> vertex_colors = drawing->vertex_colors();
-
-    threading::parallel_for(curves.curves_range(), 64, [&](const IndexRange curve_range) {
-      for (const int curve_i : curve_range) {
-        const IndexRange points = points_by_curve[curve_i];
-
-        /* Set fill and stroke flags. */
-        MaterialGPencilStyle *mat_style = BKE_gpencil_material_settings(object,
-                                                                        materials[curve_i] + 1);
-        if (mat_style->flag & GP_MATERIAL_HIDE) {
-          continue;
-        }
-        const bool has_stroke = ((mat_style->flag & GP_MATERIAL_STROKE_SHOW) &&
-                                 (mat_style->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESHOLD));
-        const bool has_fill = ((mat_style->flag & GP_MATERIAL_FILL_SHOW) &&
-                               (mat_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESHOLD));
-        const bool use_texture = (mat_style->stroke_style == GP_MATERIAL_STROKE_STYLE_TEXTURE &&
-                                  mat_style->sima != nullptr && !has_fill);
-
-        if (has_stroke) {
-          render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_HAS_STROKE;
-        }
-        if (has_fill) {
-          render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_HAS_FILL;
-
-          /* Set fill color, in linear sRGB. */
-          set_fill_color(fill_colors[curve_i], mat_style, *layer, render_strokes[curve_i]);
-        }
-        if (cyclic[curve_i] || has_fill) {
-          render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_IS_CYCLIC;
-        }
-
-        /* Init min/max calculations. */
-        float min_y = FLT_MAX;
-        float max_x = -FLT_MAX;
-        int min_i1 = 0;
-        float bbox_minx = FLT_MAX, bbox_miny = FLT_MAX;
-        float bbox_maxx = -FLT_MAX, bbox_maxy = -FLT_MAX;
-        float dist_to_cam = 0.0f;
-        float min_dist_to_cam = -FLT_MAX, max_dist_to_cam = FLT_MAX;
-        int min_dist_point_index = 0;
-
-        /* Convert 3D stroke points to 2D. */
-        for (const int point : points_by_curve[curve_i]) {
-          /* Apply layer matrix. */
-          float3 co = math::transform_point(viewmat, positions[point]);
-
-          /* Apply object world matrix (given by object instances). */
-          co = math::transform_point(matrix_world, co);
-
-          /* Convert to 2D space. */
-          const float2 screen_co = gpencil_3d_point_to_2d(co);
-          points_2d[point].x = screen_co.x;
-          points_2d[point].y = screen_co.y;
-          points_2d[point].alpha = opacities[point];
-
-          /* Set vertex color. */
-          get_vertex_color(
-              mat_style, vertex_colors[point], use_texture, &points_2d[point].color_r);
-
-          /* Get distance to camera.
-           * Somehow we have to apply the object world matrix here again, I don't know why... */
-          mul_m4_v3(object->object_to_world().ptr(), co);
-          dist_to_cam = math::min(0.0f, math::dot(co - camera_loc_, camera_normal_vec_));
-          points_2d[point].dist_to_cam = dist_to_cam;
-
-          /* Keep track of closest/furthest point to camera. */
-          if (dist_to_cam < max_dist_to_cam) {
-            max_dist_to_cam = dist_to_cam;
+          /* Active keyframe? */
+          bke::greasepencil::Drawing *drawing = grease_pencil.get_drawing_at(layer,
+                                                                             this->scene->r.cfra);
+          if (drawing == nullptr) {
+            continue;
           }
-          if (dist_to_cam > min_dist_to_cam) {
-            min_dist_to_cam = dist_to_cam;
-            min_dist_point_index = point;
+          if (drawing->strokes().is_empty()) {
+            continue;
           }
 
-          /* Keep track of minimum y point. */
-          if (screen_co.y <= min_y) {
-            if ((points_2d[point].y < min_y) || (screen_co.x > max_x)) {
-              min_i1 = point;
-              min_y = screen_co.y;
-              max_x = screen_co.x;
-            }
-          }
+          const float4x4 layer_to_world = object_instance_transform *
+                                          layer.to_world_space(*object);
 
-          /* Get bounding box. */
-          if (bbox_minx > screen_co.x) {
-            bbox_minx = screen_co.x;
-          }
-          if (bbox_miny > screen_co.y) {
-            bbox_miny = screen_co.y;
-          }
-          if (bbox_maxx < screen_co.x) {
-            bbox_maxx = screen_co.x;
-          }
-          if (bbox_maxy < screen_co.y) {
-            bbox_maxy = screen_co.y;
-          }
-        }
+          const bke::CurvesGeometry &curves = drawing->strokes();
+          const OffsetIndices<int> points_by_curve = curves.points_by_curve();
+          drawing->runtime->points_2d.reinitialize(curves.points_num());
+          Array<GPStrokePoint> &points_2d = drawing->runtime->points_2d;
+          drawing->runtime->render_strokes.reinitialize(curves.curves_num());
+          Array<OndineRenderStroke> &render_strokes = drawing->runtime->render_strokes;
+          memset(render_strokes.data(), 0, render_strokes.as_span().size_in_bytes());
 
-        /* Calculate stroke width. */
-        bool pressure_is_set = false;
-        bool out_of_view = true;
-        float max_radius = 0.001f;
-        render_strokes[curve_i].render_stroke_radius = 0.0f;
-        if (has_stroke) {
-          /* Get stroke thickness, taking object scale into account. */
-          const float max_stroke_radius = stroke_point_radius_get(positions[min_dist_point_index],
-                                                                  object_scale);
-          render_strokes[curve_i].render_stroke_radius = max_stroke_radius;
+          const Span<float3> positions = curves.positions();
+          const VArray<ColorGeometry4f> fill_colors = drawing->fill_colors();
+          const VArray<bool> cyclic = curves.cyclic();
+          const VArray<int> materials = *curves.attributes().lookup_or_default<int>(
+              "material_index", bke::AttrDomain::Curve, 0);
+          const VArray<float> opacities = drawing->opacities();
+          const VArray<float> radii = drawing->radii();
+          const VArray<ColorGeometry4f> vertex_colors = drawing->vertex_colors();
 
-          /* Adjust point pressure based on distance to camera.
-           * That way a stroke will get thinner when it is further away from the camera. */
-          if ((min_dist_to_cam - max_dist_to_cam) > FLT_EPSILON) {
-            pressure_is_set = true;
+          threading::parallel_for(curves.curves_range(), 128, [&](const IndexRange curve_range) {
+            for (const int curve_i : curve_range) {
+              const IndexRange points = points_by_curve[curve_i];
 
-            for (const int point : points_by_curve[curve_i]) {
-              /* Adjust pressure based on camera distance. Bit slow, but the most accurate way. */
-              float radius = stroke_point_radius_get(positions[point], object_scale);
-              points_2d[point].radius = math::max(
-                  0.001f, radii[point] * math::min(1.0f, radius / max_stroke_radius));
-              max_radius = math::max(max_radius, points_2d[point].radius);
-
-              /* Point in view of camera? */
-              radius = max_stroke_radius * points_2d[point].radius;
-              if ((points_2d[point].x + radius) >= 0.0f &&
-                  (points_2d[point].x - radius) >= render_x_ &&
-                  (points_2d[point].y + radius) >= 0.0f &&
-                  (points_2d[point].y - radius) >= render_y_)
-              {
-                out_of_view = false;
+              /* Set fill and stroke flags. */
+              MaterialGPencilStyle *mat_style = BKE_gpencil_material_settings(
+                  object, materials[curve_i] + 1);
+              if (mat_style->flag & GP_MATERIAL_HIDE) {
+                continue;
               }
+              const bool has_stroke = ((mat_style->flag & GP_MATERIAL_STROKE_SHOW) &&
+                                       (mat_style->stroke_rgba[3] >
+                                        GPENCIL_ALPHA_OPACITY_THRESHOLD));
+              const bool has_fill = ((mat_style->flag & GP_MATERIAL_FILL_SHOW) &&
+                                     (mat_style->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESHOLD));
+              const bool use_texture = (mat_style->stroke_style ==
+                                            GP_MATERIAL_STROKE_STYLE_TEXTURE &&
+                                        mat_style->sima != nullptr && !has_fill);
+
+              if (has_stroke) {
+                render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_HAS_STROKE;
+              }
+              if (has_fill) {
+                render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_HAS_FILL;
+
+                /* Set fill color, in linear sRGB. */
+                set_fill_color(fill_colors[curve_i], mat_style, layer, render_strokes[curve_i]);
+              }
+              if (cyclic[curve_i] || has_fill) {
+                render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_IS_CYCLIC;
+              }
+
+              /* Init min/max calculations. */
+              float min_y = FLT_MAX;
+              float max_x = -FLT_MAX;
+              int min_i1 = 0;
+              float bbox_minx = FLT_MAX;
+              float bbox_miny = FLT_MAX;
+              float bbox_maxx = -FLT_MAX;
+              float bbox_maxy = -FLT_MAX;
+              float dist_to_cam = 0.0f;
+              float min_dist_to_cam = -FLT_MAX;
+              float max_dist_to_cam = FLT_MAX;
+              int min_dist_point_index = 0;
+
+              /* Convert 3D stroke points to 2D. */
+              for (const int point : points_by_curve[curve_i]) {
+                /* Convert coordinate to world space. */
+                const float3 co = math::transform_point(layer_to_world, positions[point]);
+
+                /* Convert to 2D space. */
+                const float2 screen_co = get_point_in_2d(co);
+                points_2d[point].x = screen_co.x;
+                points_2d[point].y = screen_co.y;
+                points_2d[point].alpha = opacities[point];
+
+                /* Set vertex color. */
+                get_vertex_color(
+                    mat_style, vertex_colors[point], use_texture, &points_2d[point].color_r);
+
+                /* Get distance to camera. */
+                dist_to_cam = math::min(
+                    0.0f, math::dot(co - this->camera_location, this->camera_normal_vec));
+                points_2d[point].dist_to_cam = dist_to_cam;
+
+                /* Keep track of closest/furthest point to camera. */
+                if (dist_to_cam < max_dist_to_cam) {
+                  max_dist_to_cam = dist_to_cam;
+                }
+                if (dist_to_cam > min_dist_to_cam) {
+                  min_dist_to_cam = dist_to_cam;
+                  min_dist_point_index = point;
+                }
+
+                /* Keep track of minimum y point. */
+                if (screen_co.y <= min_y) {
+                  if ((points_2d[point].y < min_y) || (screen_co.x > max_x)) {
+                    min_i1 = point;
+                    min_y = screen_co.y;
+                    max_x = screen_co.x;
+                  }
+                }
+
+                /* Get bounding box. */
+                if (bbox_minx > screen_co.x) {
+                  bbox_minx = screen_co.x;
+                }
+                if (bbox_miny > screen_co.y) {
+                  bbox_miny = screen_co.y;
+                }
+                if (bbox_maxx < screen_co.x) {
+                  bbox_maxx = screen_co.x;
+                }
+                if (bbox_maxy < screen_co.y) {
+                  bbox_maxy = screen_co.y;
+                }
+              }
+
+              /* Calculate stroke width. */
+              bool radius_is_set = false;
+              bool out_of_view = true;
+              float max_radius = 0.001f;
+              render_strokes[curve_i].render_stroke_radius = 0.0f;
+              if (has_stroke) {
+                /* Get the stroke thickness. */
+                const float max_stroke_radius = get_stroke_point_radius(
+                    positions[min_dist_point_index], layer_to_world);
+                render_strokes[curve_i].render_stroke_radius = max_stroke_radius;
+
+                /* Adjust point radius based on distance to camera.
+                 * That way a stroke will get thinner when it is further away from the camera. */
+                if ((min_dist_to_cam - max_dist_to_cam) > FLT_EPSILON) {
+                  radius_is_set = true;
+
+                  for (const int point : points_by_curve[curve_i]) {
+                    /* Adjust point radius based on camera distance. Bit slow, but the most
+                     * accurate way. */
+                    float radius = get_stroke_point_radius(positions[point], layer_to_world);
+                    points_2d[point].radius = math::max(
+                        0.001f, radii[point] * math::min(1.0f, radius / max_stroke_radius));
+                    max_radius = math::max(max_radius, points_2d[point].radius);
+
+                    /* Point in view of camera? */
+                    radius = max_stroke_radius * points_2d[point].radius;
+                    if (out_of_view && (points_2d[point].x + radius) >= 0.0f &&
+                        (points_2d[point].x - radius) <= this->render_width &&
+                        (points_2d[point].y + radius) >= 0.0f &&
+                        (points_2d[point].y - radius) <= this->render_height)
+                    {
+                      out_of_view = false;
+                    }
+                  }
+                }
+              }
+              if (!radius_is_set) {
+                for (const int point : points_by_curve[curve_i]) {
+                  points_2d[point].radius = math::max(0.001f, radii[point]);
+                  max_radius = math::max(max_radius, points_2d[point].radius);
+
+                  /* Point in view of camera? */
+                  if (out_of_view && points_2d[point].x >= 0.0f &&
+                      points_2d[point].x <= this->render_width && points_2d[point].y >= 0.0f &&
+                      points_2d[point].y <= this->render_height)
+                  {
+                    out_of_view = false;
+                  }
+                }
+              }
+              /* Normalize radius. */
+              if (max_radius > 1.0f) {
+                for (const int point : points_by_curve[curve_i]) {
+                  points_2d[point].radius /= max_radius;
+                }
+                max_radius = 1.0f;
+              }
+              render_strokes[curve_i].render_max_radius = max_radius;
+
+              if (out_of_view) {
+                render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
+              }
+              else {
+                render_strokes[curve_i].render_flag &= ~GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
+              }
+
+              /* Determine wether a fill is clockwise or counterclockwise.
+               * See: https://en.wikipedia.org/wiki/Curve_orientation */
+              render_strokes[curve_i].render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+              if (has_fill) {
+                const IndexRange curve_range = points_by_curve[curve_i];
+                const int min_i0 = (min_i1 == curve_range.first()) ? curve_range.last() :
+                                                                     min_i1 - 1;
+                const int min_i2 = (min_i1 == curve_range.last()) ? curve_range.first() :
+                                                                    min_i1 + 1;
+                const float det = (points_2d[min_i1].x - points_2d[min_i0].x) *
+                                      (points_2d[min_i2].y - points_2d[min_i0].y) -
+                                  (points_2d[min_i2].x - points_2d[min_i0].x) *
+                                      (points_2d[min_i1].y - points_2d[min_i0].y);
+                if (det > 0.0f) {
+                  render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
+                }
+              }
+
+              /* Add padding to 2d points. */
+              for (const int point : points_by_curve[curve_i]) {
+                points_2d[point].x += IMAGE_PADDING;
+                points_2d[point].y += IMAGE_PADDING;
+              }
+
+              /* Set bounding box. */
+              render_strokes[curve_i].render_bbox[0] = bbox_minx + IMAGE_PADDING;
+              render_strokes[curve_i].render_bbox[1] = bbox_miny + IMAGE_PADDING;
+              render_strokes[curve_i].render_bbox[2] = bbox_maxx + IMAGE_PADDING;
+              render_strokes[curve_i].render_bbox[3] = bbox_maxy + IMAGE_PADDING;
+              render_strokes[curve_i].render_dist_to_camera = max_dist_to_cam;
             }
-          }
+          });
         }
-        if (!pressure_is_set) {
-          for (const int point : points_by_curve[curve_i]) {
-            points_2d[point].radius = math::max(0.001f, radii[point]);
-            max_radius = math::max(max_radius, points_2d[point].radius);
-
-            /* Point in view of camera? */
-            if (points_2d[point].x >= 0.0f && points_2d[point].x <= render_x_ &&
-                points_2d[point].y >= 0.0f && points_2d[point].y <= render_y_)
-            {
-              out_of_view = false;
-            }
-          }
-        }
-        /* Normalize pressure. */
-        if (max_radius > 1.0f) {
-          for (const int point : points_by_curve[curve_i]) {
-            points_2d[point].radius /= max_radius;
-          }
-          max_radius = 1.0f;
-        }
-        render_strokes[curve_i].render_max_radius = max_radius;
-
-        if (out_of_view) {
-          render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
-        }
-        else {
-          render_strokes[curve_i].render_flag &= ~GP_ONDINE_STROKE_IS_OUT_OF_VIEW;
-        }
-
-        /* Determine wether a fill is clockwise or counterclockwise.
-         * See: https://en.wikipedia.org/wiki/Curve_orientation */
-        render_strokes[curve_i].render_flag &= ~GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
-        if (has_fill) {
-          const IndexRange curve_range = points_by_curve[curve_i];
-          const int min_i0 = (min_i1 == curve_range.first()) ? curve_range.last() : min_i1 - 1;
-          const int min_i2 = (min_i1 == curve_range.last()) ? curve_range.first() : min_i1 + 1;
-          const float det = (points_2d[min_i1].x - points_2d[min_i0].x) *
-                                (points_2d[min_i2].y - points_2d[min_i0].y) -
-                            (points_2d[min_i2].x - points_2d[min_i0].x) *
-                                (points_2d[min_i1].y - points_2d[min_i0].y);
-          if (det > 0.0f) {
-            render_strokes[curve_i].render_flag |= GP_ONDINE_STROKE_FILL_IS_CLOCKWISE;
-          }
-        }
-
-        /* Add padding to 2d points. */
-        for (const int point : points_by_curve[curve_i]) {
-          points_2d[point].x += IMAGE_PADDING;
-          points_2d[point].y += IMAGE_PADDING;
-        }
-
-        /* Set bounding box. */
-        render_strokes[curve_i].render_bbox[0] = bbox_minx + IMAGE_PADDING;
-        render_strokes[curve_i].render_bbox[1] = bbox_miny + IMAGE_PADDING;
-        render_strokes[curve_i].render_bbox[2] = bbox_maxx + IMAGE_PADDING;
-        render_strokes[curve_i].render_bbox[3] = bbox_maxy + IMAGE_PADDING;
-        render_strokes[curve_i].render_dist_to_camera = max_dist_to_cam;
-      }
-    });
-  }
+      });
 }
 
-void gpencil_ondine_set_unique_stroke_seeds(bContext *C, const bool current_frame_only)
+void ondine_set_unique_stroke_seeds(bContext *C, const bool current_frame_only)
 {
-  ondine_render->set_unique_stroke_seeds(C, current_frame_only);
+  ondine_prepare_render->set_unique_stroke_seeds(C, current_frame_only);
 }
 
-void gpencil_ondine_set_render_data(Object *ob, const float mat[4][4])
+void ondine_set_render_data(Object *ob, const float4x4 &object_instance_transform)
 {
-  ondine_render->set_render_data(ob, blender::float4x4(mat));
+  ondine_prepare_render->set_render_data(ob, object_instance_transform);
 }
 
-void gpencil_ondine_set_zdepth(Object *ob)
+void ondine_set_zdepth(Object *ob, const float4x4 &object_instance_transform)
 {
-  ondine_render->set_zdepth(ob);
+  ondine_prepare_render->set_zdepth(ob, object_instance_transform);
 }
 
-bool gpencil_ondine_render_init(bContext *C)
+bool ondine_render_init(bContext *C)
 {
-  ondine_render->init(C);
-  return ondine_render->prepare_camera_params();
+  ondine_prepare_render->init(C);
+  return ondine_prepare_render->prepare_camera_params();
 }
 
 }  // namespace blender::ondine

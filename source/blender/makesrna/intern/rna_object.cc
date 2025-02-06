@@ -2264,16 +2264,6 @@ static void rna_LightLinking_collection_update(Main *bmain, Scene * /*scene*/, P
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, ptr->owner_id);
 }
 
-void rna_Object_gpencil_ondine_set_zdepth(Object *ob)
-{
-  blender::ondine::gpencil_ondine_set_zdepth(ob);
-}
-
-void rna_Object_gpencil_ondine_set_render_data(Object *ob, const float mat[16])
-{
-  blender::ondine::gpencil_ondine_set_render_data(ob, (const float(*)[4])mat);
-}
-
 #else
 
 static void rna_def_vertex_group(BlenderRNA *brna)
@@ -2899,7 +2889,6 @@ static void rna_def_object(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
-  FunctionRNA *func;
 
   static const EnumPropertyItem up_items[] = {
       {OB_POSX, "X", 0, "X", ""},
@@ -3689,8 +3678,8 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_pointer_funcs(prop, "rna_Object_light_linking_get", nullptr, nullptr, nullptr);
   RNA_def_property_ui_text(prop, "Light Linking", "Light linking settings");
 
-  /* Ondine watercolor additions */
-  /* clear background */
+  /* Ondine watercolor additions. */
+  /* Clear background. */
   prop = RNA_def_property(srna, "clear_background", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "ondine_flag", GP_ONDINE_CLEAR_BG);
   RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, ParameterFlag(0));
@@ -3698,22 +3687,6 @@ static void rna_def_object(BlenderRNA *brna)
                            "Clear Background",
                            "Clear the background when drawing this object (Ondine watercolor)");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-  /* set z-depth */
-  func = RNA_def_function(
-      srna, "ondine_render_set_zdepth", "rna_Object_gpencil_ondine_set_zdepth");
-  RNA_def_function_ui_description(func,
-                                  "Set z-depth of watercolor grease pencil object for rendering");
-
-  /* set render data */
-  PropertyRNA *parm;
-  func = RNA_def_function(
-      srna, "ondine_render_set_data", "rna_Object_gpencil_ondine_set_render_data");
-  RNA_def_function_ui_description(func,
-                                  "Set data of watercolor grease pencil object for rendering");
-  parm = RNA_def_float_matrix(
-      func, "matrix_world", 4, 4, nullptr, 0.0f, 0.0f, "", "World Matrix", 0.0f, 0.0f);
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 
   RNA_define_lib_overridable(false);
 
