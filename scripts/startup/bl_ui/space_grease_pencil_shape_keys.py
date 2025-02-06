@@ -4,17 +4,17 @@ import bpy
 
 class GREASE_PENCIL_PT_ShapeKeysNPanel(bpy.types.Panel):
     """N-Panel for the shape keys of a Grease Pencil object"""
-    bl_label = 'Shape Keys'
-    bl_idname = 'GREASE_PENCIL_PT_ShapeKeysNPanel'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'GP Shape Keys'
+    bl_category = 'Shape Keys'
+    bl_label = 'Shape Keys'
+    bl_idname = 'GREASE_PENCIL_PT_ShapeKeysNPanel'
 
     @classmethod
     def poll(cls, context):
-        if context.object is None or context.object.type != 'GREASE_PENCIL':
+        if context.object is None or context.object.type != 'GREASEPENCIL':
             return False
-        grease_pencil = context.grease_pencil
+        grease_pencil = context.object.data
         return len(grease_pencil.shape_keys) > 0
 
     def draw(self, context):
