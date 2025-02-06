@@ -760,7 +760,8 @@ static PointerRNA rna_GreasePencilShapeKeys_active_get(PointerRNA *ptr)
   GreassePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(
       BLI_findlink(&grease_pencil->shape_keys, grease_pencil->active_shape_key_index));
   if (shape_key) {
-    return rna_pointer_inherit_refine(ptr, &RNA_GreasePencilShapeKey, shape_key);
+    return RNA_pointer_create_with_parent(
+        *ptr, &RNA_GreasePencilShapeKey, static_cast<void *>(shape_key));
   }
   return PointerRNA_NULL;
 }
