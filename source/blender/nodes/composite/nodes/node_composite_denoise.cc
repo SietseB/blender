@@ -6,7 +6,9 @@
  * \ingroup cmpnodes
  */
 
-#include "BLI_system.h"
+#ifndef __APPLE__
+#  include "BLI_system.h"
+#endif
 
 #include "MEM_guardedalloc.h"
 
@@ -19,6 +21,7 @@
 #include "DNA_node_types.h"
 
 #include "COM_denoised_auxiliary_pass.hh"
+#include "COM_derived_resources.hh"
 #include "COM_node_operation.hh"
 #include "COM_utilities.hh"
 

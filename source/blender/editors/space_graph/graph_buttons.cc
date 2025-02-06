@@ -9,8 +9,6 @@
  */
 
 #include <cfloat>
-#include <cmath>
-#include <cstdio>
 #include <cstring>
 
 #include "DNA_anim_types.h"
@@ -19,8 +17,8 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math_rotation.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
@@ -709,8 +707,6 @@ static void driver_dvar_invalid_name_query_cb(bContext *C, void *dvar_v, void * 
 /* callback to reset the driver's flags */
 static void driver_update_flags_cb(bContext * /*C*/, void *fcu_v, void * /*arg*/)
 {
-  return;
-
   FCurve *fcu = (FCurve *)fcu_v;
   ChannelDriver *driver = fcu->driver;
 

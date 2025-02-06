@@ -6,6 +6,7 @@
 
 #include "NOD_geometry_nodes_execute.hh"
 #include "NOD_multi_function.hh"
+#include "NOD_node_declaration.hh"
 #include "NOD_node_in_compute_context.hh"
 #include "NOD_socket_usage_inference.hh"
 
@@ -158,6 +159,12 @@ struct SocketUsageInferencer {
   void usage_task__input(const SocketInContext &socket)
   {
     const NodeInContext node = socket.owner_node();
+
+    if (node->is_muted()) {
+      this->usage_task__input__muted_node(socket);
+      return;
+    }
+
     switch (node->type_legacy) {
       case NODE_GROUP:
       case NODE_CUSTOM_GROUP: {
@@ -300,7 +307,7 @@ struct SocketUsageInferencer {
     }
     this->ensure_animation_data_processed(*group);
 
-    /* The group node input is used iff any of the matching group inputs within the group is
+    /* The group node input is used if any of the matching group inputs within the group is
      * used. */
     const ComputeContext &group_context = scope_.construct<bke::GroupNodeComputeContext>(
         socket.context, *node, node->owner_tree());
@@ -319,7 +326,7 @@ struct SocketUsageInferencer {
       all_socket_usages_.add_new(socket, true);
       return;
     }
-    /* The group output node is used iff the matching output of the parent group node is used. */
+    /* The group output node is used if the matching output of the parent group node is used. */
     const bke::GroupNodeComputeContext &group_context =
         *static_cast<const bke::GroupNodeComputeContext *>(socket.context);
     const bNodeSocket &group_node_output = group_context.caller_group_node()->output_socket(
@@ -422,6 +429,19 @@ struct SocketUsageInferencer {
     this->usage_task__with_dependent_sockets(socket, dependent_sockets, socket.context);
   }
 
+  void usage_task__input__muted_node(const SocketInContext &socket)
+  {
+    const NodeInContext node = socket.owner_node();
+    Vector<const bNodeSocket *> dependent_sockets;
+    for (const bNodeLink &internal_link : node->internal_links()) {
+      if (internal_link.fromsock != socket.socket) {
+        continue;
+      }
+      dependent_sockets.append(internal_link.tosock);
+    }
+    this->usage_task__with_dependent_sockets(socket, dependent_sockets, socket.context);
+  }
+
   /**
    * Utility that handles simple cases where a socket is used if any of its dependent sockets is
    * used.
@@ -492,6 +512,10 @@ struct SocketUsageInferencer {
         this->value_task__output__group_input_node(socket);
         return;
       }
+      case NODE_REROUTE: {
+        this->value_task__output__reroute_node(socket);
+        return;
+      }
       case GEO_NODE_SWITCH: {
         this->value_task__output__generic_switch(socket, switch__is_socket_selected);
         return;
@@ -560,6 +584,17 @@ struct SocketUsageInferencer {
     const std::optional<const void *> value = all_socket_values_.lookup_try(group_node_input);
     if (!value.has_value()) {
       this->push_value_task(group_node_input);
+      return;
+    }
+    all_socket_values_.add_new(socket, *value);
+  }
+
+  void value_task__output__reroute_node(const SocketInContext &socket)
+  {
+    const SocketInContext input_socket = socket.owner_node().input_socket(0);
+    const std::optional<const void *> value = all_socket_values_.lookup_try(input_socket);
+    if (!value.has_value()) {
+      this->push_value_task(input_socket);
       return;
     }
     all_socket_values_.add_new(socket, *value);
@@ -729,6 +764,13 @@ struct SocketUsageInferencer {
       /* The value of animated sockets is not known statically. */
       all_socket_values_.add_new(socket, nullptr);
       return;
+    }
+    if (const SocketDeclaration *socket_decl = socket.socket->runtime->declaration) {
+      if (socket_decl->input_field_type == InputSocketFieldType::Implicit) {
+        /* Implicit fields inputs don't have a single static value. */
+        all_socket_values_.add_new(socket, nullptr);
+        return;
+      }
     }
 
     const CPPType &base_type = *socket->typeinfo->base_cpp_type;
@@ -915,8 +957,14 @@ struct SocketUsageInferencer {
     if (!animated_inputs_by_node_name.is_empty()) {
       for (const bNode *node : tree.all_nodes()) {
         const Span<int> animated_inputs = animated_inputs_by_node_name.lookup(node->name);
+        const Span<const bNodeSocket *> input_sockets = node->input_sockets();
         for (const int socket_index : animated_inputs) {
-          const bNodeSocket &socket = node->input_socket(socket_index);
+          if (socket_index < 0 || socket_index >= input_sockets.size()) {
+            /* This can happen when the animation data is not immediately updated after a socket is
+             * removed. */
+            continue;
+          }
+          const bNodeSocket &socket = *input_sockets[socket_index];
           animated_sockets_.add(&socket);
         }
       }

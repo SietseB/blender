@@ -383,7 +383,7 @@ if(WITH_CYCLES AND WITH_CYCLES_OSL)
       set(OSL_ROOT ${CYCLES_OSL})
     endif()
   endif()
-  find_package_wrapper(OSL)
+  find_package_wrapper(OSL 1.13.4)
   set_and_warn_library_found("OSL" OSL_FOUND WITH_CYCLES_OSL)
 
   if(OSL_FOUND)
@@ -424,9 +424,9 @@ if(DEFINED LIBDIR)
     ${SYCL_ROOT_DIR}/lib/libsycl.so.*
     ${SYCL_ROOT_DIR}/lib/libpi_*.so
     ${SYCL_ROOT_DIR}/lib/libur_*.so
+    ${SYCL_ROOT_DIR}/lib/libur_*.so.*
   )
   list(FILTER _sycl_runtime_libraries EXCLUDE REGEX ".*\.py")
-  list(REMOVE_ITEM _sycl_runtime_libraries "${SYCL_ROOT_DIR}/lib/libpi_opencl.so")
   list(APPEND PLATFORM_BUNDLED_LIBRARIES ${_sycl_runtime_libraries})
   unset(_sycl_runtime_libraries)
 endif()

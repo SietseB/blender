@@ -784,7 +784,7 @@ class USDExportTest(AbstractUSDTest):
         self.assertEqual(len(usd_vert_sharpness), 7)
         # A 1.0 crease is INFINITE (10) in USD
         self.assertAlmostEqual(min(usd_vert_sharpness), 0.1, 5)
-        self.assertEqual(len([sharp for sharp in usd_vert_sharpness if sharp < 1]), 6)
+        self.assertEqual(len([sharp for sharp in usd_vert_sharpness if sharp < 10]), 6)
         self.assertEqual(len([sharp for sharp in usd_vert_sharpness if sharp == 10]), 1)
 
         mesh = UsdGeom.Mesh(stage.GetPrimAtPath("/root/crease_edge/crease_edge"))
@@ -799,7 +799,7 @@ class USDExportTest(AbstractUSDTest):
         self.assertEqual(len(usd_crease_sharpness), 10)
         # A 1.0 crease is INFINITE (10) in USD
         self.assertAlmostEqual(min(usd_crease_sharpness), 0.1, 5)
-        self.assertEqual(len([sharp for sharp in usd_crease_sharpness if sharp < 1]), 9)
+        self.assertEqual(len([sharp for sharp in usd_crease_sharpness if sharp < 10]), 9)
         self.assertEqual(len([sharp for sharp in usd_crease_sharpness if sharp == 10]), 1)
 
     def test_export_mesh_triangulate(self):
@@ -1326,40 +1326,23 @@ class USDExportTest(AbstractUSDTest):
         """Test specifying stage meters per unit on export."""
         bpy.ops.wm.open_mainfile(filepath=str(self.testdir / "empty.blend"))
 
-        export_path = self.tempdir / "usd_export_units_test_cm.usda"
-        self.export_and_validate(
-            filepath=str(export_path),
-            convert_scene_units='CENTIMETERS'
+        units = (
+            ("mm", 'MILLIMETERS', 0.001), ("cm", 'CENTIMETERS', 0.01), ("km", 'KILOMETERS', 1000),
+            ("in", 'INCHES', 0.0254), ("ft", 'FEET', 0.3048), ("yd", 'YARDS', 0.9144),
+            ("default", "", 1), ("custom", 'CUSTOM', 0.125)
         )
+        for name, unit, value in units:
+            export_path = self.tempdir / f"usd_export_units_test_{name}.usda"
+            if name == "default":
+                self.export_and_validate(filepath=str(export_path))
+            elif name == "custom":
+                self.export_and_validate(filepath=str(export_path), convert_scene_units=unit, meters_per_unit=value)
+            else:
+                self.export_and_validate(filepath=str(export_path), convert_scene_units=unit)
 
-        # Verify that meters per unit were set correctly
-        stage = Usd.Stage.Open(str(export_path))
-        mpu = UsdGeom.GetStageMetersPerUnit(stage)
-        self.assertEqual(mpu, 0.01)
-
-        # Export with default meters units.
-        export_path = self.tempdir / "usd_export_units_test_default.usda"
-        self.export_and_validate(
-            filepath=str(export_path)
-        )
-
-        # Verify that meters per unit were set correctly
-        stage = Usd.Stage.Open(str(export_path))
-        mpu = UsdGeom.GetStageMetersPerUnit(stage)
-        self.assertEqual(mpu, 1.0)
-
-        # Export with custom meters per unit.
-        export_path = self.tempdir / "usd_export_units_test_custom.usda"
-        self.export_and_validate(
-            filepath=str(export_path),
-            convert_scene_units='CUSTOM',
-            meters_per_unit=0.1,
-        )
-
-        # Verify that meters per unit were set correctly
-        stage = Usd.Stage.Open(str(export_path))
-        mpu = UsdGeom.GetStageMetersPerUnit(stage)
-        self.assertAlmostEqual(mpu, 0.1)
+            # Verify that meters per unit were set correctly
+            stage = Usd.Stage.Open(str(export_path))
+            self.assertEqual(UsdGeom.GetStageMetersPerUnit(stage), value)
 
     def test_export_native_instancing_true(self):
         """Test exporting instanced objects to native (scne graph) instances."""
@@ -1508,7 +1491,7 @@ class USDExportTest(AbstractUSDTest):
                             f"Exported texture {tex_path} doesn't exist")
 
 
-class USDHookBase():
+class USDHookBase:
     instructions = {}
     responses = {}
 

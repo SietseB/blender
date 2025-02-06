@@ -354,6 +354,10 @@ PreviewImage *BKE_previewimg_cached_thumbnail_read(const char *name,
 void BKE_previewimg_cached_release(const char *name)
 {
   BLI_assert(BLI_thread_is_main());
+  if (!gCachedPreviews) {
+    /* Static cache was already freed including all contained previews. Can happen on shutdown. */
+    return;
+  }
 
   PreviewImage *prv = (PreviewImage *)BLI_ghash_popkey(gCachedPreviews, name, MEM_freeN);
 
@@ -458,6 +462,11 @@ void BKE_previewimg_finish(PreviewImage *prv, const int size)
 bool BKE_previewimg_is_finished(const PreviewImage *prv, const int size)
 {
   return (prv->flag[size] & PRV_RENDERING) == 0;
+}
+
+bool BKE_previewimg_is_invalid(const PreviewImage *prv)
+{
+  return (prv->runtime->tag & PRV_TAG_DEFFERED_INVALID) != 0;
 }
 
 void BKE_previewimg_blend_write(BlendWriter *writer, const PreviewImage *prv)

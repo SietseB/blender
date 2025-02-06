@@ -6,6 +6,7 @@
  * \ingroup edinterface
  */
 
+#include <algorithm>
 #include <cctype>
 #include <cfloat>
 #include <climits>
@@ -373,9 +374,7 @@ static void ui_block_bounds_calc_text(uiBlock *block, float offset)
     if (!ELEM(bt->type, UI_BTYPE_SEPR, UI_BTYPE_SEPR_LINE, UI_BTYPE_SEPR_SPACER)) {
       j = BLF_width(style->widget.uifont_id, bt->drawstr.c_str(), bt->drawstr.size());
 
-      if (j > i) {
-        i = j;
-      }
+      i = std::max(j, i);
     }
 
     /* Skip all buttons that are in a horizontal alignment group.
@@ -389,9 +388,7 @@ static void ui_block_bounds_calc_text(uiBlock *block, float offset)
         col_bt->rect.xmin += x1addval;
         col_bt->rect.xmax += x1addval;
       }
-      if (width > i) {
-        i = width;
-      }
+      i = std::max(width, i);
       /* Give the following code the last button in the alignment group, there might have to be a
        * split immediately after. */
       bt = col_bt ? col_bt->prev : nullptr;
@@ -2899,8 +2896,8 @@ static void ui_get_but_string_unit(
 static float ui_get_but_step_unit(uiBut *but, float step_default)
 {
   const int unit_type = RNA_SUBTYPE_UNIT_VALUE(UI_but_unit_type_get(but));
-  const double step_orig = step_default * UI_PRECISION_FLOAT_SCALE;
-  /* Scaling up 'step_origg ' here is a bit arbitrary,
+  const double step_orig = double(step_default) * double(UI_PRECISION_FLOAT_SCALE);
+  /* Scaling up 'step_orig ' here is a bit arbitrary,
    * its just giving better scales from user POV */
   const double scale_step = ui_get_but_scale_unit(but, step_orig * 10);
   const double step = BKE_unit_closest_scalar(scale_step, but->block->unit->system, unit_type);
@@ -3486,9 +3483,7 @@ void ui_but_range_set_soft(uiBut *but)
         softmin = soft_range_round_down(value_min, softmin);
       }
 
-      if (softmin < double(but->hardmin)) {
-        softmin = double(but->hardmin);
-      }
+      softmin = std::max(softmin, double(but->hardmin));
     }
     if (value_max - 1e-10 > softmax) {
       if (value_max < 0.0) {
@@ -5112,7 +5107,7 @@ AutoComplete *UI_autocomplete_begin(const char *startname, size_t maxncpy)
   return autocpl;
 }
 
-void UI_autocomplete_update_name(AutoComplete *autocpl, const char *name)
+void UI_autocomplete_update_name(AutoComplete *autocpl, const StringRef name)
 {
   char *truncate = autocpl->truncate;
   const char *startname = autocpl->startname;
@@ -5129,7 +5124,7 @@ void UI_autocomplete_update_name(AutoComplete *autocpl, const char *name)
     autocpl->matches++;
     /* first match */
     if (truncate[0] == 0) {
-      BLI_strncpy(truncate, name, autocpl->maxncpy);
+      name.copy_utf8_truncated(truncate, autocpl->maxncpy);
     }
     else {
       /* remove from truncate what is not in bone->name */
@@ -6871,7 +6866,7 @@ std::string UI_but_string_get_rna_tooltip(bContext &C, uiBut &but)
     PointerRNA *opptr = UI_but_operator_ptr_ensure(&but);
     const bContextStore *previous_ctx = CTX_store_get(&C);
     CTX_store_set(&C, but.context);
-    std::string tmp = WM_operatortype_description(&C, but.optype, opptr).c_str();
+    std::string tmp = WM_operatortype_description(&C, but.optype, opptr);
     CTX_store_set(&C, previous_ctx);
     return tmp;
   }

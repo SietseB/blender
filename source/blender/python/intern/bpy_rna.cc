@@ -26,6 +26,7 @@
 #include "BLI_math_rotation.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
+#include "BLI_vector.hh"
 
 #include "BPY_extern.hh"
 #include "BPY_extern_clog.hh"
@@ -4160,6 +4161,35 @@ static PyObject *pyrna_struct_bl_rna_get_subclass(PyObject *cls, PyObject *args)
   return Py_NewRef(ret_default);
 }
 
+PyDoc_STRVAR(
+    /* Wrap. */
+    pyrna_struct_get_ancestors_doc,
+    ".. method:: rna_ancestors()\n"
+    "\n"
+    "   Return the chain of data containing this struct, if known.\n"
+    "   The first item is the root (typically an ID), the last one is the immediate parent.\n"
+    "   May be empty.\n"
+    "\n"
+    "   :return: a list of this object's ancestors.\n"
+    "   :rtype: list[:class:`bpy.types.bpy_struct`]\n");
+static PyObject *pyrna_struct_get_ancestors(BPy_StructRNA *self)
+{
+  PYRNA_STRUCT_CHECK_OBJ(self);
+
+  PyObject *ret;
+  const int ancestors_num(self->ptr->ancestors.size());
+
+  ret = PyList_New(ancestors_num);
+
+  for (int i = 0; i < ancestors_num; i++) {
+    PointerRNA ancestor_ptr = RNA_pointer_create_from_ancestor(self->ptr.value(), i);
+    PyObject *ancestor = pyrna_struct_CreatePyObject(&ancestor_ptr);
+    PyList_SET_ITEM(ret, i, ancestor);
+  }
+
+  return ret;
+}
+
 static void pyrna_dir_members_py__add_keys(PyObject *list, PyObject *dict)
 {
   PyObject *list_tmp;
@@ -4174,7 +4204,7 @@ static void pyrna_dir_members_py(PyObject *list, PyObject *self)
   PyObject *dict;
   PyObject **dict_ptr;
 
-  dict_ptr = _PyObject_GetDictPtr((PyObject *)self);
+  dict_ptr = _PyObject_GetDictPtr(self);
 
   if (dict_ptr && (dict = *dict_ptr)) {
     pyrna_dir_members_py__add_keys(list, dict);
@@ -4506,8 +4536,8 @@ static PyObject *pyrna_struct_getattro(BPy_StructRNA *self, PyObject *pyname)
               std::optional<std::string> path_str;
 
               if (newptr.owner_id) {
+                path_str = RNA_path_from_ID_to_property(&newptr, newprop);
                 idptr = RNA_id_pointer_create(newptr.owner_id);
-                path_str = RNA_path_from_ID_to_property(&idptr, newprop);
                 base_ptr = &idptr;
               }
               else {
@@ -5675,7 +5705,7 @@ static PyObject *foreach_getset(BPy_PropertyRNA *self, PyObject *args, int set)
             ((float *)array)[i] = float(PyFloat_AsDouble(item));
             break;
           case PROP_RAW_DOUBLE:
-            ((double *)array)[i] = double(PyFloat_AsDouble(item));
+            ((double *)array)[i] = PyFloat_AsDouble(item);
             break;
           case PROP_RAW_INT64:
             ((int64_t *)array)[i] = PyC_Long_AsI64(item);
@@ -5756,7 +5786,7 @@ static PyObject *foreach_getset(BPy_PropertyRNA *self, PyObject *args, int set)
             item = PyFloat_FromDouble(double(((float *)array)[i]));
             break;
           case PROP_RAW_DOUBLE:
-            item = PyFloat_FromDouble(double(((double *)array)[i]));
+            item = PyFloat_FromDouble(((double *)array)[i]);
             break;
           case PROP_RAW_BOOLEAN:
             item = PyBool_FromLong(long(((bool *)array)[i]));
@@ -6135,6 +6165,10 @@ static PyMethodDef pyrna_struct_methods[] = {
      (PyCFunction)pyrna_struct_bl_rna_get_subclass,
      METH_VARARGS | METH_CLASS,
      pyrna_struct_bl_rna_get_subclass_doc},
+    {"rna_ancestors",
+     (PyCFunction)pyrna_struct_get_ancestors,
+     METH_NOARGS,
+     pyrna_struct_get_ancestors_doc},
     {"__dir__", (PyCFunction)pyrna_struct_dir, METH_NOARGS, nullptr},
     {"id_properties_ensure",
      (PyCFunction)pyrna_struct_id_properties_ensure,
@@ -8552,7 +8586,7 @@ static PyObject *bpy_types_module_getattro(PyObject *self, PyObject *pyname)
     return nullptr;
 #endif
     /* The error raised here will be displayed. */
-    ret = PyObject_GenericGetAttr((PyObject *)self, pyname);
+    ret = PyObject_GenericGetAttr(self, pyname);
   }
 
   return ret;

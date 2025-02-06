@@ -1698,13 +1698,13 @@ class USDImportTest(AbstractUSDTest):
         bpy.utils.unregister_class(GetPrimMapUsdImportHook)
 
         expected_prim_map = {
-            "/Cube": [bpy.data.objects["Cube.002"], bpy.data.meshes["Cube.002"]],
-            "/XformThenCube": [bpy.data.objects["XformThenCube"]],
-            "/XformThenCube/Cube": [bpy.data.objects["Cube"], bpy.data.meshes["Cube"]],
-            "/XformThenXformCube": [bpy.data.objects["XformThenXformCube"]],
-            "/XformThenXformCube/XformIntermediate": [bpy.data.objects["XformIntermediate"]],
-            "/XformThenXformCube/XformIntermediate/Cube": [bpy.data.objects["Cube.001"], bpy.data.meshes["Cube.001"]],
-            "/Material": [bpy.data.materials["Material"]],
+            Sdf.Path('/Cube'): [bpy.data.objects["Cube.002"], bpy.data.meshes["Cube.002"]],
+            Sdf.Path('/XformThenCube'): [bpy.data.objects["XformThenCube"]],
+            Sdf.Path('/XformThenCube/Cube'): [bpy.data.objects["Cube"], bpy.data.meshes["Cube"]],
+            Sdf.Path('/XformThenXformCube'): [bpy.data.objects["XformThenXformCube"]],
+            Sdf.Path('/XformThenXformCube/XformIntermediate'): [bpy.data.objects["XformIntermediate"]],
+            Sdf.Path('/XformThenXformCube/XformIntermediate/Cube'): [bpy.data.objects["Cube.001"], bpy.data.meshes["Cube.001"]],
+            Sdf.Path('/Material'): [bpy.data.materials["Material"]],
         }
 
         self.assertDictEqual(prim_map, expected_prim_map)
@@ -1716,13 +1716,13 @@ class USDImportTest(AbstractUSDTest):
         bpy.utils.unregister_class(GetPrimMapUsdImportHook)
 
         expected_prim_map = {
-            "/Cube": [bpy.data.objects["Cube.002"], bpy.data.meshes["Cube.002"]],
-            "/XformThenCube": [bpy.data.objects["Cube"]],
-            "/XformThenCube/Cube": [bpy.data.meshes["Cube"]],
-            "/XformThenXformCube": [bpy.data.objects["XformThenXformCube"]],
-            "/XformThenXformCube/XformIntermediate": [bpy.data.objects["Cube.001"]],
-            "/XformThenXformCube/XformIntermediate/Cube": [bpy.data.meshes["Cube.001"]],
-            "/Material": [bpy.data.materials["Material"]],
+            Sdf.Path('/Cube'): [bpy.data.objects["Cube.002"], bpy.data.meshes["Cube.002"]],
+            Sdf.Path('/XformThenCube'): [bpy.data.objects["Cube"]],
+            Sdf.Path('/XformThenCube/Cube'): [bpy.data.meshes["Cube"]],
+            Sdf.Path('/XformThenXformCube'): [bpy.data.objects["XformThenXformCube"]],
+            Sdf.Path('/XformThenXformCube/XformIntermediate'): [bpy.data.objects["Cube.001"]],
+            Sdf.Path('/XformThenXformCube/XformIntermediate/Cube'): [bpy.data.meshes["Cube.001"]],
+            Sdf.Path('/Material'): [bpy.data.materials["Material"]],
         }
 
         self.assertDictEqual(prim_map, expected_prim_map)
@@ -1748,6 +1748,36 @@ class USDImportTest(AbstractUSDTest):
         # Ensure the root object has default scale 1.0.
         root = bpy.data.objects["root"]
         self.assertEqual(self.round_vector(root.scale), [1.0, 1.0, 1.0])
+
+    def test_import_native_instancing(self):
+        """Test importing USD files with scene instancing."""
+
+        # Use the existing instancing test file to create the USD file
+        # for import. It is validated as part of the bl_usd_export test.
+        bpy.ops.wm.open_mainfile(filepath=str(self.testdir / "nested_instancing_test.blend"))
+
+        testfile = str(self.tempdir / "usd_export_nested_instancing_true.usda")
+        res = bpy.ops.wm.usd_export(filepath=testfile, use_instancing=True)
+        self.assertEqual({'FINISHED'}, res, f"Unable to export to {testfile}")
+
+        # Reload the empty file and import back in
+        bpy.ops.wm.open_mainfile(filepath=str(self.testdir / "empty.blend"))
+        res = bpy.ops.wm.usd_import(filepath=testfile)
+        self.assertEqual({'FINISHED'}, res, f"Unable to import USD file {testfile}")
+
+        # If instancing is working there should only be 1 real mesh and 1 real point cloud
+        self.assertEqual(len(bpy.data.meshes), 1)
+        self.assertEqual(len(bpy.data.pointclouds), 1)
+        real_names = [bpy.data.meshes[0].name, bpy.data.pointclouds[0].name]
+
+        # There should be 6 instances found for the above real objects (not counting empties etc.)
+        instance_count = 0
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        for object_instance in depsgraph.object_instances:
+            if object_instance.is_instance and object_instance.object.name in real_names:
+                instance_count += 1
+
+        self.assertEqual(instance_count, 6, "Unexpected number of instances found")
 
     def test_material_import_usd_hook(self):
         """Test importing color from an mtlx shader."""

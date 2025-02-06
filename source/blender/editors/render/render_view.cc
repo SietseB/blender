@@ -6,15 +6,11 @@
  * \ingroup edrend
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 
 #include "BLI_listbase.h"
-#include "BLI_utildefines.h"
-
-#include "BLI_math_geom.h"
-#include "BLI_math_matrix.h"
-#include "BLI_math_vector.h"
 
 #include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"

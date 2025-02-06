@@ -14,8 +14,6 @@
 #include "DNA_image_types.h"
 #include "DNA_listBase.h"
 
-#include "BLI_sys_types.h" /* for bool */
-
 #include "GPU_shader.hh"  /* for GPUShaderCreateInfo */
 #include "GPU_texture.hh" /* for GPUSamplerState */
 
@@ -219,7 +217,6 @@ char *GPU_material_split_sub_function(GPUMaterial *material,
                                       eGPUType return_type,
                                       GPUNodeLink **link);
 
-bool GPU_material_sss_profile_create(GPUMaterial *material, float radii[3]);
 /**
  * High level functions to create and use GPU materials.
  */

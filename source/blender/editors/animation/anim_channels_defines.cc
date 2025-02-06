@@ -14,8 +14,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math_color.h"
+#include "BLI_string.h"
+#include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
@@ -4416,7 +4417,7 @@ static void acf_nlaaction_backdrop(bAnimContext *ac, bAnimListElem *ale, float y
    */
   rctf box;
   box.xmin = offset;
-  box.xmax = float(v2d->cur.xmax);
+  box.xmax = v2d->cur.xmax;
   box.ymin = yminc + NLATRACK_SKIP;
   box.ymax = ymaxc + NLATRACK_SKIP - 1;
   UI_draw_roundbox_4fv(&box, true, 8, color);
@@ -5102,7 +5103,7 @@ void ANIM_channel_draw(
 
       immBegin(GPU_PRIM_LINES, 2);
       immVertex2f(pos, float(offset), yminc);
-      immVertex2f(pos, float(v2d->cur.xmax), yminc);
+      immVertex2f(pos, v2d->cur.xmax, yminc);
       immEnd();
 
       immUnbindProgram();
@@ -5953,7 +5954,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
   offset = int(rect->xmax);
 
   /* TODO: when drawing sliders, make those draw instead of these toggles if not enough space. */
-  if (v2d && !is_being_renamed) {
+  if (!is_being_renamed) {
     short draw_sliders = 0;
 
     /* check if we need to show the sliders */
@@ -6170,7 +6171,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
         /* Special for Grease Pencil Layer. */
         else if (ale->type == ANIMTYPE_GPLAYER) {
           bGPdata *gpd = (bGPdata *)ale->id;
-          if ((gpd != nullptr) && ((gpd->flag & GP_DATA_ANNOTATIONS) == 0)) {
+          if ((gpd->flag & GP_DATA_ANNOTATIONS) == 0) {
             /* Reset slider offset, in order to add special gp icons. */
             offset += SLIDER_WIDTH;
 
@@ -6237,9 +6238,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
           PointerRNA id_ptr = RNA_id_pointer_create(ale->id);
 
           /* try to resolve the path */
-          if (RNA_path_resolve_property(
-                  &id_ptr, rna_path ? rna_path->c_str() : nullptr, &ptr, &prop))
-          {
+          if (RNA_path_resolve_property(&id_ptr, rna_path->c_str(), &ptr, &prop)) {
             uiBut *but;
 
             /* Create the slider button,

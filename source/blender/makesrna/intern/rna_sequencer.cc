@@ -6,55 +6,27 @@
  * \ingroup RNA
  */
 
-#include <climits>
 #include <cstdlib>
 
-#include "DNA_anim_types.h"
-#include "DNA_movieclip_types.h"
-#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_vfont_types.h"
 
-#include "BLI_iterator.h"
-#include "BLI_listbase.h"
 #include "BLI_math_rotation.h"
 #include "BLI_string_utf8_symbols.h"
-#include "BLI_string_utils.hh"
 
 #include "BLT_translation.hh"
 
-#include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_sound.h"
 
-#include "IMB_metadata.hh"
-
-#include "MEM_guardedalloc.h"
-
-#include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
 #include "UI_resources.hh"
 #include "rna_internal.hh"
 
-#include "SEQ_add.hh"
-#include "SEQ_channels.hh"
 #include "SEQ_effects.hh"
-#include "SEQ_iterator.hh"
-#include "SEQ_modifier.hh"
-#include "SEQ_prefetch.hh"
-#include "SEQ_proxy.hh"
-#include "SEQ_relations.hh"
-#include "SEQ_retiming.hh"
-#include "SEQ_select.hh"
 #include "SEQ_sequencer.hh"
 #include "SEQ_sound.hh"
-#include "SEQ_thumbnail_cache.hh"
-#include "SEQ_time.hh"
-#include "SEQ_transform.hh"
-#include "SEQ_utils.hh"
 
 #include "WM_types.hh"
 
@@ -117,8 +89,15 @@ const EnumPropertyItem rna_enum_strip_color_items[] = {
 
 #  include <fmt/format.h>
 
+#  include "DNA_vfont_types.h"
+
+#  include "BLI_iterator.h"
+#  include "BLI_string_utils.hh"
+
+#  include "BKE_anim_data.hh"
 #  include "BKE_global.hh"
 #  include "BKE_idprop.hh"
+#  include "BKE_lib_id.hh"
 #  include "BKE_movieclip.h"
 #  include "BKE_report.hh"
 
@@ -131,7 +110,23 @@ const EnumPropertyItem rna_enum_strip_color_items[] = {
 
 #  include "MOV_read.hh"
 
+#  include "SEQ_add.hh"
+#  include "SEQ_channels.hh"
 #  include "SEQ_edit.hh"
+#  include "SEQ_effects.hh"
+#  include "SEQ_iterator.hh"
+#  include "SEQ_modifier.hh"
+#  include "SEQ_prefetch.hh"
+#  include "SEQ_proxy.hh"
+#  include "SEQ_relations.hh"
+#  include "SEQ_retiming.hh"
+#  include "SEQ_select.hh"
+#  include "SEQ_sequencer.hh"
+#  include "SEQ_sound.hh"
+#  include "SEQ_thumbnail_cache.hh"
+#  include "SEQ_time.hh"
+#  include "SEQ_transform.hh"
+#  include "SEQ_utils.hh"
 
 struct StripSearchData {
   Strip *strip;
@@ -279,7 +274,7 @@ static void rna_SequenceEditor_strips_all_next(CollectionPropertyIterator *iter)
 static PointerRNA rna_SequenceEditor_strips_all_get(CollectionPropertyIterator *iter)
 {
   Strip *strip = static_cast<Strip *>(((BLI_Iterator *)iter->internal.custom)->current);
-  return rna_pointer_inherit_refine(&iter->parent, &RNA_Strip, strip);
+  return RNA_pointer_create_with_parent(iter->parent, &RNA_Strip, strip);
 }
 
 static void rna_SequenceEditor_strips_all_end(CollectionPropertyIterator *iter)
@@ -300,7 +295,7 @@ static bool rna_SequenceEditor_strips_all_lookup_string(PointerRNA *ptr,
 
   Strip *strip = SEQ_lookup_strip_by_name(scene, key);
   if (strip) {
-    *r_ptr = RNA_pointer_create_discrete(ptr->owner_id, &RNA_Strip, strip);
+    rna_pointer_create_with_ancestors(*ptr, &RNA_Strip, strip, *r_ptr);
     return true;
   }
   return false;
@@ -331,6 +326,7 @@ static void rna_Strip_elements_begin(CollectionPropertyIterator *iter, PointerRN
 {
   Strip *strip = (Strip *)ptr->data;
   rna_iterator_array_begin(iter,
+                           ptr,
                            (void *)strip->data->stripdata,
                            sizeof(StripElem),
                            rna_Strip_elements_length(ptr),
@@ -347,6 +343,7 @@ static void rna_Strip_retiming_keys_begin(CollectionPropertyIterator *iter, Poin
 {
   Strip *strip = (Strip *)ptr->data;
   rna_iterator_array_begin(iter,
+                           ptr,
                            (void *)strip->retiming_keys,
                            sizeof(SeqRetimingKey),
                            SEQ_retiming_keys_count(strip),
@@ -894,7 +891,7 @@ static PointerRNA rna_SequenceEditor_meta_stack_get(CollectionPropertyIterator *
   ListBaseIterator *internal = &iter->internal.listbase;
   MetaStack *ms = (MetaStack *)internal->link;
 
-  return rna_pointer_inherit_refine(&iter->parent, &RNA_Strip, ms->parseq);
+  return RNA_pointer_create_with_parent(iter->parent, &RNA_Strip, ms->parseq);
 }
 
 /* TODO: expose strip path setting as a higher level sequencer BKE function. */

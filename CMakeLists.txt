@@ -54,11 +54,6 @@ endif()
 # quiet output for Makefiles, 'make -s' helps too
 # set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
 
-# Global compile definitions since add_definitions() adds for all.
-# _DEBUG is a Visual Studio define, enabled for all platforms.
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS
-  $<$<CONFIG:Debug>:_DEBUG>
-)
 # -----------------------------------------------------------------------------
 # Set policy
 
@@ -977,7 +972,7 @@ Ensure string operations on fixed size buffers \
 mark_as_advanced(WITH_STRSIZE_DEBUG)
 
 # Compiler tool-chain.
-if(UNIX)
+if(UNIX AND NOT APPLE)
   if(CMAKE_COMPILER_IS_GNUCC)
     option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" ON)
     mark_as_advanced(WITH_LINKER_GOLD)
@@ -1116,13 +1111,13 @@ if(WIN32)
   option(WITH_WINDOWS_FIND_MODULES "Use find_package to locate libraries" OFF)
   mark_as_advanced(WITH_WINDOWS_FIND_MODULES)
 
-# The python debugger in Visual Studio for has been broken for years 
-# but the upstream project over at https://github.com/microsoft/PTVS 
-# show hopeful signs of life once in a while, so there is hope that 
+# The python debugger in Visual Studio for has been broken for years
+# but the upstream project over at https://github.com/microsoft/PTVS
+# show hopeful signs of life once in a while, so there is hope that
 # at one point this will start working again. That being said people
-# do keep turning this option on and end up disappointed it isn't 
-# working and they spend a whole bunch of time on trying to get it to 
-# work. So for now rather than removing this functionality 
+# do keep turning this option on and end up disappointed it isn't
+# working and they spend a whole bunch of time on trying to get it to
+# work. So for now rather than removing this functionality
 # completely, just disable it.
 
   if(WINDOWS_PYTHON_DEBUG)

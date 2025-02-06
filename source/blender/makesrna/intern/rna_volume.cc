@@ -8,7 +8,6 @@
 
 #include <cstdlib>
 
-#include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
@@ -17,9 +16,8 @@
 #include "DNA_scene_types.h"
 #include "DNA_volume_types.h"
 
-#include "BKE_volume.hh"
+#include "BKE_volume_enums.hh"
 
-#include "BLI_math_base.h"
 #include "BLI_string_utf8_symbols.h"
 
 #include "BLT_translation.hh"
@@ -52,6 +50,8 @@ const EnumPropertyItem rna_enum_volume_grid_data_type_items[] = {
 struct DummyVolumeGridData;
 
 #ifdef RNA_RUNTIME
+
+#  include "BKE_volume.hh"
 
 #  include "DEG_depsgraph.hh"
 #  include "DEG_depsgraph_build.hh"
@@ -177,7 +177,7 @@ static PointerRNA rna_Volume_grids_get(CollectionPropertyIterator *iter)
   Volume *volume = static_cast<Volume *>(iter->internal.count.ptr);
   const blender::bke::VolumeGridData *grid = BKE_volume_grid_get(volume,
                                                                  iter->internal.count.item);
-  return rna_pointer_inherit_refine(&iter->parent, &RNA_VolumeGrid, (void *)grid);
+  return RNA_pointer_create_with_parent(iter->parent, &RNA_VolumeGrid, (void *)grid);
 }
 
 static int rna_Volume_grids_length(PointerRNA *ptr)

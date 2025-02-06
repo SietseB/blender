@@ -12,7 +12,6 @@
 #include "BLI_array_utils.hh"
 #include "BLI_easing.h"
 #include "BLI_index_mask.hh"
-#include "BLI_length_parameterize.hh"
 #include "BLI_math_angle_types.hh"
 #include "BLI_math_geom.h"
 #include "BLI_math_rotation.h"
@@ -456,7 +455,9 @@ static bool compute_auto_flip(const Span<float3> from_positions, const Span<floa
   return math::dot(from_last - from_first, to_last - to_first) < 0.0f;
 }
 
-/* Copy existing sample positions and insert new samples inbetween to reach the final count. */
+/**
+ * Copy existing sample positions and insert new samples in between to reach the final count.
+ */
 static void sample_curve_padded(const bke::CurvesGeometry &curves,
                                 const int curve_index,
                                 const bool cyclic,

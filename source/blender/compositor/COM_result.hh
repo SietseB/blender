@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "BLI_assert.h"
-#include "BLI_math_base.hh"
 #include "BLI_math_interp.hh"
 #include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector.h"
@@ -19,13 +18,13 @@
 #include "GPU_shader.hh"
 #include "GPU_texture.hh"
 
-#include "COM_derived_resources.hh"
 #include "COM_domain.hh"
 #include "COM_meta_data.hh"
 
 namespace blender::compositor {
 
 class Context;
+class DerivedResources;
 
 /* Make sure to update the format related static methods in the Result class. */
 enum class ResultType : uint8_t {
@@ -178,7 +177,6 @@ class Result {
    * written to file. */
   MetaData meta_data;
 
- public:
   /* Construct a result within the given context. */
   Result(Context &context);
 

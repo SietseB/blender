@@ -8,8 +8,6 @@
 
 #include <cstdlib>
 
-#include "MEM_guardedalloc.h"
-
 #include "DNA_armature_types.h"
 #include "DNA_gpencil_legacy_types.h"
 #include "DNA_gpencil_modifier_types.h"
@@ -642,7 +640,7 @@ static void tree_element_active_ebone__sel(bContext *C, bArmature *arm, EditBone
   if (sel) {
     arm->act_edbone = ebone;
   }
-  if (ANIM_bone_is_visible_editbone(arm, ebone) && ((ebone->flag & BONE_UNSELECTABLE) == 0)) {
+  if (EBONE_SELECTABLE(arm, ebone)) {
     ED_armature_ebone_select_set(ebone, sel);
   }
   WM_event_add_notifier(C, NC_OBJECT | ND_BONE_ACTIVE, CTX_data_edit_object(C));

@@ -52,6 +52,8 @@
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
+#include "ED_screen.hh"
+
 #include "BLO_read_write.hh"
 
 #include "SEQ_sound.hh"
@@ -414,7 +416,8 @@ void BKE_sound_init(Main *bmain)
     specs.channels = AUD_CHANNELS_STEREO;
   }
 
-  if (!(sound_device = AUD_init(device_name, specs, buffersize, "Blender"))) {
+  sound_device = AUD_init(device_name, specs, buffersize, "Blender");
+  if (!sound_device) {
     sound_device = AUD_init("None", specs, buffersize, "Blender");
   }
 
@@ -895,7 +898,8 @@ static void sound_start_play_scene(Scene *scene)
 
   BKE_sound_reset_scene_specs(scene);
 
-  if ((scene->playback_handle = AUD_Device_play(sound_device, scene->sound_scene, 1))) {
+  scene->playback_handle = AUD_Device_play(sound_device, scene->sound_scene, 1);
+  if (scene->playback_handle) {
     AUD_Handle_setLoopCount(scene->playback_handle, -1);
   }
 }
@@ -1026,6 +1030,12 @@ void BKE_sound_seek_scene(Main *bmain, Scene *scene)
      * seek time in sync.
      */
     AUD_seekSynchronizer(scene->playback_handle, cur_time);
+  }
+
+  if (animation_playing) {
+    /* Make sure that our animation timer updates are in sync with the sound. */
+    wmWindowManager *wm = static_cast<wmWindowManager *>(bmain->wm.first);
+    ED_screen_animation_timer_reset(screen, wm);
   }
 
   AUD_Device_unlock(sound_device);

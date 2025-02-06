@@ -10,20 +10,14 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "BLI_math_base.h"
+
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
 #include "rna_internal.hh"
 
-#include "DNA_collection_types.h"
-#include "DNA_object_types.h"
 #include "DNA_rigidbody_types.h"
-#include "DNA_scene_types.h"
-
-#include "BLI_math_rotation.h"
-#include "BLI_utildefines.h"
-
-#include "DEG_depsgraph_build.hh"
 
 #include "WM_types.hh"
 
@@ -138,6 +132,9 @@ static const EnumPropertyItem rigidbody_mesh_source_items[] = {
 #  endif
 
 #  include "BKE_rigidbody.h"
+
+#  include "DEG_depsgraph.hh"
+#  include "DEG_depsgraph_build.hh"
 
 #  include "WM_api.hh"
 
@@ -860,7 +857,7 @@ static void rna_RigidBodyWorld_convex_sweep_test(RigidBodyWorld *rbw,
 static PointerRNA rna_RigidBodyWorld_PointCache_get(PointerRNA *ptr)
 {
   RigidBodyWorld *rbw = static_cast<RigidBodyWorld *>(ptr->data);
-  return rna_pointer_inherit_refine(ptr, &RNA_PointCache, rbw->shared->pointcache);
+  return RNA_pointer_create_with_parent(*ptr, &RNA_PointCache, rbw->shared->pointcache);
 }
 
 #else

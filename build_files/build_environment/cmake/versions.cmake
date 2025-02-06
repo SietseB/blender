@@ -790,9 +790,9 @@ set(SQLITE_CPE "cpe:2.3:a:sqlite:sqlite:${SQLITE_VERSION}:*:*:*:*:*:*:*")
 set(SQLITE_HOMEPAGE https://www.sqlite.org)
 set(SQLITE_LICENSE Public Domain)
 
-set(EMBREE_VERSION 4.3.2-blender)
+set(EMBREE_VERSION 4.3.3)
 set(EMBREE_URI https://github.com/embree/embree/archive/v${EMBREE_VERSION}.zip)
-set(EMBREE_HASH 91bd65e59c6cf4d9ff0e4d628aa28d6a)
+set(EMBREE_HASH a03f49d17084612dc0f28bdc36d92e89)
 set(EMBREE_HASH_TYPE MD5)
 set(EMBREE_FILE embree-v${EMBREE_VERSION}.zip)
 set(EMBREE_HOMEPAGE https://github.com/embree/embree)
@@ -836,7 +836,7 @@ set(OIDN_LICENSE SPDX:Apache-2.0)
 set(OIDN_COPYRIGHT "Copyright 2009-2025 Intel Corporation")
 
 set(LIBGLU_VERSION 9.0.1)
-set(LIBGLU_URI ftp://ftp.freedesktop.org/pub/mesa/glu/glu-${LIBGLU_VERSION}.tar.xz)
+set(LIBGLU_URI https://archive.mesa3d.org/glu/glu-${LIBGLU_VERSION}.tar.xz)
 set(LIBGLU_HASH 151aef599b8259efe9acd599c96ea2a3)
 set(LIBGLU_HASH_TYPE MD5)
 set(LIBGLU_FILE glu-${LIBGLU_VERSION}.tar.xz)
@@ -845,7 +845,7 @@ set(LIBGLU_LICENSE SPDX:SGI-B-2.0)
 set(LIBGLU_COPYRIGHT "Copyright (C) 1991-2000 Silicon Graphics, Inc. All Rights Reserved.")
 
 set(MESA_VERSION 23.3.0)
-set(MESA_URI ftp://ftp.freedesktop.org/pub/mesa/mesa-${MESA_VERSION}.tar.xz)
+set(MESA_URI https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz)
 set(MESA_HASH 50f729dd60ed6335b989095baad81ef5edf7cfdd4b4b48b9b955917cb07d69c5)
 set(MESA_HASH_TYPE SHA256)
 set(MESA_FILE mesa-${MESA_VERSION}.tar.xz)
@@ -1039,25 +1039,26 @@ set(OPENPGL_HOMEPAGE http://www.openpgl.org/)
 set(OPENPGL_LICENSE SPDX:Apache-2.0)
 set(OPENPGL_COPYRIGHT "Copyright 2020 Intel Corporation.")
 
-set(LEVEL_ZERO_VERSION 1.16.1)
+# Default version used by DPCPP: unified-runtime/cmake/FetchLevelZero.cmake
+set(LEVEL_ZERO_VERSION 1.19.2)
 set(LEVEL_ZERO_NAME "oneAPI Level Zero")
 set(LEVEL_ZERO_URI https://codeload.github.com/oneapi-src/level-zero/tar.gz/refs/tags/v${LEVEL_ZERO_VERSION})
-set(LEVEL_ZERO_HASH f341dd6355d8da6ee9c29031642b8e8e4259f91c13c72d318c81663af048817e)
+set(LEVEL_ZERO_HASH b0bea0a09d1a68f68ecf8694e58a60e199fa5785f91c2fd59f026133bc1c4f28)
 set(LEVEL_ZERO_HASH_TYPE SHA256)
 set(LEVEL_ZERO_FILE level-zero-${LEVEL_ZERO_VERSION}.tar.gz)
 set(LEVEL_ZERO_HOMEPAGE https://github.com/oneapi-src/level-zero)
 set(LEVEL_ZERO_LICENSE SPDX:MIT)
-set(LEVEL_ZERO_COPYRIGHT "Copyright (C) 2019-2021 Intel Corporation")
+set(LEVEL_ZERO_COPYRIGHT "Copyright (C) 2019-2024 Intel Corporation")
 
-set(DPCPP_VERSION d2817d6d317db1143bb227168e85c409d5ab7c82) # tip of sycl-rel_5_2_0 as of 2024.05.24
+set(DPCPP_VERSION v6.0.0-rc1)
 set(DPCPP_URI https://github.com/intel/llvm/archive/${DPCPP_VERSION}.tar.gz)
-set(DPCPP_HASH 86cbff157b79e29a6ebb96ba79c96f64b4296c33fcd896f60a5579955fca5724)
+set(DPCPP_HASH 65f508827f48d9a894cc8c6fbdc9b15760681558ee29f6ebfef608034db99ca1)
 set(DPCPP_HASH_TYPE SHA256)
 set(DPCPP_FILE DPCPP-${DPCPP_VERSION}.tar.gz)
 set(DPCPP_NAME DPC++)
 set(DPCPP_HOMEPAGE "https://github.com/intel/llvm#oneapi-dpc-compiler")
 set(DPCPP_LICENSE SPDX:Apache-2.0)
-set(DPCPP_COPYRIGHT "Copyright (C) 2021 Intel Corporation")
+set(DPCPP_COPYRIGHT "Copyright (C) 2021-2024 Intel Corporation")
 
 ########################
 ### DPCPP DEPS BEGIN ###
@@ -1068,14 +1069,14 @@ set(DPCPP_COPYRIGHT "Copyright (C) 2021 Intel Corporation")
 # will take care of building them, unpack is being done in dpcpp_deps.cmake
 
 # Source llvm/lib/SYCLLowerIR/CMakeLists.txt
-set(VCINTRINSICS_VERSION da892e1982b6c25b9a133f85b4ac97142d8a3def)
+set(VCINTRINSICS_VERSION b2565a03eb3cac07f5e8000fde971f95dc782c75)
 set(VCINTRINSICS_URI https://github.com/intel/vc-intrinsics/archive/${VCINTRINSICS_VERSION}.tar.gz)
-set(VCINTRINSICS_HASH 06b85bd988059939770eb6e6e6194562d17c5f5a5df9947af18696b3b1fe92f3)
+set(VCINTRINSICS_HASH 4dfccbb60c2a929a97745c7a4cff04cc3f54aca1590b2763ca7842be59b55f01)
 set(VCINTRINSICS_HASH_TYPE SHA256)
 set(VCINTRINSICS_FILE vc-intrinsics-${VCINTRINSICS_VERSION}.tar.gz)
 set(VCINTRINSICS_HOMEPAGE https://github.com/intel/vc-intrinsics)
 set(VCINTRINSICS_LICENSE SPDX:MIT)
-set(VCINTRINSICS_COPYRIGHT "Copyright (c) 2019 Intel Corporation")
+set(VCINTRINSICS_COPYRIGHT "Copyright (c) 2019-2024 Intel Corporation")
 
 # Source opencl/CMakeLists.txt
 set(OPENCLHEADERS_VERSION 9ddb236e6eb3cf844f9e2f81677e1045f9bf838e)
@@ -1101,9 +1102,9 @@ set(ICDLOADER_COPYRIGHT " Copyright (c) 2020 The Khronos Group Inc.")
 # Source sycl/cmake/modules/AddBoostMp11Headers.cmake
 # Using external MP11 here, getting AddBoostMp11Headers.cmake to recognize
 # our copy in boost directly was more trouble than it was worth.
-set(MP11_VERSION ef7608b463298b881bc82eae4f45a4385ed74fca)
+set(MP11_VERSION 863d8b8d2b20f2acd0b5870f23e553df9ce90e6c)
 set(MP11_URI https://github.com/boostorg/mp11/archive/${MP11_VERSION}.tar.gz)
-set(MP11_HASH ec2d68858dd4d04f9a1e3960fc94a58440715e1b3e746cc495438116715343e2)
+set(MP11_HASH 525692267abb8086bb9cc2fe81fb96d73ac645dfa6825cb5114686aafe244e9f)
 set(MP11_HASH_TYPE SHA256)
 set(MP11_FILE mp11-${MP11_VERSION}.tar.gz)
 set(MP11_HOMEPAGE https://github.com/boostorg/mp11)
@@ -1120,10 +1121,10 @@ set(SPIRV_HEADERS_HOMEPAGE https://github.com/KhronosGroup/SPIRV-Headers)
 set(SPIRV_HEADERS_LICENSE SPDX:MIT-Khronos-old)
 set(SPIRV_HEADERS_COPYRIGHT "Copyright (c) 2015-2024 The Khronos Group Inc.")
 
-# Source sycl/plugins/unified_runtime/CMakeLists.txt
-set(UNIFIED_RUNTIME_VERSION ec634ff05b067d7922ec45059dda94665e5dcd9b)
+# Source sycl/cmake/modules/FetchUnifiedRuntime.cmake
+set(UNIFIED_RUNTIME_VERSION 04db12683146673af9a09e923c19cf9a4ee96982)
 set(UNIFIED_RUNTIME_URI https://github.com/oneapi-src/unified-runtime/archive/${UNIFIED_RUNTIME_VERSION}.tar.gz)
-set(UNIFIED_RUNTIME_HASH ff15574aba6225d0c8a32f71866126551dee1aaacfa7894b8fdcc5e52e0f5da9)
+set(UNIFIED_RUNTIME_HASH 1ebb6f6ec640dac6279ad84a705ddb48da12e29af9942a7e8fc087f23212f650)
 set(UNIFIED_RUNTIME_HASH_TYPE SHA256)
 set(UNIFIED_RUNTIME_FILE unified-runtime-${UNIFIED_RUNTIME_VERSION}.tar.gz)
 set(UNIFIED_RUNTIME_HOMEPAGE https://github.com/oneapi-src/unified-runtime)
@@ -1131,9 +1132,9 @@ set(UNIFIED_RUNTIME_LICENSE SPDX:Apache-2.0 WITH LLVM-exception)
 set(UNIFIED_RUNTIME_COPYRIGHT "Copyright (C) 2019-2024 Intel Corporation")
 
 # Source unified-runtime/source/common/CMakeList.txt
-set(UNIFIED_MEMORY_FRAMEWORK_VERSION 9bf7a0dc4dff76844e10edbb5c6e9d917536ef6d)
+set(UNIFIED_MEMORY_FRAMEWORK_VERSION v0.9.0)
 set(UNIFIED_MEMORY_FRAMEWORK_URI https://github.com/oneapi-src/unified-memory-framework/archive/${UNIFIED_MEMORY_FRAMEWORK_VERSION}.tar.gz)
-set(UNIFIED_MEMORY_FRAMEWORK_HASH 7ff7d0be7be6e59693d238eab02b5a9741c820d3d995446781dcd7a2adaa28e9)
+set(UNIFIED_MEMORY_FRAMEWORK_HASH 8594738d84abb4001bb0e962383b8a2604837e7bbc378d0771ecdab436c7d001)
 set(UNIFIED_MEMORY_FRAMEWORK_HASH_TYPE SHA256)
 set(UNIFIED_MEMORY_FRAMEWORK_FILE unified-memory-framework-${UNIFIED_MEMORY_FRAMEWORK_VERSION}.tar.gz)
 set(UNIFIED_MEMORY_FRAMEWORK_HOMEPAGE https://github.com/oneapi-src/unified-memory-framework)
@@ -1151,15 +1152,15 @@ set(UNIFIED_MEMORY_FRAMEWORK_COPYRIGHT "Copyright (C) 2023-2024 Intel Corporatio
 # compiler, the versions used are taken from the following location
 # https://github.com/intel/intel-graphics-compiler/releases
 
-set(IGC_VERSION 1.0.17384.29)
-set(IGC_URI https://github.com/intel/intel-graphics-compiler/archive/refs/tags/igc-${IGC_VERSION}.tar.gz)
-set(IGC_HASH de7b1ba9cb1369f9aa26343bb4ad1ac7e5cb5f9f4517071f25d853e46cae6195)
+set(IGC_VERSION 2.1.14)
+set(IGC_URI https://github.com/intel/intel-graphics-compiler/archive/refs/tags/v${IGC_VERSION}.tar.gz)
+set(IGC_HASH ebc39f8238dec2983c227d9db204db333b439ba5cd100e0a819a0208ac8066ca)
 set(IGC_HASH_TYPE SHA256)
-set(IGC_FILE igc-${IGC_VERSION}.tar.gz)
+set(IGC_FILE ${IGC_VERSION}.tar.gz)
 set(IGC_NAME IGC)
 set(IGC_HOMEPAGE https://github.com/intel/intel-graphics-compiler)
 set(IGC_LICENSE SPDX:MIT)
-set(IGC_COPYRIGHT "Copyright (C) 2019-2021 Intel Corporation")
+set(IGC_COPYRIGHT "Copyright (C) 2019-2024 Intel Corporation")
 
 set(IGC_LLVM_VERSION llvmorg-14.0.5)
 set(IGC_LLVM_URI https://github.com/llvm/llvm-project/archive/refs/tags/${IGC_LLVM_VERSION}.tar.gz)
@@ -1180,24 +1181,24 @@ set(IGC_LLVM_COPYRIGHT "Copyright (c) 2003-2019 University of Illinois at Urbana
 #
 # WARNING WARNING WARNING
 
-set(IGC_OPENCL_CLANG_VERSION 470cf0018e1ef6fc92eda1356f5f31f7da452abc)
+set(IGC_OPENCL_CLANG_VERSION v14.0.1)
 set(IGC_OPENCL_CLANG_URI https://github.com/intel/opencl-clang/archive/${IGC_OPENCL_CLANG_VERSION}.tar.gz)
-set(IGC_OPENCL_CLANG_HASH fa410e0b4cc5b3fc3262e3b6aaace3543207a20ecd004f48dfec9a970f1fe4e2)
+set(IGC_OPENCL_CLANG_HASH 77a023e311f825bbdc242fe9b397bd68bac23a88e68142b4919fa322c6c70392)
 set(IGC_OPENCL_CLANG_HASH_TYPE SHA256)
 set(IGC_OPENCL_CLANG_FILE opencl-clang-${IGC_OPENCL_CLANG_VERSION}.tar.gz)
 set(IGC_OPENCL_CLANG_HOMEPAGE https://github.com/intel/opencl-clang/)
 set(IGC_OPENCL_CLANG_LICENSE SPDX:Apache-2.0 WITH LLVM-exception)
 set(IGC_OPENCL_CLANG_COPYRIGHT "Copyright (c) Intel Corporation (2009-2017).")
 
-set(IGC_VCINTRINSICS_VERSION v0.19.0)
-set(IGC_VCINTRINSICS_URI https://github.com/intel/vc-intrinsics/archive/refs/tags/${IGC_VCINTRINSICS_VERSION}.tar.gz)
-set(IGC_VCINTRINSICS_HASH b708df2fddc9fcb2cac5d6f26870f2e105f8395c0208ecd8acc38cbf175aee52)
+set(IGC_VCINTRINSICS_VERSION 0.20.1)
+set(IGC_VCINTRINSICS_URI https://github.com/intel/vc-intrinsics/archive/refs/tags/v${IGC_VCINTRINSICS_VERSION}.tar.gz)
+set(IGC_VCINTRINSICS_HASH 01a68a3c8299075ad2b094264bef5109d660f1d53faf614f4f95745ad05f4e3e)
 set(IGC_VCINTRINSICS_HASH_TYPE SHA256)
 set(IGC_VCINTRINSICS_FILE vc-intrinsics-${IGC_VCINTRINSICS_VERSION}.tar.gz)
 set(IGC_VCINTRINSICS_NAME "VC Intrinsics")
 set(IGC_VCINTRINSICS_HOMEPAGE https://github.com/intel/vc-intrinsics)
 set(IGC_VCINTRINSICS_LICENSE SPDX:MIT)
-set(IGC_VCINTRINSICS_COPYRIGHT "Copyright (c) 2019 Intel Corporation")
+set(IGC_VCINTRINSICS_COPYRIGHT "Copyright (C) 2020-2021 Intel Corporation")
 
 set(IGC_SPIRV_HEADERS_VERSION vulkan-sdk-1.3.275.0)
 set(IGC_SPIRV_HEADERS_URI https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/${IGC_SPIRV_HEADERS_VERSION}.tar.gz)
@@ -1219,9 +1220,9 @@ set(IGC_SPIRV_TOOLS_HOMEPAGE https://github.com/KhronosGroup/SPIRV-Tools/)
 set(IGC_SPIRV_TOOLS_LICENSE SPDX:Apache-2.0)
 set(IGC_SPIRV_TOOLS_COPYRIGHT "Copyright (c) 2015-2016 The Khronos Group Inc.")
 
-set(IGC_SPIRV_TRANSLATOR_VERSION 2823e7052b7999c10fff63bc8089e5aa205716f4)
+set(IGC_SPIRV_TRANSLATOR_VERSION 1cfcf1b5ec2ec9c52fd56dc7cb47dcf12125e8db)
 set(IGC_SPIRV_TRANSLATOR_URI https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/${IGC_SPIRV_TRANSLATOR_VERSION}.tar.gz)
-set(IGC_SPIRV_TRANSLATOR_HASH 39eb3e033a0a1f5c69622d6a0b87e296b4e090d2f613f1014ee6fedcc2d3ca83)
+set(IGC_SPIRV_TRANSLATOR_HASH 5384344b47b67e3811419599c138284de5490304030096f3bc10271915a8ad76)
 set(IGC_SPIRV_TRANSLATOR_HASH_TYPE SHA256)
 set(IGC_SPIRV_TRANSLATOR_FILE SPIR-V-Translator-${IGC_SPIRV_TRANSLATOR_VERSION}.tar.gz)
 set(IGC_SPIRV_TRANSLATOR_NAME "LLVM/SPIR-V Bi-Directional Translator")
@@ -1242,9 +1243,9 @@ http://llvm.org
 ### Intel Graphics Compiler DEPS END ###
 ########################################
 
-set(GMMLIB_VERSION intel-gmmlib-22.4.1)
+set(GMMLIB_VERSION intel-gmmlib-22.5.3)
 set(GMMLIB_URI https://github.com/intel/gmmlib/archive/refs/tags/${GMMLIB_VERSION}.tar.gz)
-set(GMMLIB_HASH 451fbe2eac26533a896ca0da0356354ecc38680f273fce7d121c6a22251ed21e)
+set(GMMLIB_HASH a8ccba4a71319b66a901df016998a76745ce9624032b6555517607c5bbb2b4e8)
 set(GMMLIB_HASH_TYPE SHA256)
 set(GMMLIB_NAME "Intel(R) Graphics Memory Management Library")
 set(GMMLIB_FILE ${GMMLIB_VERSION}.tar.gz)
@@ -1256,14 +1257,14 @@ Copyright (c) 2016 Gabi Melman.
 Copyright 2008, Google Inc. All rights reserved.
 ]=])
 
-set(OCLOC_VERSION 24.31.30508.9)
+set(OCLOC_VERSION 24.45.31740.15)
 set(OCLOC_URI https://github.com/intel/compute-runtime/archive/refs/tags/${OCLOC_VERSION}.tar.gz)
-set(OCLOC_HASH 7c2b5708e996fc9e61997f1821d9be1e0fd43c9f29cfe3fea383a01d9aa92868)
+set(OCLOC_HASH f0e3b3b038b585753530a8f1b00a8e71b045ee007b8392aaa986ccad92cf5123)
 set(OCLOC_HASH_TYPE SHA256)
 set(OCLOC_FILE ocloc-${OCLOC_VERSION}.tar.gz)
 set(OCLOC_HOMEPAGE https://github.com/intel/compute-runtime)
 set(OCLOC_LICENSE SPDX:MIT)
-set(OCLOC_COPYRIGHT "Copyright (C) 2021 Intel Corporation")
+set(OCLOC_COPYRIGHT "Copyright (C) 2018-2023 Intel Corporation")
 
 set(AOM_VERSION 3.4.0)
 set(AOM_URI https://storage.googleapis.com/aom-releases/libaom-${AOM_VERSION}.tar.gz)

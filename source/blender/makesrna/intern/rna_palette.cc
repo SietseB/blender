@@ -8,9 +8,6 @@
 
 #include <cstdlib>
 
-#include "BLI_utildefines.h"
-
-#include "RNA_access.hh"
 #include "RNA_define.hh"
 
 #include "rna_internal.hh"
@@ -240,7 +237,7 @@ static PointerRNA rna_Palette_active_color_get(PointerRNA *ptr)
   color = static_cast<PaletteColor *>(BLI_findlink(&palette->colors, palette->active_color));
 
   if (color) {
-    return rna_pointer_inherit_refine(ptr, &RNA_PaletteColor, color);
+    return RNA_pointer_create_with_parent(*ptr, &RNA_PaletteColor, color);
   }
 
   return PointerRNA_NULL;

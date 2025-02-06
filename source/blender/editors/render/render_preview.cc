@@ -22,10 +22,11 @@
 #endif
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
-#include "BLI_time.h"
+#include "BLI_path_utils.hh"
+#include "BLI_rect.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
@@ -46,7 +47,6 @@
 #include "DNA_world_types.h"
 
 #include "BKE_animsys.h"
-#include "BKE_appdir.hh"
 #include "BKE_armature.hh"
 #include "BKE_brush.hh"
 #include "BKE_colortools.hh"
@@ -80,8 +80,6 @@
 #include "IMB_thumbs.hh"
 
 #include "BIF_glutil.hh"
-
-#include "GPU_shader.hh"
 
 #include "RE_engine.h"
 #include "RE_pipeline.h"
@@ -1727,7 +1725,11 @@ class PreviewLoadJob {
     PreviewImage *preview;
     /** Requested size. */
     eIconSizes icon_size;
+    /** Set to true by if the request was fully handled. */
     std::atomic<bool> done = false;
+    /** Set to true if the request was handled but didn't result in a valid preview.
+     * #PRV_TAG_DEFFERED_INVALID will be set in response. */
+    std::atomic<bool> failure = false;
 
     RequestedPreview(PreviewImage *preview, eIconSizes icon_size)
         : preview(preview), icon_size(icon_size)
@@ -1855,6 +1857,9 @@ void PreviewLoadJob::run_fn(void *customdata, wmJobWorkerStatus *worker_status)
       }
       IMB_freeImBuf(thumb);
     }
+    else {
+      request->failure = true;
+    }
 
     request->done = true;
     worker_status->do_update = true;
@@ -1869,6 +1874,9 @@ void PreviewLoadJob::finish_request(RequestedPreview &request)
   PreviewImage *preview = request.preview;
 
   preview->runtime->tag &= ~PRV_TAG_DEFFERED_RENDERING;
+  if (request.failure) {
+    preview->runtime->tag |= PRV_TAG_DEFFERED_INVALID;
+  }
   BKE_previewimg_finish(preview, request.icon_size);
 
   BLI_assert_msg(BLI_thread_is_main(),
