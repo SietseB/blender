@@ -26,6 +26,7 @@
 
 #include "BLI_array_utils.h"
 #include "BLI_bitmap_draw_2d.h"
+#include "BLI_listbase.h"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
@@ -36,6 +37,7 @@
 
 #include "BKE_camera.h"
 #include "BKE_context.hh"
+#include "BKE_library.hh"
 #include "BKE_object.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"

@@ -23,6 +23,7 @@
 
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
+#include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
@@ -38,6 +39,7 @@
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_override.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_node.hh"
 #include "BKE_report.hh"
@@ -173,14 +175,13 @@ PointerRNA RNA_main_pointer_create(Main *main)
 
 PointerRNA RNA_id_pointer_create(ID *id)
 {
-  PointerRNA ptr{id, &RNA_ID, id};
-
   if (id) {
-    ptr.type = ID_code_to_RNA_type(GS(id->name));
+    PointerRNA ptr{id, ID_code_to_RNA_type(GS(id->name)), id};
     rna_pointer_refine(ptr);
+    return ptr;
   }
 
-  return ptr;
+  return PointerRNA_NULL;
 }
 
 PointerRNA RNA_pointer_create_discrete(ID *id, StructRNA *type, void *data)

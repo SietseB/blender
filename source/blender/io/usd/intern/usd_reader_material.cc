@@ -10,6 +10,7 @@
 
 #include "BKE_image.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_node.hh"
@@ -18,6 +19,7 @@
 #include "BKE_report.hh"
 
 #include "BLI_fileops.h"
+#include "BLI_listbase.h"
 #include "BLI_map.hh"
 #include "BLI_math_vector.h"
 #include "BLI_path_utils.hh"

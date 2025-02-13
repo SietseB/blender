@@ -218,6 +218,14 @@ static void do_versions_theme(const UserDef *userdef, bTheme *btheme)
     FROM_DEFAULT_V4_UCHAR(space_sequencer.text_strip_cursor);
     FROM_DEFAULT_V4_UCHAR(space_sequencer.selected_text);
   }
+
+  if (!USER_VERSION_ATLEAST(405, 3)) {
+    FROM_DEFAULT_V4_UCHAR(tui.wcol_state.error);
+    FROM_DEFAULT_V4_UCHAR(tui.wcol_state.warning);
+    FROM_DEFAULT_V4_UCHAR(tui.wcol_state.info);
+    FROM_DEFAULT_V4_UCHAR(tui.wcol_state.success);
+  }
+
   /**
    * Always bump subversion in BKE_blender_version.h when adding versioning
    * code here, and wrap it inside a USER_VERSION_ATLEAST check.
@@ -1396,7 +1404,7 @@ void blo_do_versions_userdef(UserDef *userdef)
     }
   }
 
-  if (!USER_VERSION_ATLEAST(405, 1)) {
+  if (!USER_VERSION_ATLEAST(404, 28)) {
     userdef->ndof_flag |= NDOF_SHOW_GUIDE_ORBIT_CENTER | NDOF_ORBIT_CENTER_AUTO;
   }
 

@@ -24,6 +24,7 @@
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
 #include "BKE_global.hh"
+#include "BKE_grease_pencil.hh"
 #include "BKE_image.hh"
 #include "BKE_key.hh"
 #include "BKE_layer.hh"
@@ -1322,6 +1323,22 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
   BLF_draw_default(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
 }
 
+static bool is_grease_pencil_with_layer_keyframe(const Object &ob)
+{
+  if (ob.type != OB_GREASE_PENCIL) {
+    return false;
+  }
+
+  using namespace blender::bke::greasepencil;
+  const GreasePencil &grease_pencil = *static_cast<GreasePencil *>(ob.data);
+  for (const Layer *layer : grease_pencil.layers()) {
+    if (!layer->frames().is_empty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Draw info beside axes in top-left corner:
  * frame-number, collection, object name, bone name (if available), marker name (if available).
@@ -1432,6 +1449,10 @@ static void draw_selected_name(
     }
 
     /* color depends on whether there is a keyframe */
+    if (is_grease_pencil_with_layer_keyframe(*ob)) {
+      UI_FontThemeColor(font_id, TH_TIME_GP_KEYFRAME);
+    }
+
     if (blender::animrig::id_frame_has_keyframe((ID *)ob,
                                                 /* BKE_scene_ctime_get(scene) */ float(cfra)))
     {
@@ -2721,7 +2742,9 @@ void ED_scene_draw_fps(const Scene *scene, int xoffset, int *yoffset)
   if (state.fps_average + 0.5f < state.fps_target) {
     /* Always show fractional when under performing. */
     show_fractional = true;
-    BLF_color4ub(font_id, 225, 36, 36, 255);
+    float alert_color[4];
+    UI_GetThemeColorBlend4f(TH_REDALERT, TH_TEXT_HI, 0.5f, alert_color);
+    BLF_color4fv(font_id, alert_color);
   }
 
   if (show_fractional) {

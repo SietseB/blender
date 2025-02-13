@@ -6,6 +6,7 @@
  * \ingroup edcurves
  */
 
+#include "BLI_listbase.h"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_string.h"
@@ -822,7 +823,7 @@ static int curves_set_selection_domain_exec(bContext *C, wmOperator *op)
       }
     }
     if (!active_attribute.empty()) {
-      BKE_attributes_active_set(owner, active_attribute.c_str());
+      BKE_attributes_active_set(owner, active_attribute);
     }
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic

@@ -10,8 +10,10 @@
 
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
+#include "BKE_library.hh"
 #include "BKE_screen.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_string_utils.hh"
 
 #include "BLT_translation.hh"

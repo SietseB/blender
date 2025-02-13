@@ -15,6 +15,7 @@
 
 #include "CLG_log.h"
 
+#include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
 #include "BLI_linklist.h"
@@ -48,8 +49,8 @@ bool BLO_main_validate_libraries(Main *bmain, ReportList *reports)
 
   blo_split_main(&mainlist, bmain);
 
-  ListBase *lbarray[INDEX_ID_MAX];
-  int i = set_listbasepointers(bmain, lbarray);
+  MainListsArray lbarray = BKE_main_lists_get(*bmain);
+  int i = lbarray.size();
   while (i--) {
     for (ID *id = static_cast<ID *>(lbarray[i]->first); id != nullptr;
          id = static_cast<ID *>(id->next))
@@ -75,18 +76,19 @@ bool BLO_main_validate_libraries(Main *bmain, ReportList *reports)
     BKE_library_filepath_set(bmain, curlib, curlib->filepath);
     BlendFileReadReport bf_reports{};
     bf_reports.reports = reports;
-    BlendHandle *bh = BLO_blendhandle_from_file(curlib->runtime.filepath_abs, &bf_reports);
+    BlendHandle *bh = BLO_blendhandle_from_file(curlib->runtime->filepath_abs, &bf_reports);
 
     if (bh == nullptr) {
       BKE_reportf(reports,
                   RPT_ERROR,
                   "Library ID %s not found at expected path %s!",
                   curlib->id.name,
-                  curlib->runtime.filepath_abs);
+                  curlib->runtime->filepath_abs);
       continue;
     }
 
-    i = set_listbasepointers(curmain, lbarray);
+    lbarray = BKE_main_lists_get(*curmain);
+    i = lbarray.size();
     while (i--) {
       ID *id = static_cast<ID *>(lbarray[i]->first);
       if (id == nullptr) {

@@ -82,6 +82,7 @@ set(DPCPP_EXTRA_ARGS
   -DPYTHON_EXECUTABLE=${PYTHON_BINARY}
   -DLLDB_ENABLE_CURSES=OFF
   -DLLVM_ENABLE_TERMINFO=OFF
+  -DLLVM_ENABLE_ZLIB=OFF
   -DLLVM_ENABLE_ZSTD=FORCE_ON
   -DLLVM_USE_STATIC_ZSTD=ON
   -Dzstd_INCLUDE_DIR=${LIBDIR}/zstd/include
@@ -141,6 +142,7 @@ add_dependencies(
   external_spirvheaders
   external_unifiedruntime
   external_unifiedmemoryframework
+  external_zstd
 )
 
 if(WIN32)

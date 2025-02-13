@@ -29,6 +29,7 @@
 #include "DNA_volume_types.h"
 #include "DNA_world_types.h"
 
+#include "BLI_listbase.h"
 #include "BLI_map.hh"
 #include "BLI_set.hh"
 #include "BLI_string.h"
@@ -50,6 +51,7 @@
 #include "BKE_lib_override.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_lib_remap.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_main_invariants.hh"
 #include "BKE_object.hh"

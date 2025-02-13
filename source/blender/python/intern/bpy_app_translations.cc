@@ -236,7 +236,7 @@ static void _build_translations_cache(PyObject *py_messages, const char *locale)
         }
 
         /* Do not overwrite existing keys! */
-        if (BPY_app_translations_py_pgettext(msgctxt, msgid) == msgid) {
+        if (!BPY_app_translations_py_pgettext(msgctxt, msgid).has_value()) {
           MessageKey key;
           key.context = BLT_is_default_context(msgctxt) ? BLT_I18NCONTEXT_DEFAULT_BPYRNA : msgctxt;
           key.str = msgid;
@@ -254,7 +254,8 @@ static void _build_translations_cache(PyObject *py_messages, const char *locale)
   MEM_SAFE_FREE(language_variant);
 }
 
-const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *msgid)
+std::optional<StringRefNull> BPY_app_translations_py_pgettext(const StringRef msgctxt,
+                                                              const StringRef msgid)
 {
 #  define STATIC_LOCALE_SIZE 32 /* Should be more than enough! */
 
@@ -263,19 +264,17 @@ const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *ms
 
   /* Just in case, should never happen! */
   if (!_translations) {
-    return msgid;
+    return std::nullopt;
   }
 
   tmp = BLT_lang_get();
   if (!STREQ(tmp, locale) || !get_translations_cache()) {
-    PyGILState_STATE _py_state;
+    /* This function may be called from C (i.e. outside of python interpreter 'context'). */
+    PyGILState_STATE _py_state = PyGILState_Ensure();
 
     STRNCPY(locale, tmp);
 
     /* Locale changed or cache does not exist, refresh the whole cache! */
-    /* This func may be called from C (i.e. outside of python interpreter 'context'). */
-    _py_state = PyGILState_Ensure();
-
     _build_translations_cache(_translations->py_messages, locale);
 
     PyGILState_Release(_py_state);
@@ -288,9 +287,9 @@ const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *ms
 
   const std::string *result = get_translations_cache()->lookup_ptr_as(key);
   if (!result) {
-    return msgid;
+    return std::nullopt;
   }
-  return result->c_str();
+  return *result;
 
 #  undef STATIC_LOCALE_SIZE
 }

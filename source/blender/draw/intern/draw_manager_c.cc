@@ -79,7 +79,6 @@
 #include "draw_color_management.hh"
 #include "draw_common_c.hh"
 #include "draw_manager_c.hh"
-#include "draw_manager_profiling.hh"
 #ifdef WITH_GPU_DRAW_TESTS
 #  include "draw_manager_testing.hh"
 #endif
@@ -296,11 +295,6 @@ const float *DRW_viewport_invert_size_get()
   return DST.inv_size;
 }
 
-const float *DRW_viewport_pixelsize_get()
-{
-  return &DST.pixsize;
-}
-
 /* Not a viewport variable, we could split this out. */
 static void drw_context_state_init()
 {
@@ -358,6 +352,7 @@ static void drw_viewport_data_reset(DRWData *drw_data)
   DRW_instance_data_list_resize(drw_data->idatalist);
   DRW_instance_data_list_reset(drw_data->idatalist);
   DRW_texture_pool_reset(drw_data->texture_pool);
+  blender::gpu::TexturePool::get().reset();
 }
 
 void DRW_viewport_data_free(DRWData *drw_data)
@@ -460,7 +455,6 @@ static void drw_manager_init(DRWManager *dst, GPUViewport *viewport, const int s
   dst->default_framebuffer = dfbl->default_fb;
 
   if (rv3d != nullptr) {
-    dst->pixsize = rv3d->pixsize;
     blender::draw::View::default_set(float4x4(rv3d->viewmat), float4x4(rv3d->winmat));
   }
   else if (region) {
@@ -478,9 +472,6 @@ static void drw_manager_init(DRWManager *dst, GPUViewport *viewport, const int s
     winmat[3][1] = -1.0f;
 
     blender::draw::View::default_set(float4x4(viewmat), float4x4(winmat));
-  }
-  else {
-    dst->pixsize = 1.0f;
   }
 
   /* fclem: Is this still needed ? */
@@ -619,16 +610,6 @@ static void drw_duplidata_free()
     BLI_ghash_free(DST.dupli_ghash, duplidata_key_free, duplidata_value_free);
     DST.dupli_ghash = nullptr;
   }
-}
-
-void **DRW_duplidata_get(void *vedata)
-{
-  if (DST.dupli_source == nullptr) {
-    return nullptr;
-  }
-  ViewportEngineData *ved = (ViewportEngineData *)vedata;
-  DRWRegisteredDrawEngine *engine_type = ved->engine_type;
-  return &DST.dupli_datas[engine_type->index];
 }
 
 /** \} */
@@ -880,9 +861,6 @@ static void drw_engines_init()
   DRW_ENABLED_ENGINE_ITER (DST.view_data_active, engine, data) {
     PROFILE_START(stime);
 
-    const DrawEngineDataSize *data_size = engine->vedata_size;
-    memset(data->psl->passes, 0, sizeof(*data->psl->passes) * data_size->psl_len);
-
     if (engine->engine_init) {
       engine->engine_init(data);
     }
@@ -973,13 +951,13 @@ static void drw_engines_draw_scene()
   DRW_ENABLED_ENGINE_ITER (DST.view_data_active, engine, data) {
     PROFILE_START(stime);
     if (engine->draw_scene) {
-      DRW_stats_group_start(engine->idname);
+      GPU_debug_group_begin(engine->idname);
       engine->draw_scene(data);
       /* Restore for next engine */
       if (DRW_state_is_fbo()) {
         GPU_framebuffer_bind(DST.default_framebuffer);
       }
-      DRW_stats_group_end();
+      GPU_debug_group_end();
     }
     PROFILE_END_UPDATE(data->render_time, stime);
   }
@@ -1391,13 +1369,6 @@ void DRW_draw_callbacks_post_scene()
       DRW_draw_gizmo_2d();
     }
 
-    if (G.debug_value > 20 && G.debug_value < 30) {
-      GPU_depth_test(GPU_DEPTH_NONE);
-      /* local coordinate visible rect inside region, to accommodate overlapping ui */
-      const rcti *rect = ED_region_visible_rect(DST.draw_ctx.region);
-      DRW_stats_draw(rect);
-    }
-
     GPU_depth_test(GPU_DEPTH_LESS_EQUAL);
   }
   else {
@@ -1595,8 +1566,6 @@ void DRW_draw_render_loop_ex(Depsgraph *depsgraph,
 #endif
   }
 
-  DRW_stats_begin();
-
   GPU_framebuffer_bind(DST.default_framebuffer);
 
   /* Start Drawing */
@@ -1617,8 +1586,6 @@ void DRW_draw_render_loop_ex(Depsgraph *depsgraph,
   }
 
   DRW_smoke_exit(DST.vmempool);
-
-  DRW_stats_reset();
 
   DRW_draw_callbacks_post_scene();
 
@@ -1805,6 +1772,7 @@ void DRW_render_gpencil(RenderEngine *engine, Depsgraph *depsgraph)
 
   GPU_depth_test(GPU_DEPTH_NONE);
 
+  blender::gpu::TexturePool::get().reset(true);
   drw_manager_exit(&DST);
 
   /* Restore Drawing area. */
@@ -1892,6 +1860,8 @@ void DRW_render_to_image(RenderEngine *engine, Depsgraph *depsgraph)
 
   DRW_smoke_exit(DST.vmempool);
 
+  blender::gpu::TexturePool::get().reset(true);
+
   drw_manager_exit(&DST);
   DRW_cache_free_old_subdiv();
 
@@ -1978,7 +1948,6 @@ void DRW_custom_pipeline_begin(DrawEngineType *draw_engine_type, Depsgraph *deps
 
 void DRW_custom_pipeline_end()
 {
-
   DRW_smoke_exit(DST.vmempool);
 
   GPU_framebuffer_restore();
@@ -1992,6 +1961,7 @@ void DRW_custom_pipeline_end()
     GPU_finish();
   }
 
+  blender::gpu::TexturePool::get().reset(true);
   drw_manager_exit(&DST);
 }
 
@@ -2096,8 +2066,6 @@ void DRW_draw_render_loop_2d_ex(Depsgraph *depsgraph,
   }
   drw_task_graph_deinit();
 
-  DRW_stats_begin();
-
   GPU_framebuffer_bind(DST.default_framebuffer);
 
   /* Start Drawing */
@@ -2149,15 +2117,6 @@ void DRW_draw_render_loop_2d_ex(Depsgraph *depsgraph,
   if (do_draw_gizmos) {
     GPU_depth_test(GPU_DEPTH_NONE);
     DRW_draw_gizmo_2d();
-  }
-
-  DRW_stats_reset();
-
-  if (G.debug_value > 20 && G.debug_value < 30) {
-    GPU_depth_test(GPU_DEPTH_NONE);
-    /* local coordinate visible rect inside region, to accommodate overlapping ui */
-    const rcti *rect = ED_region_visible_rect(DST.draw_ctx.region);
-    DRW_stats_draw(rect);
   }
 
   GPU_depth_test(GPU_DEPTH_LESS_EQUAL);
@@ -2236,9 +2195,6 @@ void DRW_draw_select_loop(Depsgraph *depsgraph,
   BKE_view_layer_synced_ensure(scene, view_layer);
   Object *obact = BKE_view_layer_active_object_get(view_layer);
   Object *obedit = use_obedit_skip ? nullptr : OBEDIT_FROM_OBACT(obact);
-#ifndef USE_GPU_SELECT
-  UNUSED_VARS(scene, view_layer, v3d, region, rect);
-#else
   RegionView3D *rv3d = static_cast<RegionView3D *>(region->regiondata);
 
   /* Reset before using it. */
@@ -2437,8 +2393,6 @@ void DRW_draw_select_loop(Depsgraph *depsgraph,
   drw_manager_exit(&DST);
 
   GPU_framebuffer_restore();
-
-#endif /* USE_GPU_SELECT */
 }
 
 void DRW_draw_depth_loop(Depsgraph *depsgraph,
@@ -2943,7 +2897,6 @@ void DRW_engines_free()
   DRW_curves_free();
   DRW_volume_free();
   DRW_shape_cache_free();
-  DRW_stats_free();
   DRW_globals_free();
 
   drw_debug_module_free(DST.debug);

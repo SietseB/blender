@@ -19,6 +19,7 @@
 #include "DNA_text_types.h"
 
 #include "BLI_fileops.h"
+#include "BLI_listbase.h"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
 #include "BLI_string_utils.hh"
@@ -2589,7 +2590,7 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
       if (id->tag & ID_TAG_MISSING) {
         return ICON_LIBRARY_DATA_BROKEN;
       }
-      else if (((Library *)id)->runtime.parent) {
+      else if (((Library *)id)->runtime->parent) {
         return ICON_LIBRARY_DATA_INDIRECT;
       }
       else {
@@ -2855,7 +2856,6 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
           case STRIP_TYPE_ADD:
           case STRIP_TYPE_SUB:
           case STRIP_TYPE_MUL:
-          case STRIP_TYPE_OVERDROP:
           case STRIP_TYPE_ALPHAOVER:
           case STRIP_TYPE_ALPHAUNDER:
           case STRIP_TYPE_COLORMIX:

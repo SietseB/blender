@@ -31,6 +31,7 @@
 #include "BLI_array_utils.hh"
 #include "BLI_bounds.hh"
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_listbase.h"
 #include "BLI_map.hh"
 #include "BLI_math_euler_types.hh"
 #include "BLI_math_geom.h"
@@ -2053,9 +2054,9 @@ std::optional<MutableSpan<float3>> GreasePencilDrawingEditHints::positions_for_w
  * \{ */
 
 bool BKE_grease_pencil_drawing_attribute_required(const GreasePencilDrawing * /*drawing*/,
-                                                  const char *name)
+                                                  const blender::StringRef name)
 {
-  return STREQ(name, ATTR_POSITION);
+  return name == ATTR_POSITION;
 }
 
 GreasePencil *BKE_grease_pencil_add(Main *bmain, const char *name)
@@ -2374,6 +2375,23 @@ static void grease_pencil_do_layer_adjustments(GreasePencil &grease_pencil)
   }
 }
 
+static void grease_pencil_evaluate_layers(GreasePencil &grease_pencil)
+{
+  using namespace blender;
+  using namespace blender::bke::greasepencil;
+
+  /* Copy the layer cache into an array here, because removing a layer will invalidate the layer
+   * cache. This will only copy the pointers to the layers, not the layers themselves. */
+  Array<Layer *> layers = grease_pencil.layers_for_write();
+
+  for (Layer *layer : layers) {
+    if (!layer->is_visible()) {
+      /* Remove layer from evaluated data. */
+      grease_pencil.remove_layer(*layer);
+    }
+  }
+}
+
 void BKE_grease_pencil_data_update(Depsgraph *depsgraph, Scene *scene, Object *object)
 {
   using namespace blender;
@@ -2381,10 +2399,12 @@ void BKE_grease_pencil_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
   /* Free any evaluated data and restore original data. */
   BKE_object_free_derived_caches(object);
 
-  /* Evaluate modifiers. */
   GreasePencil *grease_pencil = static_cast<GreasePencil *>(object->data);
   /* Store the frame that this grease pencil is evaluated on. */
   grease_pencil->runtime->eval_frame = int(DEG_get_ctime(depsgraph));
+  /* This will remove layers that aren't visible. */
+  grease_pencil_evaluate_layers(*grease_pencil);
+
   GeometrySet geometry_set = GeometrySet::from_grease_pencil(grease_pencil,
                                                              GeometryOwnershipType::ReadOnly);
   /* The layer adjustments for tinting and radii offsets are applied before modifier evaluation.
@@ -2394,9 +2414,14 @@ void BKE_grease_pencil_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
   if (layer_attributes.contains("tint_color") || layer_attributes.contains("radius_offset")) {
     grease_pencil_do_layer_adjustments(*geometry_set.get_grease_pencil_for_write());
   }
-  /* Only add the edit hint component in edit mode or sculpt mode for now so users can properly
-   * select deformed drawings. */
-  if (ELEM(object->mode, OB_MODE_EDIT, OB_MODE_SCULPT_GREASE_PENCIL)) {
+  /* Only add the edit hint component in modes where users can potentially interact with deformed
+   * drawings. */
+  if (ELEM(object->mode,
+           OB_MODE_EDIT,
+           OB_MODE_SCULPT_GREASE_PENCIL,
+           OB_MODE_VERTEX_GREASE_PENCIL,
+           OB_MODE_WEIGHT_GREASE_PENCIL))
+  {
     GeometryComponentEditData &edit_component =
         geometry_set.get_component_for_write<GeometryComponentEditData>();
     edit_component.grease_pencil_edit_hints_ = std::make_unique<GreasePencilEditHints>(

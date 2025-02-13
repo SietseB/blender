@@ -8,10 +8,6 @@
  * \ingroup bke
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct BlendDataReader;
 struct Brush;
 struct CurveMapping;
@@ -313,6 +309,3 @@ void BKE_gpencil_morph_target_active_set(struct bGPdata *gpd, struct bGPDmorph_t
 
 #define GPENCIL_MORPH_TARGETS_MAX 128
 
-#ifdef __cplusplus
-}
-#endif

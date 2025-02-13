@@ -18,6 +18,7 @@
 #include "DNA_object_types.h"   /* for OB_DATA_SUPPORT_ID */
 #include "DNA_screen_types.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math_color.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
@@ -34,6 +35,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_lib_override.hh"
 #include "BKE_lib_remap.hh"
+#include "BKE_library.hh"
 #include "BKE_material.hh"
 #include "BKE_node.hh"
 #include "BKE_report.hh"
@@ -310,7 +312,8 @@ static void UI_OT_copy_python_command_button(wmOperatorType *ot)
 
 static int operator_button_property_finish(bContext *C, PointerRNA *ptr, PropertyRNA *prop)
 {
-  ID *id = ptr->owner_id;
+  /* Assign before executing logic in the unlikely event the ID is freed. */
+  const bool is_undo = ptr->owner_id && ID_CHECK_UNDO(ptr->owner_id);
 
   /* perform updates required for this property */
   RNA_property_update(C, ptr, prop);
@@ -321,7 +324,7 @@ static int operator_button_property_finish(bContext *C, PointerRNA *ptr, Propert
   /* Since we don't want to undo _all_ edits to settings, eg window
    * edits on the screen or on operator settings.
    * it might be better to move undo's inline - campbell */
-  if (id && ID_CHECK_UNDO(id)) {
+  if (is_undo) {
     /* do nothing, go ahead with undo */
     return OPERATOR_FINISHED;
   }

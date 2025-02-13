@@ -8,6 +8,7 @@
 
 #include <cstring>
 
+#include "BLI_listbase.h"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -22,6 +23,7 @@
 #include "BKE_idprop.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"

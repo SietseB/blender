@@ -12,6 +12,7 @@
 
 #include "BLI_array_utils.h"
 #include "BLI_function_ref.hh"
+#include "BLI_listbase.h"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
 
@@ -28,6 +29,7 @@
 #include "BKE_gpencil_legacy.h"
 #include "BKE_grease_pencil.hh"
 #include "BKE_layer.hh"
+#include "BKE_library.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_paint.hh"

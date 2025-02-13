@@ -8,6 +8,7 @@
 #include "DNA_node_types.h"
 
 #include "BLI_function_ref.hh"
+#include "BLI_listbase.h"
 #include "BLI_stack.hh"
 #include "BLI_task.hh"
 
@@ -35,7 +36,7 @@ static void update_node_vector(const bNodeTree &ntree)
     bNode &node = *nodes[i];
     node.runtime->index_in_tree = i;
     node.runtime->owner_tree = const_cast<bNodeTree *>(&ntree);
-    tree_runtime.has_undefined_nodes_or_sockets |= node.typeinfo == &bke::NodeTypeUndefined;
+    tree_runtime.has_undefined_nodes_or_sockets |= node.is_undefined();
     if (node.is_group()) {
       tree_runtime.group_nodes.append(&node);
     }

@@ -10,6 +10,7 @@
 
 #include "BLI_assert.h"
 #include "BLI_index_range.hh"
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
@@ -659,14 +660,7 @@ class FileOutputOperation : public NodeOperation {
       }
       else {
         /* Copy the result into a new buffer. */
-        const int64_t buffer_size = int64_t(size.x) * size.y * result.channels_count();
-        buffer = static_cast<float *>(
-            MEM_malloc_arrayN(buffer_size, sizeof(float), "File Output Buffer Copy."));
-        threading::parallel_for(IndexRange(buffer_size), 1024, [&](const IndexRange sub_range) {
-          for (const int64_t i : sub_range) {
-            buffer[i] = result.float_texture()[i];
-          }
-        });
+        buffer = static_cast<float *>(MEM_dupallocN(result.cpu_data().data()));
       }
     }
 
@@ -750,15 +744,7 @@ class FileOutputOperation : public NodeOperation {
     }
     else {
       /* Copy the result into a new buffer. */
-      const int2 size = result.domain().size;
-      const int64_t buffer_size = int64_t(size.x) * size.y * result.channels_count();
-      buffer = static_cast<float *>(
-          MEM_malloc_arrayN(buffer_size, sizeof(float), "File Output Buffer Copy."));
-      threading::parallel_for(IndexRange(buffer_size), 1024, [&](const IndexRange sub_range) {
-        for (const int64_t i : sub_range) {
-          buffer[i] = result.float_texture()[i];
-        }
-      });
+      buffer = static_cast<float *>(MEM_dupallocN(result.cpu_data().data()));
     }
 
     const int2 size = result.domain().size;

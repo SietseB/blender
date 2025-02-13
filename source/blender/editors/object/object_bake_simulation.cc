@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "BLI_fileops.hh"
+#include "BLI_listbase.h"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
 #include "BLI_vector.hh"
@@ -26,6 +27,7 @@
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_node_legacy_types.hh"

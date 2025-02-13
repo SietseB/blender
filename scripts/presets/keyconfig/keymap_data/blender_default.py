@@ -2295,33 +2295,16 @@ def km_node_editor(params):
          {"properties": [("data_path", "space_data.overlay.show_overlays")]}),
         *_template_items_context_menu("NODE_MT_context_menu", params.context_menu_event),
         # Viewer shortcuts.
-        ("node.viewer_shortcut_get", {"type": 'ONE', "value": 'PRESS'}, {"properties": [("viewer_index", 1)]}),
-        ("node.viewer_shortcut_set", {"type": 'ONE', "value": 'PRESS',
-         'ctrl': True}, {"properties": [("viewer_index", 1)]}),
-        ("node.viewer_shortcut_get", {"type": 'TWO', "value": 'PRESS'}, {"properties": [("viewer_index", 2)]}),
-        ("node.viewer_shortcut_set", {"type": 'TWO', "value": 'PRESS',
-         'ctrl': True}, {"properties": [("viewer_index", 2)]}),
-        ("node.viewer_shortcut_get", {"type": 'THREE', "value": 'PRESS'}, {"properties": [("viewer_index", 3)]}),
-        ("node.viewer_shortcut_set", {"type": 'THREE', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 3)]}),
-        ("node.viewer_shortcut_get", {"type": 'FOUR', "value": 'PRESS'}, {"properties": [("viewer_index", 4)]}),
-        ("node.viewer_shortcut_set", {"type": 'FOUR', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 4)]}),
-        ("node.viewer_shortcut_get", {"type": 'FIVE', "value": 'PRESS'}, {"properties": [("viewer_index", 5)]}),
-        ("node.viewer_shortcut_set", {"type": 'FIVE', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 5)]}),
-        ("node.viewer_shortcut_get", {"type": 'SIX', "value": 'PRESS'}, {"properties": [("viewer_index", 6)]}),
-        ("node.viewer_shortcut_set", {"type": 'SIX', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 6)]}),
-        ("node.viewer_shortcut_get", {"type": 'SEVEN', "value": 'PRESS'}, {"properties": [("viewer_index", 7)]}),
-        ("node.viewer_shortcut_set", {"type": 'SEVEN', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 7)]}),
-        ("node.viewer_shortcut_get", {"type": 'EIGHT', "value": 'PRESS'}, {"properties": [("viewer_index", 8)]}),
-        ("node.viewer_shortcut_set", {"type": 'EIGHT', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 8)]}),
-        ("node.viewer_shortcut_get", {"type": 'NINE', "value": 'PRESS'}, {"properties": [("viewer_index", 9)]}),
-        ("node.viewer_shortcut_set", {"type": 'NINE', "value": 'PRESS', 'ctrl': True},
-         {"properties": [("viewer_index", 9)]}),
+        *(
+            ("node.viewer_shortcut_get", {"type": NUMBERS_0[i], "value": 'PRESS'},
+             {"properties": [("viewer_index", i)]})
+            for i in range(1, 10)
+        ),
+        *(
+            ("node.viewer_shortcut_set", {"type": NUMBERS_0[i], "value": 'PRESS', "ctrl": True},
+             {"properties": [("viewer_index", i)]})
+            for i in range(1, 10)
+        ),
     ])
 
     return keymap
@@ -7980,7 +7963,7 @@ def km_3d_view_tool_paint_grease_pencil_primitive_line(params):
         "3D View Tool: Paint Grease Pencil, Line",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("grease_pencil.primitive_line", params.tool_maybe_tweak_event,
+            ("grease_pencil.primitive_line", {"type": 'LEFTMOUSE', "value": 'PRESS'},
                 {"properties": []}),
             ("grease_pencil.primitive_line", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
                 {"properties": []}),
@@ -8014,7 +7997,7 @@ def km_3d_view_tool_paint_grease_pencil_primitive_box(params):
         "3D View Tool: Paint Grease Pencil, Box",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("grease_pencil.primitive_box", params.tool_maybe_tweak_event,
+            ("grease_pencil.primitive_box", {"type": 'LEFTMOUSE', "value": 'PRESS'},
              {"properties": []}),
             ("grease_pencil.primitive_box", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
              {"properties": []}),
@@ -8032,7 +8015,7 @@ def km_3d_view_tool_paint_grease_pencil_primitive_circle(params):
         "3D View Tool: Paint Grease Pencil, Circle",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("grease_pencil.primitive_circle", params.tool_maybe_tweak_event,
+            ("grease_pencil.primitive_circle", {"type": 'LEFTMOUSE', "value": 'PRESS'},
              {"properties": []}),
             ("grease_pencil.primitive_circle", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
              {"properties": []}),
@@ -8050,7 +8033,7 @@ def km_3d_view_tool_paint_grease_pencil_primitive_arc(params):
         "3D View Tool: Paint Grease Pencil, Arc",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("grease_pencil.primitive_arc", params.tool_maybe_tweak_event,
+            ("grease_pencil.primitive_arc", {"type": 'LEFTMOUSE', "value": 'PRESS'},
              {"properties": []}),
             ("grease_pencil.primitive_arc", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
              {"properties": []}),
@@ -8068,7 +8051,7 @@ def km_3d_view_tool_paint_grease_pencil_primitive_curve(params):
         "3D View Tool: Paint Grease Pencil, Curve",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("grease_pencil.primitive_curve", params.tool_maybe_tweak_event,
+            ("grease_pencil.primitive_curve", {"type": 'LEFTMOUSE', "value": 'PRESS'},
              {"properties": []}),
             # Lasso select
             ("grease_pencil.select_lasso",

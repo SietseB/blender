@@ -13,6 +13,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_build_config.h"
+#include "BLI_listbase.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
@@ -37,6 +38,7 @@
 #include "BKE_global.hh"
 #include "BKE_icons.h"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_mask.h"
 #include "BKE_object.hh"

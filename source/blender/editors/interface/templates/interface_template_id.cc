@@ -13,10 +13,12 @@
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_override.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_main_invariants.hh"
 #include "BKE_packedFile.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_string_search.hh"
 

@@ -20,6 +20,7 @@
 #endif
 
 #include "BLI_linklist.h"
+#include "BLI_listbase.h"
 #include "BLI_math_base_safe.h"
 #include "BLI_math_bits.h"
 #include "BLI_math_color_blend.h"
@@ -62,6 +63,7 @@
 #include "BKE_image.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_main_invariants.hh"
 #include "BKE_material.hh"

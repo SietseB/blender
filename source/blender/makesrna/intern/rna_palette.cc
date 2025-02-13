@@ -22,6 +22,7 @@
 
 #  include "DNA_brush_types.h"
 
+#  include "BKE_library.hh"
 #  include "BKE_paint.hh"
 #  include "BKE_report.hh"
 

@@ -19,6 +19,7 @@
 #include "BLI_atomic_disjoint_set.hh"
 #include "BLI_dial_2d.h"
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_listbase.h"
 #include "BLI_math_axis_angle.hh"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
@@ -2957,9 +2958,14 @@ void calc_brush_plane(const Depsgraph &depsgraph,
   zero_v3(r_area_co);
   zero_v3(r_area_no);
 
+  const bool use_original_plane = (brush.flag & BRUSH_ORIGINAL_PLANE) &&
+                                  brush.sculpt_brush_type != SCULPT_BRUSH_TYPE_PLANE;
+  const bool use_original_normal = (brush.flag & BRUSH_ORIGINAL_NORMAL) &&
+                                   brush.sculpt_brush_type != SCULPT_BRUSH_TYPE_PLANE;
+
   if (SCULPT_stroke_is_main_symmetry_pass(*ss.cache) &&
-      (SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) ||
-       !(brush.flag & BRUSH_ORIGINAL_PLANE) || !(brush.flag & BRUSH_ORIGINAL_NORMAL)))
+      (SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) || !use_original_plane ||
+       !use_original_normal))
   {
     switch (brush.sculpt_plane) {
       case SCULPT_DISP_DIR_VIEW:
@@ -2994,9 +3000,7 @@ void calc_brush_plane(const Depsgraph &depsgraph,
     }
 
     /* For area normal. */
-    if (!SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) &&
-        (brush.flag & BRUSH_ORIGINAL_NORMAL))
-    {
+    if (!SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) && use_original_normal) {
       copy_v3_v3(r_area_no, ss.cache->sculpt_normal);
     }
     else {
@@ -3004,9 +3008,7 @@ void calc_brush_plane(const Depsgraph &depsgraph,
     }
 
     /* For flatten center. */
-    if (!SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) &&
-        (brush.flag & BRUSH_ORIGINAL_PLANE))
-    {
+    if (!SCULPT_stroke_is_first_brush_step_of_symmetry_pass(*ss.cache) && use_original_plane) {
       copy_v3_v3(r_area_co, ss.cache->last_center);
     }
     else {

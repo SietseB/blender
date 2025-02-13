@@ -10,6 +10,7 @@
 
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
+#include "DNA_userdef_types.h"
 #include "DNA_workspace_types.h"
 
 #include "WM_types.hh"
@@ -335,7 +336,6 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen);
  */
 void ED_screen_animation_timer(bContext *C, int redraws, int sync, int enable);
 void ED_screen_animation_timer_update(bScreen *screen, int redraws);
-void ED_screen_animation_timer_reset(bScreen *screen, wmWindowManager *wm);
 void ED_screen_restore_temp_type(bContext *C, ScrArea *area);
 ScrArea *ED_screen_full_newspace(bContext *C, ScrArea *area, int type);
 /**

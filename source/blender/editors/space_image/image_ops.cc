@@ -21,6 +21,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_fileops.h"
+#include "BLI_listbase.h"
 #include "BLI_path_utils.hh"
 #include "BLI_set.hh"
 #include "BLI_string.h"
@@ -44,6 +45,7 @@
 #include "BKE_image_save.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_packedFile.hh"
 #include "BKE_report.hh"
@@ -1352,7 +1354,7 @@ static int image_open_exec(bContext *C, wmOperator *op)
   ImageOpenData *iod = static_cast<ImageOpenData *>(op->customdata);
   ID *owner_id = iod->pprop.ptr.owner_id;
   Library *owner_library = owner_id ? owner_id->lib : nullptr;
-  blender::StringRefNull root_path = owner_library ? owner_library->runtime.filepath_abs :
+  blender::StringRefNull root_path = owner_library ? owner_library->runtime->filepath_abs :
                                                      BKE_main_blendfile_path(bmain);
 
   ListBase ranges = ED_image_filesel_detect_sequences(root_path, op, use_udim);
@@ -1606,7 +1608,7 @@ static int image_file_browse_exec(bContext *C, wmOperator *op)
     /* TODO: make this a BKE_lib_id helper (already a static function in BKE_image too), we likely
      * need this in more places in the future. ~~mont29 */
     BLI_path_rel(filepath,
-                 ID_IS_LINKED(&ima->id) ? ima->id.lib->runtime.filepath_abs :
+                 ID_IS_LINKED(&ima->id) ? ima->id.lib->runtime->filepath_abs :
                                           BKE_main_blendfile_path(CTX_data_main(C)));
   }
 
@@ -1635,7 +1637,7 @@ static int image_file_browse_invoke(bContext *C, wmOperator *op, const wmEvent *
   char filepath[FILE_MAX];
   STRNCPY(filepath, ima->filepath);
   BLI_path_abs(filepath,
-               ID_IS_LINKED(&ima->id) ? ima->id.lib->runtime.filepath_abs :
+               ID_IS_LINKED(&ima->id) ? ima->id.lib->runtime->filepath_abs :
                                         BKE_main_blendfile_path(CTX_data_main(C)));
 
   /* Shift+Click to open the file, Alt+Click to browse a folder in the OS's browser. */
@@ -2542,7 +2544,7 @@ enum {
 };
 
 struct ImageNewData {
-  PropertyPointerRNA pprop;
+  PropertyPointerRNA pprop = {};
 };
 
 static ImageNewData *image_new_init(bContext *C, wmOperator *op)
@@ -2551,7 +2553,7 @@ static ImageNewData *image_new_init(bContext *C, wmOperator *op)
     return static_cast<ImageNewData *>(op->customdata);
   }
 
-  ImageNewData *data = static_cast<ImageNewData *>(MEM_callocN(sizeof(ImageNewData), __func__));
+  ImageNewData *data = MEM_new<ImageNewData>(__func__);
   UI_context_active_but_prop_get_templateID(C, &data->pprop.ptr, &data->pprop.prop);
   op->customdata = data;
   return data;
@@ -2559,7 +2561,9 @@ static ImageNewData *image_new_init(bContext *C, wmOperator *op)
 
 static void image_new_free(wmOperator *op)
 {
-  MEM_SAFE_FREE(op->customdata);
+  if (op->customdata) {
+    MEM_delete(static_cast<ImageNewData *>(op->customdata));
+  }
 }
 
 static int image_new_exec(bContext *C, wmOperator *op)
@@ -2655,7 +2659,7 @@ static int image_new_invoke(bContext *C, wmOperator *op, const wmEvent * /*event
 {
   /* Get property in advance, it doesn't work after WM_operator_props_dialog_popup. */
   ImageNewData *data;
-  op->customdata = data = static_cast<ImageNewData *>(MEM_callocN(sizeof(ImageNewData), __func__));
+  op->customdata = data = MEM_new<ImageNewData>(__func__);
   UI_context_active_but_prop_get_templateID(C, &data->pprop.ptr, &data->pprop.prop);
 
   /* Better for user feedback. */

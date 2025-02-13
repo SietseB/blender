@@ -7,6 +7,7 @@
 #include "AS_asset_library.hh"
 #include "AS_asset_representation.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_multi_value_map.hh"
 #include "BLI_string.h"
 
@@ -101,7 +102,7 @@ static void catalog_assets_draw(const bContext *C, Menu *menu)
     PointerRNA props_ptr;
     uiItemFullO_ptr(layout,
                     ot,
-                    IFACE_(asset->get_name().c_str()),
+                    IFACE_(asset->get_name()),
                     ICON_NONE,
                     nullptr,
                     WM_OP_INVOKE_DEFAULT,
@@ -142,7 +143,7 @@ static void unassigned_assets_draw(const bContext *C, Menu *menu)
     PointerRNA props_ptr;
     uiItemFullO_ptr(layout,
                     ot,
-                    IFACE_(asset->get_name().c_str()),
+                    IFACE_(asset->get_name()),
                     ICON_NONE,
                     nullptr,
                     WM_OP_INVOKE_DEFAULT,

@@ -24,6 +24,7 @@
 
 #include "BLI_array_utils.h"
 #include "BLI_bitmap.h"
+#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
@@ -38,6 +39,7 @@
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_layer.hh"
+#include "BKE_library.hh"
 #include "BKE_mesh_types.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"

@@ -22,6 +22,7 @@
 #include "ANIM_action.hh"
 #include "ANIM_action_iterators.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_stack.hh"
 
 namespace blender::nodes::socket_usage_inference {
@@ -146,6 +147,10 @@ struct SocketUsageInferencer {
   void usage_task(const SocketInContext &socket)
   {
     if (all_socket_usages_.contains(socket)) {
+      return;
+    }
+    if (socket->owner_node().is_undefined()) {
+      all_socket_usages_.add_new(socket, false);
       return;
     }
     if (socket->is_input()) {
@@ -479,6 +484,10 @@ struct SocketUsageInferencer {
   {
     if (all_socket_values_.contains(socket)) {
       /* Task is done already. */
+      return;
+    }
+    if (socket->owner_node().is_undefined()) {
+      all_socket_values_.add_new(socket, nullptr);
       return;
     }
     const CPPType *base_type = socket->typeinfo->base_cpp_type;

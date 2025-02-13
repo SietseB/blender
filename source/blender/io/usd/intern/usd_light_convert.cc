@@ -19,11 +19,13 @@
 #include <pxr/usd/usdLux/domeLight.h>
 
 #include "BKE_image.hh"
+#include "BKE_library.hh"
 #include "BKE_main.hh"
 #include "BKE_node.hh"
 #include "BKE_node_legacy_types.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.hh"
+
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
 #include "BLI_math_vector.h"
@@ -277,24 +279,31 @@ void world_material_to_dome_light(const USDExportParams &params,
                                   const Scene *scene,
                                   pxr::UsdStageRefPtr stage)
 {
-  if (!(stage && scene && scene->world && scene->world->use_nodes && scene->world->nodetree)) {
-    return;
-  }
-
-  /* Find the world output. */
-  const bNodeTree *ntree = scene->world->nodetree;
-  ntree->ensure_topology_cache();
-  const blender::Span<const bNode *> bsdf_nodes = ntree->nodes_by_type("ShaderNodeOutputWorld");
-  const bNode *output = bsdf_nodes.is_empty() ? nullptr : bsdf_nodes.first();
-
-  if (!output) {
-    /* No output, no valid network to convert. */
+  if (!(stage && scene && scene->world)) {
     return;
   }
 
   WorldNtreeSearchResults res(params, stage);
 
-  bke::node_chain_iterator(scene->world->nodetree, output, node_search, &res, true);
+  if (scene->world->use_nodes && scene->world->nodetree) {
+    /* Find the world output. */
+    const bNodeTree *ntree = scene->world->nodetree;
+    ntree->ensure_topology_cache();
+    const blender::Span<const bNode *> bsdf_nodes = ntree->nodes_by_type("ShaderNodeOutputWorld");
+    const bNode *output = bsdf_nodes.is_empty() ? nullptr : bsdf_nodes.first();
+
+    if (!output) {
+      /* No output, no valid network to convert. */
+      return;
+    }
+
+    bke::node_chain_iterator(scene->world->nodetree, output, node_search, &res, true);
+  }
+  else {
+    res.world_intensity = 1.0f;
+    copy_v3_v3(res.world_color, &scene->world->horr);
+    res.background_found = !is_zero_v3(res.world_color);
+  }
 
   if (!(res.background_found || res.env_tex_found)) {
     /* No nodes to convert */

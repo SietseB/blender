@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_listbase.h"
+
 #include "BKE_asset.hh"
 #include "BKE_asset_edit.hh"
 #include "BKE_context.hh"
@@ -399,8 +401,8 @@ static void visit_library_prop_catalogs_catalog_for_search_fn(
 
 void POSELIB_OT_create_pose_asset(wmOperatorType *ot)
 {
-  ot->name = "Create Pose Asset";
-  ot->description = "Create a new asset from the selection in the scene";
+  ot->name = "Create Pose Asset...";
+  ot->description = "Create a new asset from the selected bones in the scene";
   ot->idname = "POSELIB_OT_create_pose_asset";
 
   ot->exec = pose_asset_create_exec;
