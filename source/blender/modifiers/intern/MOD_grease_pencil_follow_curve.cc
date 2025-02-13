@@ -20,6 +20,7 @@
 #include "BKE_modifier.hh"
 
 #include "BLI_hash.h"
+#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_rand.h"
 
@@ -202,7 +203,7 @@ static void frame_init(GreasePencilFollowCurveModifierData &mmd,
                 bezt->vec[2][axis],
                 bezt_next->vec[0][axis],
                 bezt_next->vec[1][axis],
-                static_cast<float *>(POINTER_OFFSET(point_offset, sizeof(float) * axis)),
+                reinterpret_cast<float *>(POINTER_OFFSET(point_offset, sizeof(float) * axis)),
                 mmd.curve_resolution,
                 stride);
           }

@@ -13,6 +13,7 @@
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_quaternion.hh"
 #include "BLI_math_rotation.h"

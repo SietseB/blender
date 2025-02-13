@@ -15,6 +15,7 @@
 #include "BKE_material.hh"
 #include "BKE_modifier.hh"
 
+#include "BLI_listbase.h"
 #include "BLI_string.h"
 
 #include "BLO_read_write.hh"
