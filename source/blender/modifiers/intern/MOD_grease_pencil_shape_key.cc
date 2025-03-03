@@ -291,7 +291,7 @@ static void modify_geometry_set(ModifierData *md,
   const ed::greasepencil::shape_key::ShapeKeyEditData &edit_data =
       *reinterpret_cast<ed::greasepencil::shape_key::ShapeKeyEditData *>(smd.shape_key_edit_data);
   const GreasePencil &grease_pencil_orig = *reinterpret_cast<GreasePencil *>(
-      DEG_get_original_id(&grease_pencil.id));
+      DEG_get_original_object(ctx->object)->data);
 
   threading::parallel_for(drawing_infos.index_range(), 1, [&](const IndexRange info_range) {
     for (const int info_i : info_range) {
