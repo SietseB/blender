@@ -156,10 +156,6 @@ enum ModifierApplyFlag {
    * This flag can be checked to ignore rendering display data to the mesh.
    * See `OBJECT_OT_modifier_apply` operator. */
   MOD_APPLY_TO_ORIGINAL = 1 << 4,
-  /** For Grease Pencil: This modifier requires real time calculation of shape key deltas. Set when
-   * a shape key is currently edited. */
-  MOD_APPLY_GET_SHAPE_KEY_DELTAS = 1 << 5,
-
 };
 ENUM_OPERATORS(ModifierApplyFlag, MOD_APPLY_TO_ORIGINAL);
 
@@ -403,6 +399,14 @@ struct ModifierTypeInfo {
       Object *object,
       ModifierData *md,
       blender::FunctionRef<void(const IDCacheKey &cache_key, void **cache_p, uint flags)> fn);
+
+  /**
+   * A hook for modifier actions before the actual geometry is modified.
+   * Is called before `modify_geometry_set`.
+   */
+  void (*before_modify_geometry_set)(ModifierData *md,
+                                     const ModifierEvalContext *ctx,
+                                     blender::bke::GeometrySet *geometry_set);
 };
 
 /* Used to set a modifier's panel type. */

@@ -2256,9 +2256,9 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
         skmd.shape_key_edit_data != nullptr)
     {
       shape_key_is_edited = true;
-      const ModifierEvalContext ctx = {depsgraph, object, MOD_APPLY_GET_SHAPE_KEY_DELTAS};
+      const ModifierEvalContext ctx = {depsgraph, object};
       const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(smd->type));
-      mti->modify_geometry_set(smd, &ctx, &geometry_set);
+      mti->before_modify_geometry_set(smd, &ctx, &geometry_set);
     }
     break;
   }

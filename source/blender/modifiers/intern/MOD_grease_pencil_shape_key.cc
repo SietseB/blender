@@ -195,6 +195,32 @@ static void modify_drawing(const GreasePencilShapeKeyModifierData &smd,
   }
 }
 
+static void before_modify_geometry_set(ModifierData *md,
+                                       const ModifierEvalContext *ctx,
+                                       bke::GeometrySet *geometry_set)
+{
+  using bke::greasepencil::Drawing;
+
+  auto &smd = *reinterpret_cast<GreasePencilShapeKeyModifierData *>(md);
+
+  if (!geometry_set->has_grease_pencil()) {
+    return;
+  }
+  GreasePencil &grease_pencil = *geometry_set->get_grease_pencil_for_write();
+  if (BLI_listbase_is_empty(&grease_pencil.shape_keys)) {
+    return;
+  }
+
+  /* Update shape key deltas on the fly when a shape key is edited. */
+  ed::greasepencil::shape_key::ShapeKeyEditData *edit_data =
+      reinterpret_cast<ed::greasepencil::shape_key::ShapeKeyEditData *>(smd.shape_key_edit_data);
+  const Scene &scene = *DEG_get_evaluated_scene(ctx->depsgraph);
+
+  const Vector<Drawing *> drawings = ed::greasepencil::retrieve_editable_drawings_at_frame(
+      grease_pencil.runtime->eval_frame, scene, grease_pencil);
+  ed::greasepencil::shape_key::edit_get_shape_key_stroke_deltas(*edit_data, drawings);
+}
+
 static void modify_geometry_set(ModifierData *md,
                                 const ModifierEvalContext *ctx,
                                 bke::GeometrySet *geometry_set)
@@ -214,19 +240,6 @@ static void modify_geometry_set(ModifierData *md,
     return;
   }
   Array<bool> shape_key_is_inactive = get_inactive_shape_keys(smd, grease_pencil);
-
-  /* When requested, update stroke deltas on the fly when a shape key is edited. */
-  if ((ctx->flag & MOD_APPLY_GET_SHAPE_KEY_DELTAS) != 0) {
-    ed::greasepencil::shape_key::ShapeKeyEditData *edit_data =
-        reinterpret_cast<ed::greasepencil::shape_key::ShapeKeyEditData *>(smd.shape_key_edit_data);
-    const Scene &scene = *DEG_get_evaluated_scene(ctx->depsgraph);
-
-    const Vector<Drawing *> drawings = ed::greasepencil::retrieve_editable_drawings_at_frame(
-        grease_pencil.runtime->eval_frame, scene, grease_pencil);
-    ed::greasepencil::shape_key::edit_get_shape_key_stroke_deltas(*edit_data, drawings);
-
-    return;
-  }
 
   /* Modify layers. */
   int shape_key_index;
@@ -421,4 +434,5 @@ ModifierTypeInfo modifierType_GreasePencilShapeKey = {
     /*blend_write*/ blender::blend_write,
     /*blend_read*/ blender::blend_read,
     /*foreach_cache*/ nullptr,
+    /*before_modify_geometry_set*/ blender::before_modify_geometry_set,
 };
