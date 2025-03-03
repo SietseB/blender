@@ -1110,6 +1110,7 @@
     .factor = 1.0f, \
     .index_edited = -1, \
     .flag = 0, \
+    .shape_key_pass = 0, \
     .shape_key_influence = "", \
     .shape_key_edit_data = NULL, \
   }

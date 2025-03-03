@@ -104,6 +104,7 @@ static Array<bool> get_inactive_shape_keys(GreasePencilShapeKeyModifierData &smd
 {
   Array<bool> shape_key_is_inactive(BLI_listbase_count(&grease_pencil.shape_keys));
 
+  /* Filter by muted or value is zero. */
   int shape_key_index;
   LISTBASE_FOREACH_INDEX (
       GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
@@ -113,21 +114,29 @@ static Array<bool> get_inactive_shape_keys(GreasePencilShapeKeyModifierData &smd
                                                  0;
   }
 
-  if (smd.shape_key_influence[0] == '\0') {
-    return shape_key_is_inactive;
-  }
+  const bool filter_by_shape_key_name = (smd.shape_key_influence[0] != '\0');
+  const bool inverted_shape_key_name = ((smd.flag &
+                                         MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY) != 0);
+  const bool filter_by_shape_key_pass =
+      ((smd.flag & MOD_GREASE_PENCIL_INFLUENCE_USE_SHAPE_KEY_PASS_FILTER) != 0);
+  const bool inverted_shape_key_pass =
+      ((smd.flag & MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY_PASS_FILTER) != 0);
 
-  const bool use_inversed_shape_key_influence =
-      ((smd.flag & MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY) != 0);
-
+  /* Filter by shape key name and/or shape key pass index. */
   LISTBASE_FOREACH_INDEX (
       GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
   {
-    shape_key_is_inactive[shape_key_index] |=
-        (use_inversed_shape_key_influence &&
-         BLI_strcaseeq(shape_key->name, smd.shape_key_influence)) ||
-        (!use_inversed_shape_key_influence &&
-         !BLI_strcaseeq(shape_key->name, smd.shape_key_influence));
+    if (filter_by_shape_key_name) {
+      shape_key_is_inactive[shape_key_index] |=
+          (inverted_shape_key_name && BLI_strcaseeq(shape_key->name, smd.shape_key_influence)) ||
+          (!inverted_shape_key_name && !BLI_strcaseeq(shape_key->name, smd.shape_key_influence));
+    }
+    if (filter_by_shape_key_pass) {
+      shape_key_is_inactive[shape_key_index] |= (inverted_shape_key_pass &&
+                                                 shape_key->pass_index == smd.shape_key_pass) ||
+                                                (!inverted_shape_key_pass &&
+                                                 shape_key->pass_index != smd.shape_key_pass);
+    }
   }
 
   return shape_key_is_inactive;
@@ -228,7 +237,7 @@ static void modify_geometry_set(ModifierData *md,
   LISTBASE_FOREACH_INDEX (
       GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
   {
-    /* Skip muted shape keys and shapes keys excluded by the influence filter. */
+    /* Skip muted shape keys and shapes keys excluded by the influence filters. */
     if (shape_key_is_inactive[shape_key_index]) {
       continue;
     }
@@ -321,7 +330,8 @@ static void draw_shape_key_filter_settings(uiLayout *layout, PointerRNA *ptr)
   PointerRNA ob_ptr = RNA_pointer_create_discrete(ptr->owner_id, &RNA_Object, ptr->owner_id);
   PointerRNA obj_data_ptr = RNA_pointer_get(&ob_ptr, "data");
   const bool has_shape_key = RNA_string_length(ptr, "shape_key_name") != 0;
-  uiLayout *row, *col, *sub;
+  const bool use_shape_key_pass = RNA_boolean_get(ptr, "use_shape_key_pass_filter");
+  uiLayout *row, *col, *sub, *subsub;
 
   uiLayoutSetPropSep(layout, true);
 
@@ -333,6 +343,15 @@ static void draw_shape_key_filter_settings(uiLayout *layout, PointerRNA *ptr)
   uiLayoutSetActive(sub, has_shape_key);
   uiLayoutSetPropDecorate(sub, false);
   uiItemR(sub, ptr, "invert_shape_key", UI_ITEM_NONE, "", ICON_ARROW_LEFTRIGHT);
+
+  row = uiLayoutRowWithHeading(col, true, IFACE_("Shape Key Pass"));
+  uiLayoutSetPropDecorate(row, false);
+  sub = uiLayoutRow(row, true);
+  uiItemR(sub, ptr, "use_shape_key_pass_filter", UI_ITEM_NONE, "", ICON_NONE);
+  subsub = uiLayoutRow(sub, true);
+  uiLayoutSetActive(subsub, use_shape_key_pass);
+  uiItemR(subsub, ptr, "shape_key_pass_filter", UI_ITEM_NONE, "", ICON_NONE);
+  uiItemR(subsub, ptr, "invert_shape_key_pass_filter", UI_ITEM_NONE, "", ICON_ARROW_LEFTRIGHT);
 }
 
 static void panel_draw(const bContext *C, Panel *panel)

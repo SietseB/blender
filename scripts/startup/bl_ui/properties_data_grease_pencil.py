@@ -632,6 +632,9 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
             col.prop(shape_key, "slider_min", text="Range Min")
             col.prop(shape_key, "slider_max", text="Max")
 
+            col = layout.column()
+            col.prop(shape_key, "pass_index", text="Pass Index")
+
             '''
             if shape_key.changed_layer_order:
                 layout.separator()

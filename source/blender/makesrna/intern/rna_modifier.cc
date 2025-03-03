@@ -11471,6 +11471,24 @@ static void rna_def_modifier_grease_pencil_shape_key(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Invert Shape Key", "Invert the shape key influence");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+  prop = RNA_def_property(srna, "use_shape_key_pass_filter", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", MOD_GREASE_PENCIL_INFLUENCE_USE_SHAPE_KEY_PASS_FILTER);
+  RNA_def_property_ui_text(prop, "Use Shape Key Pass", "Use shape key pass filter");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "shape_key_pass_filter", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, nullptr, "shape_key_pass");
+  RNA_def_property_range(prop, 0, 100);
+  RNA_def_property_ui_text(prop, "Shape Key Pass", "Shape key pass filter");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "invert_shape_key_pass_filter", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "flag", MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY_PASS_FILTER);
+  RNA_def_property_ui_text(prop, "Invert Shape Key Pass", "Invert shape key pass filter");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
   rna_def_modifier_panel_open_prop(srna, "open_general_panel", 0);
   rna_def_modifier_panel_open_prop(srna, "open_influence_panel", 1);
 

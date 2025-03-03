@@ -186,6 +186,7 @@ static int add_exec(bContext *C, wmOperator *op)
   shape_key_new->value = 0.0f;
   shape_key_new->layer_order_compare = GREASE_PENCIL_SHAPE_KEY_COMPARE_GREATER_THAN;
   shape_key_new->layer_order_value = 0.5f;
+  shape_key_new->pass_index = 0;
 
   /* Copy values of currently active shape key. */
   const int index = BLI_findindex(&grease_pencil->shape_keys, shape_key_new);
@@ -197,6 +198,7 @@ static int add_exec(bContext *C, wmOperator *op)
     shape_key_new->range_max = shape_key_active->range_max;
     shape_key_new->layer_order_compare = shape_key_active->layer_order_compare;
     shape_key_new->layer_order_value = shape_key_active->layer_order_value;
+    shape_key_new->pass_index = shape_key_active->pass_index;
 
     /* Renumber indices in the shape key attributes of layer and stroke shape keys. */
     if (shape_key_new->next != nullptr) {

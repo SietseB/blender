@@ -3626,7 +3626,8 @@ typedef struct GreasePencilShapeKeyModifierData {
   int index_edited;
   /** Flags. */
   int flag;
-  char _pad0[4];
+  /** Limit the influence of the modifier to a Shape key pass value. */
+  int shape_key_pass;
   /** Limit the influence of the modifier to a shape key. */
   char shape_key_influence[128];
   /** Pointer to the data of the currently edited shape key. */
@@ -3637,4 +3638,6 @@ typedef struct GreasePencilShapeKeyModifierData {
 typedef enum GreasePencilShapeKeyModifierFlag {
   MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE = (1 << 0),
   MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY = (1 << 1),
+  MOD_GREASE_PENCIL_INFLUENCE_USE_SHAPE_KEY_PASS_FILTER = (1 << 2),
+  MOD_GREASE_PENCIL_INFLUENCE_INVERT_SHAPE_KEY_PASS_FILTER = (1 << 3),
 } GreasePencilShapeKeyModifierFlag;

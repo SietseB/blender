@@ -1816,6 +1816,15 @@ static void rna_def_grease_pencil_shape_key(BlenderRNA *brna)
   RNA_def_property_update(
       prop, NC_GPENCIL | ND_DATA | NA_EDITED, "rna_grease_pencil_update_shape_key");
 
+  /* Pass index for filtering shape keys in the modifier. */
+  prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_int_sdna(prop, nullptr, "pass_index");
+  RNA_def_property_ui_text(
+      prop, "Pass Index", "Index number for filtering shape keys in the shape key modifier");
+  RNA_def_property_update(
+      prop, NC_GPENCIL | ND_DATA | NA_EDITED, "rna_grease_pencil_update_shape_key");
+
   /* Flipping point of layer order change. */
   prop = RNA_def_property(srna, "layer_order_compare", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "layer_order_compare");

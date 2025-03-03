@@ -512,8 +512,10 @@ typedef struct GreasePencilShapeKey {
   float value;
   float range_min;
   float range_max;
+  int pass_index;
+  char _pad0[4];
   short flag;
-  char _pad0[2];
+  char _pad1[2];
 
   /* Flipping point condition when layer order change is applied. */
   int layer_order_compare;
