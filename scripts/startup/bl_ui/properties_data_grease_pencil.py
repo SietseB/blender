@@ -574,6 +574,7 @@ class GREASE_PENCIL_MT_shape_keys_context_menu(Menu):
     def draw(self, _context):
         layout = self.layout
 
+        layout.operator("grease_pencil.shape_key_new_from_mix", icon='ADD', text="New from Mix")
         layout.operator("grease_pencil.shape_key_duplicate", icon='DUPLICATE', text="Duplicate")
         layout.separator()
         layout.operator("grease_pencil.shape_key_remove_all", icon='X', text="Delete All")

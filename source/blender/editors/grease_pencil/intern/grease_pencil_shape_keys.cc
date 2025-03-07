@@ -47,17 +47,17 @@ namespace blender::ed::greasepencil::shape_key {
 
 constexpr StringRef SHAPE_KEY_BASE_STROKE_INDEX = "sk-stroke-index";
 constexpr StringRef SHAPE_KEY_ATTRIBUTE_PREFIX = "sk-";
-constexpr StringRef SHAPE_KEY_LAYER_TRANSLATION = "translation-";
-constexpr StringRef SHAPE_KEY_LAYER_ROTATION = "rotation-";
-constexpr StringRef SHAPE_KEY_LAYER_SCALE = "scale-";
-constexpr StringRef SHAPE_KEY_LAYER_OPACITY = "opacity-";
-constexpr StringRef SHAPE_KEY_STROKE_FILL_COLOR = "fill-color-";
-constexpr StringRef SHAPE_KEY_STROKE_FILL_OPACITY = "fill-opacity-";
-constexpr StringRef SHAPE_KEY_POINT_POS_QUATERNION = "pos-quaternion-";
-constexpr StringRef SHAPE_KEY_POINT_POS_DISTANCE = "pos-distance-";
-constexpr StringRef SHAPE_KEY_POINT_RADIUS = "radius-";
-constexpr StringRef SHAPE_KEY_POINT_OPACITY = "opacity-";
-constexpr StringRef SHAPE_KEY_POINT_VERTEX_COLOR = "vertex-color-";
+constexpr StringRef SHAPE_KEY_LAYER_TRANSLATION = "-translation";
+constexpr StringRef SHAPE_KEY_LAYER_ROTATION = "-rotation";
+constexpr StringRef SHAPE_KEY_LAYER_SCALE = "-scale";
+constexpr StringRef SHAPE_KEY_LAYER_OPACITY = "-opacity";
+constexpr StringRef SHAPE_KEY_STROKE_FILL_COLOR = "-fill-color";
+constexpr StringRef SHAPE_KEY_STROKE_FILL_OPACITY = "-fill-opacity";
+constexpr StringRef SHAPE_KEY_POINT_POS_DISTANCE = "-pos-distance";
+constexpr StringRef SHAPE_KEY_POINT_POS_ROTATION = "-pos-rotation";
+constexpr StringRef SHAPE_KEY_POINT_RADIUS = "-radius";
+constexpr StringRef SHAPE_KEY_POINT_OPACITY = "-opacity";
+constexpr StringRef SHAPE_KEY_POINT_VERTEX_COLOR = "-vertex-color";
 
 /* State flag: is a shape key being edited? */
 bool in_edit_mode = false;
@@ -74,14 +74,11 @@ struct LayerBase {
 };
 
 struct ShapeKeyEditData {
-  int edited_shape_key_index;
-  GreasePencilShapeKey *edited_shape_key;
   GreasePencil *grease_pencil;
+  int edited_shape_key_index;
 
   ScrArea *area;
   ARegion *region;
-  int header_height;
-  int npanel_width;
   void *draw_handle;
 
   Array<LayerBase> base_layers;
@@ -103,17 +100,17 @@ float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, const int layer_i
   return edit_data.base_layers[layer_index].scale;
 }
 
-/* Change shape key attribute '.shapekey-...-<n>' to '.shapekey-...-<n+1>'. */
+/* Change shape key attribute 'sk-<n>-...' to 'sk-<n+1>-...'. */
 static void attribute_increase_index(bke::MutableAttributeAccessor &attributes,
                                      const StringRef shape_key_attribute,
                                      const int index,
                                      const int max_index)
 {
   for (int i = max_index; i >= index; i--) {
-    std::string attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                                 std::to_string(i);
-    std::string attribute_name_new = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                                     std::to_string(i + 1);
+    std::string attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(i) +
+                                 shape_key_attribute;
+    std::string attribute_name_new = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(i + 1) +
+                                     shape_key_attribute;
     if (attributes.contains(attribute_name)) {
       attributes.rename(attribute_name, attribute_name_new);
     }
@@ -147,8 +144,8 @@ static void increase_index(GreasePencil &grease_pencil, const int index)
 
     attribute_increase_index(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
-    attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_QUATERNION, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
+    attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -262,14 +259,14 @@ static void attribute_remove(bke::MutableAttributeAccessor &attributes,
                              const int index,
                              const int max_index)
 {
-  std::string attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                               std::to_string(index);
+  std::string attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(index) +
+                               shape_key_attribute;
   attributes.remove(attribute_name);
 
   for (int i = index + 1; i <= max_index; i++) {
-    attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute + std::to_string(i);
-    std::string attribute_name_new = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                                     std::to_string(i - 1);
+    attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(i) + shape_key_attribute;
+    std::string attribute_name_new = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(i - 1) +
+                                     shape_key_attribute;
     if (attributes.contains(attribute_name)) {
       attributes.rename(attribute_name, attribute_name_new);
     }
@@ -303,8 +300,8 @@ static int remove_exec(bContext *C, wmOperator *op)
 
     attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
-    attribute_remove(attributes, SHAPE_KEY_POINT_POS_QUATERNION, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
+    attribute_remove(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -377,8 +374,8 @@ static int remove_all_exec(bContext *C, wmOperator *op)
     for (int index = max_index; index >= 0; index--) {
       attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
-      attribute_remove(attributes, SHAPE_KEY_POINT_POS_QUATERNION, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
+      attribute_remove(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -457,12 +454,12 @@ static void attribute_move(bke::MutableAttributeAccessor attributes,
                            const int new_index,
                            const int max_index)
 {
-  std::string attribute_old = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                              std::to_string(old_index);
-  std::string attribute_new = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                              std::to_string(new_index);
-  std::string attribute_temp = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                               std::to_string(max_index + 1);
+  std::string attribute_old = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(old_index) +
+                              shape_key_attribute;
+  std::string attribute_new = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(new_index) +
+                              shape_key_attribute;
+  std::string attribute_temp = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(max_index + 1) +
+                               shape_key_attribute;
 
   /* Swap shape key attributes with old and new index. */
   if (attributes.contains(attribute_old)) {
@@ -514,8 +511,8 @@ static int move_exec(bContext *C, wmOperator *op)
 
     attribute_move(attributes, SHAPE_KEY_STROKE_FILL_COLOR, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, old_index, new_index, max_index);
-    attribute_move(attributes, SHAPE_KEY_POINT_POS_QUATERNION, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_POS_DISTANCE, old_index, new_index, max_index);
+    attribute_move(attributes, SHAPE_KEY_POINT_POS_ROTATION, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_RADIUS, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_OPACITY, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, old_index, new_index, max_index);
@@ -559,10 +556,10 @@ static void attributes_duplicate(bke::MutableAttributeAccessor &attributes,
                                  const int index_src,
                                  const int index_dst)
 {
-  std::string attribute_id_src = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                                 std::to_string(index_src);
-  std::string attribute_id_dst = SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_attribute +
-                                 std::to_string(index_dst);
+  std::string attribute_id_src = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(index_src) +
+                                 shape_key_attribute;
+  std::string attribute_id_dst = SHAPE_KEY_ATTRIBUTE_PREFIX + std::to_string(index_dst) +
+                                 shape_key_attribute;
 
   if (!attributes.contains(attribute_id_src)) {
     return;
@@ -614,8 +611,8 @@ static int duplicate_exec(bContext *C, wmOperator *op)
 
     attributes_duplicate(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index_src, index_dst);
-    attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_QUATERNION, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index_src, index_dst);
+    attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_ROTATION, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_RADIUS, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_OPACITY, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index_src, index_dst);
@@ -731,8 +728,31 @@ static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *ar
     return;
   }
 
+  /* Calculate inner bounds of the viewport. */
+  int header_height = 0;
+  int footer_height = 0;
+  int npanel_width = 0;
+  LISTBASE_FOREACH (ARegion *, region, &edit_data.area->regionbase) {
+    if (!region->runtime->visible) {
+      continue;
+    }
+    if (region->alignment == RGN_ALIGN_TOP &&
+        ELEM(region->regiontype, RGN_TYPE_TOOL_HEADER, RGN_TYPE_HEADER))
+    {
+      header_height += region->winy;
+    }
+    if (region->alignment == RGN_ALIGN_BOTTOM &&
+        ELEM(region->regiontype, RGN_TYPE_ASSET_SHELF, RGN_TYPE_ASSET_SHELF_HEADER))
+    {
+      footer_height += region->winy;
+    }
+    if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
+      npanel_width = region->winx > 0 ? 20 * UI_SCALE_FAC : 0;
+    }
+  }
+
   /* Draw rectangle outline. */
-  float half_line_w = 3.0f * UI_SCALE_FAC;
+  float half_line_w = 2.5f * UI_SCALE_FAC;
   rcti *rect = &region->winrct;
   float color[4];
   UI_GetThemeColor4fv(TH_SELECT_ACTIVE, color);
@@ -740,12 +760,12 @@ static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *ar
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(color);
-  GPU_line_width(2 * half_line_w);
+  GPU_line_width(2.0f * half_line_w);
   imm_draw_box_wire_2d(pos,
                        half_line_w,
-                       half_line_w,
-                       rect->xmax - rect->xmin - edit_data.npanel_width - half_line_w,
-                       rect->ymax - rect->ymin - edit_data.header_height - 2);
+                       half_line_w + footer_height,
+                       rect->xmax - rect->xmin - npanel_width - half_line_w,
+                       rect->ymax - rect->ymin - header_height - 2.0f);
   immUnbindProgram();
 
   /* Draw text. */
@@ -758,10 +778,10 @@ static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *ar
   BLF_shadow_offset(font_id, 1, -1);
   const char *text;
   text = TIP_("Editing Shape Key");
-  float x = (rect->xmax - rect->xmin - edit_data.npanel_width) * 0.5f -
+  float x = (rect->xmax - rect->xmin - npanel_width) * 0.5f -
             BLF_width(font_id, text, strlen(text)) * 0.5f;
-  float y = rect->ymax - rect->ymin - edit_data.header_height -
-            style->widget.points * UI_SCALE_FAC - half_line_w * 3;
+  float y = rect->ymax - rect->ymin - header_height - style->widget.points * UI_SCALE_FAC -
+            half_line_w * 3.0f;
   BLF_position(font_id, x, y, 0);
   BLF_draw(font_id, text, strlen(text));
   BLF_disable(font_id, BLF_SHADOW);
@@ -794,18 +814,18 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   MutableSpan<float3> positions;
 
   const AttributeReader fill_color_deltas = attributes.lookup<ColorGeometry4f>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_COLOR + shape_key_id, AttrDomain::Curve);
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR, AttrDomain::Curve);
   const AttributeReader fill_opacity_deltas = attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_OPACITY + shape_key_id,
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_OPACITY,
       AttrDomain::Curve);
   const AttributeReader radius_deltas = attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_RADIUS + shape_key_id, AttrDomain::Point);
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS, AttrDomain::Point);
   const AttributeReader opacity_deltas = attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_OPACITY + shape_key_id, AttrDomain::Point);
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY, AttrDomain::Point);
   const AttributeReader vertex_color_deltas = attributes.lookup<ColorGeometry4f>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_VERTEX_COLOR + shape_key_id, AttrDomain::Point);
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_VERTEX_COLOR, AttrDomain::Point);
   const AttributeReader position_distance = attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_DISTANCE + shape_key_id, AttrDomain::Point);
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE, AttrDomain::Point);
 
   const bool has_fill_color = fill_color_deltas && !fill_color_deltas.varray.is_empty();
   const bool has_fill_opacity = fill_opacity_deltas && !fill_opacity_deltas.varray.is_empty();
@@ -832,7 +852,7 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   if (has_distance) {
     positions = curves.positions_for_write();
     position_quaternions = attributes.lookup<math::Quaternion>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_QUATERNION + shape_key_id,
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
         AttrDomain::Point);
   }
 
@@ -909,19 +929,19 @@ void apply_shape_key_to_layers(GreasePencil &grease_pencil,
 {
   bke::AttributeAccessor layer_attributes = grease_pencil.attributes();
   const VArray<float3> shape_key_translations = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_TRANSLATION + shape_key_id,
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_TRANSLATION,
       bke::AttrDomain::Layer,
       float3(0.0f, 0.0f, 0.0f));
   const VArray<float3> shape_key_rotations = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_ROTATION + shape_key_id,
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_ROTATION,
       bke::AttrDomain::Layer,
       float3(0.0f, 0.0f, 0.0f));
   const VArray<float3> shape_key_scales = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_SCALE + shape_key_id,
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_SCALE,
       bke::AttrDomain::Layer,
       float3(0.0f, 0.0f, 0.0f));
   const VArray<float> shape_key_opacities = *layer_attributes.lookup_or_default<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_OPACITY + shape_key_id,
+      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_OPACITY,
       bke::AttrDomain::Layer,
       0.0f);
 
@@ -1101,34 +1121,34 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
       /* Store stroke and point attributes for the edited shape key. */
       if (fill_color_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<ColorGeometry4f>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_COLOR + shape_key_id,
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR,
             AttrDomain::Curve);
         attr_deltas.span.copy_from(fill_color_deltas);
         attr_deltas.finish();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_COLOR + shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR);
       }
       if (fill_opacity_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_OPACITY + shape_key_id,
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_OPACITY,
             AttrDomain::Curve);
         attr_deltas.span.copy_from(fill_opacity_deltas);
         attr_deltas.finish();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_STROKE_FILL_OPACITY +
-                          shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
+                          SHAPE_KEY_STROKE_FILL_OPACITY);
       }
       if (distance_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_DISTANCE + shape_key_id,
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE,
             AttrDomain::Point);
         attr_deltas.span.copy_from(distance_deltas);
         attr_deltas.finish();
         SpanAttributeWriter attr_deltas1 =
             attributes.lookup_or_add_for_write_span<math::Quaternion>(
-                SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_QUATERNION + shape_key_id,
+                SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
                 AttrDomain::Point);
         attr_deltas1.span.copy_from(quaternion_deltas);
         attr_deltas1.finish();
@@ -1136,51 +1156,50 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
         drawing.tag_positions_changed();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_DISTANCE +
-                          shape_key_id);
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_POS_QUATERNION +
-                          shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
+                          SHAPE_KEY_POINT_POS_DISTANCE);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
+                          SHAPE_KEY_POINT_POS_ROTATION);
       }
       if (radius_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_RADIUS + shape_key_id, AttrDomain::Point);
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS, AttrDomain::Point);
         attr_deltas.span.copy_from(radius_deltas);
         attr_deltas.finish();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_RADIUS + shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS);
       }
       if (opacity_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_OPACITY + shape_key_id,
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY,
             AttrDomain::Point);
         attr_deltas.span.copy_from(opacity_deltas);
         attr_deltas.finish();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_OPACITY + shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY);
       }
       if (vertex_color_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<ColorGeometry4f>(
-            SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_VERTEX_COLOR + shape_key_id,
+            SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_VERTEX_COLOR,
             AttrDomain::Point);
         attr_deltas.span.copy_from(vertex_color_deltas);
         attr_deltas.finish();
       }
       else {
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_POINT_VERTEX_COLOR +
-                          shape_key_id);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
+                          SHAPE_KEY_POINT_VERTEX_COLOR);
       }
     }
   });
 }
 
-static void edit_get_shape_key_deltas(const wmOperator *op)
+static void edit_get_shape_key_deltas(ShapeKeyEditData &edit_data)
 {
   using namespace bke;
   using namespace bke::greasepencil;
 
-  ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
   const std::string shape_key_id = std::to_string(edit_data.edited_shape_key_index);
   GreasePencil &grease_pencil = *edit_data.grease_pencil;
   MutableAttributeAccessor layer_attributes = grease_pencil.attributes_for_write();
@@ -1231,41 +1250,41 @@ static void edit_get_shape_key_deltas(const wmOperator *op)
   /* Store layer attributes for the edited shape key. */
   if (translation_has_delta) {
     SpanAttributeWriter attr_deltas = layer_attributes.lookup_or_add_for_write_span<float3>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_TRANSLATION + shape_key_id,
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_TRANSLATION,
         AttrDomain::Layer);
     attr_deltas.span.copy_from(translation_deltas);
     attr_deltas.finish();
   }
   else {
-    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_TRANSLATION +
-                            shape_key_id);
+    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
+                            SHAPE_KEY_LAYER_TRANSLATION);
   }
   if (rotation_has_delta) {
     SpanAttributeWriter attr_deltas = layer_attributes.lookup_or_add_for_write_span<float3>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_ROTATION + shape_key_id, AttrDomain::Layer);
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_ROTATION, AttrDomain::Layer);
     attr_deltas.span.copy_from(rotation_deltas);
     attr_deltas.finish();
   }
   else {
-    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_ROTATION + shape_key_id);
+    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_ROTATION);
   }
   if (scale_has_delta) {
     SpanAttributeWriter attr_deltas = layer_attributes.lookup_or_add_for_write_span<float3>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_SCALE + shape_key_id, AttrDomain::Layer);
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_SCALE, AttrDomain::Layer);
     attr_deltas.span.copy_from(scale_deltas);
     attr_deltas.finish();
   }
   else {
-    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_SCALE + shape_key_id);
+    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_SCALE);
   }
   if (opacity_has_delta) {
     SpanAttributeWriter attr_deltas = layer_attributes.lookup_or_add_for_write_span<float>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_OPACITY + shape_key_id, AttrDomain::Layer);
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_OPACITY, AttrDomain::Layer);
     attr_deltas.span.copy_from(opacity_deltas);
     attr_deltas.finish();
   }
   else {
-    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + SHAPE_KEY_LAYER_OPACITY + shape_key_id);
+    layer_attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_OPACITY);
   }
 
   /* Get deltas in geometry for the edited shape key. */
@@ -1282,6 +1301,26 @@ static void edit_get_shape_key_deltas(const wmOperator *op)
   edit_get_shape_key_stroke_deltas(edit_data, drawings);
 }
 
+static void store_base_layers(ShapeKeyEditData &edit_data)
+{
+  GreasePencil &grease_pencil = *edit_data.grease_pencil;
+
+  /* Store relevant shape key data of base layers: translation, rotation, scale and opacity. */
+  edit_data.base_layers.reinitialize(grease_pencil.layers().size());
+  for (const int layer_i : grease_pencil.layers().index_range()) {
+    bke::greasepencil::Layer &layer = grease_pencil.layer(layer_i);
+    LayerBase layer_base{};
+    layer_base.translation = layer.translation;
+    layer_base.rotation = layer.rotation;
+    layer_base.scale = layer.scale;
+    layer_base.opactity = layer.opacity;
+
+    /* Store the base layer and an index reference on the layer with the applied shape key. */
+    edit_data.base_layers[layer_i] = layer_base;
+    layer.runtime->shape_key_edit_index = layer_i + 1;
+  }
+}
+
 static void edit_init(bContext *C, wmOperator *op)
 {
   using namespace bke::greasepencil;
@@ -1293,7 +1332,6 @@ static void edit_init(bContext *C, wmOperator *op)
   op->customdata = &edit_data;
   edit_data.grease_pencil = &grease_pencil;
   edit_data.edited_shape_key_index = grease_pencil.active_shape_key_index;
-  edit_data.edited_shape_key = BKE_grease_pencil_shape_key_active_get(&grease_pencil);
 
   /* Set flag now we enter edit mode. */
   in_edit_mode = true;
@@ -1311,11 +1349,10 @@ static void edit_init(bContext *C, wmOperator *op)
     skd.shape_key_edit_data = is_first ? &edit_data : nullptr;
     is_first = false;
   }
+
   /* Get largest 3D viewport in all windows. */
   edit_data.area = nullptr;
   edit_data.region = nullptr;
-  edit_data.header_height = 0;
-  edit_data.npanel_width = 0;
   int max_width = 0;
   const wmWindowManager *wm = CTX_wm_manager(C);
   LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
@@ -1335,14 +1372,6 @@ static void edit_init(bContext *C, wmOperator *op)
       if (region->regiontype == RGN_TYPE_WINDOW) {
         edit_data.region = region;
       }
-      if (region->alignment == RGN_ALIGN_TOP &&
-          ELEM(region->regiontype, RGN_TYPE_TOOL_HEADER, RGN_TYPE_HEADER))
-      {
-        edit_data.header_height += int(region->sizey * UI_SCALE_FAC + 0.5f);
-      }
-      if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
-        edit_data.npanel_width = region->sizex > 0 ? 20 * UI_SCALE_FAC : 0;
-      }
     }
   }
 
@@ -1354,19 +1383,7 @@ static void edit_init(bContext *C, wmOperator *op)
   }
 
   /* Store relevant shape key data of base layers: translation, rotation, scale and opacity. */
-  edit_data.base_layers.reinitialize(grease_pencil.layers().size());
-  for (const int layer_i : grease_pencil.layers().index_range()) {
-    Layer &layer = grease_pencil.layer(layer_i);
-    LayerBase layer_base{};
-    layer_base.translation = layer.translation;
-    layer_base.rotation = layer.rotation;
-    layer_base.scale = layer.scale;
-    layer_base.opactity = layer.opacity;
-
-    /* Store the base layer and an index reference on the layer with the applied shape key. */
-    edit_data.base_layers[layer_i] = layer_base;
-    layer.runtime->shape_key_edit_index = layer_i + 1;
-  }
+  store_base_layers(edit_data);
 
   /* Apply the edited shape key to the layers. During edit, the shape key changes to layers must be
    * visible in the UI (layer transformation and opacity), so we apply them manually (and not by
@@ -1375,7 +1392,7 @@ static void edit_init(bContext *C, wmOperator *op)
   const std::string shape_key_id = std::to_string(edit_data.edited_shape_key_index);
   apply_shape_key_to_layers(grease_pencil, shape_key_id, all_layers, 1.0f);
 
-  /* Store shape key data of all base drawings. */
+  /* Store the base drawings. */
   edit_data.base_geometry.reinitialize(grease_pencil.drawings().size());
   threading::parallel_for(
       grease_pencil.drawings().index_range(), 1, [&](const IndexRange drawing_range) {
@@ -1387,8 +1404,9 @@ static void edit_init(bContext *C, wmOperator *op)
             continue;
           }
 
-          /* Store the base geometry (a full copy), so we can compute deltas when we finish
-           * editing. */
+          /* Store the base geometry by copying the #CurvesGeometry object. (Note that this uses
+           * implicit sharing, so the copying is delayed until a geometry attribute changes.)
+           * The base geometry is used to compute the deltas when we finish shape key editing. */
           edit_data.base_geometry[drawing_i] = drawing.strokes();
           drawing.runtime->shape_key_edit_index = drawing_i + 1;
 
@@ -1404,8 +1422,8 @@ static void edit_init(bContext *C, wmOperator *op)
           base_stroke_indices.span.copy_from(stroke_indices);
           base_stroke_indices.finish();
 
-          /* Apply the edited shape key to the drawing, so we can measure deltas when finishing.
-           */
+          /* Apply the edited shape key to the drawing, so we can measure deltas when we finish
+           * editing. */
           IndexMask all_strokes(IndexRange(drawing.strokes().curves_num()));
           apply_shape_key_to_drawing(drawing, shape_key_id, all_strokes, 1.0f);
         }
@@ -1419,7 +1437,8 @@ static int edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   /* Operator ends when the 'in edit mode' flag is disabled by the Finish Edit operator. */
   if (!in_edit_mode) {
-    edit_get_shape_key_deltas(op);
+    ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
+    edit_get_shape_key_deltas(edit_data);
     edit_exit(C, op);
     return OPERATOR_FINISHED;
   }
@@ -1481,6 +1500,117 @@ static void GREASE_PENCIL_OT_shape_key_edit_finish(wmOperatorType *ot)
   ot->exec = edit_finish_exec;
 }
 
+static int new_from_mix_exec(bContext *C, wmOperator *op)
+{
+  using namespace bke::greasepencil;
+
+  /* Create a new shape key, based on the active one. */
+  if (add_exec(C, op) == OPERATOR_CANCELLED) {
+    return OPERATOR_CANCELLED;
+  }
+
+  GreasePencil &grease_pencil = *from_context(*C);
+  GreassePencilShapeKey *shape_key = BKE_grease_pencil_shape_key_active_get(&grease_pencil);
+  shape_key->value = 0.0f;
+
+  ShapeKeyEditData edit_data = {&grease_pencil, grease_pencil.active_shape_key_index};
+
+  /* Store the base layers. */
+  store_base_layers(edit_data);
+
+  /* Apply all active shape keys to the layers. */
+  IndexMask all_layers(IndexRange(grease_pencil.layers().size()));
+  int shape_key_index;
+  LISTBASE_FOREACH_INDEX (
+      GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
+  {
+    if ((shape_key->value == 0.0f) || (shape_key->flag & GREASE_PENCIL_SHAPE_KEY_MUTED) != 0) {
+      continue;
+    }
+
+    const std::string shape_key_id = std::to_string(shape_key_index);
+    apply_shape_key_to_layers(grease_pencil, shape_key_id, all_layers, shape_key->value);
+  }
+
+  /* Store the base drawings and apply the active shape keys. */
+  edit_data.base_geometry.reinitialize(grease_pencil.drawings().size());
+  threading::parallel_for(
+      grease_pencil.drawings().index_range(), 1, [&](const IndexRange drawing_range) {
+        for (const int drawing_i : drawing_range) {
+          GreasePencilDrawingBase *drawing_base = grease_pencil.drawing(drawing_i);
+          Drawing &drawing = (reinterpret_cast<GreasePencilDrawing *>(drawing_base))->wrap();
+          if (drawing_base->type != GP_DRAWING) {
+            drawing.runtime->shape_key_edit_index = 0;
+            continue;
+          }
+
+          /* Store the base geometry (a full copy). */
+          edit_data.base_geometry[drawing_i] = drawing.strokes();
+          drawing.runtime->shape_key_edit_index = drawing_i + 1;
+
+          /* Mark all strokes with an index, so we can map them to the base strokes. */
+          bke::MutableAttributeAccessor attributes =
+              drawing.strokes_for_write().attributes_for_write();
+          IndexMask stroke_mask(IndexRange(1, drawing.strokes().curves_num()));
+          Array<int> stroke_indices(drawing.strokes().curves_num());
+          stroke_mask.to_indices(stroke_indices.as_mutable_span());
+          bke::SpanAttributeWriter base_stroke_indices =
+              attributes.lookup_or_add_for_write_span<int>(SHAPE_KEY_BASE_STROKE_INDEX,
+                                                           bke::AttrDomain::Curve);
+          base_stroke_indices.span.copy_from(stroke_indices);
+          base_stroke_indices.finish();
+
+          /* Apply all active shape keys to the drawings. */
+          IndexMask all_strokes(IndexRange(drawing.strokes().curves_num()));
+          int shape_key_index;
+          LISTBASE_FOREACH_INDEX (
+              GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
+          {
+            if ((shape_key->value == 0.0f) ||
+                (shape_key->flag & GREASE_PENCIL_SHAPE_KEY_MUTED) != 0) {
+              continue;
+            }
+
+            const std::string shape_key_id = std::to_string(shape_key_index);
+            apply_shape_key_to_drawing(drawing, shape_key_id, all_strokes, shape_key->value);
+          }
+        }
+      });
+
+  /* Store layer and drawing deltas. This also restores drawings to their base values. */
+  edit_get_shape_key_deltas(edit_data);
+
+  /* Restore base layers. */
+  restore_base_layers(edit_data);
+
+  /* Remove temporary stroke index attributes. */
+  remove_stroke_index_attributes(edit_data);
+
+  DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_shape_key_new_from_mix(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "New Shape Key from Mix";
+  ot->idname = "GREASE_PENCIL_OT_shape_key_new_from_mix";
+  ot->description = "Create a new shape key based on the current mix of active shape keys";
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Callbacks. */
+  ot->poll = active_poll;
+  ot->exec = new_from_mix_exec;
+
+  /* Properties. */
+  PropertyRNA *prop;
+  prop = RNA_def_string(ot->srna, "name", nullptr, MAX_NAME, "Name", "Name of the new shape key");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  ot->prop = prop;
+}
+
 // static void GREASE_PENCIL_OT_shape_key_apply_all(wmOperatorType *ot) {}
 
 }  // namespace blender::ed::greasepencil::shape_key
@@ -1497,6 +1627,7 @@ void ED_operatortypes_grease_pencil_shape_keys()
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_move);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_duplicate);
+  WM_operatortype_append(GREASE_PENCIL_OT_shape_key_new_from_mix);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit_finish);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove_all);
