@@ -2241,10 +2241,12 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
   }
 
   /* When a shape key is edited, we calculate the shape key deltas on the fly. The deltas are the
-   * differences between the base drawing and the edited shape key drawing. By calculating these
-   * deltas in real time, we can show the exact result of the shape key edits (the evaluated
-   * depsgraph result), using the user defined modifier stack, with the exact order of (shape key)
-   * modifiers. */
+   * differences between the base drawing and the edited shape key drawing.
+   * While getting the deltas, we revert the shape-keyed attributes to their base values, because
+   * the shape key modifier(s) will take care of applying the shape key deltas on top of the base
+   * values.
+   * The advantage of this approach is that the user can determine the order of modifiers
+   * (e.g. a shape key applied after an armature deform). */
   bool shape_key_is_edited = false;
   ModifierData *smd = md;
   for (; smd; smd = smd->next) {
@@ -2264,8 +2266,9 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
   }
 
   /* When a shape key is edited, we store the grease pencil drawings at the evaluated frame as a
-   * base reference. This reference is shown in the viewport in onion-skin style, so the user can
-   * easily see the difference between drawing with and without the edited shape key. */
+   * 'onion-skin' reference. This base reference is shown in the viewport in onion-skin style, so
+   * the user can easily see the difference between the drawing with and without the edited shape
+   * key. */
   if (shape_key_is_edited && geometry_set.has_grease_pencil()) {
     GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
     const int frame = grease_pencil.runtime->eval_frame;

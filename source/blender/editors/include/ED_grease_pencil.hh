@@ -958,8 +958,8 @@ float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, int layer_i
 float3 get_base_layer_rotation(const ShapeKeyEditData &edit_data, int layer_index);
 float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, int layer_index);
 
-void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
-                                      const Span<bke::greasepencil::Drawing *> drawings);
+void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
+                                 const Span<bke::greasepencil::Drawing *> drawings);
 
 }  // namespace shape_key
 

@@ -218,7 +218,7 @@ static void before_modify_geometry_set(ModifierData *md,
 
   const Vector<Drawing *> drawings = ed::greasepencil::retrieve_editable_drawings_at_frame(
       grease_pencil.runtime->eval_frame, scene, grease_pencil);
-  ed::greasepencil::shape_key::edit_get_shape_key_stroke_deltas(*edit_data, drawings);
+  ed::greasepencil::shape_key::get_shape_key_stroke_deltas(*edit_data, drawings);
 }
 
 static void modify_geometry_set(ModifierData *md,

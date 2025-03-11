@@ -810,29 +810,30 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   MutableSpan<float> radii;
   MutableSpan<float> opacities;
   MutableSpan<ColorGeometry4f> vertex_colors;
-  AttributeReader<math::Quaternion> position_quaternions;
+  VArraySpan<math::Quaternion> position_rotations;
   MutableSpan<float3> positions;
+  Array<float3> original_positions;
 
-  const AttributeReader fill_color_deltas = attributes.lookup<ColorGeometry4f>(
+  const VArraySpan fill_color_deltas = *attributes.lookup<ColorGeometry4f>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR, AttrDomain::Curve);
-  const AttributeReader fill_opacity_deltas = attributes.lookup<float>(
+  const VArraySpan fill_opacity_deltas = *attributes.lookup<float>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_OPACITY,
       AttrDomain::Curve);
-  const AttributeReader radius_deltas = attributes.lookup<float>(
+  const VArraySpan radius_deltas = *attributes.lookup<float>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS, AttrDomain::Point);
-  const AttributeReader opacity_deltas = attributes.lookup<float>(
+  const VArraySpan opacity_deltas = *attributes.lookup<float>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY, AttrDomain::Point);
-  const AttributeReader vertex_color_deltas = attributes.lookup<ColorGeometry4f>(
+  const VArraySpan vertex_color_deltas = *attributes.lookup<ColorGeometry4f>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_VERTEX_COLOR, AttrDomain::Point);
-  const AttributeReader position_distance = attributes.lookup<float>(
+  const VArraySpan position_distance = *attributes.lookup<float>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE, AttrDomain::Point);
 
-  const bool has_fill_color = fill_color_deltas && !fill_color_deltas.varray.is_empty();
-  const bool has_fill_opacity = fill_opacity_deltas && !fill_opacity_deltas.varray.is_empty();
-  const bool has_radius = radius_deltas && !radius_deltas.varray.is_empty();
-  const bool has_opacity = opacity_deltas && !opacity_deltas.varray.is_empty();
-  const bool has_vertex_color = vertex_color_deltas && !vertex_color_deltas.varray.is_empty();
-  const bool has_distance = position_distance && !position_distance.varray.is_empty();
+  const bool has_fill_color = !fill_color_deltas.is_empty();
+  const bool has_fill_opacity = !fill_opacity_deltas.is_empty();
+  const bool has_radius = !radius_deltas.is_empty();
+  const bool has_opacity = !opacity_deltas.is_empty();
+  const bool has_vertex_color = !vertex_color_deltas.is_empty();
+  const bool has_distance = !position_distance.is_empty();
 
   if (has_fill_color) {
     fill_colors = drawing.fill_colors_for_write();
@@ -851,69 +852,73 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   }
   if (has_distance) {
     positions = curves.positions_for_write();
-    position_quaternions = attributes.lookup<math::Quaternion>(
+    position_rotations = *attributes.lookup<math::Quaternion>(
         SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
         AttrDomain::Point);
+    original_positions.reinitialize(curves.points_num());
+    attributes.lookup<float3>("position", AttrDomain::Point)
+        .varray.materialize(original_positions);
   }
 
   /* Apply shape key to strokes and points. */
-  stroke_mask.foreach_index(GrainSize(512), [&](const int stroke) {
+  stroke_mask.foreach_index(GrainSize(128), [&](const int stroke) {
     /* Shape key: stroke fill color. */
     if (has_fill_color) {
-      add_v4_v4(fill_colors[stroke], float4(fill_color_deltas.varray[stroke]) * factor);
+      add_v4_v4(fill_colors[stroke], float4(fill_color_deltas[stroke]) * factor);
       clamp_v4(fill_colors[stroke], 0.0f, 1.0f);
     }
 
     /* Shape key: stroke fill opacity. */
     if (has_fill_opacity) {
       fill_opacities[stroke] = math::clamp(
-          fill_opacities[stroke] + fill_opacity_deltas.varray[stroke] * factor, 0.0f, 1.0f);
+          fill_opacities[stroke] + fill_opacity_deltas[stroke] * factor, 0.0f, 1.0f);
     }
 
     const IndexRange points = points_by_curve[stroke];
     for (const int point : points) {
       /* Shape key: point radius. */
       if (has_radius) {
-        radii[point] = math::max(radii[point] + radius_deltas.varray[point] * factor, 0.0f);
+        radii[point] = math::max(radii[point] + radius_deltas[point] * factor, 0.0f);
       }
       /* Shape key: point opacity. */
       if (has_opacity) {
         opacities[point] = math::clamp(
-            opacities[point] + opacity_deltas.varray[point] * factor, 0.0f, 1.0f);
+            opacities[point] + opacity_deltas[point] * factor, 0.0f, 1.0f);
       }
       /* Shape key: vertex colors. */
       if (has_vertex_color) {
-        add_v4_v4(vertex_colors[point], float4(vertex_color_deltas.varray[point]) * factor);
+        add_v4_v4(vertex_colors[point], float4(vertex_color_deltas[point]) * factor);
         clamp_v4(vertex_colors[point], 0.0f, 1.0f);
       }
     }
 
     /* Shape key: point position. */
     if (has_distance) {
-      float3 vector_to_next_point;
+      float3 parallel_vector = {1.0f, 0.0f, 0.0f};
+      const int point_size = points.size();
       for (const int point : points) {
-        if (position_distance.varray[point] == 0.0f) {
+        if (position_distance[point] == 0.0f) {
           continue;
         }
 
         /* Convert quaternion rotation and distance to a point position delta. */
         float matrix[3][3];
-        const math::Quaternion quaternion = position_quaternions.varray[point];
+        const math::Quaternion quaternion = position_rotations[point];
         quat_to_mat3(matrix, &quaternion.w);
-        if (point < points.last() || cyclic[stroke]) {
-          const int next_point = (point == points.last()) ? points.first() : point + 1;
-          vector_to_next_point = positions[next_point] - positions[point];
-          mul_m3_v3(matrix, vector_to_next_point);
-          normalize_v3(vector_to_next_point);
+        if (point_size > 1) {
+          const int prev_point = (point == points.first()) ?
+                                     (cyclic[stroke] ? points.last() : point) :
+                                     point - 1;
+          const int next_point = (point == points.last()) ?
+                                     (cyclic[stroke] ? points.first() : point) :
+                                     point + 1;
+          parallel_vector = original_positions[next_point] - original_positions[prev_point];
         }
-        else if (points.size() == 1) {
-          vector_to_next_point = {1.0f, 0.0f, 0.0f};
-          mul_m3_v3(matrix, vector_to_next_point);
-          normalize_v3(vector_to_next_point);
-        }
+        mul_m3_v3(matrix, parallel_vector);
+        normalize_v3(parallel_vector);
 
         /* Apply the delta to the point position. */
-        float3 position_delta = vector_to_next_point * (position_distance.varray[point] * factor);
+        float3 position_delta = parallel_vector * (position_distance[point] * factor);
         positions[point] += position_delta;
       }
     }
@@ -956,8 +961,10 @@ void apply_shape_key_to_layers(GreasePencil &grease_pencil,
   });
 }
 
-void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
-                                      const Span<bke::greasepencil::Drawing *> drawings)
+/* Get the shape key deltas of all strokes and points in the given drawings.
+ * While getting the deltas, revert the shape-keyed attributes to their base values. */
+void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
+                                 const Span<bke::greasepencil::Drawing *> drawings)
 {
   using namespace bke;
   using namespace bke::greasepencil;
@@ -997,7 +1004,7 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
           "fill_opacity", AttrDomain::Curve, 1.0f);
       bool fill_opacity_has_delta = false;
 
-      Array<math::Quaternion> quaternion_deltas(curves.points_num(), math::Quaternion::identity());
+      Array<math::Quaternion> rotation_deltas(curves.points_num(), math::Quaternion::identity());
       Array<float> distance_deltas(curves.points_num(), 0.0f);
       MutableSpan<float3> positions = curves.positions_for_write();
       const Span<float3> base_positions = base_curves.positions();
@@ -1023,11 +1030,7 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
               "vertex_color", AttrDomain::Point, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
       bool vertex_color_has_delta = false;
 
-      /* Loop over edited strokes and look for changed shape key properties. We restore
-       * shape-keyed properties to their base values, because the shape key modifier(s) will
-       * take care of applying the shape key deltas on top of the base values.
-       * The advantage of this approach is that the user can determine the order of modifiers
-       * (e.g. a shape key applied after an armature deform). */
+      /* Loop over edited strokes and look for changed shape key properties. */
       for (const int stroke : curves.curves_range()) {
         const int base_stroke = base_stroke_indices[stroke] - 1;
         /* Skip strokes without base reference. */
@@ -1062,28 +1065,32 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
 
         /* Get stroke point deltas. */
         const IndexRange points = points_by_curve[stroke];
-        float3 vector_to_next_point;
+        const int point_size = points.size();
+        float3 parallel_vector = {1.0f, 0.0f, 0.0f};
         for (const int point : points) {
           /* Get quaternion rotation and distance between base point and shape-keyed point. */
           if (positions[point] != base_positions[point]) {
             float3 shaped_point_vector = positions[point] - base_positions[point];
             const float distance = math::length(shaped_point_vector);
             if (distance > EPSILON) {
-              if (point < points.last() || cyclic[stroke]) {
-                const int next_point = (point == points.last()) ? points.first() : point + 1;
-                vector_to_next_point = math::normalize(base_positions[next_point] -
-                                                       base_positions[point]);
+              if (point_size > 1) {
+                const int prev_point = (point == points.first()) ?
+                                           (cyclic[stroke] ? points.last() : point) :
+                                           point - 1;
+                const int next_point = (point == points.last()) ?
+                                           (cyclic[stroke] ? points.first() : point) :
+                                           point + 1;
+                parallel_vector = math::normalize(base_positions[next_point] -
+                                                  base_positions[prev_point]);
               }
-              else if (points.size() == 1) {
-                vector_to_next_point = {1.0f, 0.0f, 0.0f};
-              }
+
               shaped_point_vector = math::normalize(shaped_point_vector);
               float4 quaternion;
-              rotation_between_vecs_to_quat(quaternion, vector_to_next_point, shaped_point_vector);
+              rotation_between_vecs_to_quat(quaternion, parallel_vector, shaped_point_vector);
 
               distance_has_delta = true;
               distance_deltas[point] = distance;
-              quaternion_deltas[point] = math::Quaternion(quaternion);
+              rotation_deltas[point] = math::Quaternion(quaternion);
             }
             /* Restore to base value. */
             positions[point] = base_positions[point];
@@ -1150,7 +1157,7 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
             attributes.lookup_or_add_for_write_span<math::Quaternion>(
                 SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
                 AttrDomain::Point);
-        attr_deltas1.span.copy_from(quaternion_deltas);
+        attr_deltas1.span.copy_from(rotation_deltas);
         attr_deltas1.finish();
 
         drawing.tag_positions_changed();
@@ -1195,7 +1202,7 @@ void edit_get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
   });
 }
 
-static void edit_get_shape_key_deltas(ShapeKeyEditData &edit_data)
+static void get_shape_key_deltas(ShapeKeyEditData &edit_data)
 {
   using namespace bke;
   using namespace bke::greasepencil;
@@ -1298,7 +1305,7 @@ static void edit_get_shape_key_deltas(ShapeKeyEditData &edit_data)
     drawings.append(drawing);
   }
 
-  edit_get_shape_key_stroke_deltas(edit_data, drawings);
+  get_shape_key_stroke_deltas(edit_data, drawings);
 }
 
 static void store_base_layers(ShapeKeyEditData &edit_data)
@@ -1438,7 +1445,7 @@ static int edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
   /* Operator ends when the 'in edit mode' flag is disabled by the Finish Edit operator. */
   if (!in_edit_mode) {
     ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
-    edit_get_shape_key_deltas(edit_data);
+    get_shape_key_deltas(edit_data);
     edit_exit(C, op);
     return OPERATOR_FINISHED;
   }
@@ -1578,7 +1585,7 @@ static int new_from_mix_exec(bContext *C, wmOperator *op)
       });
 
   /* Store layer and drawing deltas. This also restores drawings to their base values. */
-  edit_get_shape_key_deltas(edit_data);
+  get_shape_key_deltas(edit_data);
 
   /* Restore base layers. */
   restore_base_layers(edit_data);
