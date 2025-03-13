@@ -216,8 +216,8 @@ static void before_modify_geometry_set(ModifierData *md,
       reinterpret_cast<ed::greasepencil::shape_key::ShapeKeyEditData *>(smd.shape_key_edit_data);
   const Scene &scene = *DEG_get_evaluated_scene(ctx->depsgraph);
 
-  const Vector<Drawing *> drawings = ed::greasepencil::retrieve_editable_drawings_at_frame(
-      grease_pencil.runtime->eval_frame, scene, grease_pencil);
+  const Vector<Drawing *> drawings = ed::greasepencil::retrieve_visible_drawings_at_frame(
+      scene, grease_pencil, grease_pencil.runtime->eval_frame);
   ed::greasepencil::shape_key::get_shape_key_stroke_deltas(*edit_data, drawings);
 }
 
