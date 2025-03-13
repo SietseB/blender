@@ -54,7 +54,7 @@ constexpr StringRef SHAPE_KEY_LAYER_OPACITY = "-opacity";
 constexpr StringRef SHAPE_KEY_STROKE_FILL_COLOR = "-fill-color";
 constexpr StringRef SHAPE_KEY_STROKE_FILL_OPACITY = "-fill-opacity";
 constexpr StringRef SHAPE_KEY_POINT_POS_DISTANCE = "-pos-distance";
-constexpr StringRef SHAPE_KEY_POINT_POS_ROTATION = "-pos-rotation";
+constexpr StringRef SHAPE_KEY_POINT_POS_ANGLE = "-pos-angle";
 constexpr StringRef SHAPE_KEY_POINT_RADIUS = "-radius";
 constexpr StringRef SHAPE_KEY_POINT_OPACITY = "-opacity";
 constexpr StringRef SHAPE_KEY_POINT_VERTEX_COLOR = "-vertex-color";
@@ -145,7 +145,7 @@ static void increase_index(GreasePencil &grease_pencil, const int index)
     attribute_increase_index(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
-    attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
+    attribute_increase_index(attributes, SHAPE_KEY_POINT_POS_ANGLE, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
     attribute_increase_index(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -301,7 +301,7 @@ static int remove_exec(bContext *C, wmOperator *op)
     attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
-    attribute_remove(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
+    attribute_remove(attributes, SHAPE_KEY_POINT_POS_ANGLE, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
     attribute_remove(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -375,7 +375,7 @@ static int remove_all_exec(bContext *C, wmOperator *op)
       attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index, max_index);
-      attribute_remove(attributes, SHAPE_KEY_POINT_POS_ROTATION, index, max_index);
+      attribute_remove(attributes, SHAPE_KEY_POINT_POS_ANGLE, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_RADIUS, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_OPACITY, index, max_index);
       attribute_remove(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index, max_index);
@@ -512,7 +512,7 @@ static int move_exec(bContext *C, wmOperator *op)
     attribute_move(attributes, SHAPE_KEY_STROKE_FILL_COLOR, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_POS_DISTANCE, old_index, new_index, max_index);
-    attribute_move(attributes, SHAPE_KEY_POINT_POS_ROTATION, old_index, new_index, max_index);
+    attribute_move(attributes, SHAPE_KEY_POINT_POS_ANGLE, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_RADIUS, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_OPACITY, old_index, new_index, max_index);
     attribute_move(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, old_index, new_index, max_index);
@@ -612,7 +612,7 @@ static int duplicate_exec(bContext *C, wmOperator *op)
     attributes_duplicate(attributes, SHAPE_KEY_STROKE_FILL_COLOR, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_STROKE_FILL_OPACITY, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_DISTANCE, index_src, index_dst);
-    attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_ROTATION, index_src, index_dst);
+    attributes_duplicate(attributes, SHAPE_KEY_POINT_POS_ANGLE, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_RADIUS, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_OPACITY, index_src, index_dst);
     attributes_duplicate(attributes, SHAPE_KEY_POINT_VERTEX_COLOR, index_src, index_dst);
@@ -810,9 +810,8 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   MutableSpan<float> radii;
   MutableSpan<float> opacities;
   MutableSpan<ColorGeometry4f> vertex_colors;
-  VArraySpan<math::Quaternion> position_rotations;
+  VArraySpan<math::Quaternion> position_angles;
   MutableSpan<float3> positions;
-  Array<float3> original_positions;
 
   const VArraySpan fill_color_deltas = *attributes.lookup<ColorGeometry4f>(
       SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR, AttrDomain::Curve);
@@ -852,16 +851,12 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   }
   if (has_distance) {
     positions = curves.positions_for_write();
-    position_rotations = *attributes.lookup<math::Quaternion>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
-        AttrDomain::Point);
-    original_positions.reinitialize(curves.points_num());
-    attributes.lookup<float3>("position", AttrDomain::Point)
-        .varray.materialize(original_positions);
+    position_angles = *attributes.lookup<math::Quaternion>(
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE, AttrDomain::Point);
   }
 
   /* Apply shape key to strokes and points. */
-  stroke_mask.foreach_index(GrainSize(128), [&](const int stroke) {
+  stroke_mask.foreach_index(GrainSize(256), [&](const int stroke) {
     /* Shape key: stroke fill color. */
     if (has_fill_color) {
       add_v4_v4(fill_colors[stroke], float4(fill_color_deltas[stroke]) * factor);
@@ -894,8 +889,10 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
 
     /* Shape key: point position. */
     if (has_distance) {
-      float3 parallel_vector = {1.0f, 0.0f, 0.0f};
-      const int point_size = points.size();
+      float3 vector_to_next_point = {1.0f, 0.0f, 0.0f};
+      const float3 position_first = positions[points.first()];
+      const float3 position_one_before_last =
+          positions[points.size() > 1 ? (points.last() - 1) : points.first()];
       for (const int point : points) {
         if (position_distance[point] == 0.0f) {
           continue;
@@ -903,22 +900,24 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
 
         /* Convert quaternion rotation and distance to a point position delta. */
         float matrix[3][3];
-        const math::Quaternion quaternion = position_rotations[point];
-        quat_to_mat3(matrix, &quaternion.w);
-        if (point_size > 1) {
-          const int prev_point = (point == points.first()) ?
-                                     (cyclic[stroke] ? points.last() : point) :
-                                     point - 1;
-          const int next_point = (point == points.last()) ?
-                                     (cyclic[stroke] ? points.first() : point) :
-                                     point + 1;
-          parallel_vector = original_positions[next_point] - original_positions[prev_point];
+        const math::Quaternion angle = position_angles[point];
+        quat_to_mat3(matrix, &angle.w);
+        if (point == points.last()) {
+          if (cyclic[stroke]) {
+            vector_to_next_point = position_first - positions[point];
+          }
+          else if (points.size() > 1) {
+            vector_to_next_point = positions[point] - position_one_before_last;
+          }
         }
-        mul_m3_v3(matrix, parallel_vector);
-        normalize_v3(parallel_vector);
+        else {
+          vector_to_next_point = positions[point + 1] - positions[point];
+        }
+        mul_m3_v3(matrix, vector_to_next_point);
+        normalize_v3(vector_to_next_point);
 
         /* Apply the delta to the point position. */
-        float3 position_delta = parallel_vector * (position_distance[point] * factor);
+        const float3 position_delta = vector_to_next_point * (position_distance[point] * factor);
         positions[point] += position_delta;
       }
     }
@@ -961,6 +960,18 @@ void apply_shape_key_to_layers(GreasePencil &grease_pencil,
   });
 }
 
+static bool attributes_have_different_sharing_info(const StringRef attribute_name,
+                                                   const bke::AttrDomain domain,
+                                                   const bke::MutableAttributeAccessor &attributes,
+                                                   const bke::AttributeAccessor &base_attributes)
+{
+  const ImplicitSharingInfo *sharing_info = attributes.lookup(attribute_name, domain).sharing_info;
+  const ImplicitSharingInfo *base_sharing_info =
+      base_attributes.lookup(attribute_name, domain).sharing_info;
+  return sharing_info == nullptr || base_sharing_info == nullptr ||
+         sharing_info != base_sharing_info;
+}
+
 /* Get the shape key deltas of all strokes and points in the given drawings.
  * While getting the deltas, revert the shape-keyed attributes to their base values. */
 void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
@@ -990,142 +1001,237 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
           SHAPE_KEY_BASE_STROKE_INDEX, AttrDomain::Curve, 0);
       const VArray<bool> cyclic = curves.cyclic();
 
-      Array<ColorGeometry4f> fill_color_deltas(curves.curves_num(),
-                                               ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-      MutableSpan<ColorGeometry4f> fill_colors = drawing.fill_colors_for_write();
-      const VArray<ColorGeometry4f> base_fill_colors =
-          *base_attributes.lookup_or_default<ColorGeometry4f>(
-              "fill_color", AttrDomain::Curve, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-      bool fill_color_has_delta = false;
-
-      Array<float> fill_opacity_deltas(curves.curves_num(), 0.0f);
-      MutableSpan<float> fill_opacities = drawing.fill_opacities_for_write();
-      const VArray<float> base_fill_opacities = *base_attributes.lookup_or_default<float>(
-          "fill_opacity", AttrDomain::Curve, 1.0f);
-      bool fill_opacity_has_delta = false;
-
-      Array<math::Quaternion> rotation_deltas(curves.points_num(), math::Quaternion::identity());
-      Array<float> distance_deltas(curves.points_num(), 0.0f);
-      MutableSpan<float3> positions = curves.positions_for_write();
-      const Span<float3> base_positions = base_curves.positions();
-      bool distance_has_delta = false;
-
-      Array<float> radius_deltas(curves.points_num(), 0.0f);
-      MutableSpan<float> radii = drawing.radii_for_write();
-      const VArray<float> base_radii = *base_attributes.lookup_or_default(
-          "radius", AttrDomain::Point, 0.01f);
-      bool radius_has_delta = false;
-
-      Array<float> opacity_deltas(curves.points_num(), 0.0f);
-      MutableSpan<float> opacities = drawing.opacities_for_write();
-      const VArray<float> base_opacities = *base_attributes.lookup_or_default(
-          "opacity", AttrDomain::Point, 1.0f);
-      bool opacity_has_delta = false;
-
-      Array<ColorGeometry4f> vertex_color_deltas(curves.points_num(),
-                                                 ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-      MutableSpan<ColorGeometry4f> vertex_colors = drawing.vertex_colors_for_write();
-      const VArray<ColorGeometry4f> base_vertex_colors =
-          *base_attributes.lookup_or_default<ColorGeometry4f>(
-              "vertex_color", AttrDomain::Point, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-      bool vertex_color_has_delta = false;
-
-      /* Loop over edited strokes and look for changed shape key properties. */
-      for (const int stroke : curves.curves_range()) {
-        const int base_stroke = base_stroke_indices[stroke] - 1;
-        /* Skip strokes without base reference. */
-        if (base_stroke == -1) {
-          continue;
-        }
-
-        /* When the number of points in the edited stroke and the base stroke don't match, it's
-         * difficult to create a shape key. For now, we ignore non-matching strokes.
-         * In the future we could implement a smarter algorithm for matching the points. */
-        if (points_by_curve[stroke].size() != base_points_by_curve[base_stroke].size()) {
-          continue;
-        }
-
-        /* Store delta of stroke fill color. */
-        float4 color_delta = float4(fill_colors[stroke]) - float4(base_fill_colors[base_stroke]);
-        if (!math::is_zero(color_delta, EPSILON)) {
-          fill_color_has_delta = true;
-          fill_color_deltas[stroke] = ColorGeometry4f(color_delta);
-        }
-        /* Restore to base value. */
-        fill_colors[stroke] = base_fill_colors[base_stroke];
-
-        /* Store delta of stroke fill opacity. */
-        float delta = fill_opacities[stroke] - base_fill_opacities[base_stroke];
-        if (math::abs(delta) > EPSILON) {
-          fill_opacity_has_delta = true;
-          fill_opacity_deltas[stroke] = delta;
-        }
-        /* Restore to base value. */
-        fill_opacities[stroke] = base_fill_opacities[base_stroke];
-
-        /* Get stroke point deltas. */
-        const IndexRange points = points_by_curve[stroke];
-        const int point_size = points.size();
-        float3 parallel_vector = {1.0f, 0.0f, 0.0f};
-        for (const int point : points) {
-          /* Get quaternion rotation and distance between base point and shape-keyed point. */
-          if (positions[point] != base_positions[point]) {
-            float3 shaped_point_vector = positions[point] - base_positions[point];
-            const float distance = math::length(shaped_point_vector);
-            if (distance > EPSILON) {
-              if (point_size > 1) {
-                const int prev_point = (point == points.first()) ?
-                                           (cyclic[stroke] ? points.last() : point) :
-                                           point - 1;
-                const int next_point = (point == points.last()) ?
-                                           (cyclic[stroke] ? points.first() : point) :
-                                           point + 1;
-                parallel_vector = math::normalize(base_positions[next_point] -
-                                                  base_positions[prev_point]);
-              }
-
-              shaped_point_vector = math::normalize(shaped_point_vector);
-              float4 quaternion;
-              rotation_between_vecs_to_quat(quaternion, parallel_vector, shaped_point_vector);
-
-              distance_has_delta = true;
-              distance_deltas[point] = distance;
-              rotation_deltas[point] = math::Quaternion(quaternion);
-            }
-            /* Restore to base value. */
-            positions[point] = base_positions[point];
-          }
-
-          /* Get radius delta. */
-          delta = radii[point] - base_radii[point];
-          if (math::abs(delta) > EPSILON) {
-            radius_has_delta = true;
-            radius_deltas[point] = delta;
-          }
-          /* Restore to base value. */
-          radii[point] = base_radii[point];
-
-          /* Get opacity delta. */
-          delta = opacities[point] - base_opacities[point];
-          if (math::abs(delta) > EPSILON) {
-            opacity_has_delta = true;
-            opacity_deltas[point] = delta;
-          }
-          /* Restore to base value. */
-          opacities[point] = base_opacities[point];
-
-          /* Get vertex color delta. */
-          color_delta = float4(vertex_colors[point]) - float4(base_vertex_colors[point]);
-          if (!math::is_zero(color_delta, EPSILON)) {
-            vertex_color_has_delta = true;
-            vertex_color_deltas[point] = ColorGeometry4f(color_delta);
-          }
-          /* Restore to base value. */
-          vertex_colors[point] = base_vertex_colors[point];
-        }
+      /* Compare implicit sharing info of shape key attributes in the base drawing and the shape
+       * key drawing. When the pointers to the sharing info match, we know that the attributes have
+       * the same values, so we don't have to check for shape key deltas. */
+      Array<ColorGeometry4f> fill_color_deltas;
+      MutableSpan<ColorGeometry4f> fill_colors;
+      VArray<ColorGeometry4f> base_fill_colors;
+      std::atomic<bool> fill_color_has_delta = false;
+      const bool check_fill_color = attributes_have_different_sharing_info(
+          "fill_color", AttrDomain::Curve, attributes, base_attributes);
+      if (check_fill_color) {
+        fill_color_deltas = Array<ColorGeometry4f>(curves.curves_num(),
+                                                   ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
+        fill_colors = drawing.fill_colors_for_write();
+        base_fill_colors = *base_attributes.lookup_or_default<ColorGeometry4f>(
+            "fill_color", AttrDomain::Curve, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
       }
 
-      /* Store stroke and point attributes for the edited shape key. */
+      Array<float> fill_opacity_deltas;
+      MutableSpan<float> fill_opacities;
+      VArray<float> base_fill_opacities;
+      std::atomic<bool> fill_opacity_has_delta = false;
+      const bool check_fill_opacity = attributes_have_different_sharing_info(
+          "fill_opacity", AttrDomain::Curve, attributes, base_attributes);
+      if (check_fill_opacity) {
+        fill_opacity_deltas = Array<float>(curves.curves_num(), 0.0f);
+        fill_opacities = drawing.fill_opacities_for_write();
+        base_fill_opacities = *base_attributes.lookup_or_default<float>(
+            "fill_opacity", AttrDomain::Curve, 1.0f);
+      }
+
+      Array<math::Quaternion> angle_deltas;
+      Array<float> distance_deltas;
+      MutableSpan<float3> positions;
+      Span<float3> base_positions;
+      std::atomic<bool> position_has_delta = false;
+      const bool check_position = attributes_have_different_sharing_info(
+          "position", AttrDomain::Point, attributes, base_attributes);
+      if (check_position) {
+        angle_deltas = Array<math::Quaternion>(curves.points_num(), math::Quaternion::identity());
+        distance_deltas = Array<float>(curves.points_num(), 0.0f);
+        positions = curves.positions_for_write();
+        base_positions = base_curves.positions();
+      }
+
+      Array<float> radius_deltas;
+      MutableSpan<float> radii;
+      VArray<float> base_radii;
+      std::atomic<bool> radius_has_delta = false;
+      const bool check_radius = attributes_have_different_sharing_info(
+          "radius", AttrDomain::Point, attributes, base_attributes);
+      if (check_radius) {
+        radius_deltas = Array<float>(curves.points_num(), 0.0f);
+        radii = drawing.radii_for_write();
+        base_radii = *base_attributes.lookup_or_default<float>("radii", AttrDomain::Point, 0.01f);
+      }
+
+      Array<float> opacity_deltas;
+      MutableSpan<float> opacities;
+      VArray<float> base_opacities;
+      std::atomic<bool> opacity_has_delta = false;
+      const bool check_opacity = attributes_have_different_sharing_info(
+          "opacity", AttrDomain::Point, attributes, base_attributes);
+      if (check_opacity) {
+        opacity_deltas = Array<float>(curves.points_num(), 0.0f);
+        opacities = drawing.opacities_for_write();
+        base_opacities = *base_attributes.lookup_or_default<float>(
+            "opacity", AttrDomain::Point, 1.0f);
+      }
+
+      Array<ColorGeometry4f> vertex_color_deltas;
+      MutableSpan<ColorGeometry4f> vertex_colors;
+      VArray<ColorGeometry4f> base_vertex_colors;
+      std::atomic<bool> vertex_color_has_delta = false;
+      const bool check_vertex_color = attributes_have_different_sharing_info(
+          "vertex_color", AttrDomain::Point, attributes, base_attributes);
+      if (check_vertex_color) {
+        vertex_color_deltas = Array<ColorGeometry4f>(curves.points_num(),
+                                                     ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
+        vertex_colors = drawing.vertex_colors_for_write();
+        base_vertex_colors = *base_attributes.lookup_or_default<ColorGeometry4f>(
+            "vertex_color", AttrDomain::Point, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
+      }
+
+      /* Loop over edited strokes and look for changed shape key properties. */
+      if (check_fill_color || check_fill_opacity || check_position || check_radius ||
+          check_opacity || check_vertex_color)
+      {
+        threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange curves_range) {
+          bool fill_color_changed = false;
+          bool fill_opacity_changed = false;
+          bool position_changed = false;
+          bool radius_changed = false;
+          bool opacity_changed = false;
+          bool vertex_color_changed = false;
+
+          for (const int stroke : curves_range) {
+            const int base_stroke = base_stroke_indices[stroke] - 1;
+            /* Skip strokes without base reference. */
+            if (base_stroke == -1) {
+              continue;
+            }
+
+            /* When the number of points in the edited stroke and the base stroke don't match, it's
+             * difficult to create a shape key. For now, we ignore non-matching strokes.
+             * In the future we could implement a smarter algorithm for matching the points. */
+            if (points_by_curve[stroke].size() != base_points_by_curve[base_stroke].size()) {
+              continue;
+            }
+
+            /* Store delta of stroke fill color. */
+            if (check_fill_color) {
+              const float4 color_delta = float4(fill_colors[stroke]) -
+                                         float4(base_fill_colors[base_stroke]);
+              if (!math::is_zero(color_delta, EPSILON)) {
+                fill_color_changed = true;
+                fill_color_deltas[stroke] = ColorGeometry4f(color_delta);
+              }
+              /* Restore to base value. */
+              fill_colors[stroke] = base_fill_colors[base_stroke];
+            }
+
+            /* Store delta of stroke fill opacity. */
+            if (check_fill_opacity) {
+              const float delta = fill_opacities[stroke] - base_fill_opacities[base_stroke];
+              if (math::abs(delta) > EPSILON) {
+                fill_opacity_changed = true;
+                fill_opacity_deltas[stroke] = delta;
+              }
+              /* Restore to base value. */
+              fill_opacities[stroke] = base_fill_opacities[base_stroke];
+            }
+
+            /* Get stroke point deltas. */
+            if (!(check_position || check_radius || check_opacity || check_vertex_color)) {
+              continue;
+            }
+            const IndexRange points = points_by_curve[stroke];
+            float3 vector_to_next_point = {1.0f, 0.0f, 0.0f};
+            for (const int point : points) {
+              if (check_position) {
+                /* Get angle and distance between base point and shape-keyed point. */
+                if (positions[point] != base_positions[point]) {
+                  float3 vector_to_shaped_point = positions[point] - base_positions[point];
+                  const float distance = math::length(vector_to_shaped_point);
+                  if (distance > EPSILON) {
+                    if (point == points.last()) {
+                      if (cyclic[stroke]) {
+                        vector_to_next_point = base_positions[points.first()] -
+                                               base_positions[point];
+                      }
+                      else if (points.size() > 1) {
+                        vector_to_next_point = base_positions[point] -
+                                               base_positions[points.last() - 1];
+                      }
+                    }
+                    else {
+                      vector_to_next_point = base_positions[point + 1] - base_positions[point];
+                    }
+                    vector_to_shaped_point = math::normalize(vector_to_shaped_point);
+                    vector_to_next_point = math::normalize(vector_to_next_point);
+                    float4 angle;
+                    rotation_between_vecs_to_quat(
+                        angle, vector_to_next_point, vector_to_shaped_point);
+
+                    position_changed = true;
+                    distance_deltas[point] = distance;
+                    angle_deltas[point] = math::Quaternion(angle);
+                  }
+                  /* Restore to base value. */
+                  positions[point] = base_positions[point];
+                }
+              }
+
+              /* Get radius delta. */
+              if (check_radius) {
+                const float delta = radii[point] - base_radii[point];
+                if (math::abs(delta) > EPSILON) {
+                  radius_changed = true;
+                  radius_deltas[point] = delta;
+                }
+                /* Restore to base value. */
+                radii[point] = base_radii[point];
+              }
+
+              /* Get opacity delta. */
+              if (check_opacity) {
+                const float delta = opacities[point] - base_opacities[point];
+                if (math::abs(delta) > EPSILON) {
+                  opacity_changed = true;
+                  opacity_deltas[point] = delta;
+                }
+                /* Restore to base value. */
+                opacities[point] = base_opacities[point];
+              }
+
+              /* Get vertex color delta. */
+              if (check_vertex_color) {
+                const float4 color_delta = float4(vertex_colors[point]) -
+                                           float4(base_vertex_colors[point]);
+                if (!math::is_zero(color_delta, EPSILON)) {
+                  vertex_color_changed = true;
+                  vertex_color_deltas[point] = ColorGeometry4f(color_delta);
+                }
+                /* Restore to base value. */
+                vertex_colors[point] = base_vertex_colors[point];
+              }
+            }
+          }
+
+          if (fill_color_changed) {
+            fill_color_has_delta.store(true, std::memory_order_relaxed);
+          }
+          if (fill_opacity_changed) {
+            fill_opacity_has_delta.store(true, std::memory_order_relaxed);
+          }
+          if (position_changed) {
+            position_has_delta.store(true, std::memory_order_relaxed);
+          }
+          if (radius_changed) {
+            radius_has_delta.store(true, std::memory_order_relaxed);
+          }
+          if (opacity_changed) {
+            opacity_has_delta.store(true, std::memory_order_relaxed);
+          }
+          if (vertex_color_changed) {
+            vertex_color_has_delta.store(true, std::memory_order_relaxed);
+          }
+        });
+      }
+
+      /* Store stroke and point delta attributes for the edited shape key. */
       if (fill_color_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<ColorGeometry4f>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR,
@@ -1147,7 +1253,7 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
                           SHAPE_KEY_STROKE_FILL_OPACITY);
       }
-      if (distance_has_delta) {
+      if (position_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE,
             AttrDomain::Point);
@@ -1155,9 +1261,9 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
         attr_deltas.finish();
         SpanAttributeWriter attr_deltas1 =
             attributes.lookup_or_add_for_write_span<math::Quaternion>(
-                SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ROTATION,
+                SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE,
                 AttrDomain::Point);
-        attr_deltas1.span.copy_from(rotation_deltas);
+        attr_deltas1.span.copy_from(angle_deltas);
         attr_deltas1.finish();
 
         drawing.tag_positions_changed();
@@ -1165,8 +1271,7 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
       else {
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
                           SHAPE_KEY_POINT_POS_DISTANCE);
-        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
-                          SHAPE_KEY_POINT_POS_ROTATION);
+        attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE);
       }
       if (radius_has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
