@@ -14,6 +14,8 @@ struct ListBase;
 struct Scene;
 struct Strip;
 
+namespace blender::seq {
+
 void strip_update_sound_bounds_recursive(const Scene *scene, Strip *metaseq);
 
 /* Describes gap between strips in timeline. */
@@ -42,5 +44,6 @@ void strip_time_effect_range_set(const Scene *scene, Strip *strip);
 void strip_time_update_effects_strip_range(const Scene *scene, blender::Span<Strip *> effects);
 void strip_time_translate_handles(const Scene *scene, Strip *strip, const int offset);
 float strip_time_media_playback_rate_factor_get(const Scene *scene, const Strip *strip);
-int seq_time_strip_original_content_length_get(const Scene *scene, const Strip *strip);
 float strip_retiming_evaluate(const Strip *strip, const float frame_index);
+
+}  // namespace blender::seq

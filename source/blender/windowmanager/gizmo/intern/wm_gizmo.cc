@@ -159,7 +159,7 @@ void WM_gizmo_free(wmGizmo *gz)
   /* Explicit calling of the destructor is needed here because allocation still happens 'the C
    * way', see FIXME note in #wm_gizmo_create. */
   gz->~wmGizmo();
-  MEM_freeN(gz);
+  MEM_freeN(static_cast<void *>(gz));
 }
 
 void WM_gizmo_unlink(ListBase *gizmolist, wmGizmoMap *gzmap, wmGizmo *gz, bContext *C)
@@ -454,7 +454,7 @@ void wm_gizmo_calculate_scale(wmGizmo *gz, const bContext *C)
   if ((gz->parent_gzgroup->type->flag & WM_GIZMOGROUPTYPE_SCALE) == 0) {
     scale *= U.gizmo_size;
     if (rv3d) {
-      /* 'ED_view3d_pixel_size' includes 'U.pixelsize', remove it. */
+      /* #ED_view3d_pixel_size includes #U.pixelsize, remove it. */
       float matrix_world[4][4];
       if (gz->type->matrix_basis_get) {
         float matrix_basis[4][4];

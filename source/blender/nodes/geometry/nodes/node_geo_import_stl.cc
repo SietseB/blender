@@ -17,6 +17,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::String>("Path")
       .subtype(PROP_FILEPATH)
+      .path_filter("*.stl")
       .hide_label()
       .description("Path to a STL file");
 
@@ -26,14 +27,15 @@ static void node_declare(NodeDeclarationBuilder &b)
 static void node_geo_exec(GeoNodeExecParams params)
 {
 #ifdef WITH_IO_STL
-  const std::string path = params.extract_input<std::string>("Path");
-  if (path.empty()) {
+  const std::optional<std::string> path = params.ensure_absolute_path(
+      params.extract_input<std::string>("Path"));
+  if (!path) {
     params.set_default_remaining_outputs();
     return;
   }
 
   STLImportParams import_params;
-  STRNCPY(import_params.filepath, path.c_str());
+  STRNCPY(import_params.filepath, path->c_str());
 
   import_params.forward_axis = IO_AXIS_NEGATIVE_Z;
   import_params.up_axis = IO_AXIS_Y;
@@ -80,7 +82,7 @@ static void node_register()
   ntype.declare = node_declare;
   ntype.gather_link_search_ops = search_link_ops_for_import_node;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }
 NOD_REGISTER_NODE(node_register)
 

@@ -95,7 +95,7 @@ static void rna_Volume_velocity_grid_set(PointerRNA *ptr, const char *value)
 {
   Volume *volume = (Volume *)ptr->data;
   if (!BKE_volume_set_velocity_grid_by_name(volume, value)) {
-    WM_reportf(RPT_ERROR, "Could not find grid with name %s", value);
+    WM_global_reportf(RPT_ERROR, "Could not find grid with name %s", value);
   }
   WM_main_add_notifier(NC_GEOM | ND_DATA, volume);
 }
@@ -624,7 +624,7 @@ static void rna_def_volume(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_enum_items(prop, sequence_mode_items);
   RNA_def_property_ui_text(prop, "Sequence Mode", "Sequence playback mode");
-  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_SEQUENCE);
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_VOLUME);
   RNA_def_property_update(prop, 0, "rna_Volume_update_filepath");
 
   /* Grids */

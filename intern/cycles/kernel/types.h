@@ -102,40 +102,37 @@ enum {
   /* Use volume materials. */
   KERNEL_FEATURE_VOLUME = (1U << 17U),
 
-  /* Use OpenSubdiv patch evaluation */
-  KERNEL_FEATURE_PATCH_EVALUATION = (1U << 18U),
-
   /* Use Transparent shadows */
-  KERNEL_FEATURE_TRANSPARENT = (1U << 19U),
+  KERNEL_FEATURE_TRANSPARENT = (1U << 18U),
 
   /* Use shadow catcher. */
-  KERNEL_FEATURE_SHADOW_CATCHER = (1U << 20U),
+  KERNEL_FEATURE_SHADOW_CATCHER = (1U << 19U),
 
   /* Light render passes. */
-  KERNEL_FEATURE_LIGHT_PASSES = (1U << 21U),
+  KERNEL_FEATURE_LIGHT_PASSES = (1U << 20U),
 
   /* AO. */
-  KERNEL_FEATURE_AO_PASS = (1U << 22U),
-  KERNEL_FEATURE_AO_ADDITIVE = (1U << 23U),
+  KERNEL_FEATURE_AO_PASS = (1U << 21U),
+  KERNEL_FEATURE_AO_ADDITIVE = (1U << 22U),
 
   /* MNEE. */
-  KERNEL_FEATURE_MNEE = (1U << 24U),
+  KERNEL_FEATURE_MNEE = (1U << 23U),
 
   /* Path guiding. */
-  KERNEL_FEATURE_PATH_GUIDING = (1U << 25U),
+  KERNEL_FEATURE_PATH_GUIDING = (1U << 24U),
 
   /* OSL. */
-  KERNEL_FEATURE_OSL = (1U << 26U),
+  KERNEL_FEATURE_OSL = (1U << 25U),
 
   /* Light and shadow linking. */
-  KERNEL_FEATURE_LIGHT_LINKING = (1U << 27U),
-  KERNEL_FEATURE_SHADOW_LINKING = (1U << 28U),
+  KERNEL_FEATURE_LIGHT_LINKING = (1U << 26U),
+  KERNEL_FEATURE_SHADOW_LINKING = (1U << 27U),
 
   /* Use denoising kernels and output denoising passes. */
-  KERNEL_FEATURE_DENOISING = (1U << 29U),
+  KERNEL_FEATURE_DENOISING = (1U << 28U),
 
   /* Light tree. */
-  KERNEL_FEATURE_LIGHT_TREE = (1U << 30U)
+  KERNEL_FEATURE_LIGHT_TREE = (1U << 29U)
 };
 
 #define KERNEL_FEATURE_AO (KERNEL_FEATURE_AO_PASS | KERNEL_FEATURE_AO_ADDITIVE)
@@ -188,7 +185,6 @@ enum {
 #define __OBJECT_MOTION__
 #define __MNEE__
 #define __PASSES__
-#define __PATCH_EVAL__
 #define __POINTCLOUD__
 #define __PRINCIPLED_HAIR__
 #define __RAY_DIFFERENTIALS__
@@ -243,9 +239,6 @@ enum {
 #  endif
 #  if !(__KERNEL_FEATURES__ & KERNEL_FEATURE_SUBSURFACE)
 #    undef __SUBSURFACE__
-#  endif
-#  if !(__KERNEL_FEATURES__ & KERNEL_FEATURE_PATCH_EVALUATION)
-#    undef __PATCH_EVAL__
 #  endif
 #  if !(__KERNEL_FEATURES__ & KERNEL_FEATURE_SHADOW_CATCHER)
 #    undef __SHADOW_CATCHER__
@@ -724,7 +717,6 @@ struct RaySelfPrimitives {
   int object;       /* Instance prim is a part of */
   int light_prim;   /* Light primitive */
   int light_object; /* Light object */
-  int light;        /* Light ID (the light the shadow ray is traced towards to) */
 };
 
 struct Ray {
@@ -882,7 +874,6 @@ enum AttributeElement {
 enum AttributeStandard {
   ATTR_STD_NONE = 0,
   ATTR_STD_VERTEX_NORMAL,
-  ATTR_STD_FACE_NORMAL,
   ATTR_STD_UV,
   ATTR_STD_UV_TANGENT,
   ATTR_STD_UV_TANGENT_SIGN,
@@ -918,14 +909,13 @@ enum AttributeStandard {
 };
 
 enum AttributeFlag {
-  ATTR_FINAL_SIZE = (1 << 0),
-  ATTR_SUBDIVIDED = (1 << 1),
+  ATTR_SUBDIVIDE_SMOOTH_FVAR = (1 << 0), /* This attribute is face-varying and requires smooth
+                                          * subdivision (typically UV map). */
 };
 
 struct AttributeDescriptor {
   AttributeElement element;
   NodeAttributeType type;
-  uint flags; /* see enum AttributeFlag */
   int offset;
 };
 
@@ -935,7 +925,7 @@ struct AttributeMap {
   int offset;       /* Offset into __attributes global arrays. */
   uint16_t element; /* AttributeElement. */
   uint8_t type;     /* NodeAttributeType. */
-  uint8_t flags;    /* AttributeFlag. */
+  uint8_t pad;
 };
 
 /* Closure data */
@@ -1043,7 +1033,7 @@ enum ShaderDataFlag {
 
   /* Shader flags. */
 
-  /* Apply a correction term to smooth illumination on grazing angles when using bump mapping.. */
+  /* Apply a correction term to smooth illumination on grazing angles when using bump mapping. */
   SD_USE_BUMP_MAP_CORRECTION = (1 << 15),
   /* Use front side for direct light sampling. */
   SD_MIS_FRONT = (1 << 16),
@@ -1151,8 +1141,6 @@ struct ccl_align(16) ShaderData
   float v;
   /* object id if there is one, ~0 otherwise */
   int object;
-  /* lamp id if there is one, ~0 otherwise */
-  int lamp;
 
   /* motion blur sample time */
   float time;
@@ -1203,6 +1191,7 @@ struct ccl_align(16) ShaderData
   struct ShaderClosure closure[MAX_CLOSURE];
 };
 
+#ifdef __KERNEL_GPU__
 /* ShaderDataTinyStorage needs the same alignment as ShaderData, or else
  * the pointer cast in AS_SHADER_DATA invokes undefined behavior. */
 struct ccl_align(16) ShaderDataTinyStorage
@@ -1216,6 +1205,11 @@ struct ccl_align(16) ShaderDataCausticsStorage
 {
   char pad[sizeof(ShaderData) - sizeof(ShaderClosure) * (MAX_CLOSURE - CAUSTICS_MAX_CLOSURE)];
 };
+#else
+/* On the CPU use full size, to avoid compiler and ASAN warnings. */
+using ShaderDataTinyStorage = ShaderData;
+using ShaderDataCausticsStorage = ShaderData;
+#endif
 
 #define AS_SHADER_DATA(shader_data_tiny_storage) \
   ((ccl_private ShaderData *)shader_data_tiny_storage)
@@ -1521,7 +1515,6 @@ struct KernelObject {
   int num_tfm_steps;
   int numverts;
 
-  uint patch_map_offset;
   uint attribute_map_offset;
   uint motion_offset;
 
@@ -1540,8 +1533,6 @@ struct KernelObject {
 
   /* Volume velocity scale. */
   float velocity_scale;
-
-  int pad[3];
 
   /* TODO: separate array to avoid memory overhead when not used. */
   uint64_t light_set_membership;
@@ -1606,32 +1597,24 @@ struct KernelLight {
   int type;
   packed_float3 co;
   int shader_id;
+  int object_id;
   float max_bounces;
-  float random;
   float strength[3];
   int use_caustics;
-  int lightgroup;
-  Transform tfm;
-  Transform itfm;
+  int pad;
   union {
     KernelSpotLight spot;
     KernelAreaLight area;
     KernelDistantLight distant;
   };
-  uint64_t light_set_membership;
-  uint64_t shadow_set_membership;
 };
 static_assert_align(KernelLight, 16);
-
-struct MeshLight {
-  int shader_flag;
-  int object_id;
-};
 
 struct KernelLightDistribution {
   float totarea;
   int prim;
-  MeshLight mesh_light;
+  int shader_flag;
+  int object_id;
 };
 static_assert_align(KernelLightDistribution, 16);
 
@@ -1718,7 +1701,9 @@ struct KernelLightTreeEmitter {
     } mesh;
   };
 
-  MeshLight mesh_light;
+  /* Object and shader. */
+  int object_id;
+  int shader_flag;
 
   /* Bit trail from root node to leaf node containing emitter. */
   int bit_trail;

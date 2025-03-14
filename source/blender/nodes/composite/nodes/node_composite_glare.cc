@@ -172,7 +172,7 @@ static void cmp_node_glare_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_glare(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeGlare *ndg = MEM_cnew<NodeGlare>(__func__);
+  NodeGlare *ndg = MEM_callocN<NodeGlare>(__func__);
   ndg->quality = 1;
   ndg->type = CMP_NODE_GLARE_STREAKS;
   ndg->star_45 = true;
@@ -183,33 +183,33 @@ static void node_update(bNodeTree *ntree, bNode *node)
 {
   const CMPNodeGlareType glare_type = static_cast<CMPNodeGlareType>(node_storage(*node).type);
 
-  bNodeSocket *size_input = bke::node_find_socket(node, SOCK_IN, "Size");
+  bNodeSocket *size_input = bke::node_find_socket(*node, SOCK_IN, "Size");
   blender::bke::node_set_socket_availability(
-      ntree, size_input, ELEM(glare_type, CMP_NODE_GLARE_FOG_GLOW, CMP_NODE_GLARE_BLOOM));
+      *ntree, *size_input, ELEM(glare_type, CMP_NODE_GLARE_FOG_GLOW, CMP_NODE_GLARE_BLOOM));
 
-  bNodeSocket *iterations_input = bke::node_find_socket(node, SOCK_IN, "Iterations");
+  bNodeSocket *iterations_input = bke::node_find_socket(*node, SOCK_IN, "Iterations");
   blender::bke::node_set_socket_availability(
-      ntree,
-      iterations_input,
+      *ntree,
+      *iterations_input,
       ELEM(glare_type, CMP_NODE_GLARE_SIMPLE_STAR, CMP_NODE_GLARE_GHOST, CMP_NODE_GLARE_STREAKS));
 
-  bNodeSocket *fade_input = bke::node_find_socket(node, SOCK_IN, "Fade");
+  bNodeSocket *fade_input = bke::node_find_socket(*node, SOCK_IN, "Fade");
   blender::bke::node_set_socket_availability(
-      ntree, fade_input, ELEM(glare_type, CMP_NODE_GLARE_SIMPLE_STAR, CMP_NODE_GLARE_STREAKS));
+      *ntree, *fade_input, ELEM(glare_type, CMP_NODE_GLARE_SIMPLE_STAR, CMP_NODE_GLARE_STREAKS));
 
-  bNodeSocket *color_modulation_input = bke::node_find_socket(node, SOCK_IN, "Color Modulation");
+  bNodeSocket *color_modulation_input = bke::node_find_socket(*node, SOCK_IN, "Color Modulation");
   blender::bke::node_set_socket_availability(
-      ntree,
-      color_modulation_input,
+      *ntree,
+      *color_modulation_input,
       ELEM(glare_type, CMP_NODE_GLARE_GHOST, CMP_NODE_GLARE_STREAKS));
 
-  bNodeSocket *streaks_input = bke::node_find_socket(node, SOCK_IN, "Streaks");
+  bNodeSocket *streaks_input = bke::node_find_socket(*node, SOCK_IN, "Streaks");
   blender::bke::node_set_socket_availability(
-      ntree, streaks_input, glare_type == CMP_NODE_GLARE_STREAKS);
+      *ntree, *streaks_input, glare_type == CMP_NODE_GLARE_STREAKS);
 
-  bNodeSocket *streaks_angle_input = bke::node_find_socket(node, SOCK_IN, "Streaks Angle");
+  bNodeSocket *streaks_angle_input = bke::node_find_socket(*node, SOCK_IN, "Streaks Angle");
   blender::bke::node_set_socket_availability(
-      ntree, streaks_angle_input, glare_type == CMP_NODE_GLARE_STREAKS);
+      *ntree, *streaks_angle_input, glare_type == CMP_NODE_GLARE_STREAKS);
 }
 
 using namespace blender::compositor;
@@ -220,14 +220,14 @@ class GlareOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &image_input = this->get_input("Image");
-    Result &image_output = this->get_result("Image");
+    const Result &image_input = this->get_input("Image");
     Result &glare_output = this->get_result("Glare");
     Result &highlights_output = this->get_result("Highlights");
 
     if (image_input.is_single_value()) {
+      Result &image_output = this->get_result("Image");
       if (image_output.should_compute()) {
-        image_input.pass_through(image_output);
+        image_output.share_data(image_input);
       }
       if (glare_output.should_compute()) {
         glare_output.allocate_invalid();
@@ -1976,13 +1976,14 @@ class GlareOperation : public NodeOperation {
         reinterpret_cast<fftwf_complex *>(image_frequency_domain),
         FFTW_ESTIMATE);
 
-    float *highlights_buffer = nullptr;
+    const float *highlights_buffer = nullptr;
     if (this->context().use_gpu()) {
       GPU_memory_barrier(GPU_BARRIER_TEXTURE_UPDATE);
-      highlights_buffer = static_cast<float *>(GPU_texture_read(highlights, GPU_DATA_FLOAT, 0));
+      highlights_buffer = static_cast<const float *>(
+          GPU_texture_read(highlights, GPU_DATA_FLOAT, 0));
     }
     else {
-      highlights_buffer = static_cast<float *>(highlights.cpu_data().data());
+      highlights_buffer = static_cast<const float *>(highlights.cpu_data().data());
     }
 
     /* Zero pad the image to the required spatial domain size, storing each channel in planar
@@ -2061,7 +2062,7 @@ class GlareOperation : public NodeOperation {
     /* For GPU, write the output to the exist highlights_buffer then upload to the result after,
      * while for CPU, write to the result directly. */
     float *output = this->context().use_gpu() ?
-                        highlights_buffer :
+                        const_cast<float *>(highlights_buffer) :
                         static_cast<float *>(fog_glow_result.cpu_data().data());
 
     /* Copy the result to the output. */
@@ -2381,8 +2382,8 @@ void register_node_type_cmp_glare()
   ntype.updatefunc = file_ns::node_update;
   ntype.initfunc = file_ns::node_composit_init_glare;
   blender::bke::node_type_storage(
-      &ntype, "NodeGlare", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeGlare", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

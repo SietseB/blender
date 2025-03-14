@@ -34,7 +34,7 @@ static void cmp_node_sunbeams_declare(NodeDeclarationBuilder &b)
 
 static void init(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeSunBeams *data = MEM_cnew<NodeSunBeams>(__func__);
+  NodeSunBeams *data = MEM_callocN<NodeSunBeams>(__func__);
 
   data->source[0] = 0.5f;
   data->source[1] = 0.5f;
@@ -60,13 +60,13 @@ class SunBeamsOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input_image = get_input("Image");
-    Result &output_image = get_result("Image");
+    const Result &input_image = this->get_input("Image");
 
     const int2 input_size = input_image.domain().size;
     const int max_steps = int(node_storage(bnode()).ray_length * math::length(input_size));
     if (max_steps == 0) {
-      input_image.pass_through(output_image);
+      Result &output_image = this->get_result("Image");
+      output_image.share_data(input_image);
       return;
     }
 
@@ -179,8 +179,8 @@ void register_node_type_cmp_sunbeams()
   ntype.draw_buttons = file_ns::node_composit_buts_sunbeams;
   ntype.initfunc = file_ns::init;
   blender::bke::node_type_storage(
-      &ntype, "NodeSunBeams", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeSunBeams", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

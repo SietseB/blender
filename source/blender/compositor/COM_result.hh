@@ -4,12 +4,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include <variant>
 
 #include "BLI_assert.h"
 #include "BLI_cpp_type.hh"
+#include "BLI_generic_pointer.hh"
 #include "BLI_generic_span.hh"
 #include "BLI_math_interp.hh"
 #include "BLI_math_matrix_types.hh"
@@ -33,20 +35,17 @@ class DerivedResources;
 /* Make sure to update the format related static methods in the Result class. */
 enum class ResultType : uint8_t {
   /* The following types are user facing and can be used as inputs and outputs of operations. They
-   * either represent the base type of the result's image or a single value result. The color type
-   * represents an RGBA color. And the vector type represents a generic 4-component vector, which
-   * can encode two 2D vectors, one 3D vector with the last component ignored, or other dimensional
-   * data. */
+   * either represent the base type of the result's image or a single value result. */
   Float,
   Int,
-  Vector,
   Color,
+  Float3,
+  Float4,
 
   /* The following types are for internal use only, not user facing, and can't be used as inputs
    * and outputs of operations. It follows that they needn't be handled in implicit operations like
    * type conversion, shader, or single value reduction operations. */
   Float2,
-  Float3,
   Int2,
 };
 
@@ -76,27 +75,20 @@ enum class ResultStorageType : uint8_t {
  * module, see the allocation method for more information.
  *
  * Results are reference counted and their data are released once their reference count reaches
- * zero. After constructing a result, the set_initial_reference_count method is called to declare
- * the number of operations that needs this result. Once each operation that needs the result no
- * longer needs it, the release method is called and the reference count is decremented, until it
- * reaches zero, where the result's data is then released. Since results are eventually
- * decremented to zero by the end of every evaluation, the reference count is restored before every
- * evaluation to its initial reference count by calling the reset method, which is why a separate
- * member initial_reference_count_ is stored to keep track of the initial value.
+ * zero. After constructing a result, the set_reference_count method is called to declare the
+ * number of operations that needs this result. Once each operation that needs the result no longer
+ * needs it, the release method is called and the reference count is decremented, until it reaches
+ * zero, where the result's data is then released.
  *
  * A result not only represents an image, but also the area it occupies in the virtual compositing
  * space. This area is called the Domain of the result, see the discussion in COM_domain.hh for
  * more information.
  *
- * A result can be a proxy result that merely wraps another master result, in which case, it shares
- * its values and delegates all reference counting to it. While a proxy result shares the value of
- * the master result, it can have a different domain. Consequently, transformation operations are
- * implemented using proxy results, where their results are proxy results of their inputs but with
- * their domains transformed based on their options. Moreover, proxy results can also be used as
- * the results of identity operations, that is, operations that do nothing to their inputs in
- * certain configurations. In which case, the proxy result is left as is with no extra
- * transformation on its domain whatsoever. Proxy results can be created by calling the
- * pass_through method, see that method for more details.
+ * Allocated data of results can be shared by multiple results, this is achieved by tracking an
+ * extra reference count for data data_reference_count_, which is heap allocated along with the
+ * data, and shared by all results that share the same data. This reference count is incremented
+ * every time the data is shared by a call to the share_data method, and decremented during
+ * freeing, where the data is only freed if the reference count is 1, that is, no longer shared.
  *
  * A result can wrap external data that is not allocated nor managed by the result. This is set up
  * by a call to the wrap_external method. In that case, when the reference count eventually reach
@@ -127,33 +119,26 @@ class Result {
     GPUTexture *gpu_texture_ = nullptr;
     GMutableSpan cpu_data_;
   };
-  /* The number of operations that currently needs this result. At the time when the result is
-   * computed, this member will have a value that matches initial_reference_count_. Once each
-   * operation that needs the result no longer needs it, the release method is called and the
-   * reference count is decremented, until it reaches zero, where the result's data is then
-   * released. If this result have a master result, then this reference count is irrelevant and
-   * shadowed by the reference count of the master result. */
+  /* The number of users that currently needs this result. Operations initializes this by calling
+   * the set_reference_count method before evaluation. Once each operation that needs the result no
+   * longer needs it, the release method is called and the reference count is decremented, until it
+   * reaches zero, where the result's data is then released. */
   int reference_count_ = 1;
-  /* The number of operations that reference and use this result at the time when it was initially
-   * computed. Since reference_count_ is decremented and always becomes zero at the end of the
-   * evaluation, this member is used to reset the reference count of the results for later
-   * evaluations by calling the reset method. This member is also used to determine if this result
-   * should be computed by calling the should_compute method. */
-  int initial_reference_count_ = 1;
+  /* Allocated result data can be shared by multiple results by calling the share_data method. This
+   * member stores the number of results that share the data. This is heap allocated and have the
+   * same lifetime as allocated data, that's because this reference count is shared by all results
+   * that share the same data. Unlike the result's reference count, the data is freed if the count
+   * becomes 1, that is, data is no longer shared with some other result. This is nullptr if the
+   * data is external. */
+  int *data_reference_count_ = nullptr;
   /* If the result is a single value, this member stores the value of the result, the value of
    * which will be identical to that stored in the data_ member. The active variant member depends
    * on the type of the result. This member is uninitialized and should not be used if the result
    * is not a single value. */
-  std::variant<float, float2, float3, float4, int, int2> single_value_ = 0.0f;
+  std::variant<float, float2, float3, float4, int32_t, int2> single_value_ = 0.0f;
   /* The domain of the result. This only matters if the result was not a single value. See the
    * discussion in COM_domain.hh for more information. */
   Domain domain_ = Domain::identity();
-  /* If not nullptr, then this result wraps and shares the value of another master result. In this
-   * case, calls to methods like increment_reference_count and release should operate on the master
-   * result as opposed to this result. This member is typically set upon calling the pass_through
-   * method, which sets this result to be the master of a target result. See that method for more
-   * information. */
-  Result *master_ = nullptr;
   /* If true, then the result wraps external data that is not allocated nor managed by the result.
    * This is set up by a call to the wrap_external method. In that case, when the reference count
    * eventually reach zero, the data will not be freed. */
@@ -181,7 +166,10 @@ class Result {
    * within the given context. */
   Result(Context &context, eGPUTextureFormat format);
 
-  /* Returns the appropriate GPU texture format based on the given result type and precision. */
+  /* Returns the appropriate GPU texture format based on the given result type and precision. A
+   * special case is given to ResultType::Float3, because 3-component textures can't be used as
+   * write targets in shaders, so we need to allocate 4-component textures for them, and ignore the
+   * fourth channel during processing. */
   static eGPUTextureFormat gpu_texture_format(ResultType type, ResultPrecision precision);
 
   /* Returns the GPU texture format that corresponds to the give one, but whose precision is the
@@ -197,12 +185,23 @@ class Result {
   /* Returns the float type of the result given the channels count. */
   static ResultType float_type(const int channels_count);
 
+  /* Returns the CPP type corresponding to the given result type. */
+  static const CPPType &cpp_type(const ResultType type);
+
+  /* Returns a string representation of the given result type. */
+  static const char *type_name(const ResultType type);
+
   /* Implicit conversion to the internal GPU texture. */
   operator GPUTexture *() const;
 
+  /* Returns the CPP type of the result. */
   const CPPType &get_cpp_type() const;
 
-  /* Returns the appropriate texture format based on the result's type and precision. */
+  /* Returns the appropriate texture format based on the result's type and precision. This is
+   * identical to the gpu_texture_format static method. This will match the format of the allocated
+   * texture, with one exception. Results of type ResultType::Float3 that wrap external textures
+   * might hold a 3-component texture as opposed to a 4-component one, which would have been
+   * created by uploading data from CPU. */
   eGPUTextureFormat get_gpu_texture_format() const;
 
   /* Declare the result to be a texture result, allocate a texture of an appropriate type with
@@ -215,18 +214,7 @@ class Result {
    * same evaluation.
    *
    * If the context of the result uses GPU, then GPU allocation will be done, otherwise, CPU
-   * allocation will be done.
-   *
-   * If the result should not be computed, that is, should_compute() returns false, yet this method
-   * is called, that means the result is only being allocated because the shader that computes it
-   * also computes another result that is actually needed, and shaders needs to have a texture
-   * bound to all their images units for a correct invocation, even if some of those textures are
-   * not needed and will eventually be discarded. In that case, since allocating the full texture
-   * is not needed, allocate_single_value() is called instead and the reference count is set to 1.
-   * This essentially allocates a dummy 1x1 texture, which works because out of bound shader writes
-   * to images are safe. Since this result is not referenced by any other operation, it should be
-   * manually released after the operation is evaluated, which is implemented by calling the
-   * Operation::release_unneeded_results() method. */
+   * allocation will be done. */
   void allocate_texture(Domain domain, bool from_pool = true);
 
   /* Declare the result to be a single value result, allocate a texture of an appropriate type with
@@ -254,29 +242,21 @@ class Result {
   /* Unbind the GPU texture which was previously bound using bind_as_image. */
   void unbind_as_image() const;
 
-  /* Pass this result through to a target result, in which case, the target result becomes a proxy
-   * result with this result as its master result. This is done by making the target result a copy
-   * of this result, essentially having identical values between the two and consequently sharing
-   * the underlying texture. An exception is the initial reference count, whose value is retained
-   * and not copied, because it is a property of the original result and is needed for correctly
-   * resetting the result before the next evaluation. Additionally, this result is set to be the
-   * master of the target result, by setting the master member of the target. Finally, the
-   * reference count of the result is incremented by the reference count of the target result. See
-   * the discussion above for more information. */
-  void pass_through(Result &target);
+  /* Share the data of the given source result. For a source that wraps external results, this just
+   * shallow copies the data since it can be transparency shared. Otherwise, the data is also
+   * shallow copied and the data_reference_count_ is incremented to denote sharing. The source data
+   * is expect to be allocated and have the same type and precision as this result. */
+  void share_data(const Result &source);
 
   /* Steal the allocated data from the given source result and assign it to this result, then
    * remove any references to the data from the source result. It is assumed that:
    *
    *   - Both results are of the same type.
    *   - This result is not allocated but the source result is allocated.
-   *   - Neither of the results is a proxy one, that is, has a master result.
    *
-   * This is different from proxy results and the pass_through mechanism in that it can be used on
-   * temporary results. This is most useful in multi-step compositor operations where some steps
-   * can be optional, in that case, intermediate results can be temporary results that can
-   * eventually be stolen by the actual output of the operation. See the uses of the method for
-   * a practical example of use. */
+   * This is most useful in multi-step compositor operations where some steps can be optional, in
+   * that case, intermediate results can be temporary results that can eventually be stolen by the
+   * actual output of the operation. See the uses of the method for a practical example of use. */
   void steal_data(Result &source);
 
   /* Set up the result to wrap an external GPU texture that is not allocated nor managed by the
@@ -302,29 +282,23 @@ class Result {
   /* Get a reference to the realization options of this result. See the RealizationOptions struct
    * for more information. */
   RealizationOptions &get_realization_options();
+  const RealizationOptions &get_realization_options() const;
 
-  /* Set the value of initial_reference_count_, see that member for more details. This should be
-   * called after constructing the result to declare the number of operations that needs it. */
-  void set_initial_reference_count(int count);
+  /* Set the value of reference_count_, see that member for more details. This should be called
+   * after constructing the result to declare the number of operations that needs it. */
+  void set_reference_count(int count);
 
-  /* Reset the result to prepare it for a new evaluation. This should be called before evaluating
-   * the operation that computes this result. Keep the type, precision, context, and initial
-   * reference count, and rest all other members to their default value. Finally, set the value of
-   * reference_count_ to the value of initial_reference_count_ since reference_count_ may have
-   * already been decremented to zero in a previous evaluation. */
-  void reset();
-
-  /* Increment the reference count of the result by the given count. If this result have a master
-   * result, the reference count of the master result is incremented instead. */
+  /* Increment the reference count of the result by the given count. */
   void increment_reference_count(int count = 1);
 
-  /* Decrement the reference count of the result by the given count and free its data if it reaches
-   * zero. The given count should not be more than the current reference count. If this result have
-   * a master result, the master result is released instead. */
-  void release(const int count = 1);
+  /* Decrement the reference count of the result by the given count. */
+  void decrement_reference_count(int count = 1);
 
-  /* Frees the result data. If the result is not allocated or wraps external data, then this does
-   * nothing. If this result have a master result, the master result is freed instead. */
+  /* Decrement the reference count of the result and free its data if it reaches zero. */
+  void release();
+
+  /* Frees the result data. If the result is not allocated, wraps external data, or shares data
+   * with some other result, then this does nothing. */
   void free();
 
   /* Returns true if this result should be computed and false otherwise. The result should be
@@ -354,8 +328,7 @@ class Result {
   /* Returns true if the result is allocated. */
   bool is_allocated() const;
 
-  /* Returns the reference count of the result. If this result have a master result, then the
-   * reference count of the master result is returned instead. */
+  /* Returns the reference count of the result. */
   int reference_count() const;
 
   /* Returns a reference to the domain of the result. See the Domain class. */
@@ -366,12 +339,15 @@ class Result {
 
   GPUTexture *gpu_texture() const;
 
-  GMutableSpan cpu_data() const;
+  GSpan cpu_data() const;
+  GMutableSpan cpu_data();
+
+  GPointer single_value() const;
+  GMutablePointer single_value();
 
   /* Gets the single value stored in the result. Assumes the result stores a value of the given
    * template type. */
   template<typename T> const T &get_single_value() const;
-  template<typename T> T &get_single_value();
 
   /* Gets the single value stored in the result, if the result is not a single value, the given
    * default value is returned. Assumes the result stores a value of the same type as the template
@@ -461,12 +437,12 @@ class Result {
 /* Inline Methods.
  */
 
-inline const Domain &Result::domain() const
+BLI_INLINE_METHOD const Domain &Result::domain() const
 {
   return domain_;
 }
 
-inline int64_t Result::channels_count() const
+BLI_INLINE_METHOD int64_t Result::channels_count() const
 {
   switch (type_) {
     case ResultType::Float:
@@ -477,38 +453,40 @@ inline int64_t Result::channels_count() const
       return 2;
     case ResultType::Float3:
       return 3;
-    case ResultType::Vector:
     case ResultType::Color:
+    case ResultType::Float4:
       return 4;
   }
   return 4;
 }
 
-inline GPUTexture *Result::gpu_texture() const
+BLI_INLINE_METHOD GPUTexture *Result::gpu_texture() const
 {
   BLI_assert(storage_type_ == ResultStorageType::GPU);
   return gpu_texture_;
 }
 
-inline GMutableSpan Result::cpu_data() const
+BLI_INLINE_METHOD GSpan Result::cpu_data() const
 {
   BLI_assert(storage_type_ == ResultStorageType::CPU);
   return cpu_data_;
 }
 
-template<typename T> inline const T &Result::get_single_value() const
+BLI_INLINE_METHOD GMutableSpan Result::cpu_data()
+{
+  BLI_assert(storage_type_ == ResultStorageType::CPU);
+  return cpu_data_;
+}
+
+template<typename T> BLI_INLINE_METHOD const T &Result::get_single_value() const
 {
   BLI_assert(this->is_single_value());
 
   return std::get<T>(single_value_);
 }
 
-template<typename T> inline T &Result::get_single_value()
-{
-  return const_cast<T &>(std::as_const(*this).get_single_value<T>());
-}
-
-template<typename T> inline T Result::get_single_value_default(const T &default_value) const
+template<typename T>
+BLI_INLINE_METHOD T Result::get_single_value_default(const T &default_value) const
 {
   if (this->is_single_value()) {
     return this->get_single_value<T>();
@@ -516,7 +494,7 @@ template<typename T> inline T Result::get_single_value_default(const T &default_
   return default_value;
 }
 
-template<typename T> inline void Result::set_single_value(const T &value)
+template<typename T> BLI_INLINE_METHOD void Result::set_single_value(const T &value)
 {
   BLI_assert(this->is_allocated());
   BLI_assert(this->is_single_value());
@@ -525,7 +503,7 @@ template<typename T> inline void Result::set_single_value(const T &value)
 
   switch (storage_type_) {
     case ResultStorageType::GPU:
-      if constexpr (is_same_any_v<T, int, int2>) {
+      if constexpr (is_same_any_v<T, int32_t, int2>) {
         if constexpr (std::is_scalar_v<T>) {
           GPU_texture_update(this->gpu_texture(), GPU_DATA_INT, &value);
         }
@@ -538,7 +516,15 @@ template<typename T> inline void Result::set_single_value(const T &value)
           GPU_texture_update(this->gpu_texture(), GPU_DATA_FLOAT, &value);
         }
         else {
-          GPU_texture_update(this->gpu_texture(), GPU_DATA_FLOAT, value);
+          if constexpr (std::is_same_v<T, float3>) {
+            /* Float3 results are stored in 4-component textures due to hardware limitations. So
+             * pad the value with a zero before updating. */
+            const float4 vector_value = float4(value, 0.0f);
+            GPU_texture_update(this->gpu_texture(), GPU_DATA_FLOAT, vector_value);
+          }
+          else {
+            GPU_texture_update(this->gpu_texture(), GPU_DATA_FLOAT, value);
+          }
         }
       }
       break;
@@ -548,7 +534,8 @@ template<typename T> inline void Result::set_single_value(const T &value)
   }
 }
 
-template<typename T, bool CouldBeSingleValue> inline T Result::load_pixel(const int2 &texel) const
+template<typename T, bool CouldBeSingleValue>
+BLI_INLINE_METHOD T Result::load_pixel(const int2 &texel) const
 {
   if constexpr (CouldBeSingleValue) {
     if (is_single_value_) {
@@ -563,7 +550,7 @@ template<typename T, bool CouldBeSingleValue> inline T Result::load_pixel(const 
 }
 
 template<typename T, bool CouldBeSingleValue>
-inline T Result::load_pixel_extended(const int2 &texel) const
+BLI_INLINE_METHOD T Result::load_pixel_extended(const int2 &texel) const
 {
   if constexpr (CouldBeSingleValue) {
     if (is_single_value_) {
@@ -579,7 +566,7 @@ inline T Result::load_pixel_extended(const int2 &texel) const
 }
 
 template<typename T, bool CouldBeSingleValue>
-inline T Result::load_pixel_fallback(const int2 &texel, const T &fallback) const
+BLI_INLINE_METHOD T Result::load_pixel_fallback(const int2 &texel, const T &fallback) const
 {
   if constexpr (CouldBeSingleValue) {
     if (is_single_value_) {
@@ -598,12 +585,12 @@ inline T Result::load_pixel_fallback(const int2 &texel, const T &fallback) const
 }
 
 template<typename T, bool CouldBeSingleValue>
-inline T Result::load_pixel_zero(const int2 &texel) const
+BLI_INLINE_METHOD T Result::load_pixel_zero(const int2 &texel) const
 {
   return this->load_pixel_fallback<T, CouldBeSingleValue>(texel, T(0));
 }
 
-inline float4 Result::load_pixel_generic_type(const int2 &texel) const
+BLI_INLINE_METHOD float4 Result::load_pixel_generic_type(const int2 &texel) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -615,17 +602,19 @@ inline float4 Result::load_pixel_generic_type(const int2 &texel) const
   return pixel_value;
 }
 
-template<typename T> inline void Result::store_pixel(const int2 &texel, const T &pixel_value)
+template<typename T>
+BLI_INLINE_METHOD void Result::store_pixel(const int2 &texel, const T &pixel_value)
 {
   this->cpu_data().typed<T>()[this->get_pixel_index(texel)] = pixel_value;
 }
 
-inline void Result::store_pixel_generic_type(const int2 &texel, const float4 &pixel_value)
+BLI_INLINE_METHOD void Result::store_pixel_generic_type(const int2 &texel,
+                                                        const float4 &pixel_value)
 {
   this->get_cpp_type().copy_assign(pixel_value, this->cpu_data()[this->get_pixel_index(texel)]);
 }
 
-inline float4 Result::sample_nearest_zero(const float2 &coordinates) const
+BLI_INLINE_METHOD float4 Result::sample_nearest_zero(const float2 &coordinates) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -647,9 +636,9 @@ inline float4 Result::sample_nearest_zero(const float2 &coordinates) const
   return pixel_value;
 }
 
-inline float4 Result::sample_nearest_wrap(const float2 &coordinates,
-                                          bool wrap_x,
-                                          bool wrap_y) const
+BLI_INLINE_METHOD float4 Result::sample_nearest_wrap(const float2 &coordinates,
+                                                     bool wrap_x,
+                                                     bool wrap_y) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -674,9 +663,9 @@ inline float4 Result::sample_nearest_wrap(const float2 &coordinates,
   return pixel_value;
 }
 
-inline float4 Result::sample_bilinear_wrap(const float2 &coordinates,
-                                           bool wrap_x,
-                                           bool wrap_y) const
+BLI_INLINE_METHOD float4 Result::sample_bilinear_wrap(const float2 &coordinates,
+                                                      bool wrap_x,
+                                                      bool wrap_y) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -701,7 +690,9 @@ inline float4 Result::sample_bilinear_wrap(const float2 &coordinates,
   return pixel_value;
 }
 
-inline float4 Result::sample_cubic_wrap(const float2 &coordinates, bool wrap_x, bool wrap_y) const
+BLI_INLINE_METHOD float4 Result::sample_cubic_wrap(const float2 &coordinates,
+                                                   bool wrap_x,
+                                                   bool wrap_y) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -726,7 +717,7 @@ inline float4 Result::sample_cubic_wrap(const float2 &coordinates, bool wrap_x, 
   return pixel_value;
 }
 
-inline float4 Result::sample_bilinear_zero(const float2 &coordinates) const
+BLI_INLINE_METHOD float4 Result::sample_bilinear_zero(const float2 &coordinates) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -748,7 +739,7 @@ inline float4 Result::sample_bilinear_zero(const float2 &coordinates) const
   return pixel_value;
 }
 
-inline float4 Result::sample_nearest_extended(const float2 &coordinates) const
+BLI_INLINE_METHOD float4 Result::sample_nearest_extended(const float2 &coordinates) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -770,7 +761,7 @@ inline float4 Result::sample_nearest_extended(const float2 &coordinates) const
   return pixel_value;
 }
 
-inline float4 Result::sample_bilinear_extended(const float2 &coordinates) const
+BLI_INLINE_METHOD float4 Result::sample_bilinear_extended(const float2 &coordinates) const
 {
   float4 pixel_value = float4(0.0f, 0.0f, 0.0f, 1.0f);
   if (is_single_value_) {
@@ -803,9 +794,9 @@ static void sample_ewa_extended_read_callback(void *userdata, int x, int y, floa
   copy_v4_v4(result, sampled_result);
 }
 
-inline float4 Result::sample_ewa_extended(const float2 &coordinates,
-                                          const float2 &x_gradient,
-                                          const float2 &y_gradient) const
+BLI_INLINE_METHOD float4 Result::sample_ewa_extended(const float2 &coordinates,
+                                                     const float2 &x_gradient,
+                                                     const float2 &y_gradient) const
 {
   BLI_assert(type_ == ResultType::Color);
 
@@ -840,9 +831,9 @@ static void sample_ewa_zero_read_callback(void *userdata, int x, int y, float re
   copy_v4_v4(result, sampled_result);
 }
 
-inline float4 Result::sample_ewa_zero(const float2 &coordinates,
-                                      const float2 &x_gradient,
-                                      const float2 &y_gradient) const
+BLI_INLINE_METHOD float4 Result::sample_ewa_zero(const float2 &coordinates,
+                                                 const float2 &x_gradient,
+                                                 const float2 &y_gradient) const
 {
   BLI_assert(type_ == ResultType::Color);
 
@@ -866,7 +857,7 @@ inline float4 Result::sample_ewa_zero(const float2 &coordinates,
   return pixel_value;
 }
 
-inline int64_t Result::get_pixel_index(const int2 &texel) const
+BLI_INLINE_METHOD int64_t Result::get_pixel_index(const int2 &texel) const
 {
   BLI_assert(!is_single_value_);
   BLI_assert(this->is_allocated());

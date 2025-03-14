@@ -621,7 +621,20 @@ static bool vgroup_normalize_active_vertex(Object *ob, eVGroupSelect subset_type
 
   vgroup_validmap = BKE_object_defgroup_subset_from_select_type(
       ob, subset_type, &vgroup_tot, &subset_count);
-  BKE_defvert_normalize_subset(dvert_act, vgroup_validmap, vgroup_tot);
+
+  bool *lock_flags = BKE_object_defgroup_lock_flags_get(ob, vgroup_tot);
+
+  if (lock_flags) {
+    const ListBase *defbase = BKE_object_defgroup_list(ob);
+    const int defbase_tot = BLI_listbase_count(defbase);
+    BKE_defvert_normalize_lock_map(
+        dvert_act, vgroup_validmap, vgroup_tot, lock_flags, defbase_tot);
+    MEM_freeN(lock_flags);
+  }
+  else {
+    BKE_defvert_normalize_subset(dvert_act, vgroup_validmap, vgroup_tot);
+  }
+
   MEM_freeN((void *)vgroup_validmap);
 
   if (mesh->symmetry & ME_SYMMETRY_X) {
@@ -1024,12 +1037,12 @@ static void vgroup_grease_pencil_select_verts(const Scene &scene,
     const int def_nr = BKE_defgroup_name_index(&vertex_group_names, def_group->name);
     if (def_nr < 0) {
       /* No vertices assigned to the group in this drawing. */
-      return;
+      continue;
     }
 
     const Span<MDeformVert> dverts = curves.deform_verts();
     if (dverts.is_empty()) {
-      return;
+      continue;
     }
 
     GSpanAttributeWriter selection = ed::curves::ensure_selection_attribute(
@@ -1604,6 +1617,9 @@ static void vgroup_smooth_subset(Object *ob,
                                  const int repeat,
                                  const float fac_expand)
 {
+  /* Caller must check, while it's not an error it will do nothing. */
+  BLI_assert(vgroup_tot > 0 && subset_count > 0);
+
   const float ifac = 1.0f - fac;
   MDeformVert **dvert_array = nullptr;
   int dvert_tot = 0;
@@ -3293,7 +3309,7 @@ void OBJECT_OT_vertex_group_invert(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Vertex Group Invert Operator
+/** \name Vertex Group Smooth Operator
  * \{ */
 
 static int vertex_group_smooth_exec(bContext *C, wmOperator *op)
@@ -3304,6 +3320,7 @@ static int vertex_group_smooth_exec(bContext *C, wmOperator *op)
       RNA_enum_get(op->ptr, "group_select_mode"));
   const float fac_expand = RNA_float_get(op->ptr, "expand");
 
+  bool has_vgroup_multi = false;
   const Vector<Object *> objects = object_array_for_wpaint(C);
   for (Object *ob : objects) {
     int subset_count, vgroup_tot;
@@ -3311,14 +3328,32 @@ static int vertex_group_smooth_exec(bContext *C, wmOperator *op)
     const bool *vgroup_validmap = BKE_object_defgroup_subset_from_select_type(
         ob, subset_type, &vgroup_tot, &subset_count);
 
-    vgroup_smooth_subset(ob, vgroup_validmap, vgroup_tot, subset_count, fac, repeat, fac_expand);
-    MEM_freeN((void *)vgroup_validmap);
+    if (vgroup_tot) {
+      has_vgroup_multi = true;
 
-    DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
-    WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
-    WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
+      if (subset_count) {
+        vgroup_smooth_subset(
+            ob, vgroup_validmap, vgroup_tot, subset_count, fac, repeat, fac_expand);
+
+        DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+        WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
+        WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
+      }
+    }
+
+    MEM_freeN((void *)vgroup_validmap);
   }
 
+  /* NOTE: typically we would return canceled if no changes were made (`changed_multi`).
+   * In this case it's important only to do this if none of the objects *could* be changed.
+   * TODO: skip meshes without any selected vertices.
+   *
+   * The reason this is a special case is returning canceled prevents the `group_select_mode`
+   * from being changed, where this setting could have been the reason no change was possible. */
+  if (!has_vgroup_multi) {
+    BKE_reportf(op->reports, RPT_WARNING, "No meshes with vertex groups found");
+    return OPERATOR_CANCELLED;
+  }
   return OPERATOR_FINISHED;
 }
 

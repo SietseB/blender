@@ -35,8 +35,7 @@ static void CMP_NODE_CONVERT_COLOR_SPACE_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_convert_colorspace(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeConvertColorSpace *ncs = static_cast<NodeConvertColorSpace *>(
-      MEM_callocN(sizeof(NodeConvertColorSpace), "node colorspace"));
+  NodeConvertColorSpace *ncs = MEM_callocN<NodeConvertColorSpace>("node colorspace");
   const char *first_colorspace = IMB_colormanagement_role_colorspace_name_get(
       COLOR_ROLE_SCENE_LINEAR);
   if (first_colorspace && first_colorspace[0]) {
@@ -70,10 +69,10 @@ class ConvertColorSpaceOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input_image = get_input("Image");
-    Result &output_image = get_result("Image");
-    if (is_identity()) {
-      input_image.pass_through(output_image);
+    const Result &input_image = this->get_input("Image");
+    if (this->is_identity()) {
+      Result &output_image = this->get_result("Image");
+      output_image.share_data(input_image);
       return;
     }
 
@@ -102,10 +101,10 @@ class ConvertColorSpaceOperation : public NodeOperation {
 
     /* A null shader indicates that the conversion shader is just a stub implementation since OCIO
      * is disabled at compile time, so pass the input through in that case. */
-    Result &input_image = get_input("Image");
-    Result &output_image = get_result("Image");
+    const Result &input_image = this->get_input("Image");
+    Result &output_image = this->get_result("Image");
     if (!shader) {
-      input_image.pass_through(output_image);
+      output_image.share_data(input_image);
       return;
     }
 
@@ -203,11 +202,11 @@ void register_node_type_cmp_convert_color_space()
   ntype.nclass = NODE_CLASS_CONVERTER;
   ntype.declare = file_ns::CMP_NODE_CONVERT_COLOR_SPACE_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_convert_colorspace;
-  blender::bke::node_type_size_preset(&ntype, blender::bke::eNodeSizePreset::Middle);
+  blender::bke::node_type_size_preset(ntype, blender::bke::eNodeSizePreset::Middle);
   ntype.initfunc = file_ns::node_composit_init_convert_colorspace;
   blender::bke::node_type_storage(
-      &ntype, "NodeConvertColorSpace", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeConvertColorSpace", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

@@ -38,7 +38,7 @@ static void cmp_node_bilateralblur_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_bilateralblur(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeBilateralBlurData *nbbd = MEM_cnew<NodeBilateralBlurData>(__func__);
+  NodeBilateralBlurData *nbbd = MEM_callocN<NodeBilateralBlurData>(__func__);
   node->storage = nbbd;
   nbbd->iter = 1;
   nbbd->sigma_color = 0.3;
@@ -63,16 +63,16 @@ class BilateralBlurOperation : public NodeOperation {
 
   void execute() override
   {
-    const Result &input_image = get_input("Image");
+    const Result &input_image = this->get_input("Image");
+    Result &output_image = this->get_result("Image");
     if (input_image.is_single_value()) {
-      get_input("Image").pass_through(get_result("Image"));
+      output_image.share_data(input_image);
       return;
     }
 
     /* If the determinator is a single value, then the node essentially becomes a box blur. */
     const Result &determinator_image = get_input("Determinator");
     if (determinator_image.is_single_value()) {
-      Result &output_image = get_result("Image");
       symmetric_separable_blur(this->context(),
                                input_image,
                                output_image,
@@ -191,8 +191,8 @@ void register_node_type_cmp_bilateralblur()
   ntype.draw_buttons = file_ns::node_composit_buts_bilateralblur;
   ntype.initfunc = file_ns::node_composit_init_bilateralblur;
   blender::bke::node_type_storage(
-      &ntype, "NodeBilateralBlurData", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeBilateralBlurData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

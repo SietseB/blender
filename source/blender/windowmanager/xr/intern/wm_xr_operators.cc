@@ -177,7 +177,7 @@ static void wm_xr_grab_init(wmOperator *op)
 {
   BLI_assert(op->customdata == nullptr);
 
-  op->customdata = MEM_callocN(sizeof(XrGrabData), __func__);
+  op->customdata = MEM_callocN<XrGrabData>(__func__);
 }
 
 static void wm_xr_grab_uninit(wmOperator *op)
@@ -663,7 +663,7 @@ static void wm_xr_raycast_init(wmOperator *op)
 {
   BLI_assert(op->customdata == nullptr);
 
-  op->customdata = MEM_callocN(sizeof(XrRaycastData), __func__);
+  op->customdata = MEM_callocN<XrRaycastData>(__func__);
 
   SpaceType *st = BKE_spacetype_from_id(SPACE_VIEW3D);
   if (!st) {
@@ -739,25 +739,26 @@ static void wm_xr_raycast(Scene *scene,
                           float r_obmat[4][4])
 {
   /* Uses same raycast method as Scene.ray_cast(). */
-  SnapObjectContext *sctx = ED_transform_snap_object_context_create(scene, 0);
+  blender::ed::transform::SnapObjectContext *sctx =
+      blender::ed::transform::snap_object_context_create(scene, 0);
 
-  SnapObjectParams params{};
+  blender::ed::transform::SnapObjectParams params{};
   params.snap_target_select = (selectable_only ? SCE_SNAP_TARGET_ONLY_SELECTABLE :
                                                  SCE_SNAP_TARGET_ALL);
-  ED_transform_snap_object_project_ray_ex(sctx,
-                                          depsgraph,
-                                          nullptr,
-                                          &params,
-                                          origin,
-                                          direction,
-                                          ray_dist,
-                                          r_location,
-                                          r_normal,
-                                          r_index,
-                                          r_ob,
-                                          r_obmat);
+  blender::ed::transform::snap_object_project_ray_ex(sctx,
+                                                     depsgraph,
+                                                     nullptr,
+                                                     &params,
+                                                     origin,
+                                                     direction,
+                                                     ray_dist,
+                                                     r_location,
+                                                     r_normal,
+                                                     r_index,
+                                                     r_ob,
+                                                     r_obmat);
 
-  ED_transform_snap_object_context_destroy(sctx);
+  blender::ed::transform::snap_object_context_destroy(sctx);
 }
 
 /** \} */
@@ -797,8 +798,8 @@ static void wm_xr_fly_init(wmOperator *op, const wmXrData *xr)
 {
   BLI_assert(op->customdata == nullptr);
 
-  XrFlyData *data = static_cast<XrFlyData *>(
-      op->customdata = MEM_callocN(sizeof(XrFlyData), __func__));
+  XrFlyData *data = MEM_callocN<XrFlyData>(__func__);
+  op->customdata = data;
 
   WM_xr_session_state_viewer_pose_rotation_get(xr, data->viewer_rot);
   data->time_prev = BLI_time_now_seconds();

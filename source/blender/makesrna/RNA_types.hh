@@ -94,6 +94,23 @@ struct PointerRNA {
       : owner_id(owner_id), type(type), data(data), ancestors(parents)
   {
   }
+
+  /** Reset the pointer to its initial empty state, such that it equals to PointerRNA_NULL. */
+  void reset()
+  {
+    *this = {};
+  }
+
+  /**
+   * Make the pointer invalid.
+   *
+   * This is especially important for the Python API, as any access to an invalid PointerRNA should
+   * raise an exception in `bpy` code.
+   */
+  void invalidate()
+  {
+    this->reset();
+  }
 };
 
 extern const PointerRNA PointerRNA_NULL;
@@ -658,6 +675,14 @@ using StringPropertySearchFunc =
              PropertyRNA *prop,
              const char *edit_text,
              blender::FunctionRef<void(StringPropertySearchVisitParams)> visit_fn);
+
+/**
+ * Returns an optional glob pattern (e.g. `*.png`) that can be passed to the file browser to filter
+ * valid files for this property.
+ */
+using StringPropertyPathFilterFunc = std::optional<std::string> (*)(const bContext *C,
+                                                                    PointerRNA *ptr,
+                                                                    PropertyRNA *prop);
 
 using EnumPropertyGetFunc = int (*)(PointerRNA *ptr, PropertyRNA *prop);
 using EnumPropertySetFunc = void (*)(PointerRNA *ptr, PropertyRNA *prop, int value);

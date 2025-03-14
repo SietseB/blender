@@ -25,7 +25,7 @@ class GPULogParser;
 class Context;
 
 /* Set to 1 to log the full source of shaders that fail to compile. */
-#define DEBUG_LOG_SHADER_SRC_ON_ERROR 1
+#define DEBUG_LOG_SHADER_SRC_ON_ERROR 0
 
 /**
  * Compilation is done on a list of GLSL sources. This list contains placeholders that should be
@@ -191,8 +191,7 @@ class ShaderCompiler {
   };
 };
 
-/* Generic (fully synchronous) implementation for backends that don't implement their own
- * ShaderCompiler. Used by Vulkan and Metal. */
+/* Generic (fully synchronous) implementation used as fallback. */
 class ShaderCompilerGeneric : public ShaderCompiler {
  private:
   struct Batch {
@@ -202,6 +201,7 @@ class ShaderCompilerGeneric : public ShaderCompiler {
   };
   BatchHandle next_batch_handle = 1;
   Map<BatchHandle, Batch> batches;
+  std::mutex mutex_;
 
  public:
   ~ShaderCompilerGeneric() override;

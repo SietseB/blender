@@ -26,14 +26,24 @@
 
 namespace blender::draw {
 
+#if 0 /* The debug module is currently broken. Needs an overhaul (see #135521). */
 /* Shortcuts to avoid boilerplate code and match shader API. */
-#define drw_debug_line(...) DRW_debug_get()->draw_line(__VA_ARGS__)
-#define drw_debug_polygon(...) DRW_debug_get()->draw_polygon(__VA_ARGS__)
-#define drw_debug_bbox(...) DRW_debug_get()->draw_bbox(__VA_ARGS__)
-#define drw_debug_sphere(...) DRW_debug_get()->draw_sphere(__VA_ARGS__)
-#define drw_debug_point(...) DRW_debug_get()->draw_point(__VA_ARGS__)
-#define drw_debug_matrix(...) DRW_debug_get()->draw_matrix(__VA_ARGS__)
-#define drw_debug_matrix_as_bbox(...) DRW_debug_get()->draw_matrix_as_bbox(__VA_ARGS__)
+#  define drw_debug_line(...) DRW_debug_get()->draw_line(__VA_ARGS__)
+#  define drw_debug_polygon(...) DRW_debug_get()->draw_polygon(__VA_ARGS__)
+#  define drw_debug_bbox(...) DRW_debug_get()->draw_bbox(__VA_ARGS__)
+#  define drw_debug_sphere(...) DRW_debug_get()->draw_sphere(__VA_ARGS__)
+#  define drw_debug_point(...) DRW_debug_get()->draw_point(__VA_ARGS__)
+#  define drw_debug_matrix(...) DRW_debug_get()->draw_matrix(__VA_ARGS__)
+#  define drw_debug_matrix_as_bbox(...) DRW_debug_get()->draw_matrix_as_bbox(__VA_ARGS__)
+#else
+#  define drw_debug_line(...)
+#  define drw_debug_polygon(...)
+#  define drw_debug_bbox(...)
+#  define drw_debug_sphere(...)
+#  define drw_debug_point(...)
+#  define drw_debug_matrix(...)
+#  define drw_debug_matrix_as_bbox(...)
+#endif
 
 class DebugDraw {
  private:
@@ -110,7 +120,7 @@ class DebugDraw {
 
 /**
  * Ease of use function to get the debug module.
- * TODO(fclem): Should be removed once DRWManager is no longer global.
+ * TODO(fclem): Should be removed once DRWContext is no longer global.
  * IMPORTANT: Can return nullptr if storage buffer is not supported.
  */
 blender::draw::DebugDraw *DRW_debug_get();

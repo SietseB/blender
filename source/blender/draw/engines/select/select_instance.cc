@@ -33,14 +33,8 @@ static void SELECT_next_engine_init(void *vedata)
   OVERLAY_Data *ved = reinterpret_cast<OVERLAY_Data *>(vedata);
 
   if (ved->instance == nullptr) {
-    const DRWContextState *draw_ctx = DRW_context_state_get();
-    const RegionView3D *rv3d = draw_ctx->rv3d;
-    const View3D *v3d = draw_ctx->v3d;
-    const bool clipping_enabled = RV3D_CLIPPING_ENABLED(v3d, rv3d);
-
-    ved->instance = new Instance(select::SelectionType::ENABLED, clipping_enabled);
+    ved->instance = new Instance(select::SelectionType::ENABLED);
   }
-
   reinterpret_cast<Instance *>(ved->instance)->init();
 }
 
@@ -49,16 +43,10 @@ static void SELECT_next_cache_init(void *vedata)
   reinterpret_cast<Instance *>(reinterpret_cast<OVERLAY_Data *>(vedata)->instance)->begin_sync();
 }
 
-static void SELECT_next_cache_populate(void *vedata, Object *object)
+static void SELECT_next_cache_populate(void *vedata, blender::draw::ObjectRef &ob_ref)
 {
-  ObjectRef ref;
-  ref.object = object;
-  ref.dupli_object = DRW_object_get_dupli(object);
-  ref.dupli_parent = DRW_object_get_dupli_parent(object);
-  ref.handle = ResourceHandle(0);
-
   reinterpret_cast<Instance *>(reinterpret_cast<OVERLAY_Data *>(vedata)->instance)
-      ->object_sync(ref, *DRW_manager_get());
+      ->object_sync(ob_ref, *DRW_manager_get());
 }
 
 static void SELECT_next_cache_finish(void *vedata)
@@ -68,8 +56,10 @@ static void SELECT_next_cache_finish(void *vedata)
 
 static void SELECT_next_draw_scene(void *vedata)
 {
+  DRW_submission_start();
   reinterpret_cast<Instance *>(reinterpret_cast<OVERLAY_Data *>(vedata)->instance)
       ->draw(*DRW_manager_get());
+  DRW_submission_end();
 }
 
 static void SELECT_next_instance_free(void *instance_)
@@ -89,8 +79,6 @@ DrawEngineType draw_engine_select_next_type = {
     /*cache_populate*/ &SELECT_next_cache_populate,
     /*cache_finish*/ &SELECT_next_cache_finish,
     /*draw_scene*/ &SELECT_next_draw_scene,
-    /*view_update*/ nullptr,
-    /*id_update*/ nullptr,
     /*render_to_image*/ nullptr,
     /*store_metadata*/ nullptr,
 };

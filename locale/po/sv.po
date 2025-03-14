@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2024-01-17 19:22+0000\n"
 "Last-Translator: Peter Simonsson <peter@simonsson.com>\n"
 "Language-Team: Swedish <https://translate.blender.org/projects/blender-ui/ui/sv/>\n"
@@ -3517,14 +3517,6 @@ msgid "Bend"
 msgstr "Böj"
 
 
-msgid "Clone Image"
-msgstr "Klona bild"
-
-
-msgid "Clone Offset"
-msgstr "Klon förskjutning"
-
-
 msgid "Local"
 msgstr "Lokal"
 
@@ -5217,18 +5209,6 @@ msgid "Clean Up"
 msgstr "Städa upp"
 
 
-msgid "Text"
-msgstr "Text"
-
-
-msgid "Metaball"
-msgstr "Metaboll"
-
-
-msgid "Names"
-msgstr "Namn"
-
-
 msgid "Pivot Point"
 msgstr "Fast punkt"
 
@@ -5255,6 +5235,10 @@ msgstr "Justera vy till aktiv"
 
 msgid "Select More/Less"
 msgstr "Markera mera/mindre"
+
+
+msgid "Metaball"
+msgstr "Metaboll"
 
 
 msgid "Light"
@@ -5287,6 +5271,14 @@ msgstr "Snabbeffekter"
 
 msgid "Asset"
 msgstr "Tillgång"
+
+
+msgid "Names"
+msgstr "Namn"
+
+
+msgid "Text"
+msgstr "Text"
 
 
 msgid "Catalog"
@@ -11601,6 +11593,14 @@ msgid "Create a new main window with its own workspace and scene selection"
 msgstr "Skapa ett nytt huvudfönster med sin egen arbetsyta och scenval"
 
 
+msgid "Clone Image"
+msgstr "Klona bild"
+
+
+msgid "Clone Offset"
+msgstr "Klon förskjutning"
+
+
 msgid "Dither"
 msgstr "Rastrering"
 
@@ -15930,10 +15930,6 @@ msgid "Search"
 msgstr "Sök"
 
 
-msgid "Home"
-msgstr "Hem"
-
-
 msgid "Saturation:"
 msgstr "Mättnad:"
 
@@ -16170,6 +16166,10 @@ msgstr "Filnamn, skriv över befintlig"
 
 msgid "File name"
 msgstr "Filnamn"
+
+
+msgid "Home"
+msgstr "Hem"
 
 
 msgid "Desktop"

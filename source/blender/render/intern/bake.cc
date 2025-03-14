@@ -567,7 +567,7 @@ bool RE_bake_pixels_populate_from_objects(Mesh *me_low,
   TriTessFace **tris_high;
 
   /* Assume all low-poly tessfaces can be quads. */
-  tris_high = MEM_cnew_array<TriTessFace *>(highpoly_num, "MVerts Highpoly Mesh Array");
+  tris_high = MEM_calloc_arrayN<TriTessFace *>(highpoly_num, "MVerts Highpoly Mesh Array");
 
   /* Assume all high-poly tessfaces are triangles. */
   me_highpoly = static_cast<Mesh **>(
@@ -731,7 +731,7 @@ void RE_bake_pixels_populate(Mesh *mesh,
 
   BakeDataZSpan bd;
   bd.pixel_array = pixel_array;
-  bd.zspan = MEM_cnew_array<ZSpan>(targets->images_num, "bake zspan");
+  bd.zspan = MEM_calloc_arrayN<ZSpan>(targets->images_num, "bake zspan");
 
   /* initialize all pixel arrays so we know which ones are 'blank' */
   for (int i = 0; i < pixels_num; i++) {
@@ -744,8 +744,7 @@ void RE_bake_pixels_populate(Mesh *mesh,
   }
 
   const int tottri = poly_to_tri_count(mesh->faces_num, mesh->corners_num);
-  blender::int3 *corner_tris = static_cast<blender::int3 *>(
-      MEM_mallocN(sizeof(*corner_tris) * tottri, __func__));
+  blender::int3 *corner_tris = MEM_malloc_arrayN<blender::int3>(size_t(tottri), __func__);
 
   blender::bke::mesh::corner_tris_calc(
       mesh->vert_positions(), mesh->faces(), mesh->corner_verts(), {corner_tris, tottri});

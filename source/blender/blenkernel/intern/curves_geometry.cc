@@ -115,6 +115,7 @@ CurvesGeometry::CurvesGeometry(const CurvesGeometry &other)
                             other.runtime->nurbs_basis_cache,
                             other.runtime->evaluated_position_cache,
                             other.runtime->bounds_cache,
+                            other.runtime->bounds_with_radius_cache,
                             other.runtime->evaluated_length_cache,
                             other.runtime->evaluated_tangent_cache,
                             other.runtime->evaluated_normal_cache,
@@ -180,8 +181,8 @@ CurvesGeometry &CurvesGeometry::operator=(CurvesGeometry &&other)
 
 CurvesGeometry::~CurvesGeometry()
 {
-  CustomData_free(&this->point_data, this->point_num);
-  CustomData_free(&this->curve_data, this->curve_num);
+  CustomData_free(&this->point_data);
+  CustomData_free(&this->curve_data);
   BLI_freelistN(&this->vertex_group_names);
   if (this->runtime) {
     implicit_sharing::free_shared_data(&this->curve_offsets,
@@ -365,7 +366,7 @@ VArray<float> CurvesGeometry::radius() const
 }
 MutableSpan<float> CurvesGeometry::radius_for_write()
 {
-  return get_mutable_attribute<float>(*this, AttrDomain::Point, ATTR_RADIUS);
+  return get_mutable_attribute<float>(*this, AttrDomain::Point, ATTR_RADIUS, 0.01f);
 }
 
 Span<int> CurvesGeometry::offsets() const
@@ -1078,6 +1079,7 @@ void CurvesGeometry::tag_positions_changed()
   this->runtime->evaluated_normal_cache.tag_dirty();
   this->runtime->evaluated_length_cache.tag_dirty();
   this->runtime->bounds_cache.tag_dirty();
+  this->runtime->bounds_with_radius_cache.tag_dirty();
 }
 void CurvesGeometry::tag_topology_changed()
 {
@@ -1091,7 +1093,10 @@ void CurvesGeometry::tag_normals_changed()
 {
   this->runtime->evaluated_normal_cache.tag_dirty();
 }
-void CurvesGeometry::tag_radii_changed() {}
+void CurvesGeometry::tag_radii_changed()
+{
+  this->runtime->bounds_with_radius_cache.tag_dirty();
+}
 void CurvesGeometry::tag_material_index_changed()
 {
   this->runtime->max_material_index_cache.tag_dirty();
@@ -1201,14 +1206,37 @@ void CurvesGeometry::transform(const float4x4 &matrix)
   this->tag_positions_changed();
 }
 
-std::optional<Bounds<float3>> CurvesGeometry::bounds_min_max() const
+std::optional<Bounds<float3>> CurvesGeometry::bounds_min_max(const bool use_radius) const
 {
   if (this->is_empty()) {
     return std::nullopt;
   }
-  this->runtime->bounds_cache.ensure(
-      [&](Bounds<float3> &r_bounds) { r_bounds = *bounds::min_max(this->evaluated_positions()); });
-  return this->runtime->bounds_cache.data();
+  if (use_radius) {
+    this->runtime->bounds_with_radius_cache.ensure([&](Bounds<float3> &r_bounds) {
+      const VArray<float> radius = this->radius();
+      if (const std::optional radius_single = radius.get_if_single()) {
+        r_bounds = *this->bounds_min_max(false);
+        r_bounds.pad(*radius_single);
+        return;
+      }
+      const Span radius_span = radius.get_internal_span();
+      if (this->is_single_type(CURVE_TYPE_POLY)) {
+        r_bounds = *bounds::min_max_with_radii(this->positions(), radius_span);
+        return;
+      }
+      Array<float> radii_eval(this->evaluated_points_num());
+      this->ensure_can_interpolate_to_evaluated();
+      this->interpolate_to_evaluated(radius_span, radii_eval.as_mutable_span());
+      r_bounds = *bounds::min_max_with_radii(this->evaluated_positions(), radii_eval.as_span());
+    });
+  }
+  else {
+    this->runtime->bounds_cache.ensure([&](Bounds<float3> &r_bounds) {
+      r_bounds = *bounds::min_max(this->evaluated_positions());
+    });
+  }
+  return use_radius ? this->runtime->bounds_with_radius_cache.data() :
+                      this->runtime->bounds_cache.data();
 }
 
 std::optional<int> CurvesGeometry::material_index_max() const
@@ -1459,7 +1487,7 @@ CurvesGeometry curves_new_no_attributes(int point_num, int curve_num)
 {
   CurvesGeometry curves(0, curve_num);
   curves.point_num = point_num;
-  CustomData_free_layer_named(&curves.point_data, "position", 0);
+  CustomData_free_layer_named(&curves.point_data, "position");
   return curves;
 }
 

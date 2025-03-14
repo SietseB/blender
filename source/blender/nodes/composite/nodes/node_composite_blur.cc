@@ -48,7 +48,7 @@ static void cmp_node_blur_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_blur(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeBlurData *data = MEM_cnew<NodeBlurData>(__func__);
+  NodeBlurData *data = MEM_callocN<NodeBlurData>(__func__);
   data->filtertype = R_FILTER_GAUSS;
   node->storage = data;
 }
@@ -102,14 +102,14 @@ class BlurOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input = get_input("Image");
-    Result &output = get_result("Image");
-    if (is_identity()) {
-      input.pass_through(output);
+    const Result &input = this->get_input("Image");
+    Result &output = this->get_result("Image");
+    if (this->is_identity()) {
+      output.share_data(input);
       return;
     }
 
-    Result *blur_input = &input;
+    const Result *blur_input = &input;
     Result *blur_output = &output;
 
     /* Apply gamma correction if needed. */
@@ -532,8 +532,8 @@ void register_node_type_cmp_blur()
   ntype.flag |= NODE_PREVIEW;
   ntype.initfunc = file_ns::node_composit_init_blur;
   blender::bke::node_type_storage(
-      &ntype, "NodeBlurData", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeBlurData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

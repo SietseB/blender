@@ -44,7 +44,7 @@ static void cmp_node_kuwahara_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_kuwahara(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeKuwaharaData *data = MEM_cnew<NodeKuwaharaData>(__func__);
+  NodeKuwaharaData *data = MEM_callocN<NodeKuwaharaData>(__func__);
   node->storage = data;
 
   /* Set defaults. */
@@ -81,8 +81,10 @@ class ConvertKuwaharaOperation : public NodeOperation {
 
   void execute() override
   {
-    if (get_input("Image").is_single_value()) {
-      get_input("Image").pass_through(get_result("Image"));
+    const Result &input = this->get_input("Image");
+    if (input.is_single_value()) {
+      Result &output = this->get_result("Image");
+      output.share_data(input);
       return;
     }
 
@@ -795,8 +797,8 @@ void register_node_type_cmp_kuwahara()
   ntype.draw_buttons = file_ns::node_composit_buts_kuwahara;
   ntype.initfunc = file_ns::node_composit_init_kuwahara;
   blender::bke::node_type_storage(
-      &ntype, "NodeKuwaharaData", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeKuwaharaData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

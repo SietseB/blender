@@ -897,7 +897,7 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
   }
   else if (ob->type == OB_POINTCLOUD) {
     ok = true;
-    WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_POINT_CLOUD, scene);
+    WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_POINTCLOUD, scene);
   }
 
   if (ok) {
@@ -1771,7 +1771,7 @@ void OBJECT_OT_shade_smooth_by_angle(wmOperatorType *ot)
  * \{ */
 
 /**
- * Does a shallow check for whether the node group could be the the Smooth by Angle node group.
+ * Does a shallow check for whether the node group could be the Smooth by Angle node group.
  * This should become unnecessary once we asset embedding (#132167).
  */
 static bool is_valid_smooth_by_angle_group(const bNodeTree &ntree)

@@ -187,6 +187,8 @@ static void texture_blend_read_data(BlendDataReader *reader, ID *id)
   BKE_previewimg_blend_read(reader, tex->preview);
 
   tex->iuser.scene = nullptr;
+
+  tex->runtime.last_update = 0;
 }
 
 IDTypeInfo IDType_ID_TE = {
@@ -229,7 +231,7 @@ void BKE_texture_mtex_foreach_id(LibraryForeachIDData *data, MTex *mtex)
 
 TexMapping *BKE_texture_mapping_add(int type)
 {
-  TexMapping *texmap = MEM_cnew<TexMapping>("TexMapping");
+  TexMapping *texmap = MEM_callocN<TexMapping>("TexMapping");
 
   BKE_texture_mapping_default(texmap, type);
 
@@ -332,7 +334,7 @@ void BKE_texture_mapping_init(TexMapping *texmap)
 
 ColorMapping *BKE_texture_colormapping_add()
 {
-  ColorMapping *colormap = MEM_cnew<ColorMapping>("ColorMapping");
+  ColorMapping *colormap = MEM_callocN<ColorMapping>("ColorMapping");
 
   BKE_texture_colormapping_default(colormap);
 

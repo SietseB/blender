@@ -157,12 +157,8 @@ void BKE_main_clear(Main &bmain)
   }
 
   /* NOTE: `name_map` in libraries are freed together with the library IDs above. */
-  if (bmain.name_map) {
-    BKE_main_namemap_destroy(&bmain.name_map);
-  }
-  if (bmain.name_map_global) {
-    BKE_main_namemap_destroy(&bmain.name_map_global);
-  }
+  BKE_main_namemap_destroy(&bmain.name_map);
+  BKE_main_namemap_destroy(&bmain.name_map_global);
 }
 
 void BKE_main_destroy(Main &bmain)
@@ -170,7 +166,7 @@ void BKE_main_destroy(Main &bmain)
   BKE_main_clear(bmain);
 
   BLI_spin_end(reinterpret_cast<SpinLock *>(bmain.lock));
-  MEM_freeN(bmain.lock);
+  MEM_freeN(static_cast<void *>(bmain.lock));
   bmain.lock = nullptr;
 }
 
@@ -448,9 +444,9 @@ void BKE_main_merge(Main *bmain_dst, Main **r_bmain_src, MainMergeReport &report
 
   /* Remapping above may have made some IDs local. So namemap needs to be cleared, and moved IDs
    * need to be re-sorted. */
-  BKE_main_namemap_clear(bmain_dst);
+  BKE_main_namemap_clear(*bmain_dst);
 
-  BLI_assert(BKE_main_namemap_validate(bmain_dst));
+  BLI_assert(BKE_main_namemap_validate(*bmain_dst));
 
   BKE_main_free(bmain_src);
   *r_bmain_src = nullptr;
@@ -712,14 +708,10 @@ void BKE_main_library_weak_reference_add_item(
   BLI_assert(new_id->library_weak_reference == nullptr);
   BLI_assert(BKE_idtype_idcode_append_is_reusable(GS(new_id->name)));
 
-  new_id->library_weak_reference = static_cast<LibraryWeakReference *>(
-      MEM_mallocN(sizeof(*(new_id->library_weak_reference)), __func__));
-
   const LibWeakRefKey key{library_filepath, library_id_name};
   library_weak_reference_mapping->map.add_new(key, new_id);
 
-  STRNCPY(new_id->library_weak_reference->library_filepath, library_filepath);
-  STRNCPY(new_id->library_weak_reference->library_id_name, library_id_name);
+  BKE_main_library_weak_reference_add(new_id, library_filepath, library_id_name);
 }
 
 void BKE_main_library_weak_reference_update_item(
@@ -761,6 +753,35 @@ void BKE_main_library_weak_reference_remove_item(
   MEM_SAFE_FREE(old_id->library_weak_reference);
 }
 
+ID *BKE_main_library_weak_reference_find(Main *bmain,
+                                         const char *library_filepath,
+                                         const char *library_id_name)
+{
+  ListBase *id_list = which_libbase(bmain, GS(library_id_name));
+  LISTBASE_FOREACH (ID *, existing_id, id_list) {
+    if (existing_id->library_weak_reference &&
+        STREQ(existing_id->library_weak_reference->library_id_name, library_id_name) &&
+        STREQ(existing_id->library_weak_reference->library_filepath, library_filepath))
+    {
+      return existing_id;
+    }
+  }
+
+  return nullptr;
+}
+
+void BKE_main_library_weak_reference_add(ID *local_id,
+                                         const char *library_filepath,
+                                         const char *library_id_name)
+{
+  if (local_id->library_weak_reference == nullptr) {
+    local_id->library_weak_reference = MEM_callocN<LibraryWeakReference>(__func__);
+  }
+
+  STRNCPY(local_id->library_weak_reference->library_filepath, library_filepath);
+  STRNCPY(local_id->library_weak_reference->library_id_name, library_id_name);
+}
+
 BlendThumbnail *BKE_main_thumbnail_from_buffer(Main *bmain, const uint8_t *rect, const int size[2])
 {
   BlendThumbnail *data = nullptr;
@@ -795,7 +816,7 @@ BlendThumbnail *BKE_main_thumbnail_from_imbuf(Main *bmain, ImBuf *img)
     const size_t data_size = BLEN_THUMB_MEMSIZE(img->x, img->y);
     data = static_cast<BlendThumbnail *>(MEM_mallocN(data_size, __func__));
 
-    IMB_rect_from_float(img); /* Just in case... */
+    IMB_byte_from_float(img); /* Just in case... */
     data->width = img->x;
     data->height = img->y;
     memcpy(data->rect, img->byte_buffer.data, data_size - sizeof(*data));

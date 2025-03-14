@@ -410,6 +410,12 @@ static bool ed_object_hidden(const Object *ob)
   return ((ob->visibility_flag & OB_HIDE_VIEWPORT) && !(ob->mode & OB_MODE_EDIT));
 }
 
+bool ED_operator_object_active_only(bContext *C)
+{
+  Object *ob = blender::ed::object::context_active_object(C);
+  return (ob != nullptr);
+}
+
 bool ED_operator_object_active(bContext *C)
 {
   Object *ob = blender::ed::object::context_active_object(C);
@@ -894,7 +900,7 @@ static AZone *area_actionzone_refresh_xy(ScrArea *area, const int xy[2], const b
           }
           else {
             const int mouse_sq = square_i(xy[0] - az->x2) + square_i(xy[1] - az->y2);
-            const int spot_sq = square_i(AZONESPOTW);
+            const int spot_sq = square_i(UI_AZONESPOTW);
             const int fadein_sq = square_i(AZONEFADEIN);
             const int fadeout_sq = square_i(AZONEFADEOUT);
 
@@ -1078,7 +1084,7 @@ static void actionzone_apply(bContext *C, wmOperator *op, int type)
   event.customdata_free = true;
   op->customdata = nullptr;
 
-  wm_event_add(win, &event);
+  WM_event_add(win, &event);
 }
 
 static int actionzone_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -1560,7 +1566,7 @@ static int area_close_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (!screen_area_close(C, screen, area)) {
+  if (!screen_area_close(C, op->reports, screen, area)) {
     BKE_report(op->reports, RPT_ERROR, "Unable to close area");
     return OPERATOR_CANCELLED;
   }
@@ -2556,7 +2562,7 @@ static void area_split_cancel(bContext *C, wmOperator *op)
     /* pass */
   }
   else {
-    if (screen_area_join(C, CTX_wm_screen(C), sd->sarea, sd->narea)) {
+    if (screen_area_join(C, op->reports, CTX_wm_screen(C), sd->sarea, sd->narea)) {
       if (CTX_wm_area(C) == sd->narea) {
         CTX_wm_area_set(C, nullptr);
         CTX_wm_region_set(C, nullptr);
@@ -3629,7 +3635,7 @@ static void area_join_draw_cb(const wmWindow *win, void *userdata)
   }
 }
 
-static void area_join_dock_cb(const wmWindow * /*win*/, void *userdata)
+static void area_join_dock_cb(const wmWindow *win, void *userdata)
 {
   const wmOperator *op = static_cast<wmOperator *>(userdata);
   sAreaJoinData *jd = static_cast<sAreaJoinData *>(op->customdata);
@@ -3637,7 +3643,7 @@ static void area_join_dock_cb(const wmWindow * /*win*/, void *userdata)
     return;
   }
   screen_draw_dock_preview(
-      jd->sa1, jd->sa2, jd->dock_target, jd->factor, jd->current_x, jd->current_y);
+      win, jd->sa1, jd->sa2, jd->dock_target, jd->factor, jd->current_x, jd->current_y);
 }
 
 static void area_join_dock_cb_window(sAreaJoinData *jd, wmOperator *op)
@@ -3707,7 +3713,7 @@ static bool area_join_apply(bContext *C, wmOperator *op)
 
   bScreen *screen = CTX_wm_screen(C);
 
-  if (!screen_area_join(C, screen, jd->sa1, jd->sa2)) {
+  if (!screen_area_join(C, op->reports, screen, jd->sa1, jd->sa2)) {
     return false;
   }
   if (CTX_wm_area(C) == jd->sa2) {
@@ -3859,7 +3865,8 @@ void static area_docking_apply(bContext *C, wmOperator *op)
     return;
   }
 
-  if (!aligned_neighbors || !screen_area_join(C, CTX_wm_screen(C), jd->sa1, jd->sa2)) {
+  if (!aligned_neighbors || !screen_area_join(C, op->reports, CTX_wm_screen(C), jd->sa1, jd->sa2))
+  {
     ED_area_swapspace(C, jd->sa2, jd->sa1);
     if (BLI_listbase_is_single(&WM_window_get_active_screen(jd->win1)->areabase) &&
         BLI_listbase_is_empty(&jd->win1->global_areas.areabase))
@@ -3867,7 +3874,7 @@ void static area_docking_apply(bContext *C, wmOperator *op)
       jd->close_win = true;
     }
     else {
-      screen_area_close(C, CTX_wm_screen(C), jd->sa1);
+      screen_area_close(C, op->reports, CTX_wm_screen(C), jd->sa1);
     }
   }
 
@@ -4182,9 +4189,10 @@ static void area_join_update_data(bContext *C, sAreaJoinData *jd, const wmEvent 
   jd->dock_target = area_docking_target(jd, event);
 
   if (jd->sa1 == area) {
+    const int drag_threshold = 30 * UI_SCALE_FAC;
     jd->sa2 = area;
-    if (!(abs(jd->start_x - event->xy[0]) > (30 * U.pixelsize) ||
-          abs(jd->start_y - event->xy[1]) > (30 * U.pixelsize)))
+    if (!(abs(jd->start_x - event->xy[0]) > drag_threshold ||
+          abs(jd->start_y - event->xy[1]) > drag_threshold))
     {
       /* We haven't moved enough to start a split. */
       jd->dir = SCREEN_DIR_NONE;
@@ -4276,7 +4284,8 @@ static int area_join_modal(bContext *C, wmOperator *op, const wmEvent *event)
             /* We have to clear handlers or we get an error in wm_gizmomap_modal_get. */
             WM_event_modal_handler_region_replace(jd->win1, CTX_wm_region(C), nullptr);
             area_dupli_open(C, jd->sa1, blender::int2(event->xy[0], event->xy[1] - jd->sa1->winy));
-            if (!screen_area_close(C, WM_window_get_active_screen(jd->win1), jd->sa1)) {
+            if (!screen_area_close(C, op->reports, WM_window_get_active_screen(jd->win1), jd->sa1))
+            {
               if (BLI_listbase_is_single(&WM_window_get_active_screen(jd->win1)->areabase) &&
                   BLI_listbase_is_empty(&jd->win1->global_areas.areabase))
               {
@@ -5386,7 +5395,7 @@ static void screen_animation_region_tag_redraw(
 
     if (area->spacetype == SPACE_SEQ) {
       const SpaceSeq *sseq = static_cast<const SpaceSeq *>(area->spacedata.first);
-      if (!ED_space_sequencer_has_playback_animation(sseq, scene)) {
+      if (!blender::ed::vse::has_playback_animation(sseq, scene)) {
         return;
       }
     }
@@ -5556,7 +5565,7 @@ static int screen_animation_step_invoke(bContext *C, wmOperator * /*op*/, const 
   }
 
   LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
-    const bScreen *win_screen = WM_window_get_active_screen(window);
+    bScreen *win_screen = WM_window_get_active_screen(window);
 
     LISTBASE_FOREACH (ScrArea *, area, &win_screen->areabase) {
       LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
@@ -5575,6 +5584,10 @@ static int screen_animation_step_invoke(bContext *C, wmOperator * /*op*/, const 
         if (redraw) {
           screen_animation_region_tag_redraw(
               C, area, region, scene, eScreen_Redraws_Flag(sad->redraws));
+          /* Doesn't trigger a full redraw of the screen but makes sure at least overlay drawing
+           * (#ARegionType.draw_overlay()) is triggered, which is how the current-frame is drawn.
+           */
+          win_screen->do_draw = true;
         }
       }
     }
@@ -6399,6 +6412,8 @@ static int space_type_set_or_cycle_exec(bContext *C, wmOperator *op)
   if (area->spacetype != space_type) {
     /* Set the type. */
     RNA_property_enum_set(&ptr, prop_type, space_type);
+    /* Specify that we want last-used if there are subtypes. */
+    area->butspacetype_subtype = -1;
     RNA_property_update(C, &ptr, prop_type);
   }
   else {

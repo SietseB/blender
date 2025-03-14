@@ -24,6 +24,11 @@ ccl_device_inline float4 one_float4()
   return make_float4(1.0f);
 }
 
+ccl_device_template_spec float4 make_zero()
+{
+  return zero_float4();
+}
+
 ccl_device_inline int4 cast(const float4 a)
 {
 #ifdef __KERNEL_SSE__
@@ -601,6 +606,11 @@ ccl_device_inline float4 ensure_finite(const float4 v)
 ccl_device_inline float4 power(const float4 v, const float e)
 {
   return make_float4(powf(v.x, e), powf(v.y, e), powf(v.z, e), powf(v.w, e));
+}
+
+ccl_device_inline float4 interp(float4 a, float4 b, float t)
+{
+  return a + t * (b - a);
 }
 
 #if !defined(__KERNEL_METAL__) && !defined(__KERNEL_ONEAPI__)

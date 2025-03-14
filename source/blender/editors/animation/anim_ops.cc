@@ -25,6 +25,8 @@
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 
+#include "BLT_translation.hh"
+
 #include "UI_view2d.hh"
 
 #include "RNA_access.hh"
@@ -94,7 +96,7 @@ static bool change_frame_poll(bContext *C)
 
 static int seq_snap_threshold_get_frame_distance(bContext *C)
 {
-  const int snap_distance = SEQ_tool_settings_snap_distance_get(CTX_data_scene(C));
+  const int snap_distance = blender::seq::tool_settings_snap_distance_get(CTX_data_scene(C));
   const ARegion *region = CTX_wm_region(C);
   return round_fl_to_int(UI_view2d_region_to_view_x(&region->v2d, snap_distance) -
                          UI_view2d_region_to_view_x(&region->v2d, 0));
@@ -114,14 +116,16 @@ static void seq_frame_snap_update_best(const int position,
 static int seq_frame_apply_snap(bContext *C, Scene *scene, const int timeline_frame)
 {
 
-  ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(scene));
+  ListBase *seqbase = blender::seq::active_seqbase_get(blender::seq::editing_get(scene));
 
   int best_frame = 0;
   int best_distance = MAXFRAME;
-  for (Strip *strip : SEQ_query_all_strips(seqbase)) {
-    seq_frame_snap_update_best(
-        SEQ_time_left_handle_frame_get(scene, strip), timeline_frame, &best_frame, &best_distance);
-    seq_frame_snap_update_best(SEQ_time_right_handle_frame_get(scene, strip),
+  for (Strip *strip : blender::seq::query_all_strips(seqbase)) {
+    seq_frame_snap_update_best(blender::seq::time_left_handle_frame_get(scene, strip),
+                               timeline_frame,
+                               &best_frame,
+                               &best_distance);
+    seq_frame_snap_update_best(blender::seq::time_right_handle_frame_get(scene, strip),
                                timeline_frame,
                                &best_frame,
                                &best_distance);
@@ -145,7 +149,7 @@ static void change_frame_apply(bContext *C, wmOperator *op, const bool always_up
   const float old_subframe = scene->r.subframe;
 
   if (do_snap) {
-    if (CTX_wm_space_seq(C) && SEQ_editing_get(scene) != nullptr) {
+    if (CTX_wm_space_seq(C) && blender::seq::editing_get(scene) != nullptr) {
       frame = seq_frame_apply_snap(C, scene, frame);
     }
     else {
@@ -206,8 +210,8 @@ static void change_frame_seq_preview_begin(bContext *C, const wmEvent *event, Sp
 {
   BLI_assert(sseq != nullptr);
   ARegion *region = CTX_wm_region(C);
-  if (ED_space_sequencer_check_show_strip(sseq) && !ED_time_scrub_event_in_region(region, event)) {
-    ED_sequencer_special_preview_set(C, event->mval);
+  if (blender::ed::vse::check_show_strip(sseq) && !ED_time_scrub_event_in_region(region, event)) {
+    blender::ed::vse::special_preview_set(C, event->mval);
   }
 }
 
@@ -215,8 +219,8 @@ static void change_frame_seq_preview_end(SpaceSeq *sseq)
 {
   BLI_assert(sseq != nullptr);
   UNUSED_VARS_NDEBUG(sseq);
-  if (ED_sequencer_special_preview_get() != nullptr) {
-    ED_sequencer_special_preview_clear();
+  if (blender::ed::vse::special_preview_get() != nullptr) {
+    blender::ed::vse::special_preview_clear();
   }
 }
 
@@ -227,7 +231,7 @@ static bool use_sequencer_snapping(bContext *C)
   }
 
   Scene *scene = CTX_data_scene(C);
-  short snap_flag = SEQ_tool_settings_snap_flag_get(scene);
+  short snap_flag = blender::seq::tool_settings_snap_flag_get(scene);
   return (scene->toolsettings->snap_flag_seq & SCE_SNAP) &&
          (snap_flag & SEQ_SNAP_CURRENT_FRAME_TO_STRIPS);
 }
@@ -239,7 +243,7 @@ static bool sequencer_skip_for_handle_tweak(const bContext *C, const wmEvent *ev
   }
 
   const Scene *scene = CTX_data_scene(C);
-  if (!SEQ_editing_get(scene)) {
+  if (!blender::seq::editing_get(scene)) {
     return false;
   }
 
@@ -248,9 +252,10 @@ static bool sequencer_skip_for_handle_tweak(const bContext *C, const wmEvent *ev
   float mouse_co[2];
   UI_view2d_region_to_view(v2d, event->mval[0], event->mval[1], &mouse_co[0], &mouse_co[1]);
 
-  StripSelection selection = ED_sequencer_pick_strip_and_handle(scene, v2d, mouse_co);
+  blender::ed::vse::StripSelection selection = blender::ed::vse::pick_strip_and_handle(
+      scene, v2d, mouse_co);
 
-  return selection.handle != SEQ_HANDLE_NONE;
+  return selection.handle != blender::ed::vse::SEQ_HANDLE_NONE;
 }
 
 /* Modal Operator init */
@@ -276,9 +281,12 @@ static int change_frame_invoke(bContext *C, wmOperator *op, const wmEvent *event
   }
 
   screen->scrubbing = true;
-  SpaceSeq *sseq = CTX_wm_space_seq(C);
-  if (sseq) {
-    change_frame_seq_preview_begin(C, event, sseq);
+
+  if (RNA_boolean_get(op->ptr, "seq_solo_preview")) {
+    SpaceSeq *sseq = CTX_wm_space_seq(C);
+    if (sseq) {
+      change_frame_seq_preview_begin(C, event, sseq);
+    }
   }
 
   change_frame_apply(C, op, true);
@@ -303,14 +311,16 @@ static bool need_extra_redraw_after_scrubbing_ends(bContext *C)
   return false;
 }
 
-static void change_frame_cancel(bContext *C, wmOperator * /*op*/)
+static void change_frame_cancel(bContext *C, wmOperator *op)
 {
   bScreen *screen = CTX_wm_screen(C);
   screen->scrubbing = false;
 
-  SpaceSeq *sseq = CTX_wm_space_seq(C);
-  if (sseq != nullptr) {
-    change_frame_seq_preview_end(sseq);
+  if (RNA_boolean_get(op->ptr, "seq_solo_preview")) {
+    SpaceSeq *sseq = CTX_wm_space_seq(C);
+    if (sseq != nullptr) {
+      change_frame_seq_preview_end(sseq);
+    }
   }
 
   if (need_extra_redraw_after_scrubbing_ends(C)) {
@@ -369,10 +379,13 @@ static int change_frame_modal(bContext *C, wmOperator *op, const wmEvent *event)
     bScreen *screen = CTX_wm_screen(C);
     screen->scrubbing = false;
 
-    SpaceSeq *sseq = CTX_wm_space_seq(C);
-    if (sseq != nullptr) {
-      change_frame_seq_preview_end(sseq);
+    if (RNA_boolean_get(op->ptr, "seq_solo_preview")) {
+      SpaceSeq *sseq = CTX_wm_space_seq(C);
+      if (sseq != nullptr) {
+        change_frame_seq_preview_end(sseq);
+      }
     }
+
     if (need_extra_redraw_after_scrubbing_ends(C)) {
       Scene *scene = CTX_data_scene(C);
       WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
@@ -380,6 +393,15 @@ static int change_frame_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   return ret;
+}
+
+static std::string change_frame_get_name(wmOperatorType * /*ot*/, PointerRNA *ptr)
+{
+  if (RNA_boolean_get(ptr, "seq_solo_preview")) {
+    return CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Set Frame (Strip Preview)");
+  }
+
+  return {};
 }
 
 static void ANIM_OT_change_frame(wmOperatorType *ot)
@@ -397,6 +419,7 @@ static void ANIM_OT_change_frame(wmOperatorType *ot)
   ot->cancel = change_frame_cancel;
   ot->modal = change_frame_modal;
   ot->poll = change_frame_poll;
+  ot->get_name = change_frame_get_name;
 
   /* flags */
   ot->flag = OPTYPE_BLOCKING | OPTYPE_GRAB_CURSOR_X | OPTYPE_UNDO_GROUPED;
@@ -407,6 +430,7 @@ static void ANIM_OT_change_frame(wmOperatorType *ot)
       ot->srna, "frame", 0, MINAFRAME, MAXFRAME, "Frame", "", MINAFRAME, MAXFRAME);
   prop = RNA_def_boolean(ot->srna, "snap", false, "Snap", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  prop = RNA_def_boolean(ot->srna, "seq_solo_preview", false, "Strip Preview", "");
 }
 
 /** \} */
@@ -882,8 +906,15 @@ static int merge_actions_selection_exec(bContext *C, wmOperator *op)
       }
       blender::animrig::move_slot(*bmain, *slot, *action, active_action);
       ANIM_id_update(bmain, related_id);
+      DEG_id_tag_update_ex(bmain, &action->id, ID_RECALC_ANIMATION_NO_FLUSH);
     }
   }
+
+  /* `ID_RECALC_ANIMATION_NO_FLUSH` is used here (and above), as the actual animation values do not
+   * change, so there is no need to flush to the animated IDs. The Action itself does need to be
+   * re-evaluated to get an up-to-date evaluated copy with the new slots & channelbags. Without
+   * this, future animation evaluation will break. */
+  DEG_id_tag_update_ex(bmain, &active_action.id, ID_RECALC_ANIMATION_NO_FLUSH);
 
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_ANIMATION | ND_NLA_ACTCHANGE, nullptr);

@@ -51,35 +51,6 @@
 /* ******************************************************** */
 /* Context Wrangling... */
 
-bGPdata **ED_gpencil_data_get_pointers_direct(ScrArea *area, Object *ob, PointerRNA *r_ptr)
-{
-  /* if there's an active area, check if the particular editor may
-   * have defined any special Grease Pencil context for editing...
-   */
-  if (area) {
-    switch (area->spacetype) {
-      case SPACE_PROPERTIES: /* properties */
-      case SPACE_INFO:       /* header info */
-      case SPACE_TOPBAR:     /* Top-bar */
-      case SPACE_VIEW3D:     /* 3D-View */
-      {
-        if (ob && (ob->type == OB_GPENCIL_LEGACY)) {
-          /* GP Object. */
-          if (r_ptr) {
-            *r_ptr = RNA_id_pointer_create(&ob->id);
-          }
-          return (bGPdata **)&ob->data;
-        }
-        return nullptr;
-      }
-      default: /* Unsupported space. */
-        return nullptr;
-    }
-  }
-
-  return nullptr;
-}
-
 bGPdata **ED_annotation_data_get_pointers_direct(ID *screen_id,
                                                  ScrArea *area,
                                                  Scene *scene,
@@ -176,14 +147,6 @@ bGPdata **ED_annotation_data_get_pointers_direct(ID *screen_id,
   }
 
   return nullptr;
-}
-
-bGPdata **ED_gpencil_data_get_pointers(const bContext *C, PointerRNA *r_ptr)
-{
-  ScrArea *area = CTX_wm_area(C);
-  Object *ob = CTX_data_active_object(C);
-
-  return ED_gpencil_data_get_pointers_direct(area, ob, r_ptr);
 }
 
 bGPdata **ED_annotation_data_get_pointers(const bContext *C, PointerRNA *r_ptr)
@@ -294,39 +257,6 @@ void gpencil_point_to_xy(
       *r_x = int((pt->x / 100) * BLI_rctf_size_x(subrect)) + subrect->xmin;
       *r_y = int((pt->y / 100) * BLI_rctf_size_y(subrect)) + subrect->ymin;
     }
-  }
-}
-
-void ED_gpencil_drawing_reference_get(const Scene *scene,
-                                      const Object *ob,
-                                      char align_flag,
-                                      float r_vec[3])
-{
-  const float *fp = scene->cursor.location;
-
-  /* if using a gpencil object at cursor mode, can use the location of the object */
-  if (align_flag & GP_PROJECT_VIEWSPACE) {
-    if (ob && (ob->type == OB_GPENCIL_LEGACY)) {
-      /* fallback (no strokes) - use cursor or object location */
-      if (align_flag & GP_PROJECT_CURSOR) {
-        /* use 3D-cursor */
-        copy_v3_v3(r_vec, fp);
-      }
-      else {
-        /* use object location */
-        copy_v3_v3(r_vec, ob->object_to_world().location());
-        /* Apply layer offset. */
-        bGPdata *gpd = static_cast<bGPdata *>(ob->data);
-        bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
-        if (gpl != nullptr) {
-          add_v3_v3(r_vec, gpl->layer_mat[3]);
-        }
-      }
-    }
-  }
-  else {
-    /* use 3D-cursor */
-    copy_v3_v3(r_vec, fp);
   }
 }
 

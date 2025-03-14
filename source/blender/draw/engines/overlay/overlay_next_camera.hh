@@ -122,8 +122,9 @@ class Cameras : Overlay {
       auto init_pass = [&](PassMain &pass, DRWState draw_state) {
         pass.init();
         pass.state_set(draw_state, state.clipping_plane_count);
-        pass.shader_set(res.shaders.image_plane_depth_bias.get());
+        pass.shader_set(res.shaders->image_plane_depth_bias.get());
         pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+        pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
         pass.push_constant("depth_bias_winmat", &depth_bias_winmat_);
         res.select_bind(pass);
       };
@@ -167,6 +168,7 @@ class Cameras : Overlay {
 
     ps_.init();
     ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
     res.select_bind(ps_);
 
     {
@@ -174,7 +176,7 @@ class Cameras : Overlay {
       sub_pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA |
                              DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_CULL_BACK,
                          state.clipping_plane_count);
-      sub_pass.shader_set(res.shaders.extra_shape.get());
+      sub_pass.shader_set(res.shaders->extra_shape.get());
       call_buffers_.volume_buf.end_sync(sub_pass, res.shapes.camera_volume.get());
     }
     {
@@ -182,7 +184,7 @@ class Cameras : Overlay {
       sub_pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA |
                              DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_CULL_BACK,
                          state.clipping_plane_count);
-      sub_pass.shader_set(res.shaders.extra_shape.get());
+      sub_pass.shader_set(res.shaders->extra_shape.get());
       call_buffers_.volume_wire_buf.end_sync(sub_pass, res.shapes.camera_volume_wire.get());
     }
 
@@ -191,7 +193,7 @@ class Cameras : Overlay {
       sub_pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH |
                              DRW_STATE_DEPTH_LESS_EQUAL,
                          state.clipping_plane_count);
-      sub_pass.shader_set(res.shaders.extra_shape.get());
+      sub_pass.shader_set(res.shaders->extra_shape.get());
       call_buffers_.distances_buf.end_sync(sub_pass, res.shapes.camera_distances.get());
       call_buffers_.frame_buf.end_sync(sub_pass, res.shapes.camera_frame.get());
       call_buffers_.tria_buf.end_sync(sub_pass, res.shapes.camera_tria.get());
@@ -204,7 +206,7 @@ class Cameras : Overlay {
       sub_pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH |
                              DRW_STATE_DEPTH_LESS_EQUAL,
                          state.clipping_plane_count);
-      sub_pass.shader_set(res.shaders.extra_wire.get());
+      sub_pass.shader_set(res.shaders->extra_wire.get());
       call_buffers_.stereo_connect_lines.end_sync(sub_pass);
       call_buffers_.tracking_path.end_sync(sub_pass);
     }
@@ -431,8 +433,8 @@ class Cameras : Overlay {
     int track_index = 1;
 
     float4 bundle_color_custom;
-    float *bundle_color_solid = G_draw.block.color_bundle_solid;
-    float *bundle_color_unselected = G_draw.block.color_wire;
+    float *bundle_color_solid = res.theme_settings.color_bundle_solid;
+    float *bundle_color_unselected = res.theme_settings.color_wire;
     uchar4 text_color_selected, text_color_unselected;
     /* Color Management: Exception here as texts are drawn in sRGB space directly. */
     UI_GetThemeColor4ubv(TH_SELECT, text_color_selected);

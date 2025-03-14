@@ -79,8 +79,7 @@ static char *rna_path_token(const char **path, char *fixedbuf, int fixedlen)
   }
 
   /* Try to use fixed buffer if possible. */
-  char *buf = (len + 1 < fixedlen) ? fixedbuf :
-                                     (char *)MEM_mallocN(sizeof(char) * (len + 1), __func__);
+  char *buf = (len + 1 < fixedlen) ? fixedbuf : MEM_malloc_arrayN<char>(size_t(len) + 1, __func__);
   memcpy(buf, *path, sizeof(char) * len);
   buf[len] = '\0';
 
@@ -159,8 +158,7 @@ static char *rna_path_token_in_brackets(const char **path,
   }
 
   /* Try to use fixed buffer if possible. */
-  char *buf = (len + 1 < fixedlen) ? fixedbuf :
-                                     (char *)MEM_mallocN(sizeof(char) * (len + 1), __func__);
+  char *buf = (len + 1 < fixedlen) ? fixedbuf : MEM_malloc_arrayN<char>(size_t(len) + 1, __func__);
 
   /* Copy string, taking into account escaped ']' */
   if (quoted) {
@@ -394,7 +392,7 @@ static bool rna_path_parse(const PointerRNA *ptr,
   const bool do_item_ptr = r_item_ptr != nullptr && !eval_pointer;
 
   if (do_item_ptr) {
-    RNA_POINTER_INVALIDATE(&nextptr);
+    nextptr.invalidate();
   }
 
   prop = nullptr;
@@ -406,7 +404,7 @@ static bool rna_path_parse(const PointerRNA *ptr,
 
   while (*path) {
     if (do_item_ptr) {
-      RNA_POINTER_INVALIDATE(&nextptr);
+      nextptr.invalidate();
     }
 
     const bool use_id_prop = (*path == '[');

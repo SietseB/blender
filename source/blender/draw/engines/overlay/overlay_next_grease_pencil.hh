@@ -114,13 +114,14 @@ class GreasePencil : Overlay {
       auto &pass = edit_grease_pencil_ps_;
       pass.init();
       pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+      pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
       pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL |
                          DRW_STATE_BLEND_ALPHA,
                      state.clipping_plane_count);
 
       if (show_points_) {
         auto &sub = pass.sub("Points");
-        sub.shader_set(res.shaders.curve_edit_points.get());
+        sub.shader_set(res.shaders->curve_edit_points.get());
         sub.bind_texture("weightTex", &res.weight_ramp_tx);
         sub.push_constant("useWeight", show_weight_);
         sub.push_constant("useGreasePencil", true);
@@ -130,7 +131,7 @@ class GreasePencil : Overlay {
 
       if (show_lines_) {
         auto &sub = pass.sub("Lines");
-        sub.shader_set(res.shaders.curve_edit_line.get());
+        sub.shader_set(res.shaders->curve_edit_line.get());
         sub.bind_texture("weightTex", &res.weight_ramp_tx);
         sub.push_constant("useWeight", show_weight_);
         sub.push_constant("useGreasePencil", true);
@@ -153,8 +154,9 @@ class GreasePencil : Overlay {
       if (show_grid_) {
         const float4 col_grid(float3(state.overlay.gpencil_grid_color),
                               state.overlay.gpencil_grid_opacity);
-        pass.shader_set(res.shaders.grid_grease_pencil.get());
+        pass.shader_set(res.shaders->grid_grease_pencil.get());
         pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+        pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
         pass.push_constant("color", col_grid);
       }
     }
@@ -308,16 +310,10 @@ class GreasePencil : Overlay {
     const Vector<DrawingInfo> drawings = retrieve_visible_drawings(*scene, grease_pencil, true);
     for (const DrawingInfo info : drawings) {
 
-      const float object_scale = mat4_to_scale(ob->object_to_world().ptr());
-      const float thickness_scale = bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
-
       gpu::VertBuf *position_tx = draw::DRW_cache_grease_pencil_position_buffer_get(scene, ob);
       gpu::VertBuf *color_tx = draw::DRW_cache_grease_pencil_color_buffer_get(scene, ob);
 
       pass.push_constant("gpStrokeOrder3d", is_stroke_order_3d);
-      pass.push_constant("gpThicknessScale", object_scale);
-      pass.push_constant("gpThicknessOffset", 0.0f);
-      pass.push_constant("gpThicknessWorldScale", thickness_scale);
       pass.bind_texture("gp_pos_tx", position_tx);
       pass.bind_texture("gp_col_tx", color_tx);
 

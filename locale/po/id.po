@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2025-01-31 04:04+0000\n"
 "Last-Translator: \"Adriel Y.\" <mixnblend@users.noreply.translate.blender.org>\n"
 "Language-Team: Indonesian <https://translate.blender.org/projects/blender-ui/ui/id/>\n"
@@ -99,10 +99,6 @@ msgstr "Untuk setiap slot aksi, ada daftar saluran animasi yang dimaksudkan untu
 
 msgid "Action F-Curves"
 msgstr "Aksi F-Kurva"
-
-
-msgid "Collection of action F-Curves"
-msgstr "Koleksi aksi F-Kurva"
 
 
 msgid "Action Group"
@@ -656,10 +652,6 @@ msgstr "Buat spasi lebih banyak untuk adegan besar supaya cukup dengan mendistri
 
 msgid "HIP RT (Experimental)"
 msgstr "HIP RT (Eksperimental)"
-
-
-msgid "HIP RT enables AMD hardware ray tracing on RDNA2 and above, with shader fallback on older cards. This feature is experimental and some scenes may render incorrectly"
-msgstr "HIP RT menggunakan pelacakan sinar oleh perangkat keras AMD di RDNA2 dan yang lebih baru, dengan fallback peneduh pada kartu lebih tua. Fitur ini bersifat eksperimental dan beberapa adegan mungkin salah render"
 
 
 msgid "Embree on GPU"
@@ -11446,14 +11438,6 @@ msgid "Loop"
 msgstr "Putaran"
 
 
-msgid "Clone Image"
-msgstr "Gambar"
-
-
-msgid "Clone Offset"
-msgstr "Kamera"
-
-
 msgid "How much the cloth preserves the original shape, acting as a soft body"
 msgstr "Berapa besar kain mempertahankan bentuk aslinya, bekerja sebagai tubuh lembut"
 
@@ -13303,11 +13287,6 @@ msgid "Wood Texture"
 msgstr "Tekstur"
 
 
-msgctxt "Sequence"
-msgid "Clip"
-msgstr "Klip"
-
-
 msgid "Window manager data-block defining open windows and other user interface data"
 msgstr "Manajer jendela data-blok mendefinisikan jendela terbuka dan data antarmuka pengguna lainnya"
 
@@ -15139,18 +15118,6 @@ msgid "Mask"
 msgstr "Masker"
 
 
-msgid "Text"
-msgstr "Teks"
-
-
-msgid "Metaball"
-msgstr "Metabola"
-
-
-msgid "Names"
-msgstr "Nama"
-
-
 msgid "Snap"
 msgstr "Jepret"
 
@@ -15169,6 +15136,10 @@ msgstr "Seleksi yang Terhubung"
 
 msgid "Assign Material"
 msgstr "Tugaskan Bahan"
+
+
+msgid "Metaball"
+msgstr "Metabola"
 
 
 msgid "Light"
@@ -15199,8 +15170,16 @@ msgid "Hooks"
 msgstr "Kait"
 
 
+msgid "Names"
+msgstr "Nama"
+
+
 msgid "Merge"
 msgstr "Menggabungkan"
+
+
+msgid "Text"
+msgstr "Teks"
 
 
 msgctxt "MovieClip"
@@ -20711,6 +20690,10 @@ msgid "Select Mode"
 msgstr "Seleksi"
 
 
+msgid "Fill Opacity"
+msgstr "Isi Opasitas"
+
+
 msgid "Assign the active material slot to the selected strokes"
 msgstr "Tugaskan slot bahan aktif ke sapuan terpilih"
 
@@ -24217,10 +24200,6 @@ msgid "Exports UVs from the modified mesh"
 msgstr "Mengekspor UV dari jala yang dimodifikasi"
 
 
-msgid "Fill Opacity"
-msgstr "Isi Opasitas"
-
-
 msgid "Hide (un)selected UV vertices"
 msgstr "Menyembunyikan simpul UV yang (tidak) terpilih"
 
@@ -25374,6 +25353,14 @@ msgstr "Ukurang"
 
 msgid "Canvas"
 msgstr "Kanvas"
+
+
+msgid "Clone Image"
+msgstr "Gambar"
+
+
+msgid "Clone Offset"
+msgstr "Kamera"
 
 
 msgid "Clone Map"
@@ -26712,6 +26699,11 @@ msgstr "Adegan"
 msgctxt "Sequence"
 msgid "Movie"
 msgstr "Film"
+
+
+msgctxt "Sequence"
+msgid "Clip"
+msgstr "Klip"
 
 
 msgctxt "Sequence"

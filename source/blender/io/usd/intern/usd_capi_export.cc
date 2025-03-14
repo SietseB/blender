@@ -62,18 +62,18 @@ static CLG_LogRef LOG = {"io.usd"};
 namespace blender::io::usd {
 
 struct ExportJobData {
-  Main *bmain;
-  Depsgraph *depsgraph;
-  wmWindowManager *wm;
-  Scene *scene;
+  Main *bmain = nullptr;
+  Depsgraph *depsgraph = nullptr;
+  wmWindowManager *wm = nullptr;
+  Scene *scene = nullptr;
 
   /** Unarchived_filepath is used for USDA/USDC/USD export. */
-  char unarchived_filepath[FILE_MAX];
-  char usdz_filepath[FILE_MAX];
-  USDExportParams params;
+  char unarchived_filepath[FILE_MAX] = {};
+  char usdz_filepath[FILE_MAX] = {};
+  USDExportParams params = {};
 
-  bool export_ok;
-  timeit::TimePoint start_time;
+  bool export_ok = false;
+  timeit::TimePoint start_time = {};
 
   bool targets_usdz() const
   {
@@ -106,7 +106,7 @@ static bool prim_path_valid(const char *path)
   /* Check path syntax. */
   std::string errMsg;
   if (!pxr::SdfPath::IsValidPathString(path, &errMsg)) {
-    WM_reportf(RPT_ERROR, "USD Export: invalid path string '%s': %s", path, errMsg.c_str());
+    WM_global_reportf(RPT_ERROR, "USD Export: invalid path string '%s': %s", path, errMsg.c_str());
     return false;
   }
 
@@ -115,12 +115,12 @@ static bool prim_path_valid(const char *path)
 
   pxr::SdfPath sdf_path(path);
   if (!sdf_path.IsAbsolutePath()) {
-    WM_reportf(RPT_ERROR, "USD Export: path '%s' is not an absolute path", path);
+    WM_global_reportf(RPT_ERROR, "USD Export: path '%s' is not an absolute path", path);
     return false;
   }
 
   if (!sdf_path.IsPrimPath()) {
-    WM_reportf(RPT_ERROR, "USD Export: path string '%s' is not a prim path", path);
+    WM_global_reportf(RPT_ERROR, "USD Export: path string '%s' is not a prim path", path);
     return false;
   }
 
@@ -370,11 +370,11 @@ std::string cache_image_color(const float color[4])
     return file_path;
   }
 
-  ImBuf *ibuf = IMB_allocImBuf(4, 4, 32, IB_rectfloat);
+  ImBuf *ibuf = IMB_allocImBuf(4, 4, 32, IB_float_data);
   IMB_rectfill(ibuf, color);
   ibuf->ftype = IMB_FTYPE_RADHDR;
 
-  if (IMB_saveiff(ibuf, file_path.c_str(), IB_rectfloat)) {
+  if (IMB_saveiff(ibuf, file_path.c_str(), IB_float_data)) {
     CLOG_INFO(&LOG, 1, "%s", file_path.c_str());
   }
   else {
@@ -668,8 +668,7 @@ bool USD_export(const bContext *C,
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Scene *scene = CTX_data_scene(C);
 
-  blender::io::usd::ExportJobData *job = static_cast<blender::io::usd::ExportJobData *>(
-      MEM_mallocN(sizeof(blender::io::usd::ExportJobData), "ExportJobData"));
+  blender::io::usd::ExportJobData *job = MEM_new<blender::io::usd::ExportJobData>("ExportJobData");
 
   job->bmain = CTX_data_main(C);
   job->wm = CTX_wm_manager(C);
@@ -710,7 +709,9 @@ bool USD_export(const bContext *C,
         job->wm, CTX_wm_window(C), scene, "USD Export", WM_JOB_PROGRESS, WM_JOB_TYPE_USD_EXPORT);
 
     /* setup job */
-    WM_jobs_customdata_set(wm_job, job, MEM_freeN);
+    WM_jobs_customdata_set(wm_job, job, [](void *j) {
+      MEM_delete(static_cast<blender::io::usd::ExportJobData *>(j));
+    });
     WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_FRAME, NC_SCENE | ND_FRAME);
     WM_jobs_callbacks(wm_job,
                       blender::io::usd::export_startjob,
@@ -729,7 +730,7 @@ bool USD_export(const bContext *C,
     blender::io::usd::export_endjob(job);
     export_ok = job->export_ok;
 
-    MEM_freeN(job);
+    MEM_delete(job);
   }
 
   return export_ok;

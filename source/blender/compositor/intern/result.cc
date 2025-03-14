@@ -9,6 +9,7 @@
 
 #include "BLI_assert.h"
 #include "BLI_cpp_type.hh"
+#include "BLI_generic_pointer.hh"
 #include "BLI_generic_span.hh"
 #include "BLI_math_matrix_types.hh"
 #include "BLI_math_vector_types.hh"
@@ -45,13 +46,15 @@ eGPUTextureFormat Result::gpu_texture_format(ResultType type, ResultPrecision pr
       switch (type) {
         case ResultType::Float:
           return GPU_R16F;
-        case ResultType::Vector:
         case ResultType::Color:
+        case ResultType::Float4:
+          return GPU_RGBA16F;
+        case ResultType::Float3:
+          /* RGB textures are not fully supported by hardware, so we store Float3 results in RGBA
+           * textures. */
           return GPU_RGBA16F;
         case ResultType::Float2:
           return GPU_RG16F;
-        case ResultType::Float3:
-          return GPU_RGB16F;
         case ResultType::Int:
           return GPU_R16I;
         case ResultType::Int2:
@@ -62,13 +65,15 @@ eGPUTextureFormat Result::gpu_texture_format(ResultType type, ResultPrecision pr
       switch (type) {
         case ResultType::Float:
           return GPU_R32F;
-        case ResultType::Vector:
         case ResultType::Color:
+        case ResultType::Float4:
+          return GPU_RGBA32F;
+        case ResultType::Float3:
+          /* RGB textures are not fully supported by hardware, so we store Float3 results in RGBA
+           * textures. */
           return GPU_RGBA32F;
         case ResultType::Float2:
           return GPU_RG32F;
-        case ResultType::Float3:
-          return GPU_RGB32F;
         case ResultType::Int:
           return GPU_R32I;
         case ResultType::Int2:
@@ -217,21 +222,16 @@ ResultType Result::float_type(const int channels_count)
   return ResultType::Color;
 }
 
-Result::operator GPUTexture *() const
+const CPPType &Result::cpp_type(const ResultType type)
 {
-  return this->gpu_texture();
-}
-
-const CPPType &Result::get_cpp_type() const
-{
-  switch (this->type()) {
+  switch (type) {
     case ResultType::Float:
       return CPPType::get<float>();
     case ResultType::Int:
-      return CPPType::get<int>();
-    case ResultType::Vector:
-      return CPPType::get<float4>();
+      return CPPType::get<int32_t>();
     case ResultType::Color:
+      return CPPType::get<float4>();
+    case ResultType::Float4:
       return CPPType::get<float4>();
     case ResultType::Float2:
       return CPPType::get<float2>();
@@ -245,6 +245,39 @@ const CPPType &Result::get_cpp_type() const
   return CPPType::get<float>();
 }
 
+const char *Result::type_name(const ResultType type)
+{
+  switch (type) {
+    case ResultType::Float:
+      return "float";
+    case ResultType::Float2:
+      return "float2";
+    case ResultType::Float3:
+      return "float3";
+    case ResultType::Float4:
+      return "float4";
+    case ResultType::Color:
+      return "color";
+    case ResultType::Int2:
+      return "int2";
+    case ResultType::Int:
+      return "int";
+  }
+
+  BLI_assert_unreachable();
+  return "";
+}
+
+Result::operator GPUTexture *() const
+{
+  return this->gpu_texture();
+}
+
+const CPPType &Result::get_cpp_type() const
+{
+  return Result::cpp_type(this->type());
+}
+
 eGPUTextureFormat Result::get_gpu_texture_format() const
 {
   return Result::gpu_texture_format(type_, precision_);
@@ -252,13 +285,8 @@ eGPUTextureFormat Result::get_gpu_texture_format() const
 
 void Result::allocate_texture(Domain domain, bool from_pool)
 {
-  /* The result is not actually needed, so allocate a dummy single value texture instead. See the
-   * method description for more information. */
-  if (!should_compute()) {
-    allocate_single_value();
-    increment_reference_count();
-    return;
-  }
+  /* Make sure we are not allocating a result that should not be computed. */
+  BLI_assert(this->should_compute());
 
   is_single_value_ = false;
   this->allocate_data(domain.size, from_pool);
@@ -267,6 +295,9 @@ void Result::allocate_texture(Domain domain, bool from_pool)
 
 void Result::allocate_single_value()
 {
+  /* Make sure we are not allocating a result that should not be computed. */
+  BLI_assert(this->should_compute());
+
   /* Single values are stored in 1x1 image as well as the single value members. Further, they
    * are always allocated from the pool. */
   is_single_value_ = true;
@@ -279,10 +310,10 @@ void Result::allocate_single_value()
     case ResultType::Float:
       this->set_single_value(0.0f);
       break;
-    case ResultType::Vector:
+    case ResultType::Color:
       this->set_single_value(float4(0.0f));
       break;
-    case ResultType::Color:
+    case ResultType::Float4:
       this->set_single_value(float4(0.0f));
       break;
     case ResultType::Float2:
@@ -341,19 +372,22 @@ void Result::unbind_as_image() const
   GPU_texture_image_unbind(this->gpu_texture());
 }
 
-void Result::pass_through(Result &target)
+void Result::share_data(const Result &source)
 {
-  /* Increment the reference count of the master by the original reference count of the target. */
-  increment_reference_count(target.reference_count());
+  BLI_assert(type_ == source.type_);
+  BLI_assert(precision_ == source.precision_);
+  BLI_assert(!this->is_allocated() && source.is_allocated());
 
-  /* Make the target an exact copy of this result, but keep the initial reference count, as this is
-   * a property of the original result and is needed for correctly resetting the result before the
-   * next evaluation. */
-  const int initial_reference_count = target.initial_reference_count_;
-  target = *this;
-  target.initial_reference_count_ = initial_reference_count;
+  /* Overwrite everything except reference count. */
+  const int reference_count = reference_count_;
+  *this = source;
+  reference_count_ = reference_count;
 
-  target.master_ = this;
+  /* External data is intrinsically shared, and data_reference_count_ is nullptr in this case since
+   * it is not needed. */
+  if (!is_external_) {
+    (*data_reference_count_)++;
+  }
 }
 
 void Result::steal_data(Result &source)
@@ -361,23 +395,35 @@ void Result::steal_data(Result &source)
   BLI_assert(type_ == source.type_);
   BLI_assert(precision_ == source.precision_);
   BLI_assert(!this->is_allocated() && source.is_allocated());
-  BLI_assert(master_ == nullptr && source.master_ == nullptr);
 
   /* Overwrite everything except reference counts. */
   const int reference_count = reference_count_;
-  const int initial_reference_count = initial_reference_count_;
   *this = source;
   reference_count_ = reference_count;
-  initial_reference_count_ = initial_reference_count;
 
-  source.reset();
+  source = Result(*context_, type_, precision_);
+}
+
+/* Returns true if the given GPU texture is compatible with the type and precision of the given
+ * result. */
+[[maybe_unused]] static bool is_compatible_texture(const GPUTexture *texture, const Result &result)
+{
+  /* Float3 types are an exception, see the documentation on the get_gpu_texture_format method for
+   * more information. */
+  if (result.type() == ResultType::Float3) {
+    if (GPU_texture_format(texture) == Result::gpu_texture_format(GPU_RGB32F, result.precision()))
+    {
+      return true;
+    }
+  }
+
+  return GPU_texture_format(texture) == result.get_gpu_texture_format();
 }
 
 void Result::wrap_external(GPUTexture *texture)
 {
-  BLI_assert(GPU_texture_format(texture) == this->get_gpu_texture_format());
+  BLI_assert(is_compatible_texture(texture, *this));
   BLI_assert(!this->is_allocated());
-  BLI_assert(!master_);
 
   gpu_texture_ = texture;
   storage_type_ = ResultStorageType::GPU;
@@ -389,7 +435,6 @@ void Result::wrap_external(GPUTexture *texture)
 void Result::wrap_external(void *data, int2 size)
 {
   BLI_assert(!this->is_allocated());
-  BLI_assert(!master_);
 
   const int64_t array_size = int64_t(size.x) * int64_t(size.y);
   cpu_data_ = GMutableSpan(this->get_cpp_type(), data, array_size);
@@ -403,7 +448,6 @@ void Result::wrap_external(const Result &result)
   BLI_assert(type_ == result.type());
   BLI_assert(precision_ == result.precision());
   BLI_assert(!this->is_allocated());
-  BLI_assert(!master_);
 
   /* Steal the data of the given result and mark it as wrapping external data, but create a
    * temporary copy of the result first, since steal_data will reset it. */
@@ -427,42 +471,30 @@ RealizationOptions &Result::get_realization_options()
   return domain_.realization_options;
 }
 
-void Result::set_initial_reference_count(int count)
+const RealizationOptions &Result::get_realization_options() const
 {
-  initial_reference_count_ = count;
+  return domain_.realization_options;
 }
 
-void Result::reset()
+void Result::set_reference_count(int count)
 {
-  const int initial_reference_count = initial_reference_count_;
-  *this = Result(*context_, type_, precision_);
-  initial_reference_count_ = initial_reference_count;
-  reference_count_ = initial_reference_count;
+  reference_count_ = count;
 }
 
 void Result::increment_reference_count(int count)
 {
-  /* If there is a master result, increment its reference count instead. */
-  if (master_) {
-    master_->increment_reference_count(count);
-    return;
-  }
-
   reference_count_ += count;
 }
 
-void Result::release(const int count)
+void Result::decrement_reference_count(int count)
 {
-  BLI_assert(count > 0);
-
-  /* If there is a master result, release it instead. */
-  if (master_) {
-    master_->release(count);
-    return;
-  }
-
-  /* Decrement the reference count, and if it is not yet zero, return and do not free. */
   reference_count_ -= count;
+}
+
+void Result::release()
+{
+  /* Decrement the reference count, and if it is not yet zero, return and do not free. */
+  reference_count_--;
   BLI_assert(reference_count_ >= 0);
   if (reference_count_ != 0) {
     return;
@@ -473,17 +505,19 @@ void Result::release(const int count)
 
 void Result::free()
 {
-  /* If there is a master result, free it instead. */
-  if (master_) {
-    master_->free();
-    return;
-  }
-
   if (is_external_) {
     return;
   }
 
   if (!this->is_allocated()) {
+    return;
+  }
+
+  /* Data is still shared with some other result, so decrement data reference count and do not free
+   * anything. */
+  BLI_assert(*data_reference_count_ >= 1);
+  if (*data_reference_count_ != 1) {
+    (*data_reference_count_)--;
     return;
   }
 
@@ -503,13 +537,16 @@ void Result::free()
       break;
   }
 
+  delete data_reference_count_;
+  data_reference_count_ = nullptr;
+
   delete derived_resources_;
   derived_resources_ = nullptr;
 }
 
 bool Result::should_compute()
 {
-  return initial_reference_count_ != 0;
+  return reference_count_ != 0;
 }
 
 DerivedResources &Result::derived_resources()
@@ -563,30 +600,34 @@ bool Result::is_allocated() const
 
 int Result::reference_count() const
 {
-  /* If there is a master result, return its reference count instead. */
-  if (master_) {
-    return master_->reference_count();
-  }
   return reference_count_;
+}
+
+GPointer Result::single_value() const
+{
+  return std::visit([](const auto &value) { return GPointer(&value); }, single_value_);
+}
+
+GMutablePointer Result::single_value()
+{
+  return std::visit([](auto &value) { return GMutablePointer(&value); }, single_value_);
 }
 
 void Result::allocate_data(int2 size, bool from_pool)
 {
+  BLI_assert(!this->is_allocated());
+
   if (context_->use_gpu()) {
     storage_type_ = ResultStorageType::GPU;
     is_from_pool_ = from_pool;
+
+    const eGPUTextureFormat format = this->get_gpu_texture_format();
+    const eGPUTextureUsage usage = GPU_TEXTURE_USAGE_GENERAL;
     if (from_pool) {
-      gpu_texture_ = gpu::TexturePool::get().acquire_texture(
-          size.x, size.y, this->get_gpu_texture_format(), GPU_TEXTURE_USAGE_GENERAL);
+      gpu_texture_ = gpu::TexturePool::get().acquire_texture(size.x, size.y, format, usage);
     }
     else {
-      gpu_texture_ = GPU_texture_create_2d(__func__,
-                                           size.x,
-                                           size.y,
-                                           1,
-                                           this->get_gpu_texture_format(),
-                                           GPU_TEXTURE_USAGE_GENERAL,
-                                           nullptr);
+      gpu_texture_ = GPU_texture_create_2d(__func__, size.x, size.y, 1, format, usage, nullptr);
     }
   }
   else {
@@ -603,6 +644,8 @@ void Result::allocate_data(int2 size, bool from_pool)
 
     cpu_data_ = GMutableSpan(cpp_type, data, array_size);
   }
+
+  data_reference_count_ = new int(1);
 }
 
 }  // namespace blender::compositor

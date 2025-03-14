@@ -58,7 +58,7 @@ static void cmp_node_lensdist_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_lensdist(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeLensDist *nld = MEM_cnew<NodeLensDist>(__func__);
+  NodeLensDist *nld = MEM_callocN<NodeLensDist>(__func__);
   nld->jit = nld->proj = nld->fit = 0;
   node->storage = nld;
 }
@@ -277,8 +277,10 @@ class LensDistortionOperation : public NodeOperation {
 
   void execute() override
   {
-    if (is_identity()) {
-      get_input("Image").pass_through(get_result("Image"));
+    if (this->is_identity()) {
+      const Result &input = this->get_input("Image");
+      Result &output = this->get_result("Image");
+      output.share_data(input);
       return;
     }
 
@@ -514,8 +516,8 @@ void register_node_type_cmp_lensdist()
   ntype.draw_buttons = file_ns::node_composit_buts_lensdist;
   ntype.initfunc = file_ns::node_composit_init_lensdist;
   blender::bke::node_type_storage(
-      &ntype, "NodeLensDist", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeLensDist", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

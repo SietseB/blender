@@ -214,11 +214,7 @@ static bool annotation_draw_poll(bContext *C)
   if (ED_operator_regionactive(C)) {
     /* check if current context can support GPencil data */
     if (ED_annotation_data_get_pointers(C, nullptr) != nullptr) {
-      /* check if Grease Pencil isn't already running */
-      if (ED_gpencil_session_active() == 0) {
-        return true;
-      }
-      CTX_wm_operator_poll_msg_set(C, "Annotation operator is already active");
+      return true;
     }
     else {
       CTX_wm_operator_poll_msg_set(C, "Failed to find Annotation data to draw into");
@@ -1073,7 +1069,7 @@ static void annotation_free_stroke(bGPDframe *gpf, bGPDstroke *gps)
 
   if (gps->dvert) {
     BKE_gpencil_free_stroke_weights(gps);
-    MEM_freeN(gps->dvert);
+    MEM_freeN(static_cast<void *>(gps->dvert));
   }
 
   if (gps->triangles) {
@@ -1409,13 +1405,6 @@ static bool annotation_session_initdata(bContext *C, tGPsdata *p)
     gpd->flag |= GP_DATA_ANNOTATIONS;
   }
   p->gpd = *gpd_ptr;
-
-  if (ED_gpencil_session_active() == 0) {
-    /* initialize undo stack,
-     * also, existing undo stack would make buffer drawn
-     */
-    gpencil_undo_init(p->gpd);
-  }
 
   /* clear out buffer (stored in gp-data), in case something contaminated it */
   annotation_session_validatebuffer(p);
@@ -1883,9 +1872,6 @@ static void annotation_draw_exit(bContext *C, wmOperator *op)
      *       have been toggled at some point.
      */
     U.gp_eraser = p->radius;
-
-    /* clear undo stack */
-    gpencil_undo_finish();
 
     /* cleanup */
     annotation_paint_cleanup(p);
@@ -2385,8 +2371,6 @@ static void annotation_stroke_end(wmOperator *op)
   tGPsdata *p = static_cast<tGPsdata *>(op->customdata);
 
   annotation_paint_cleanup(p);
-
-  gpencil_undo_push(p->gpd);
 
   annotation_session_cleanup(p);
 

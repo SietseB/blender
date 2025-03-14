@@ -26,6 +26,7 @@
 #include "BKE_image_format.hh"
 #include "BKE_node.hh"
 #include "BKE_node_legacy_types.hh"
+#include "BKE_node_runtime.hh"
 #include "BKE_screen.hh"
 
 #include "RE_pipeline.h"
@@ -55,7 +56,7 @@
 ImageUser *ntree_get_active_iuser(bNodeTree *ntree)
 {
   if (ntree) {
-    LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    for (bNode *node : ntree->all_nodes()) {
       if (node->type_legacy == CMP_NODE_VIEWER) {
         if (node->flag & NODE_DO_OUTPUT) {
           return static_cast<ImageUser *>(node->storage);
@@ -697,11 +698,16 @@ static void uiblock_layer_pass_buttons(uiLayout *layout,
   }
 }
 
+/* Prevent naming collision. */
+namespace {
+
 struct RNAUpdateCb {
   PointerRNA ptr = {};
   PropertyRNA *prop;
   ImageUser *iuser;
 };
+
+};  // namespace
 
 static void rna_update_cb(bContext *C, void *arg_cb, void * /*arg*/)
 {

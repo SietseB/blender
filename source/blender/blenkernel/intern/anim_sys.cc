@@ -20,6 +20,7 @@
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
 #include "BLI_math_vector_types.hh"
+#include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
 #include "BLI_string_utils.hh"
@@ -3129,13 +3130,17 @@ void nladata_flush_channels(PointerRNA *ptr,
 
 /* ---------------------- */
 
+using ActionAndSlot = std::pair<bAction *, animrig::slot_handle_t>;
+using ActionAndSlotSet = Set<ActionAndSlot>;
+
 static void nla_eval_domain_action(PointerRNA *ptr,
                                    NlaEvalData *channels,
                                    bAction *act,
                                    const animrig::slot_handle_t slot_handle,
-                                   GSet *touched_actions)
+                                   ActionAndSlotSet &touched_actions)
 {
-  if (!BLI_gset_add(touched_actions, act)) {
+  const ActionAndSlot action_and_slot(act, slot_handle);
+  if (!touched_actions.add(action_and_slot)) {
     return;
   }
 
@@ -3166,7 +3171,7 @@ static void nla_eval_domain_action(PointerRNA *ptr,
 static void nla_eval_domain_strips(PointerRNA *ptr,
                                    NlaEvalData *channels,
                                    ListBase *strips,
-                                   GSet *touched_actions)
+                                   ActionAndSlotSet &touched_actions)
 {
   LISTBASE_FOREACH (NlaStrip *, strip, strips) {
     /* Check strip's action. */
@@ -3186,7 +3191,7 @@ static void nla_eval_domain_strips(PointerRNA *ptr,
  */
 static void animsys_evaluate_nla_domain(PointerRNA *ptr, NlaEvalData *channels, AnimData *adt)
 {
-  GSet *touched_actions = BLI_gset_ptr_new(__func__);
+  ActionAndSlotSet touched_actions;
 
   /* Include domain of Action Track. */
   if ((adt->flag & ADT_NLA_EDIT_ON) == 0) {
@@ -3200,25 +3205,11 @@ static void animsys_evaluate_nla_domain(PointerRNA *ptr, NlaEvalData *channels, 
 
   /* NLA Data - Animation Data for Strips */
   LISTBASE_FOREACH (NlaTrack *, nlt, &adt->nla_tracks) {
-    /* solo and muting are mutually exclusive... */
-    if (adt->flag & ADT_NLA_SOLO_TRACK) {
-      /* skip if there is a solo track, but this isn't it */
-      if ((nlt->flag & NLATRACK_SOLO) == 0) {
-        continue;
-      }
-      /* else - mute doesn't matter */
+    if (!BKE_nlatrack_is_enabled(*adt, *nlt)) {
+      continue;
     }
-    else {
-      /* no solo tracks - skip track if muted */
-      if (nlt->flag & NLATRACK_MUTED) {
-        continue;
-      }
-    }
-
     nla_eval_domain_strips(ptr, channels, &nlt->strips, touched_actions);
   }
-
-  BLI_gset_free(touched_actions, nullptr);
 }
 
 /* ---------------------- */
@@ -3325,21 +3316,7 @@ static bool is_nlatrack_evaluatable(const AnimData *adt, const NlaTrack *nlt)
     return false;
   }
 
-  /* Solo and muting are mutually exclusive. */
-  if (adt->flag & ADT_NLA_SOLO_TRACK) {
-    /* Skip if there is a solo track, but this isn't it. */
-    if ((nlt->flag & NLATRACK_SOLO) == 0) {
-      return false;
-    }
-  }
-  else {
-    /* Skip track if muted. */
-    if (nlt->flag & NLATRACK_MUTED) {
-      return false;
-    }
-  }
-
-  return true;
+  return BKE_nlatrack_is_enabled(*adt, *nlt);
 }
 
 /**

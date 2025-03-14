@@ -10,6 +10,7 @@ SHADER_LIBRARY_CREATE_INFO(eevee_global_ubo)
 SHADER_LIBRARY_CREATE_INFO(eevee_utility_texture)
 
 #include "draw_model_lib.glsl"
+#include "draw_object_infos_lib.glsl"
 #include "draw_view_lib.glsl"
 #include "eevee_renderpass_lib.glsl"
 #include "gpu_shader_codegen_lib.glsl"
@@ -736,14 +737,14 @@ float texture_lod_bias_get()
 /* -------------------------------------------------------------------- */
 /** \name Volume Attribute post
  *
- * TODO(@fclem): These implementation details should concern the DRWManager and not be a fix on
+ * TODO(@fclem): These implementation details should concern the DRWContext and not be a fix on
  * the engine side. But as of now, the engines are responsible for loading the attributes.
  *
  * \{ */
 
 /* Point clouds and curves are not compatible with volume grids.
  * They will fallback to their own attributes loading. */
-#if defined(MAT_VOLUME) && !defined(MAT_GEOM_CURVES) && !defined(MAT_GEOM_POINT_CLOUD)
+#if defined(MAT_VOLUME) && !defined(MAT_GEOM_CURVES) && !defined(MAT_GEOM_POINTCLOUD)
 #  if defined(VOLUME_INFO_LIB) && !defined(MAT_GEOM_WORLD)
 /* We could just check for GRID_ATTRIBUTES but this avoids for header dependency. */
 #    define GRID_ATTRIBUTES_LOAD_POST
@@ -776,27 +777,14 @@ vec4 attr_load_color_post(vec4 attr)
 /* -------------------------------------------------------------------- */
 /** \name Uniform Attributes
  *
- * TODO(@fclem): These implementation details should concern the DRWManager and not be a fix on
+ * TODO(@fclem): These implementation details should concern the DRWContext and not be a fix on
  * the engine side. But as of now, the engines are responsible for loading the attributes.
  *
  * \{ */
 
 vec4 attr_load_uniform(vec4 attr, const uint attr_hash)
 {
-#if defined(OBATTR_LIB)
-  uint index = floatBitsToUint(ObjectAttributeStart);
-  for (uint i = 0; i < floatBitsToUint(ObjectAttributeLen); i++, index++) {
-    if (drw_attrs[index].hash_code == attr_hash) {
-      return vec4(drw_attrs[index].data_x,
-                  drw_attrs[index].data_y,
-                  drw_attrs[index].data_z,
-                  drw_attrs[index].data_w);
-    }
-  }
-  return vec4(0.0);
-#else
-  return attr;
-#endif
+  return drw_object_attribute(attr_hash);
 }
 
 /** \} */

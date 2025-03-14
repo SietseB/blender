@@ -157,8 +157,9 @@ class ForceFields : Overlay {
     res.select_bind(ps_);
     ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL,
                   state.clipping_plane_count);
-    ps_.shader_set(res.shaders.extra_shape.get());
+    ps_.shader_set(res.shaders->extra_shape.get());
     ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
 
     call_buffers_.field_force_buf.end_sync(ps_, res.shapes.field_force.get());
     call_buffers_.field_wind_buf.end_sync(ps_, res.shapes.field_wind.get());

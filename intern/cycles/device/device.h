@@ -78,45 +78,30 @@ enum MetalRTSetting {
 
 class DeviceInfo {
  public:
-  DeviceType type;
+  DeviceType type = DEVICE_CPU;
   string description;
-  string id; /* used for user preferences, should stay fixed with changing hardware config */
-  int num;
-  bool display_device;          /* GPU is used as a display device. */
-  bool has_nanovdb;             /* Support NanoVDB volumes. */
-  bool has_mnee;                /* Support MNEE. */
-  bool has_osl;                 /* Support Open Shading Language. */
-  bool has_guiding;             /* Support path guiding. */
-  bool has_profiling;           /* Supports runtime collection of profiling info. */
-  bool has_peer_memory;         /* GPU has P2P access to memory of another GPU. */
-  bool has_gpu_queue;           /* Device supports GPU queue. */
-  bool use_hardware_raytracing; /* Use hardware instructions to accelerate ray tracing. */
-  bool use_metalrt_by_default;  /* Use MetalRT by default. */
-  KernelOptimizationLevel kernel_optimization_level; /* Optimization level applied to path tracing
-                                                      * kernels (Metal only). */
-  DenoiserTypeMask denoisers;                        /* Supported denoiser types. */
-  int cpu_threads;
+  /* used for user preferences, should stay fixed with changing hardware config */
+  string id = "CPU";
+  int num = 0;
+  bool display_device = false;          /* GPU is used as a display device. */
+  bool has_nanovdb = false;             /* Support NanoVDB volumes. */
+  bool has_mnee = true;                 /* Support MNEE. */
+  bool has_osl = false;                 /* Support Open Shading Language. */
+  bool has_guiding = false;             /* Support path guiding. */
+  bool has_profiling = false;           /* Supports runtime collection of profiling info. */
+  bool has_peer_memory = false;         /* GPU has P2P access to memory of another GPU. */
+  bool has_gpu_queue = false;           /* Device supports GPU queue. */
+  bool use_hardware_raytracing = false; /* Use hardware instructions to accelerate ray tracing. */
+  bool use_metalrt_by_default = false;  /* Use MetalRT by default. */
+  KernelOptimizationLevel kernel_optimization_level =
+      KERNEL_OPTIMIZATION_LEVEL_FULL;         /* Optimization level applied to path tracing
+                                               * kernels (Metal only). */
+  DenoiserTypeMask denoisers = DENOISER_NONE; /* Supported denoiser types. */
+  int cpu_threads = 0;
   vector<DeviceInfo> multi_devices;
   string error_msg;
 
-  DeviceInfo()
-  {
-    type = DEVICE_CPU;
-    id = "CPU";
-    num = 0;
-    cpu_threads = 0;
-    display_device = false;
-    has_nanovdb = false;
-    has_mnee = true;
-    has_osl = false;
-    has_guiding = false;
-    has_profiling = false;
-    has_peer_memory = false;
-    has_gpu_queue = false;
-    use_hardware_raytracing = false;
-    use_metalrt_by_default = false;
-    denoisers = DENOISER_NONE;
-  }
+  DeviceInfo() = default;
 
   bool operator==(const DeviceInfo &info) const
   {
@@ -130,6 +115,8 @@ class DeviceInfo {
   {
     return !(*this == info);
   }
+
+  bool contains_device_type(const DeviceType type) const;
 };
 
 /* Device */
@@ -247,9 +234,9 @@ class Device {
     return false;
   }
 
-  virtual bool is_host_mapped(const void * /*shared_pointer*/,
-                              const device_ptr /*device_pointer*/,
-                              Device * /*sub_device*/)
+  virtual bool is_shared(const void * /*shared_pointer*/,
+                         const device_ptr /*device_pointer*/,
+                         Device * /*sub_device*/)
   {
     return false;
   }
@@ -319,6 +306,9 @@ class Device {
   friend class MultiDevice;
   friend class DeviceServer;
   friend class device_memory;
+
+  virtual void *host_alloc(const MemoryType type, const size_t size);
+  virtual void host_free(const MemoryType type, void *host_pointer, const size_t size);
 
   virtual void mem_alloc(device_memory &mem) = 0;
   virtual void mem_copy_to(device_memory &mem) = 0;
@@ -398,22 +388,21 @@ class GPUDevice : public Device {
   /* total - amount of device memory, free - amount of available device memory */
   virtual void get_device_memory_info(size_t &total, size_t &free) = 0;
 
+  /* Device side memory. */
   virtual bool alloc_device(void *&device_pointer, const size_t size) = 0;
-
   virtual void free_device(void *device_pointer) = 0;
 
-  virtual bool alloc_host(void *&shared_pointer, const size_t size) = 0;
-
-  virtual void free_host(void *shared_pointer) = 0;
-
-  bool is_host_mapped(const void *shared_pointer,
-                      const device_ptr device_pointer,
-                      Device *sub_device) override;
-
+  /* Shared memory. */
+  virtual bool shared_alloc(void *&shared_pointer, const size_t size) = 0;
+  virtual void shared_free(void *shared_pointer) = 0;
+  bool is_shared(const void *shared_pointer,
+                 const device_ptr device_pointer,
+                 Device *sub_device) override;
   /* This function should return device pointer corresponding to shared pointer, which
-   * is host buffer, allocated in `alloc_host`. */
-  virtual void *transform_host_to_device_pointer(const void *shared_pointer) = 0;
+   * is host buffer, allocated in `shared_alloc`. */
+  virtual void *shared_to_device_pointer(const void *shared_pointer) = 0;
 
+  /* Memory copy. */
   virtual void copy_host_to_device(void *device_pointer,
                                    void *host_pointer,
                                    const size_t size) = 0;

@@ -609,7 +609,7 @@ static void uilist_filter_items(uiList *ui_list,
   {
     int i;
     if (filter_flags) {
-      flt_data->items_filter_flags = static_cast<int *>(MEM_mallocN(sizeof(int) * len, __func__));
+      flt_data->items_filter_flags = MEM_malloc_arrayN<int>(size_t(len), __func__);
       memcpy(flt_data->items_filter_flags, filter_flags, sizeof(int) * len);
 
       if (filter_neworder) {
@@ -625,8 +625,7 @@ static void uilist_filter_items(uiList *ui_list,
           }
         }
         items_shown = flt_data->items_shown = shown_idx;
-        flt_data->items_filter_neworder = static_cast<int *>(
-            MEM_mallocN(sizeof(int) * items_shown, __func__));
+        flt_data->items_filter_neworder = MEM_malloc_arrayN<int>(size_t(items_shown), __func__);
         /* And now, bring back new indices into the [0, items_shown[ range!
          * XXX This is O(N^2). :/
          */
@@ -658,8 +657,7 @@ static void uilist_filter_items(uiList *ui_list,
       flt_data->items_shown = len;
 
       if (filter_neworder) {
-        flt_data->items_filter_neworder = static_cast<int *>(
-            MEM_mallocN(sizeof(int) * len, __func__));
+        flt_data->items_filter_neworder = MEM_malloc_arrayN<int>(size_t(len), __func__);
         memcpy(flt_data->items_filter_neworder, filter_neworder, sizeof(int) * len);
       }
     }
@@ -698,7 +696,6 @@ static StructRNA *rna_UIList_register(Main *bmain,
   uiListType *ult, dummy_ult = {nullptr};
   uiList dummy_uilist = {nullptr};
   bool have_function[3];
-  size_t over_alloc = 0; /* Warning, if this becomes a mess, we better do another allocation. */
 
   /* setup dummy menu & menu type to store static properties in */
   dummy_uilist.type = &dummy_ult;
@@ -749,7 +746,7 @@ static StructRNA *rna_UIList_register(Main *bmain,
   }
 
   /* create a new menu type */
-  ult = static_cast<uiListType *>(MEM_callocN(sizeof(uiListType) + over_alloc, "python uilist"));
+  ult = MEM_callocN<uiListType>("python uilist");
   memcpy(ult, &dummy_ult, sizeof(dummy_ult));
 
   ult->rna_ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, ult->idname, &RNA_UIList);
@@ -889,7 +886,7 @@ static StructRNA *rna_Header_register(Main *bmain,
   }
 
   /* create a new header type */
-  ht = MEM_cnew<HeaderType>(__func__);
+  ht = MEM_callocN<HeaderType>(__func__);
   memcpy(ht, &dummy_ht, sizeof(dummy_ht));
 
   ht->rna_ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, ht->idname, &RNA_Header);
@@ -2073,12 +2070,13 @@ static void rna_def_uilist(BlenderRNA *brna)
                         0,
                         "",
                         "Identifier of property in active_data, for the active element");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED | PARM_PYFUNC_REGISTER_OPTIONAL);
+  parm = RNA_def_int(
+      func, "index", 0, 0, INT_MAX, "", "Index of the item in the collection", 0, INT_MAX);
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-  RNA_def_int(func, "index", 0, 0, INT_MAX, "", "Index of the item in the collection", 0, INT_MAX);
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED | PARM_PYFUNC_REGISTER_OPTIONAL);
-  prop = RNA_def_property(func, "flt_flag", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_ui_text(prop, "", "The filter-flag result for this item");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED | PARM_PYFUNC_REGISTER_OPTIONAL);
+  parm = RNA_def_property(func, "flt_flag", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_ui_text(parm, "", "The filter-flag result for this item");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 
   /* draw_filter */
   func = RNA_def_function(srna, "draw_filter", nullptr);

@@ -59,7 +59,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       eNodeSocketDatatype(node.custom1));
 
   if (Volume *volume = geometry_set.get_volume_for_write()) {
-    if (const bke::VolumeGridData *grid = BKE_volume_grid_find(volume, grid_name.c_str())) {
+    if (const bke::VolumeGridData *grid = BKE_volume_grid_find(volume, grid_name)) {
       /* Increment user count before removing from volume. */
       grid->add_user();
       if (remove_grid) {
@@ -105,7 +105,7 @@ static void node_register()
   ntype.draw_buttons = node_layout;
   ntype.initfunc = node_init;
   ntype.geometry_node_execute = node_geo_exec;
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 
   node_rna(ntype.rna_ext.srna);
 }

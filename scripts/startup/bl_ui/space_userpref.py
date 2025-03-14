@@ -701,7 +701,7 @@ class USERPREF_PT_system_display_graphics(SystemPanel, CenterAlignMixIn, Panel):
         if system.gpu_backend == 'VULKAN':
             col = layout.column()
             col.label(text="The Vulkan backend is experimental:", icon='INFO')
-            col.label(text="\u2022 OpenXR and GPU subdivision are not supported", icon='BLANK1')
+            col.label(text="\u2022 OpenXR and Hydra are not supported", icon='BLANK1')
             col.label(text="\u2022 Expect reduced performance", icon='BLANK1')
 
 
@@ -928,12 +928,6 @@ class USERPREF_PT_viewport_selection(ViewportPanel, CenterAlignMixIn, Panel):
 class USERPREF_PT_viewport_subdivision(ViewportPanel, CenterAlignMixIn, Panel):
     bl_label = "Subdivision"
     bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        import gpu
-        backend = gpu.platform.backend_type_get()
-        return backend == 'OPENGL'
 
     def draw_centered(self, context, layout):
         prefs = context.preferences
@@ -2869,7 +2863,7 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
         self._draw_items(
             context, (
                 ({"property": "use_new_curves_tools"}, ("blender/blender/issues/68981", "#68981")),
-                ({"property": "use_new_point_cloud_type"}, ("blender/blender/issues/75717", "#75717")),
+                ({"property": "use_new_pointcloud_type"}, ("blender/blender/issues/75717", "#75717")),
                 ({"property": "use_sculpt_texture_paint"}, ("blender/blender/issues/96225", "#96225")),
             ),
         )

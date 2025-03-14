@@ -62,9 +62,10 @@ class DespeckleOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input_image = get_input("Image");
-    if (input_image.is_single_value()) {
-      input_image.pass_through(get_result("Image"));
+    const Result &input = this->get_input("Image");
+    if (input.is_single_value()) {
+      Result &output = this->get_result("Image");
+      output.share_data(input);
       return;
     }
 
@@ -215,5 +216,5 @@ void register_node_type_cmp_despeckle()
   ntype.initfunc = file_ns::node_composit_init_despeckle;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

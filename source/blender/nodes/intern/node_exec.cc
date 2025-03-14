@@ -159,7 +159,7 @@ bNodeTreeExec *ntree_exec_begin(bNodeExecContext *context,
   const Span<bNode *> nodelist = ntree->toposort_left_to_right();
 
   /* XXX could let callbacks do this for specialized data */
-  exec = MEM_cnew<bNodeTreeExec>("node tree execution data");
+  exec = MEM_callocN<bNodeTreeExec>("node tree execution data");
   /* Back-pointer to node tree. */
   exec->nodetree = ntree;
 
@@ -187,11 +187,10 @@ bNodeTreeExec *ntree_exec_begin(bNodeExecContext *context,
 
   /* allocated exec data pointers for nodes */
   exec->totnodes = nodelist.size();
-  exec->nodeexec = (bNodeExec *)MEM_callocN(exec->totnodes * sizeof(bNodeExec),
-                                            "node execution data");
+  exec->nodeexec = MEM_calloc_arrayN<bNodeExec>(size_t(exec->totnodes), "node execution data");
   /* allocate data pointer for node stack */
   exec->stacksize = index;
-  exec->stack = (bNodeStack *)MEM_callocN(exec->stacksize * sizeof(bNodeStack), "bNodeStack");
+  exec->stack = MEM_calloc_arrayN<bNodeStack>(size_t(exec->stacksize), "bNodeStack");
 
   /* all non-const results are considered inputs */
   int n;
@@ -223,9 +222,6 @@ bNodeTreeExec *ntree_exec_begin(bNodeExecContext *context,
     }
 
     nodekey = bke::node_instance_key(parent_key, ntree, node);
-    nodeexec->data.preview = context->previews ? (bNodePreview *)bke::node_instance_hash_lookup(
-                                                     context->previews, nodekey) :
-                                                 nullptr;
     if (node->typeinfo->init_exec_fn) {
       nodeexec->data.data = node->typeinfo->init_exec_fn(context, node, nodekey);
     }

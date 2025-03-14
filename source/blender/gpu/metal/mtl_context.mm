@@ -291,8 +291,8 @@ MTLContext::~MTLContext()
   /* Wait for all GPU work to finish. */
   main_command_buffer.wait_until_active_command_buffers_complete();
 
-  /* Free framebuffers in base class. */
-  free_framebuffers();
+  /* Free textures and frame-buffers in base class. */
+  free_resources();
 
   /* Release context textures. */
   if (default_fbo_gputexture_) {
@@ -989,13 +989,6 @@ bool MTLContext::ensure_render_pipeline_state(MTLPrimitiveType mtl_prim_type)
     if (shader_interface->get_total_textures() > 0) {
       this->ensure_texture_bindings(rec, shader_interface, pipeline_state_instance);
     }
-
-    /* Matrix Bindings. */
-    /* This is now called upon shader bind. We may need to re-evaluate this though,
-     * as was done here to ensure uniform changes between draws were tracked.
-     * NOTE(Metal): We may be able to remove this. */
-    GPU_matrix_bind(reinterpret_cast<struct GPUShader *>(
-        static_cast<Shader *>(this->pipeline_state.active_shader)));
 
     /* Bind buffers.
      * NOTE: `ensure_buffer_bindings` must be called after `ensure_texture_bindings` to allow

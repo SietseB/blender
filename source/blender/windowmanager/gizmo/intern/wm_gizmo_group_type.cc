@@ -64,8 +64,7 @@ wmGizmoGroupType *WM_gizmogrouptype_find(const StringRef idname, bool quiet)
 
 static wmGizmoGroupType *wm_gizmogrouptype_append__begin()
 {
-  wmGizmoGroupType *gzgt = static_cast<wmGizmoGroupType *>(
-      MEM_callocN(sizeof(wmGizmoGroupType), "gizmogrouptype"));
+  wmGizmoGroupType *gzgt = MEM_callocN<wmGizmoGroupType>("gizmogrouptype");
   gzgt->srna = RNA_def_struct_ptr(&BLENDER_RNA, "", &RNA_GizmoGroupProperties);
 #if 0
   /* Set the default i18n context now, so that opfunc can redefine it if needed! */
@@ -125,7 +124,7 @@ wmGizmoGroupTypeRef *WM_gizmogrouptype_append_and_link(wmGizmoMapType *gzmap_typ
 }
 
 /**
- * Free but don't remove from #GHash.
+ * Free but don't remove from the global list.
  */
 static void gizmogrouptype_free(wmGizmoGroupType *gzgt)
 {

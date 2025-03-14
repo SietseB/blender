@@ -162,6 +162,28 @@ class ActionSlotAssignmentTest(unittest.TestCase):
             cube_adt.action_slot = slot
         self.assertEqual(cube_adt.action_slot, slot_cube, "The slot should not have changed")
 
+    def test_slot_users(self):
+        action = bpy.data.actions.new('TestAction')
+        self.assertEqual(0, action.users)
+
+        # Assign the Action to Cube.
+        cube = bpy.data.objects['Cube']
+        cube_adt = cube.animation_data_create()
+        cube_adt.action = action
+        slot_cube = action.slots.new(cube.id_type, cube.name)
+        cube_adt.action_slot = slot_cube
+
+        self.assertEqual([cube], slot_cube.users())
+
+        # Assign the same slot to the Camera object as well.
+        camera = bpy.data.objects['Camera']
+        camera_adt = camera.animation_data_create()
+        camera_adt.action = action
+        camera_adt.action_slot = slot_cube
+
+        # Sort by name, as the order doesn't matter and is an implementation detail.
+        self.assertEqual([camera, cube], sorted(slot_cube.users(), key=lambda id: id.name))
+
     def test_untyped_slot_assignment_local(self):
         """Test untyped slot assignment, with a local Action."""
 
@@ -911,6 +933,48 @@ class SlotHandleLibraryOverridesTest(unittest.TestCase):
         bpy.context.scene.frame_set(1)
         self.assertLess(override_suzanne.location.z,
                         -1, "Suzanne should be significantly below Z=0 when animated by the library Action")
+
+
+class ConvenienceFunctionsTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        bpy.ops.wm.read_homefile(use_factory_startup=True)
+
+        self.action = bpy.data.actions.new('Action')
+
+    def test_fcurve_ensure_for_datablock(self) -> None:
+        # The function should be None-safe.
+        with self.assertRaises(TypeError):
+            self.action.fcurve_ensure_for_datablock(None, "location")
+        self.assertEqual(0, len(self.action.layers))
+        self.assertEqual(0, len(self.action.slots))
+
+        # The function should not work unless the Action is assigned to its target.
+        ob_cube = bpy.data.objects["Cube"]
+        with self.assertRaises(RuntimeError):
+            self.action.fcurve_ensure_for_datablock(ob_cube, "location")
+        self.assertEqual(0, len(self.action.layers))
+        self.assertEqual(0, len(self.action.slots))
+
+        # The function should not work on empty data paths.
+        adt = ob_cube.animation_data_create()
+        adt.action = self.action
+        with self.assertRaises(RuntimeError):
+            self.action.fcurve_ensure_for_datablock(ob_cube, "")
+        self.assertEqual(0, len(self.action.layers))
+        self.assertEqual(0, len(self.action.slots))
+
+        # And finally the happy flow.
+        fcurve = self.action.fcurve_ensure_for_datablock(ob_cube, "location", index=2)
+        self.assertEqual(1, len(self.action.layers))
+        self.assertEqual(1, len(self.action.layers[0].strips))
+        self.assertEqual('KEYFRAME', self.action.layers[0].strips[0].type)
+        self.assertEqual(1, len(self.action.slots))
+        self.assertEqual("location", fcurve.data_path)
+        self.assertEqual(2, fcurve.array_index)
+
+        channelbag = self.action.layers[0].strips[0].channelbags[0]
+        self.assertEqual(fcurve, channelbag.fcurves[0])
 
 
 def main():

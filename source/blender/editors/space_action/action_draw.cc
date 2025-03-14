@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
 /* Types --------------------------------------------------------------- */
@@ -219,6 +220,7 @@ static void draw_backdrops(bAnimContext *ac, ListBase &anim_data, View2D *v2d, u
           immUniformThemeColor(TH_ANIM_ACTIVE);
           break;
         }
+        case ANIMTYPE_ACTION_SLOT:
         case ANIMTYPE_SCENE:
         case ANIMTYPE_OBJECT: {
           immUniformColor3ubvAlpha(col1b, sel ? col1[3] : col1b[3]);
@@ -371,6 +373,7 @@ static void draw_keyframes(bAnimContext *ac,
         break;
       case ALE_ACTION_LAYERED:
         ED_add_action_layered_channel(draw_list,
+                                      ac,
                                       ale,
                                       static_cast<bAction *>(ale->key_data),
                                       ycenter,
@@ -379,6 +382,7 @@ static void draw_keyframes(bAnimContext *ac,
         break;
       case ALE_ACTION_SLOT:
         ED_add_action_slot_channel(draw_list,
+                                   ac,
                                    ale,
                                    static_cast<bAction *>(ale->key_data)->wrap(),
                                    *static_cast<animrig::Slot *>(ale->data),

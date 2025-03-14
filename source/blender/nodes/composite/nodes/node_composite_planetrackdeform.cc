@@ -52,7 +52,7 @@ static void init(const bContext *C, PointerRNA *ptr)
 {
   bNode *node = (bNode *)ptr->data;
 
-  NodePlaneTrackDeformData *data = MEM_cnew<NodePlaneTrackDeformData>(__func__);
+  NodePlaneTrackDeformData *data = MEM_callocN<NodePlaneTrackDeformData>(__func__);
   data->motion_blur_samples = 16;
   data->motion_blur_shutter = 0.5f;
   node->storage = data;
@@ -123,13 +123,14 @@ class PlaneTrackDeformOperation : public NodeOperation {
   {
     MovieTrackingPlaneTrack *plane_track = get_plane_track();
 
-    Result &input_image = get_input("Image");
-    Result &output_image = get_result("Image");
-    Result &output_mask = get_result("Plane");
+    const Result &input_image = get_input("Image");
     if (input_image.is_single_value() || !plane_track) {
+      Result &output_image = get_result("Image");
       if (output_image.should_compute()) {
-        input_image.pass_through(output_image);
+        output_image.share_data(input_image);
       }
+
+      Result &output_mask = get_result("Plane");
       if (output_mask.should_compute()) {
         output_mask.allocate_single_value();
         output_mask.set_single_value(1.0f);
@@ -446,8 +447,8 @@ void register_node_type_cmp_planetrackdeform()
   ntype.draw_buttons = file_ns::node_composit_buts_planetrackdeform;
   ntype.initfunc_api = file_ns::init;
   blender::bke::node_type_storage(
-      &ntype, "NodePlaneTrackDeformData", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodePlaneTrackDeformData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

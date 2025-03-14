@@ -14,6 +14,7 @@ set(INC_SYS
 set(SRC
   intern/add_curves_on_mesh.cc
   intern/curve_constraints.cc
+  intern/curves_remove_and_split.cc
   intern/extend_curves.cc
   intern/extract_elements.cc
   intern/fillet_curves.cc
@@ -55,6 +56,7 @@ set(SRC
 
   GEO_add_curves_on_mesh.hh
   GEO_curve_constraints.hh
+  GEO_curves_remove_and_split.hh
   GEO_extend_curves.hh
   GEO_extract_elements.hh
   GEO_fillet_curves.hh

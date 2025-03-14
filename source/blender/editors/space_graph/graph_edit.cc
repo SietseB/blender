@@ -735,7 +735,12 @@ void GRAPH_OT_duplicate(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* To give to transform. */
-  RNA_def_enum(ot->srna, "mode", rna_enum_transform_mode_type_items, TFM_TRANSLATION, "Mode", "");
+  RNA_def_enum(ot->srna,
+               "mode",
+               rna_enum_transform_mode_type_items,
+               blender::ed::transform::TFM_TRANSLATION,
+               "Mode",
+               "");
 }
 
 /** \} */
@@ -3327,10 +3332,10 @@ static int graph_driver_delete_invalid_exec(bContext *C, wmOperator * /*op*/)
     /* Notify the world of any changes. */
     DEG_relations_tag_update(CTX_data_main(C));
     WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_REMOVED, nullptr);
-    WM_reportf(RPT_INFO, "Deleted %u drivers", deleted);
+    WM_global_reportf(RPT_INFO, "Deleted %u drivers", deleted);
   }
   else {
-    WM_report(RPT_INFO, "No drivers deleted");
+    WM_global_report(RPT_INFO, "No drivers deleted");
   }
 
   /* Successful or not? */

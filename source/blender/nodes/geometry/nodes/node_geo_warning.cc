@@ -33,6 +33,7 @@ class LazyFunctionForWarningNode : public LazyFunction {
  public:
   LazyFunctionForWarningNode(const bNode &node) : node_(node)
   {
+    debug_name_ = "Warning";
     const CPPType &type = CPPType::get<SocketValueVariant>();
     inputs_.append_as("Show", type, lf::ValueUsage::Used);
     inputs_.append_as("Message", type);
@@ -110,7 +111,7 @@ static void node_register()
   ntype.declare = node_declare;
   ntype.labelfunc = node_label;
   ntype.draw_buttons = node_layout;
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 
   node_rna(ntype.rna_ext.srna);
 }

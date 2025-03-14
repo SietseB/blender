@@ -54,13 +54,12 @@ class RotateOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input = this->get_input("Image");
-    Result &output = this->get_result("Image");
-
     const math::AngleRadian rotation = this->get_input("Degr").get_single_value_default(0.0f);
     const float3x3 transformation = math::from_rotation<float3x3>(rotation);
 
-    input.pass_through(output);
+    const Result &input = this->get_input("Image");
+    Result &output = this->get_result("Image");
+    output.share_data(input);
     output.transform(transformation);
     output.get_realization_options().interpolation = this->get_interpolation();
   }
@@ -104,5 +103,5 @@ void register_node_type_cmp_rotate()
   ntype.initfunc = file_ns::node_composit_init_rotate;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

@@ -38,7 +38,7 @@ class ImagePrepass : Overlay {
 
     ps_.init();
     ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS);
-    ps_.shader_set(res.shaders.mesh_edit_depth.get());
+    ps_.shader_set(res.shaders->mesh_edit_depth.get());
     ps_.draw(res.shapes.image_quad.get());
   }
 
@@ -64,7 +64,7 @@ class Prepass : Overlay {
   PassMain::Sub *mesh_flat_ps_ = nullptr;
   PassMain::Sub *hair_ps_ = nullptr;
   PassMain::Sub *curves_ps_ = nullptr;
-  PassMain::Sub *point_cloud_ps_ = nullptr;
+  PassMain::Sub *pointcloud_ps_ = nullptr;
   PassMain::Sub *grease_pencil_ps_ = nullptr;
 
   bool use_material_slot_selection_ = false;
@@ -79,50 +79,50 @@ class Prepass : Overlay {
       ps_.init();
       mesh_ps_ = nullptr;
       curves_ps_ = nullptr;
-      point_cloud_ps_ = nullptr;
+      pointcloud_ps_ = nullptr;
       return;
     }
 
     use_material_slot_selection_ = state.is_material_select;
 
-    const View3DShading &shading = state.v3d->shading;
-    bool use_cull = ((shading.type == OB_SOLID) && (shading.flag & V3D_SHADING_BACKFACE_CULLING));
+    bool use_cull = res.theme_settings.backface_culling;
     DRWState backface_cull_state = use_cull ? DRW_STATE_CULL_BACK : DRWState(0);
 
     ps_.init();
     ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
     ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | backface_cull_state,
                   state.clipping_plane_count);
     res.select_bind(ps_);
     {
       auto &sub = ps_.sub("Mesh");
-      sub.shader_set(res.is_selection() ? res.shaders.depth_mesh_conservative.get() :
-                                          res.shaders.depth_mesh.get());
+      sub.shader_set(res.is_selection() ? res.shaders->depth_mesh_conservative.get() :
+                                          res.shaders->depth_mesh.get());
       mesh_ps_ = &sub;
     }
     {
       auto &sub = ps_.sub("MeshFlat");
-      sub.shader_set(res.shaders.depth_mesh.get());
+      sub.shader_set(res.shaders->depth_mesh.get());
       mesh_flat_ps_ = &sub;
     }
     {
       auto &sub = ps_.sub("Hair");
-      sub.shader_set(res.shaders.depth_mesh.get());
+      sub.shader_set(res.shaders->depth_mesh.get());
       hair_ps_ = &sub;
     }
     {
       auto &sub = ps_.sub("Curves");
-      sub.shader_set(res.shaders.depth_curves.get());
+      sub.shader_set(res.shaders->depth_curves.get());
       curves_ps_ = &sub;
     }
     {
       auto &sub = ps_.sub("PointCloud");
-      sub.shader_set(res.shaders.depth_point_cloud.get());
-      point_cloud_ps_ = &sub;
+      sub.shader_set(res.shaders->depth_pointcloud.get());
+      pointcloud_ps_ = &sub;
     }
     {
       auto &sub = ps_.sub("GreasePencil");
-      sub.shader_set(res.shaders.depth_grease_pencil.get());
+      sub.shader_set(res.shaders->depth_grease_pencil.get());
       grease_pencil_ps_ = &sub;
     }
   }
@@ -248,8 +248,8 @@ class Prepass : Overlay {
         }
         break;
       case OB_POINTCLOUD:
-        geom_single = point_cloud_sub_pass_setup(*point_cloud_ps_, ob_ref.object);
-        pass = point_cloud_ps_;
+        geom_single = pointcloud_sub_pass_setup(*pointcloud_ps_, ob_ref.object);
+        pass = pointcloud_ps_;
         break;
       case OB_CURVES:
         geom_single = curves_sub_pass_setup(*curves_ps_, state.scene, ob_ref.object);

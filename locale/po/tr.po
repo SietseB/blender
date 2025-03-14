@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2024-12-10 23:56+0000\n"
 "Last-Translator: bitigchi <bitigchi@me.com>\n"
 "Language-Team: Turkish <https://translate.blender.org/projects/blender-ui/ui/tr/>\n"
@@ -69,10 +69,6 @@ msgstr "Yuva"
 
 msgid "Action F-Curves"
 msgstr "Eylem Kare Eğrileri"
-
-
-msgid "Collection of action F-Curves"
-msgstr "Eylem Kare Eğrileri Koleksiyonu"
 
 
 msgid "Action Group"
@@ -584,10 +580,6 @@ msgstr "Belleği çoğaltmak yerine, birbirine bağlı aygıtlar arasında dağ�
 
 msgid "HIP RT (Experimental)"
 msgstr "HIP RT (Deneysel)"
-
-
-msgid "HIP RT enables AMD hardware ray tracing on RDNA2 and above, with shader fallback on older cards. This feature is experimental and some scenes may render incorrectly"
-msgstr "HIP RT, RDNA2 ve üzeri üzerinde AMD donanım ışın izlemeyi etkinleştirir ve eski kartlarda gölgelendirici geri dönüşü sağlar. Bu özellik deneyseldir ve bazı sahneler yanlış işlenebilir"
 
 
 msgid "Embree on GPU"
@@ -15116,10 +15108,6 @@ msgid "The combined frame range of all F-Curves within this action"
 msgstr "Bu eylemdeki tüm F-Eğrilerinin birleşik kare aralığı"
 
 
-msgid "The individual F-Curves that make up the action"
-msgstr "Aksiyonu oluşturan bireysel F-Eğrileri"
-
-
 msgid "The end frame of the manually set intended playback range"
 msgstr "Manuel olarak ayarlanan amaçlanan oynatma aralığının son karesi"
 
@@ -15134,10 +15122,6 @@ msgstr "Manuel olarak ayarlanan amaçlanan oynatma aralığının başlangıç k
 
 msgid "Groups"
 msgstr "Gruplar"
-
-
-msgid "Convenient groupings of F-Curves"
-msgstr "F-Eğrilerinin kullanışlı gruplandırmaları"
 
 
 msgctxt "ID"
@@ -15625,26 +15609,6 @@ msgstr "Fırça yarıçapına göre sınır kökeninin ofseti"
 
 msgid "Brush's capabilities"
 msgstr "Fırçanın yetenekleri"
-
-
-msgid "Clone Alpha"
-msgstr "Klon Alfa"
-
-
-msgid "Opacity of clone image display"
-msgstr "Klon görüntü görüntüsünün opaklığı"
-
-
-msgid "Clone Image"
-msgstr "Klon Görüntü"
-
-
-msgid "Image for clone brushes"
-msgstr "Klon fırçaları için görüntü"
-
-
-msgid "Clone Offset"
-msgstr "Klon Ofseti"
 
 
 msgid "Soft Body Plasticity"
@@ -24709,11 +24673,6 @@ msgid "Sequence playback mode"
 msgstr "Dizi oynatma modu"
 
 
-msgctxt "Sequence"
-msgid "Clip"
-msgstr "Klip"
-
-
 msgid "Hide frames outside the specified frame range"
 msgstr "Belirtilen çerçeve aralığının dışındaki çerçeveleri gizle"
 
@@ -29258,30 +29217,6 @@ msgid "Clean Up"
 msgstr "Temizle"
 
 
-msgid "Special Characters"
-msgstr "Özel Karakterler"
-
-
-msgid "Kerning"
-msgstr "Harf aralığı"
-
-
-msgid "Text"
-msgstr "Metin"
-
-
-msgid "Metaball"
-msgstr "Metabol"
-
-
-msgid "Names"
-msgstr "Adlar"
-
-
-msgid "Bone Roll"
-msgstr "Kemik Rulosu"
-
-
 msgid "Pivot Point"
 msgstr "Pivot Noktası"
 
@@ -29364,6 +29299,10 @@ msgstr "Döngüleri Seç"
 
 msgid "Assign Material"
 msgstr "Malzeme Atamak"
+
+
+msgid "Metaball"
+msgstr "Metabol"
 
 
 msgid "Light"
@@ -29450,6 +29389,10 @@ msgid "Bone Collections"
 msgstr "Kemik Koleksiyonları"
 
 
+msgid "Names"
+msgstr "Adlar"
+
+
 msgid "Toggle Bone Options"
 msgstr "Kemik Seçeneklerini Değiştir"
 
@@ -29480,6 +29423,22 @@ msgstr "Yüz Gücünü Ayarla"
 
 msgid "Merge"
 msgstr "Birleştir"
+
+
+msgid "Special Characters"
+msgstr "Özel Karakterler"
+
+
+msgid "Kerning"
+msgstr "Harf aralığı"
+
+
+msgid "Text"
+msgstr "Metin"
+
+
+msgid "Bone Roll"
+msgstr "Kemik Rulosu"
 
 
 msgid "Keyframe Insert Pie"
@@ -56984,6 +56943,10 @@ msgid "Set all stroke points to same opacity"
 msgstr "Tüm kontur noktalarını aynı opaklığa ayarlayın"
 
 
+msgid "Fill Opacity"
+msgstr "Dolgu Opaklığı"
+
+
 msgctxt "Operator"
 msgid "Set Uniform Thickness"
 msgstr "Tekdüze Kalınlık Ayarla"
@@ -74332,10 +74295,6 @@ msgid "Exports UVs from the modified mesh"
 msgstr "Değiştirilmiş ağdan UV'leri dışa aktarır"
 
 
-msgid "Fill Opacity"
-msgstr "Dolgu Opaklığı"
-
-
 msgid "Set amount of opacity for exported UV layout"
 msgstr "Dışa aktarılan UV düzeni için opaklık miktarını ayarlayın"
 
@@ -78809,8 +78768,24 @@ msgid "Image used as canvas"
 msgstr "Tuval olarak kullanılan görüntü"
 
 
+msgid "Clone Alpha"
+msgstr "Klon Alfa"
+
+
+msgid "Opacity of clone image display"
+msgstr "Klon görüntü görüntüsünün opaklığı"
+
+
+msgid "Clone Image"
+msgstr "Klon Görüntü"
+
+
 msgid "Image used as clone source"
 msgstr "Klon kaynağı olarak kullanılan görüntü"
+
+
+msgid "Clone Offset"
+msgstr "Klon Ofseti"
 
 
 msgid "Dither"
@@ -79189,20 +79164,20 @@ msgid "Curve Edit Mode"
 msgstr "Eğri Düzenleme Modu"
 
 
-msgid "Snapping"
-msgstr "Çıtlama"
-
-
-msgid "Transform Orientations"
-msgstr "Dönüştürme Yönlendirmeleri"
-
-
 msgid "glTF Variants"
 msgstr "glTF Çeşitleri"
 
 
 msgid "glTF Material Variants"
 msgstr "glTF Malzeme Varyantları"
+
+
+msgid "Snapping"
+msgstr "Çıtlama"
+
+
+msgid "Transform Orientations"
+msgstr "Dönüştürme Yönlendirmeleri"
 
 
 msgid "Stroke Placement"
@@ -93070,6 +93045,11 @@ msgstr "Film"
 
 
 msgctxt "Sequence"
+msgid "Clip"
+msgstr "Klip"
+
+
+msgctxt "Sequence"
 msgid "Mask"
 msgstr "Maske"
 
@@ -102741,10 +102721,6 @@ msgid "and NVIDIA driver version %s or newer"
 msgstr "ve NVIDIA sürücü sürümü %s veya daha yenisi"
 
 
-msgid "and AMD Radeon Pro %s driver or newer"
-msgstr "ve AMD Radeon Pro %s sürücüsü veya daha yenisi"
-
-
 msgid "Requires Intel GPU with Xe-HPG architecture"
 msgstr "Xe-HPG mimarisine sahip Intel GPU gerektirir"
 
@@ -104175,10 +104151,6 @@ msgstr "Buradaki ayarlar önemli bir etkiye sahip olabilir"
 
 msgid "performance impact!"
 msgstr "performans etkisi!"
-
-
-msgid "Built without VR/OpenXR features"
-msgstr "VR/OpenXR özellikleri olmadan oluşturuldu"
 
 
 msgid "Start VR Session"
@@ -114673,10 +114645,6 @@ msgid "OS"
 msgstr "İşletim Sistemi"
 
 
-msgid "Home"
-msgstr "Ev"
-
-
 msgid "Esc"
 msgstr "Esc"
 
@@ -118462,6 +118430,10 @@ msgstr "Varlık Katalogları"
 
 msgid "Date Modified"
 msgstr "Değiştirilme Tarihi"
+
+
+msgid "Home"
+msgstr "Ev"
 
 
 msgid "Desktop"

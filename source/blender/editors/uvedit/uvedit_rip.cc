@@ -304,7 +304,7 @@ static UVRipSingle *uv_rip_single_from_loop(BMLoop *l_init_orig,
                                             const float aspect_y,
                                             const int cd_loop_uv_offset)
 {
-  UVRipSingle *rip = MEM_cnew<UVRipSingle>(__func__);
+  UVRipSingle *rip = MEM_callocN<UVRipSingle>(__func__);
   const float *co_center = BM_ELEM_CD_GET_FLOAT_P(l_init_orig, cd_loop_uv_offset);
   rip->loops = BLI_gset_ptr_new(__func__);
 
@@ -557,7 +557,7 @@ static UVRipPairs *uv_rip_pairs_from_loop(BMLoop *l_init,
                                           const float aspect_y,
                                           const int cd_loop_uv_offset)
 {
-  UVRipPairs *rip = MEM_cnew<UVRipPairs>(__func__);
+  UVRipPairs *rip = MEM_callocN<UVRipPairs>(__func__);
   rip->loops = BLI_gset_ptr_new(__func__);
 
   /* We can rely on this stack being small, as we're walking down two sides of an edge loop,
@@ -742,9 +742,9 @@ static bool uv_rip_object(Scene *scene, Object *obedit, const float co[2], const
   BMEditMesh *em = mesh->runtime->edit_mesh.get();
   BMesh *bm = em->bm;
   const char *active_uv_name = CustomData_get_active_layer_name(&bm->ldata, CD_PROP_FLOAT2);
-  BM_uv_map_ensure_vert_select_attr(bm, active_uv_name);
-  BM_uv_map_ensure_edge_select_attr(bm, active_uv_name);
-  const BMUVOffsets offsets = BM_uv_map_get_offsets(bm);
+  BM_uv_map_attr_vert_select_ensure(bm, active_uv_name);
+  BM_uv_map_attr_edge_select_ensure(bm, active_uv_name);
+  const BMUVOffsets offsets = BM_uv_map_offsets_get(bm);
 
   BMFace *efa;
   BMIter iter, liter;
@@ -901,6 +901,14 @@ static int uv_rip_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
+  if (scene->toolsettings->uv_flag & UV_SYNC_SELECTION) {
+    /* "Rip" is logically incompatible with sync-select.
+     * Report an error instead of "poll" so this is reported when the tool is used,
+     * with #131642 implemented, this can be made to work. */
+    BKE_report(op->reports, RPT_ERROR, "Rip is not compatible with sync selection");
+    return OPERATOR_CANCELLED;
+  }
+
   bool changed_multi = false;
 
   float co[2];
@@ -958,7 +966,7 @@ void UV_OT_rip(wmOperatorType *ot)
   ot->poll = ED_operator_uvedit;
 
   /* translation data */
-  Transform_Properties(ot, P_MIRROR_DUMMY);
+  blender::ed::transform::properties_register(ot, P_MIRROR_DUMMY);
 
   /* properties */
   RNA_def_float_vector(

@@ -13,6 +13,7 @@
 #include "BLI_compiler_attrs.h"
 #include "BLI_map.hh"
 #include "BLI_math_vector_types.hh"
+#include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_vec_types.h"
@@ -130,7 +131,6 @@ struct SpaceType {
   int (*space_subtype_get)(ScrArea *area);
   void (*space_subtype_set)(ScrArea *area, int value);
   void (*space_subtype_item_extend)(bContext *C, EnumPropertyItem **item, int *totitem);
-  int (*space_subtype_prev_get)(ScrArea *area);
 
   /* Return a custom name, based on subtype or other reason. */
   blender::StringRefNull (*space_name_get)(const ScrArea *area);
@@ -709,7 +709,7 @@ void BKE_region_callback_refresh_tag_gizmomap_set(void (*callback)(wmGizmoMap *)
  * panel state with the given default value.
  */
 LayoutPanelState *BKE_panel_layout_panel_state_ensure(Panel *panel,
-                                                      const char *idname,
+                                                      blender::StringRef idname,
                                                       bool default_closed);
 
 /**

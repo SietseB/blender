@@ -242,12 +242,12 @@ void AssetViewItem::build_grid_tile(const bContext & /*C*/, uiLayout &layout) co
   UI_but_view_item_draw_size_set(
       item_but, style.tile_width + 2 * U.pixelsize, style.tile_height + 2 * U.pixelsize);
 
-  UI_but_func_tooltip_set(
+  UI_but_func_tooltip_custom_set(
       item_but,
-      [](bContext * /*C*/, void *argN, const char * /*tip*/) {
+      [](bContext & /*C*/, uiTooltipData &tip, void *argN) {
         const asset_system::AssetRepresentation *asset =
             static_cast<const asset_system::AssetRepresentation *>(argN);
-        return asset_tooltip(*asset, /*include_name=*/false);
+        asset_tooltip(*asset, tip);
       },
       (&asset_),
       nullptr);
@@ -263,7 +263,7 @@ void AssetViewItem::build_grid_tile(const bContext & /*C*/, uiLayout &layout) co
      * actual loading of previews is delayed, because that only happens when a preview icon-ID is
      * attached to a button. */
     if (!list::is_loaded(&asset_view.library_ref_)) {
-      return ICON_TEMP;
+      return ICON_PREVIEW_LOADING;
     }
     return asset_preview_or_icon(asset_);
   }();

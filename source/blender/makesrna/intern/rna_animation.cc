@@ -295,13 +295,13 @@ void rna_generic_action_slot_handle_set(blender::animrig::slot_handle_t slot_han
       BLI_assert_unreachable();
       break;
     case ActionSlotAssignmentResult::SlotNotSuitable:
-      WM_reportf(RPT_ERROR,
-                 "This slot is not suitable for this data-block type (%c%c)",
-                 animated_id.name[0],
-                 animated_id.name[1]);
+      WM_global_reportf(RPT_ERROR,
+                        "This slot is not suitable for this data-block type (%c%c)",
+                        animated_id.name[0],
+                        animated_id.name[1]);
       break;
     case ActionSlotAssignmentResult::MissingAction:
-      WM_report(RPT_ERROR, "Cannot set slot without an assigned Action.");
+      WM_global_report(RPT_ERROR, "Cannot set slot without an assigned Action.");
       break;
   }
 }
@@ -622,7 +622,7 @@ static StructRNA *rna_KeyingSetInfo_register(Main *bmain,
   }
 
   /* create a new KeyingSetInfo type */
-  ksi = static_cast<KeyingSetInfo *>(MEM_mallocN(sizeof(KeyingSetInfo), "python keying set info"));
+  ksi = MEM_mallocN<KeyingSetInfo>("python keying set info");
   memcpy(ksi, &dummy_ksi, sizeof(KeyingSetInfo));
 
   /* set RNA-extensions info */
@@ -848,7 +848,7 @@ static void rna_KeyingSet_paths_remove(KeyingSet *keyingset,
 
   /* remove the active path from the KeyingSet */
   BKE_keyingset_free_path(keyingset, ksp);
-  RNA_POINTER_INVALIDATE(ksp_ptr);
+  ksp_ptr->invalidate();
 
   /* the active path number will most likely have changed */
   /* TODO: we should get more fancy and actually check if it was removed,
@@ -909,7 +909,7 @@ static void rna_NlaTrack_remove(
   }
 
   BKE_nlatrack_remove_and_free(&adt->nla_tracks, track, true);
-  RNA_POINTER_INVALIDATE(track_ptr);
+  track_ptr->invalidate();
 
   WM_event_add_notifier(C, NC_ANIMATION | ND_NLA | NA_REMOVED, nullptr);
 

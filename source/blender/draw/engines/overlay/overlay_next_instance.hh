@@ -18,6 +18,7 @@
 #include "overlay_next_background.hh"
 #include "overlay_next_bounds.hh"
 #include "overlay_next_camera.hh"
+#include "overlay_next_cursor.hh"
 #include "overlay_next_curve.hh"
 #include "overlay_next_edit_text.hh"
 #include "overlay_next_empty.hh"
@@ -39,6 +40,7 @@
 #include "overlay_next_outline.hh"
 #include "overlay_next_paint.hh"
 #include "overlay_next_particle.hh"
+#include "overlay_next_pointcloud.hh"
 #include "overlay_next_prepass.hh"
 #include "overlay_next_relation.hh"
 #include "overlay_next_sculpt.hh"
@@ -54,7 +56,7 @@ namespace blender::draw::overlay {
  */
 class Instance {
   const SelectionType selection_type_;
-  const bool clipping_enabled_;
+  bool clipping_enabled_;
 
  public:
   /* WORKAROUND: Legacy. Move to grid pass. */
@@ -63,9 +65,7 @@ class Instance {
   ShapeCache shapes;
 
   /** Global types. */
-  Resources resources = {selection_type_,
-                         overlay::ShaderModule::module_get(selection_type_, clipping_enabled_),
-                         shapes};
+  Resources resources = {selection_type_, shapes};
   State state;
 
   /** Overlay types. */
@@ -74,6 +74,7 @@ class Instance {
   Origins origins = {selection_type_};
   Outline outline;
   MotionPath motion_paths;
+  Cursor cursor;
 
   struct OverlayLayer {
     const SelectionType selection_type_;
@@ -101,6 +102,7 @@ class Instance {
     Names names;
     Paints paints;
     Particles particles;
+    PointClouds pointclouds;
     Prepass prepass;
     Relations relations = {selection_type_};
     Sculpts sculpts;
@@ -113,8 +115,7 @@ class Instance {
   AntiAliasing anti_aliasing;
   XrayFade xray_fade;
 
-  Instance(const SelectionType selection_type, const bool clipping_enabled)
-      : selection_type_(selection_type), clipping_enabled_(clipping_enabled){};
+  Instance(const SelectionType selection_type) : selection_type_(selection_type){};
 
   ~Instance()
   {
@@ -126,11 +127,6 @@ class Instance {
   void object_sync(ObjectRef &ob_ref, Manager &manager);
   void end_sync();
   void draw(Manager &manager);
-
-  bool clipping_enabled() const
-  {
-    return clipping_enabled_;
-  }
 
  private:
   bool object_is_selected(const ObjectRef &ob_ref);
@@ -156,6 +152,8 @@ class Instance {
   void draw_node(Manager &manager, View &view);
   void draw_v2d(Manager &manager, View &view);
   void draw_v3d(Manager &manager, View &view);
+
+  void ensure_weight_ramp_texture();
 };
 
 }  // namespace blender::draw::overlay

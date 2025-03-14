@@ -47,11 +47,11 @@ class PixelateOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input_image = get_input("Color");
-    Result &output_image = get_result("Color");
-    const int pixel_size = get_pixel_size();
+    const Result &input_image = this->get_input("Color");
+    const int pixel_size = this->get_pixel_size();
     if (input_image.is_single_value() || pixel_size == 1) {
-      input_image.pass_through(output_image);
+      Result &output_image = this->get_result("Color");
+      output_image.share_data(input_image);
       return;
     }
 
@@ -144,5 +144,5 @@ void register_node_type_cmp_pixelate()
   ntype.initfunc = file_ns::node_composit_init_pixelate;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

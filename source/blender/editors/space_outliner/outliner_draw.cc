@@ -20,6 +20,7 @@
 
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
 #include "BLI_string_utils.hh"
@@ -1365,7 +1366,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   -1,
                                   0,
                                   0,
-                                  nullptr);
+                                  std::nullopt);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (!props_active.modifier_show_viewport) {
             UI_but_flag_enable(bt, UI_BUT_INACTIVE);
@@ -1386,7 +1387,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   -1,
                                   0,
                                   0,
-                                  nullptr);
+                                  std::nullopt);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (!props_active.modifier_show_render) {
             UI_but_flag_enable(bt, UI_BUT_INACTIVE);
@@ -1555,7 +1556,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                   -1,
                                   0,
                                   0,
-                                  nullptr);
+                                  std::nullopt);
           UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
           if (node.parent_group() && node.parent_group()->is_visible()) {
             UI_but_flag_enable(bt, UI_BUT_INACTIVE);
@@ -1590,7 +1591,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                       -1,
                                       0,
                                       0,
-                                      nullptr);
+                                      std::nullopt);
               UI_but_func_set(bt,
                               view_layer__layer_collection_set_flag_recursive_fn,
                               layer_collection,
@@ -1853,7 +1854,7 @@ static void outliner_draw_userbuts(uiBlock *block,
     }
 
     uiBut *bt;
-    const char *tip = nullptr;
+    std::optional<StringRef> tip;
     const int real_users = id->us - ID_FAKE_USERS(id);
     const bool has_fake_user = id->flag & ID_FLAG_FAKEUSER;
     const bool is_linked = ID_IS_LINKED(id);
@@ -2316,7 +2317,7 @@ static void outliner_draw_mode_column_toggle(uiBlock *block,
   draw_active_icon = draw_active_icon || object_data_shared;
 
   int icon;
-  const char *tip;
+  StringRef tip;
   if (draw_active_icon) {
     icon = UI_icon_from_object_mode(ob_active->mode);
     tip = object_data_shared ? TIP_("Change the object in the current mode") :
@@ -2407,7 +2408,7 @@ static StringRefNull outliner_draw_get_warning_tree_element(const SpaceOutliner 
 
 static void outliner_draw_warning_tree_element(uiBlock *block,
                                                const SpaceOutliner *space_outliner,
-                                               StringRefNull warning_msg,
+                                               const StringRef warning_msg,
                                                const bool use_mode_column,
                                                const int te_ys)
 {
@@ -2428,7 +2429,7 @@ static void outliner_draw_warning_tree_element(uiBlock *block,
                             nullptr,
                             0.0,
                             0.0,
-                            warning_msg.c_str());
+                            warning_msg);
   /* No need for undo here, this is a pure info widget. */
   UI_but_flag_disable(but, UI_BUT_UNDO);
 }

@@ -11,6 +11,7 @@
 #include "BLI_rand.hh"
 #include "BLI_set.hh"
 #include "BLI_stack.hh"
+#include "BLI_string.h"
 #include "BLI_string_utf8_symbols.h"
 #include "BLI_vector_set.hh"
 
@@ -488,6 +489,10 @@ class NodeTreeMainUpdater {
 
     ntree.runtime->link_errors_by_target_node.clear();
 
+    if (this->update_panel_toggle_names(ntree)) {
+      result.interface_changed = true;
+    }
+
     this->update_socket_link_and_use(ntree);
     this->update_individual_nodes(ntree);
     this->update_internal_links(ntree);
@@ -573,7 +578,7 @@ class NodeTreeMainUpdater {
   void update_individual_nodes(bNodeTree &ntree)
   {
     for (bNode *node : ntree.all_nodes()) {
-      bke::node_declaration_ensure(&ntree, node);
+      bke::node_declaration_ensure(ntree, *node);
       if (this->should_update_individual_node(ntree, *node)) {
         bke::bNodeType &ntype = *node->typeinfo;
         if (ntype.group_update_func) {
@@ -591,6 +596,12 @@ class NodeTreeMainUpdater {
            * not have a declaration anymore. */
           delete node->runtime->declaration;
           node->runtime->declaration = nullptr;
+          LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
+            socket->runtime->declaration = nullptr;
+          }
+          LISTBASE_FOREACH (bNodeSocket *, socket, &node->outputs) {
+            socket->runtime->declaration = nullptr;
+          }
         }
         if (ntype.updatefunc) {
           ntype.updatefunc(&ntree, node);
@@ -914,17 +925,16 @@ class NodeTreeMainUpdater {
         }
         continue;
       }
-      else {
-        /* Clear current enum references. */
-        for (bNodeSocket *socket : node->input_sockets()) {
-          if (socket->is_available() && socket->type == SOCK_MENU) {
-            clear_enum_reference(*socket);
-          }
+
+      /* Clear current enum references. */
+      for (bNodeSocket *socket : node->input_sockets()) {
+        if (socket->is_available() && socket->type == SOCK_MENU) {
+          clear_enum_reference(*socket);
         }
-        for (bNodeSocket *socket : node->output_sockets()) {
-          if (socket->is_available() && socket->type == SOCK_MENU) {
-            clear_enum_reference(*socket);
-          }
+      }
+      for (bNodeSocket *socket : node->output_sockets()) {
+        if (socket->is_available() && socket->type == SOCK_MENU) {
+          clear_enum_reference(*socket);
         }
       }
 
@@ -1089,6 +1099,12 @@ class NodeTreeMainUpdater {
           /* Items are moved, no need to change user count. */
           dst.enum_items = src.enum_items;
           SET_FLAG_FROM_TEST(dst.runtime_flag, src.has_conflict(), NODE_MENU_ITEMS_CONFLICT);
+        }
+        else {
+          /* If the item isn't move make sure it gets released again. */
+          if (src.enum_items) {
+            src.enum_items->remove_user_and_delete_if_last();
+          }
         }
       }
     }
@@ -1698,6 +1714,29 @@ class NodeTreeMainUpdater {
     }
 
     ntree.tree_interface.reset_changed_flags();
+  }
+
+  /**
+   * Update the panel toggle sockets to use the same name as the panel.
+   */
+  bool update_panel_toggle_names(bNodeTree &ntree)
+  {
+    bool changed = false;
+    ntree.ensure_interface_cache();
+    for (bNodeTreeInterfaceItem *item : ntree.interface_items()) {
+      if (item->item_type != NODE_INTERFACE_PANEL) {
+        continue;
+      }
+      bNodeTreeInterfacePanel *panel = reinterpret_cast<bNodeTreeInterfacePanel *>(item);
+      if (bNodeTreeInterfaceSocket *toggle_socket = panel->header_toggle_socket()) {
+        if (!STREQ(panel->name, toggle_socket->name)) {
+          MEM_SAFE_FREE(toggle_socket->name);
+          toggle_socket->name = BLI_strdup_null(panel->name);
+          changed = true;
+        }
+      }
+    }
+    return changed;
   }
 };
 

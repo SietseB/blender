@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2024-03-23 04:06+0000\n"
 "Last-Translator: Alexandru Buhnici <in@alexm.ro>\n"
 "Language-Team: Romanian <https://translate.blender.org/projects/blender-ui/ui/ro/>\n"
@@ -61,10 +61,6 @@ msgstr "Colecție de AOV-uri"
 
 msgid "Action F-Curves"
 msgstr "F-Curbe de Acțiune"
-
-
-msgid "Collection of action F-Curves"
-msgstr "Colecție de F-Curbe de acțiune"
 
 
 msgid "Action Group"
@@ -420,10 +416,6 @@ msgstr "Faceți mai mult spațiu pentru a se potrivi scene mari distribuind memo
 
 msgid "HIP RT (Experimental)"
 msgstr "HIP RT (Experimental)"
-
-
-msgid "HIP RT enables AMD hardware ray tracing on RDNA2 and above, with shader fallback on older cards. This feature is experimental and some scenes may render incorrectly"
-msgstr "HIP RT permite ray tracing pe hardware AMD cu RDNA2 și versiunile superioare și cu shader fallback pe plăcile mai vechi. Această caracteristică este experimentală și este posibil ca unele scene să fie randate incorect"
 
 
 msgid "Embree on GPU"

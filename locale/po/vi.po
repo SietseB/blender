@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2024-12-30 20:42+0000\n"
 "Last-Translator: Hoang Duy Tran <hoangduytran1960@googlemail.com>\n"
 "Language-Team: Vietnamese <https://translate.blender.org/projects/blender-ui/ui/vi/>\n"
@@ -105,10 +105,6 @@ msgstr "Đối với mỗi khe hành động, một danh sách các kênh hoạt
 
 msgid "Action F-Curves"
 msgstr "Đường Cong-F của Hành Động"
-
-
-msgid "Collection of action F-Curves"
-msgstr "Bộ sưu tập các Đường Cong-F của hành động"
 
 
 msgid "Action Group"
@@ -725,10 +721,6 @@ msgstr "Tạo thêm không gian cho các cảnh lớn khít vừa vặn bằng c
 
 msgid "HIP RT (Experimental)"
 msgstr "HIP RT (Thử nghiệm)"
-
-
-msgid "HIP RT enables AMD hardware ray tracing on RDNA2 and above, with shader fallback on older cards. This feature is experimental and some scenes may render incorrectly"
-msgstr "HIP RT cho phép dò tia phần cứng AMD trên RDNA2 và từ đó trở lên, với tính năng tô bóng dự phòng trên các thẻ cũ hơn. Tính năng này đang được thử nghiệm và một số cảnh có thể sẽ hiển thị không chính xác"
 
 
 msgid "Embree on GPU"
@@ -17899,10 +17891,6 @@ msgid "The combined frame range of all F-Curves within this action"
 msgstr "Phạm vi khung hình kết hợp của toàn bộ các Đường Cong-F trong hành động này"
 
 
-msgid "The individual F-Curves that make up the action"
-msgstr "Các đơn vị Đường Cong-F tạo nên hành động"
-
-
 msgid "The end frame of the manually set intended playback range"
 msgstr "Khung hình kết thúc của phạm vi chơi lại dự kiến do mình đặt ra"
 
@@ -17923,17 +17911,9 @@ msgid "Groups"
 msgstr "Nhóm"
 
 
-msgid "Convenient groupings of F-Curves"
-msgstr "Các nhóm Đường Cong-F được nhóm lại cho thuận lợi"
-
-
 msgctxt "ID"
 msgid "ID Root Type"
 msgstr "Loại Gốc ID"
-
-
-msgid "Type of ID block that action can be used on - DO NOT CHANGE UNLESS YOU KNOW WHAT YOU ARE DOING"
-msgstr "Loại khối ID mà hành động có thể sử dụng - ĐỪNG NÊN SỬA ĐỔI TRỪ KHI MÌNH BIẾT RÕ TÁC ĐỘNG CỦA NÓ SẼ LÀ THẾ NÀO"
 
 
 msgid "Is Layered Action"
@@ -17946,10 +17926,6 @@ msgstr "Báo rằng liệu cái này có phải là Hành Động đã phân t�
 
 msgid "Is Legacy Action"
 msgstr "Là Hành Động Lỗi Thời"
-
-
-msgid "Return whether this is a legacy Action. Legacy Actions have no layers or slots. An empty Action considered as both a 'legacy' and a 'layered' Action."
-msgstr "Báo hiệu rằng liệu cái này có phải là một Hành Động lỗi thời hay không. Hành Động lỗi thời là những cái không có tầng lớp hoặc khe. Một Hành Động trống rỗng sẽ được coi là cả hai: Hành Động ‘lỗi thời và Hành Động 'có tầng lớp' rồi."
 
 
 msgid "Is Empty"
@@ -18528,26 +18504,6 @@ msgstr "Dịch chuyển của tọa độ gốc vùng ranh giới tương đối
 
 msgid "Brush's capabilities"
 msgstr "Tiềm năng của đầu bút"
-
-
-msgid "Clone Alpha"
-msgstr "Rập Khuôn Alpha"
-
-
-msgid "Opacity of clone image display"
-msgstr "Độ đục khi hiển thị bản rập khuôn của hình ảnh"
-
-
-msgid "Clone Image"
-msgstr "Hình Ảnh để Rập Khuôn"
-
-
-msgid "Image for clone brushes"
-msgstr "Hình ảnh cho đầu bút rập khuôn"
-
-
-msgid "Clone Offset"
-msgstr "Dịch Chuyển của Hình Rập Khuôn"
 
 
 msgid "Soft Body Plasticity"
@@ -28672,11 +28628,6 @@ msgid "Sequence playback mode"
 msgstr "Chế độ chơi lại trình tự"
 
 
-msgctxt "Sequence"
-msgid "Clip"
-msgstr "Đoạn Phim"
-
-
 msgid "Hide frames outside the specified frame range"
 msgstr "Ẩn giấu các khung hình nằm ngoài phạm vi khung hình chỉ định"
 
@@ -33561,30 +33512,6 @@ msgid "Clean Up"
 msgstr "Dọn Dẹp"
 
 
-msgid "Special Characters"
-msgstr "Các Ký Tự Đặc Biệt"
-
-
-msgid "Kerning"
-msgstr "Tinh Chỉnh Khoảng Cách Ký Tự"
-
-
-msgid "Text"
-msgstr "Văn Bản"
-
-
-msgid "Metaball"
-msgstr "Siêu Cầu"
-
-
-msgid "Names"
-msgstr "Tên"
-
-
-msgid "Bone Roll"
-msgstr "Lăn Xương"
-
-
 msgid "Pivot Point"
 msgstr "Điểm Tựa"
 
@@ -33667,6 +33594,10 @@ msgstr "Chọn Vòng Mạch"
 
 msgid "Assign Material"
 msgstr "Ấn Định Nguyên Vật Liệu"
+
+
+msgid "Metaball"
+msgstr "Siêu Cầu"
 
 
 msgid "Light"
@@ -33753,6 +33684,10 @@ msgid "Bone Collections"
 msgstr "Bộ Sưu Tập Xương"
 
 
+msgid "Names"
+msgstr "Tên"
+
+
 msgid "Toggle Bone Options"
 msgstr "Bật/Tắt Tùy Chọn về Xương"
 
@@ -33783,6 +33718,22 @@ msgstr "Đặt Cường Độ Mặt"
 
 msgid "Merge"
 msgstr "Hợp Nhất"
+
+
+msgid "Special Characters"
+msgstr "Các Ký Tự Đặc Biệt"
+
+
+msgid "Kerning"
+msgstr "Tinh Chỉnh Khoảng Cách Ký Tự"
+
+
+msgid "Text"
+msgstr "Văn Bản"
+
+
+msgid "Bone Roll"
+msgstr "Lăn Xương"
 
 
 msgid "Keyframe Insert Pie"
@@ -64745,6 +64696,10 @@ msgid "Set all stroke points to same opacity"
 msgstr "Đặt toàn bộ các điểm nét vẽ là có cùng một độ đục"
 
 
+msgid "Fill Opacity"
+msgstr "Độ Đục của Màu Phủ"
+
+
 msgctxt "Operator"
 msgid "Set Uniform Thickness"
 msgstr "Đặt Độ Dày Đồng Đều"
@@ -83552,10 +83507,6 @@ msgid "Exports UVs from the modified mesh"
 msgstr "Xuất khẩu các UV từ khung lưới đã thay đổi"
 
 
-msgid "Fill Opacity"
-msgstr "Độ Đục của Màu Phủ"
-
-
 msgid "Set amount of opacity for exported UV layout"
 msgstr "Đặt độ đục cho bố trí của UV được xuất khẩu"
 
@@ -88541,8 +88492,24 @@ msgid "Image used as canvas"
 msgstr "Hình ảnh sử dụng làm khung vẽ"
 
 
+msgid "Clone Alpha"
+msgstr "Rập Khuôn Alpha"
+
+
+msgid "Opacity of clone image display"
+msgstr "Độ đục khi hiển thị bản rập khuôn của hình ảnh"
+
+
+msgid "Clone Image"
+msgstr "Hình Ảnh để Rập Khuôn"
+
+
 msgid "Image used as clone source"
 msgstr "Hình ảnh sử dụng để làm nguồn rập khuôn"
+
+
+msgid "Clone Offset"
+msgstr "Dịch Chuyển của Hình Rập Khuôn"
 
 
 msgid "Dither"
@@ -88945,20 +88912,20 @@ msgid "Curves Edit Mode"
 msgstr "Chế Độ Biên Soạn Đường Cong"
 
 
-msgid "Snapping"
-msgstr "Bám Dính"
-
-
-msgid "Transform Orientations"
-msgstr "Các Định Hướng Biến Hóa"
-
-
 msgid "glTF Variants"
 msgstr "Biến Thể glTF"
 
 
 msgid "glTF Material Variants"
 msgstr "Biến Thể Nguyên Vật Liệu glTF"
+
+
+msgid "Snapping"
+msgstr "Bám Dính"
+
+
+msgid "Transform Orientations"
+msgstr "Các Định Hướng Biến Hóa"
 
 
 msgid "Stroke Placement"
@@ -88981,16 +88948,16 @@ msgid "Onion Skin"
 msgstr "Bóc Vỏ Hành"
 
 
+msgid "glTF Animations"
+msgstr "Hoạt Họa glTF"
+
+
 msgid "Stereoscopy"
 msgstr "Lập Thể"
 
 
 msgid "Multi Frame"
 msgstr "Đa Khung Hình"
-
-
-msgid "glTF Animations"
-msgstr "Hoạt Họa glTF"
 
 
 msgid "Auto-Masking"
@@ -104341,6 +104308,11 @@ msgstr "Phim"
 
 
 msgctxt "Sequence"
+msgid "Clip"
+msgstr "Đoạn Phim"
+
+
+msgctxt "Sequence"
 msgid "Mask"
 msgstr "Màn Chắn Lọc"
 
@@ -114725,10 +114697,6 @@ msgid "Requires AMD GPU with RDNA architecture"
 msgstr "Yêu cầu GPU AMD có kiến trúc RDNA"
 
 
-msgid "and AMD Radeon Pro %s driver or newer"
-msgstr "và trình điều khiển AMD Radeon Pro %s hoặc mới hơn"
-
-
 msgid "Requires Intel GPU with Xe-HPG architecture"
 msgstr "Yêu cầu GPU Intel với kiến trúc Xe-HPG"
 
@@ -116301,10 +116269,6 @@ msgid "performance impact!"
 msgstr "tác động đến hiệu suất hoạt động đáng kể!"
 
 
-msgid "Built without VR/OpenXR features"
-msgstr "Được xây dựng không có chức năng Thực Tế Ảo/OpenXR"
-
-
 msgid "Start VR Session"
 msgstr "Khởi Động Phiên Sử Dụng VR"
 
@@ -116876,10 +116840,6 @@ msgstr "Cảnh cáo, tập tin hiện đang tồn tại. Viết đè chồng lê
 
 msgid "Installing keymap failed: {:s}"
 msgstr "Cài đặt bố trí phím đã bị thất bại: {:s}"
-
-
-msgid "This script was written Blender version {:d}.{:d}.{:d} and might not function (correctly), though it is enabled"
-msgstr "Tập lệnh này được viết bằng phiên bản Blender {:d}.{:d}.{:d} và có thể không hoạt động (đúng đắn), mặc dù nó đã được bật lên"
 
 
 msgid "File already installed to {!r}"
@@ -127836,10 +127796,6 @@ msgid "OS"
 msgstr "Hệ Điều Hành"
 
 
-msgid "Home"
-msgstr "Nhà"
-
-
 msgid "Esc"
 msgstr "Esc"
 
@@ -132070,6 +132026,10 @@ msgstr "Danh Mục Tài Sản"
 
 msgid "Date Modified"
 msgstr "Ngày Thay Đổi"
+
+
+msgid "Home"
+msgstr "Nhà"
 
 
 msgid "Desktop"

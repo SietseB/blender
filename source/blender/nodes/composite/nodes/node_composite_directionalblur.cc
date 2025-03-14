@@ -33,7 +33,7 @@ static void cmp_node_directional_blur_declare(NodeDeclarationBuilder &b)
 
 static void node_composit_init_dblur(bNodeTree * /*ntree*/, bNode *node)
 {
-  NodeDBlurData *ndbd = MEM_cnew<NodeDBlurData>(__func__);
+  NodeDBlurData *ndbd = MEM_callocN<NodeDBlurData>(__func__);
   node->storage = ndbd;
   ndbd->iter = 1;
   ndbd->center_x = 0.5;
@@ -71,8 +71,10 @@ class DirectionalBlurOperation : public NodeOperation {
 
   void execute() override
   {
-    if (is_identity()) {
-      get_input("Image").pass_through(get_result("Image"));
+    if (this->is_identity()) {
+      const Result &input = this->get_input("Image");
+      Result &output = this->get_result("Image");
+      output.share_data(input);
       return;
     }
 
@@ -266,8 +268,8 @@ void register_node_type_cmp_dblur()
   ntype.draw_buttons = file_ns::node_composit_buts_dblur;
   ntype.initfunc = file_ns::node_composit_init_dblur;
   blender::bke::node_type_storage(
-      &ntype, "NodeDBlurData", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeDBlurData", node_free_standard_storage, node_copy_standard_storage);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

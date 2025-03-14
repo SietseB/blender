@@ -20,8 +20,8 @@ void PlanarProbe::set_view(const draw::View &view, int layer_id)
   this->world_to_object_transposed = float3x4(transpose(world_to_plane));
   this->normal = normalize(plane_to_world.z_axis());
 
-  bool view_is_below_plane = dot(view.location() - plane_to_world.location(),
-                                 plane_to_world.z_axis()) < 0.0;
+  float3 view_vec = view.is_persp() ? view.location() - plane_to_world.location() : view.forward();
+  bool view_is_below_plane = dot(view_vec, plane_to_world.z_axis()) < 0.0;
   if (view_is_below_plane) {
     this->normal = -this->normal;
   }
@@ -79,7 +79,7 @@ void PlanarProbeModule::set_view(const draw::View &main_view, int2 main_view_ext
   depth_tx_.ensure_2d_array(GPU_DEPTH_COMPONENT32F, extent, layer_count, usage);
   depth_tx_.ensure_layer_views();
 
-  do_display_draw_ = DRW_state_draw_support() && num_probes > 0;
+  do_display_draw_ = inst_.do_display_support() && num_probes > 0;
 
   int resource_index = 0;
   int display_index = 0;

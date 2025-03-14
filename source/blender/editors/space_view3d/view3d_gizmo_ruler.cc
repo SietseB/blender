@@ -355,40 +355,41 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
     if (do_thickness && inter->co_index != 1) {
       Scene *scene = DEG_get_input_scene(depsgraph);
       View3D *v3d = static_cast<View3D *>(ruler_info->area->spacedata.first);
-      SnapObjectContext *snap_context = ED_gizmotypes_snap_3d_context_ensure(scene, snap_gizmo);
+      blender::ed::transform::SnapObjectContext *snap_context =
+          ED_gizmotypes_snap_3d_context_ensure(scene, snap_gizmo);
       const float2 mval_fl = {float(mval[0]), float(mval[1])};
       float3 ray_normal;
       float3 ray_start;
       float3 &co_other = ruler_item->co[inter->co_index == 0 ? 2 : 0];
 
-      SnapObjectParams snap_object_params{};
+      blender::ed::transform::SnapObjectParams snap_object_params{};
       snap_object_params.snap_target_select = SCE_SNAP_TARGET_ALL;
-      snap_object_params.edit_mode_type = SNAP_GEOM_CAGE;
+      snap_object_params.edit_mode_type = blender::ed::transform::SNAP_GEOM_CAGE;
 
-      eSnapMode hit = ED_transform_snap_object_project_view3d(snap_context,
-                                                              depsgraph,
-                                                              ruler_info->region,
-                                                              v3d,
-                                                              SCE_SNAP_TO_FACE,
-                                                              &snap_object_params,
-                                                              nullptr,
-                                                              mval_fl,
-                                                              nullptr,
-                                                              &dist_px,
-                                                              co,
-                                                              ray_normal);
+      eSnapMode hit = blender::ed::transform::snap_object_project_view3d(snap_context,
+                                                                         depsgraph,
+                                                                         ruler_info->region,
+                                                                         v3d,
+                                                                         SCE_SNAP_TO_FACE,
+                                                                         &snap_object_params,
+                                                                         nullptr,
+                                                                         mval_fl,
+                                                                         nullptr,
+                                                                         &dist_px,
+                                                                         co,
+                                                                         ray_normal);
       if (hit) {
         /* add some bias */
         ray_start = co - ray_normal * eps_bias;
-        ED_transform_snap_object_project_ray(snap_context,
-                                             depsgraph,
-                                             v3d,
-                                             &snap_object_params,
-                                             ray_start,
-                                             -ray_normal,
-                                             nullptr,
-                                             co_other,
-                                             nullptr);
+        blender::ed::transform::snap_object_project_ray(snap_context,
+                                                        depsgraph,
+                                                        v3d,
+                                                        &snap_object_params,
+                                                        ray_start,
+                                                        -ray_normal,
+                                                        nullptr,
+                                                        co_other,
+                                                        nullptr);
       }
     }
     else {
@@ -444,7 +445,7 @@ static bool view3d_ruler_item_mousemove(const bContext *C,
         const int pivot_point = scene->toolsettings->transform_pivot_point;
         float3x3 mat;
 
-        ED_transform_calc_orientation_from_type_ex(
+        blender::ed::transform::calc_orientation_from_type_ex(
             scene, view_layer, v3d, rv3d, ob, obedit, orient_index, pivot_point, mat.ptr());
 
         ruler_item->co = blender::math::invert(mat) * ruler_item->co;
@@ -630,6 +631,44 @@ static bool view3d_ruler_from_gpencil(const bContext *C, wmGizmoGroup *gzgroup)
   }
 
   return changed;
+}
+
+void ED_view3d_gizmo_ruler_remove_by_gpencil_layer(bContext *C, bGPDlayer *gpl)
+{
+  wmWindowManager *wm = CTX_wm_manager(C);
+  LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+    const Scene *scene = WM_window_get_active_scene(win);
+    if (!scene->gpd) {
+      continue;
+    }
+
+    bGPDlayer *gpl_scene = view3d_ruler_layer_get(scene->gpd);
+    if (gpl_scene != gpl) {
+      continue;
+    }
+
+    const bScreen *screen = WM_window_get_active_screen(win);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      if (area->spacetype != SPACE_VIEW3D) {
+        continue;
+      }
+
+      ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+      if (!region) {
+        continue;
+      }
+
+      wmGizmoMap *gzmap = region->runtime->gizmo_map;
+      wmGizmoGroup *gzgroup = WM_gizmomap_group_find(gzmap, view3d_gzgt_ruler_id);
+
+      RulerItem *ruler_item;
+      while ((ruler_item = gzgroup_ruler_item_first_get(gzgroup))) {
+        ruler_item_remove(C, gzgroup, ruler_item);
+      }
+
+      ED_region_tag_redraw_editor_overlays(region);
+    }
+  }
 }
 
 /** \} */
@@ -1210,7 +1249,10 @@ static void gizmo_ruler_exit(bContext *C, wmGizmo *gz, const bool cancel)
       ruler_state_set(ruler_info, RULER_STATE_NORMAL);
     }
     /* We could convert only the current gizmo, for now just re-generate. */
-    view3d_ruler_to_gpencil(C, gzgroup);
+    if (view3d_ruler_to_gpencil(C, gzgroup)) {
+      /* For immediate update when a ruler annotation layer was added. */
+      WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+    }
   }
 
   MEM_SAFE_FREE(gz->interaction_data);

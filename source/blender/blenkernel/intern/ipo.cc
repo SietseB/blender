@@ -1255,7 +1255,7 @@ static ChannelDriver *idriver_to_cdriver(IpoDriver *idriver)
   /* allocate memory for new driver */
   cdriver = static_cast<ChannelDriver *>(MEM_callocN(sizeof(ChannelDriver), "ChannelDriver"));
 
-  /* if 'pydriver', just copy data across */
+  /* If `pydriver`, just copy data across. */
   if (idriver->type == IPO_DRIVER_TYPE_PYTHON) {
     /* PyDriver only requires the expression to be copied */
     /* FIXME: expression will be useless due to API changes, but at least not totally lost */
@@ -2414,7 +2414,7 @@ void do_versions_ipos_to_layered_actions(Main *bmain)
     Editing *ed = scene->ed;
     if (ed && ed->seqbasep) {
       Seq_callback_data cb_data = {bmain, scene, BKE_animdata_ensure_id(id)};
-      SEQ_for_each_callback(&ed->seqbase, strip_convert_callback, &cb_data);
+      seq::for_each_callback(&ed->seqbase, strip_convert_callback, &cb_data);
     }
   }
 

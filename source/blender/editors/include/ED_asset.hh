@@ -29,11 +29,13 @@
 using BIFIconID = int;
 
 struct PointerRNA;
+struct uiTooltipData;
 
 namespace blender::ed::asset {
 
-std::string asset_tooltip(const asset_system::AssetRepresentation &asset,
-                          bool include_name = true);
+void asset_tooltip(const asset_system::AssetRepresentation &asset,
+                   uiTooltipData &tip,
+                   bool include_name = true);
 
 BIFIconID asset_preview_icon_id(const asset_system::AssetRepresentation &asset);
 BIFIconID asset_preview_or_icon(const asset_system::AssetRepresentation &asset);
@@ -57,7 +59,7 @@ AssetLibraryReference get_asset_library_ref_from_opptr(PointerRNA &ptr);
 void visit_library_catalogs_catalog_for_search(
     const Main &bmain,
     const AssetLibraryReference lib,
-    const StringRef edit_text,
+    StringRef edit_text,
     const FunctionRef<void(StringPropertySearchVisitParams)> visit_fn);
 
 }  // namespace blender::ed::asset

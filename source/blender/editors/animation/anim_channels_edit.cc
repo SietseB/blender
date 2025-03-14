@@ -323,7 +323,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_FILLDRIVERS:
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GPDATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_GREASE_PENCIL_LAYER:
@@ -473,7 +472,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
     case ANIMTYPE_NLACONTROLS:
     case ANIMTYPE_FILLDRIVERS:
     case ANIMTYPE_SHAPEKEY:
-    case ANIMTYPE_GPDATABLOCK:
     case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
     case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
     case ANIMTYPE_MASKDATABLOCK:
@@ -622,7 +620,6 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(const ListB
       case ANIMTYPE_SUMMARY:
       case ANIMTYPE_NLACONTROLS:
       case ANIMTYPE_FILLDRIVERS:
-      case ANIMTYPE_GPDATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_GREASE_PENCIL_LAYER:
@@ -807,7 +804,6 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_SUMMARY:
       case ANIMTYPE_NLACONTROLS:
       case ANIMTYPE_FILLDRIVERS:
-      case ANIMTYPE_GPDATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_MASKDATABLOCK:
@@ -2245,7 +2241,7 @@ static void rearrange_gpencil_channels(bAnimContext *ac, eRearrangeAnimChan_Mode
 
   LISTBASE_FOREACH (bAnimListElem *, ale, &anim_data) {
     /* only consider grease pencil container channels */
-    if (!ELEM(ale->type, ANIMTYPE_GPDATABLOCK, ANIMTYPE_DSGPENCIL)) {
+    if (ale->type != ANIMTYPE_DSGPENCIL) {
       continue;
     }
 
@@ -2848,7 +2844,6 @@ static bool animchannels_delete_containers(const bContext *C, bAnimContext *ac)
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GPDATABLOCK:
       case ANIMTYPE_GPLAYER:
       case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
@@ -3009,7 +3004,6 @@ static int animchannels_delete_exec(bContext *C, wmOperator * /*op*/)
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GPDATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
       case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_MASKDATABLOCK:
@@ -3436,7 +3430,7 @@ static int animchannels_clean_empty_exec(bContext *C, wmOperator * /*op*/)
     ID *id = ale->id;
     AnimData *adt = static_cast<AnimData *>(ale->data);
 
-    bool action_empty = false;
+    bool action_empty;
     bool nla_empty = false;
     bool drivers_empty = false;
 
@@ -3446,12 +3440,17 @@ static int animchannels_clean_empty_exec(bContext *C, wmOperator * /*op*/)
     /* check if this is "empty" and can be deleted */
     /* (For now, there are only these 3 criteria) */
 
-    /* 1) Active Action is missing or empty */
-    if (ELEM(nullptr, adt->action, adt->action->curves.first)) {
-      action_empty = true;
+    /* 1) Assigned Action is empty, at least when it comes to this data-block. */
+    if (adt->action) {
+      using namespace blender::animrig;
+      const Action &action = adt->action->wrap();
+      /* This should not be using action.is_empty(), as this operator is not about cleaning up the
+       * Action itself, but rather disassociating it from the animated ID when that ID is not being
+       * animated by it. */
+      action_empty = fcurves_for_action_slot(action, adt->slot_handle).is_empty();
     }
     else {
-      /* TODO: check for keyframe + F-modifier data on these too. */
+      action_empty = true;
     }
 
     /* 2) No NLA Tracks and/or NLA Strips */
@@ -3763,11 +3762,6 @@ static void box_select_anim_channels(bAnimContext *ac, const rcti &rect, short s
   LISTBASE_FOREACH (bAnimListElem *, ale, &anim_data) {
     float ymin;
 
-    if (ale->type == ANIMTYPE_GPDATABLOCK) {
-      ymax -= ANIM_UI_get_channel_step();
-      continue;
-    }
-
     if (ac->datatype == ANIMCONT_NLA) {
       ymin = ymax - NLATRACK_STEP(snla);
     }
@@ -3839,7 +3833,6 @@ static void box_select_anim_channels(bAnimContext *ac, const rcti &rect, short s
         case ANIMTYPE_DSPOINTCLOUD:
         case ANIMTYPE_DSVOLUME:
         case ANIMTYPE_SHAPEKEY:
-        case ANIMTYPE_GPDATABLOCK:
         case ANIMTYPE_GPLAYER:
         case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
         case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
@@ -4484,19 +4477,6 @@ static int click_select_channel_nlacontrols(bAnimListElem *ale)
   return (ND_ANIMCHAN | NA_EDITED);
 }
 
-static int click_select_channel_gpdatablock(bAnimListElem *ale)
-{
-  bGPdata *gpd = (bGPdata *)ale->data;
-
-  /* Toggle expand:
-   * - Although the triangle widget already allows this,
-   *   the whole channel can also be used for this purpose.
-   */
-  gpd->flag ^= GP_DATA_EXPAND;
-
-  return (ND_ANIMCHAN | NA_EDITED);
-}
-
 static int click_select_channel_gplayer(bContext *C,
                                         bAnimContext *ac,
                                         bAnimListElem *ale,
@@ -4734,9 +4714,6 @@ static int mouse_anim_channels(bContext *C,
       break;
     case ANIMTYPE_NLACONTROLS:
       notifierFlags |= click_select_channel_nlacontrols(ale);
-      break;
-    case ANIMTYPE_GPDATABLOCK:
-      notifierFlags |= click_select_channel_gpdatablock(ale);
       break;
     case ANIMTYPE_GPLAYER:
       notifierFlags |= click_select_channel_gplayer(C, ac, ale, selectmode, filter);
@@ -5022,7 +4999,7 @@ static int graphkeys_view_selected_channels_exec(bContext *C, wmOperator *op)
       &ac, &anim_data, eAnimFilter_Flags(filter), ac.data, eAnimCont_Types(ac.datatype));
 
   if (anim_data_length == 0) {
-    WM_report(RPT_WARNING, "No channels to operate on");
+    WM_global_report(RPT_WARNING, "No channels to operate on");
     return OPERATOR_CANCELLED;
   }
 
@@ -5051,7 +5028,7 @@ static int graphkeys_view_selected_channels_exec(bContext *C, wmOperator *op)
 
   if (!valid_bounds) {
     ANIM_animdata_freelist(&anim_data);
-    WM_report(RPT_WARNING, "No keyframes to focus on");
+    WM_global_report(RPT_WARNING, "No keyframes to focus on");
     return OPERATOR_CANCELLED;
   }
 
@@ -5140,7 +5117,7 @@ static int graphkeys_channel_view_pick_invoke(bContext *C, wmOperator *op, const
 
   if (!found_bounds) {
     ANIM_animdata_freelist(&anim_data);
-    WM_report(RPT_WARNING, "No keyframes to focus on");
+    WM_global_report(RPT_WARNING, "No keyframes to focus on");
     return OPERATOR_CANCELLED;
   }
 
@@ -5209,7 +5186,7 @@ static int channels_bake_exec(bContext *C, wmOperator *op)
       &ac, &anim_data, eAnimFilter_Flags(filter), ac.data, eAnimCont_Types(ac.datatype));
 
   if (anim_data_length == 0) {
-    WM_report(RPT_WARNING, "No channels to operate on");
+    WM_global_report(RPT_WARNING, "No channels to operate on");
     return OPERATOR_CANCELLED;
   }
 
@@ -5368,7 +5345,7 @@ static int slot_channels_move_to_new_action_exec(bContext *C, wmOperator * /* op
   size_t anim_data_length = ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
   if (anim_data_length == 0) {
-    WM_report(RPT_WARNING, "No channels to operate on");
+    WM_global_report(RPT_WARNING, "No channels to operate on");
     return OPERATOR_CANCELLED;
   }
 
@@ -5384,7 +5361,7 @@ static int slot_channels_move_to_new_action_exec(bContext *C, wmOperator * /* op
   ANIM_animdata_freelist(&anim_data);
 
   if (slots.size() == 0) {
-    WM_report(RPT_WARNING, "None of the selected channels is an Action Slot");
+    WM_global_report(RPT_WARNING, "None of the selected channels is an Action Slot");
     return OPERATOR_CANCELLED;
   }
 
@@ -5736,7 +5713,7 @@ static int view_curve_in_graph_editor_exec(bContext *C, wmOperator *op)
   if (!context_find_graph_editor(
           C, &wm_context_temp.win, &wm_context_temp.area, &wm_context_temp.region))
   {
-    WM_report(RPT_WARNING, "No open Graph Editor window found");
+    WM_global_report(RPT_WARNING, "No open Graph Editor window found");
     retval = OPERATOR_CANCELLED;
   }
   else {
@@ -5751,7 +5728,7 @@ static int view_curve_in_graph_editor_exec(bContext *C, wmOperator *op)
     bAnimContext ac;
     if (!ANIM_animdata_get_context(C, &ac)) {
       /* This might never be called since we are manually setting the Graph Editor just before. */
-      WM_report(RPT_ERROR, "Cannot create the Animation Context");
+      WM_global_report(RPT_ERROR, "Cannot create the Animation Context");
       retval = OPERATOR_CANCELLED;
     }
     else {
@@ -5791,11 +5768,12 @@ static int view_curve_in_graph_editor_exec(bContext *C, wmOperator *op)
       }
 
       if (filtered_fcurve_count > 0) {
-        WM_report(RPT_WARNING, "One or more F-Curves are not visible due to filter settings");
+        WM_global_report(RPT_WARNING,
+                         "One or more F-Curves are not visible due to filter settings");
       }
 
       if (!BLI_rctf_is_valid(&bounds)) {
-        WM_report(RPT_ERROR, "F-Curves have no valid size");
+        WM_global_report(RPT_ERROR, "F-Curves have no valid size");
         retval = OPERATOR_CANCELLED;
       }
       else {

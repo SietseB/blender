@@ -54,7 +54,7 @@ static void node_layout_ex(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 
 static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
-  NodeGeometryCurveResample *data = MEM_cnew<NodeGeometryCurveResample>(__func__);
+  NodeGeometryCurveResample *data = MEM_callocN<NodeGeometryCurveResample>(__func__);
 
   data->mode = GEO_NODE_CURVE_RESAMPLE_COUNT;
   data->keep_last_segment = true;
@@ -221,10 +221,10 @@ static void node_register()
   ntype.draw_buttons = node_layout;
   ntype.draw_buttons_ex = node_layout_ex;
   blender::bke::node_type_storage(
-      &ntype, "NodeGeometryCurveResample", node_free_standard_storage, node_copy_standard_storage);
+      ntype, "NodeGeometryCurveResample", node_free_standard_storage, node_copy_standard_storage);
   ntype.initfunc = node_init;
   ntype.geometry_node_execute = node_geo_exec;
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 
   node_rna(ntype.rna_ext.srna);
 }

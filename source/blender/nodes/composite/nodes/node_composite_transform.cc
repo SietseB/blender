@@ -64,9 +64,6 @@ class TransformOperation : public NodeOperation {
 
   void execute() override
   {
-    Result &input = this->get_input("Image");
-    Result &output = this->get_result("Image");
-
     const float2 translation = float2(this->get_input("X").get_single_value_default(0.0f),
                                       this->get_input("Y").get_single_value_default(0.0f));
     const math::AngleRadian rotation = this->get_input("Angle").get_single_value_default(0.0f);
@@ -74,7 +71,9 @@ class TransformOperation : public NodeOperation {
     const float3x3 transformation = math::from_loc_rot_scale<float3x3>(
         translation, rotation, scale);
 
-    input.pass_through(output);
+    const Result &input = this->get_input("Image");
+    Result &output = this->get_result("Image");
+    output.share_data(input);
     output.transform(transformation);
     output.get_realization_options().interpolation = this->get_interpolation();
   }
@@ -117,5 +116,5 @@ void register_node_type_cmp_transform()
   ntype.draw_buttons = file_ns::node_composit_buts_transform;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

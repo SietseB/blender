@@ -17,8 +17,10 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::String>("Path")
       .subtype(PROP_FILEPATH)
+      .path_filter("*.csv")
       .hide_label()
       .description("Path to a CSV file");
+  b.add_input<decl::String>("Delimiter").default_value(",");
 
   b.add_output<decl::Geometry>("Point Cloud");
 }
@@ -26,21 +28,35 @@ static void node_declare(NodeDeclarationBuilder &b)
 static void node_geo_exec(GeoNodeExecParams params)
 {
 #ifdef WITH_IO_CSV
-  const std::string path = params.extract_input<std::string>("Path");
-  if (path.empty()) {
+  const std::optional<std::string> path = params.ensure_absolute_path(
+      params.extract_input<std::string>("Path"));
+  if (!path) {
+    params.set_default_remaining_outputs();
+    return;
+  }
+  const std::string delimiter = params.extract_input<std::string>("Delimiter");
+  if (delimiter.size() != 1) {
+    params.error_message_add(NodeWarningType::Error, TIP_("Delimiter must be a single character"));
+    params.set_default_remaining_outputs();
+    return;
+  }
+  if (ELEM(delimiter[0], '\n', '\r', '"', '\\')) {
+    params.error_message_add(NodeWarningType::Error,
+                             TIP_("Delimiter must not be \\n, \\r, \" or \\"));
     params.set_default_remaining_outputs();
     return;
   }
 
   blender::io::csv::CSVImportParams import_params{};
-  STRNCPY(import_params.filepath, path.c_str());
+  import_params.delimiter = delimiter[0];
+  STRNCPY(import_params.filepath, path->c_str());
 
   ReportList reports;
   BKE_reports_init(&reports, RPT_STORE);
   BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); })
   import_params.reports = &reports;
 
-  PointCloud *point_cloud = blender::io::csv::import_csv_as_point_cloud(import_params);
+  PointCloud *pointcloud = blender::io::csv::import_csv_as_pointcloud(import_params);
 
   LISTBASE_FOREACH (Report *, report, &(import_params.reports)->list) {
     NodeWarningType type;
@@ -55,7 +71,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     params.error_message_add(type, TIP_(report->message));
   }
 
-  params.set_output("Point Cloud", GeometrySet::from_pointcloud(point_cloud));
+  params.set_output("Point Cloud", GeometrySet::from_pointcloud(pointcloud));
 #else
   params.error_message_add(NodeWarningType::Error,
                            TIP_("Disabled, Blender was compiled without CSV I/O"));
@@ -75,7 +91,7 @@ static void node_register()
   ntype.declare = node_declare;
   ntype.gather_link_search_ops = search_link_ops_for_import_node;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }
 NOD_REGISTER_NODE(node_register)
 

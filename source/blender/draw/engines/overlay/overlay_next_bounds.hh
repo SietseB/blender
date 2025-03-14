@@ -130,7 +130,10 @@ class Bounds : Overlay {
     };
 
     auto add_bounds = [&](const bool around_origin, const char bound_type) {
-      const blender::Bounds<float3> bounds = BKE_object_boundbox_get(ob).value_or(
+      const std::optional<blender::Bounds<float3>> bounds_opt =
+          ELEM(ob->type, OB_LATTICE, OB_ARMATURE) ? BKE_object_boundbox_get(ob) :
+                                                    BKE_object_evaluated_geometry_bounds(ob);
+      const blender::Bounds<float3> bounds = bounds_opt.value_or(
           blender::Bounds(float3(-1.0f), float3(1.0f)));
       const float3 size = (bounds.max - bounds.min) * 0.5f;
       const float3 center = around_origin ? float3(0) : math::midpoint(bounds.min, bounds.max);
@@ -201,8 +204,9 @@ class Bounds : Overlay {
     ps_.init();
     ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL,
                   state.clipping_plane_count);
-    ps_.shader_set(res.shaders.extra_shape.get());
+    ps_.shader_set(res.shaders->extra_shape.get());
     ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
     res.select_bind(ps_);
 
     call_buffers_.box.end_sync(ps_, res.shapes.cube.get());

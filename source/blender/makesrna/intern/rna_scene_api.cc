@@ -136,25 +136,26 @@ static void rna_Scene_ray_cast(Scene *scene,
 {
   float direction_unit[3];
   normalize_v3_v3(direction_unit, direction);
-  SnapObjectContext *sctx = ED_transform_snap_object_context_create(scene, 0);
+  blender::ed::transform::SnapObjectContext *sctx =
+      blender::ed::transform::snap_object_context_create(scene, 0);
 
-  SnapObjectParams snap_object_params{};
+  blender::ed::transform::SnapObjectParams snap_object_params{};
   snap_object_params.snap_target_select = SCE_SNAP_TARGET_ALL;
 
-  bool ret = ED_transform_snap_object_project_ray_ex(sctx,
-                                                     depsgraph,
-                                                     nullptr,
-                                                     &snap_object_params,
-                                                     origin,
-                                                     direction_unit,
-                                                     &ray_dist,
-                                                     r_location,
-                                                     r_normal,
-                                                     r_index,
-                                                     (const Object **)(r_ob),
-                                                     (float(*)[4])r_obmat);
+  bool ret = blender::ed::transform::snap_object_project_ray_ex(sctx,
+                                                                depsgraph,
+                                                                nullptr,
+                                                                &snap_object_params,
+                                                                origin,
+                                                                direction_unit,
+                                                                &ray_dist,
+                                                                r_location,
+                                                                r_normal,
+                                                                r_index,
+                                                                (const Object **)(r_ob),
+                                                                (float(*)[4])r_obmat);
 
-  ED_transform_snap_object_context_destroy(sctx);
+  blender::ed::transform::snap_object_context_destroy(sctx);
 
   if (r_ob != nullptr && *r_ob != nullptr) {
     *r_ob = DEG_get_original_object(*r_ob);
@@ -174,7 +175,7 @@ static void rna_Scene_ray_cast(Scene *scene,
 
 static void rna_Scene_sequencer_editing_free(Scene *scene)
 {
-  SEQ_editing_free(scene, true);
+  blender::seq::editing_free(scene, true);
 }
 
 #  ifdef WITH_ALEMBIC
@@ -330,7 +331,7 @@ void RNA_api_scene(StructRNA *srna)
   RNA_def_function_output(func, parm);
 
   /* Sequencer. */
-  func = RNA_def_function(srna, "sequence_editor_create", "SEQ_editing_ensure");
+  func = RNA_def_function(srna, "sequence_editor_create", "blender::seq::editing_ensure");
   RNA_def_function_ui_description(func, "Ensure sequence editor is valid in this scene");
   parm = RNA_def_pointer(
       func, "sequence_editor", "SequenceEditor", "", "New sequence editor data or nullptr");

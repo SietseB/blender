@@ -450,11 +450,16 @@ void ED_info_stats_clear(wmWindowManager *wm, ViewLayer *view_layer)
       if (area->spacetype == SPACE_VIEW3D) {
         View3D *v3d = (View3D *)area->spacedata.first;
         if (v3d->localvd) {
-          MEM_SAFE_FREE(v3d->runtime.local_stats);
+          ED_view3d_local_stats_free(v3d);
         }
       }
     }
   }
+}
+
+void ED_view3d_local_stats_free(View3D *v3d)
+{
+  MEM_SAFE_FREE(v3d->runtime.local_stats);
 }
 
 static bool format_stats(
@@ -519,7 +524,6 @@ static void get_stats_string(char *info,
 {
   BKE_view_layer_synced_ensure(scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
-  Object *obedit = OBEDIT_FROM_OBACT(ob);
   eObjectMode object_mode = ob ? (eObjectMode)ob->mode : OB_MODE_OBJECT;
   LayerCollection *layer_collection = BKE_view_layer_active_collection_get(view_layer);
 
@@ -534,12 +538,12 @@ static void get_stats_string(char *info,
     *ofs += BLI_snprintf_rlen(info + *ofs, len - *ofs, "%s | ", ob->id.name + 2);
   }
 
-  if (obedit) {
-    if (BKE_keyblock_from_object(obedit)) {
+  if (ob && ob->mode == OB_MODE_EDIT) {
+    if (BKE_keyblock_from_object(ob)) {
       *ofs += BLI_strncpy_rlen(info + *ofs, IFACE_("(Key) "), len - *ofs);
     }
 
-    if (obedit->type == OB_MESH) {
+    if (ob->type == OB_MESH) {
       *ofs += BLI_snprintf_rlen(info + *ofs,
                                 len - *ofs,
 
@@ -552,7 +556,7 @@ static void get_stats_string(char *info,
                                 stats_fmt->totface,
                                 stats_fmt->tottri);
     }
-    else if (obedit->type == OB_ARMATURE) {
+    else if (ob->type == OB_ARMATURE) {
       *ofs += BLI_snprintf_rlen(info + *ofs,
                                 len - *ofs,
 
@@ -574,7 +578,7 @@ static void get_stats_string(char *info,
     *ofs += BLI_snprintf_rlen(
         info + *ofs, len - *ofs, IFACE_("Bones:%s/%s"), stats_fmt->totbonesel, stats_fmt->totbone);
   }
-  else if ((ob) && (ob->type == OB_GPENCIL_LEGACY)) {
+  else if ((ob) && (ob->type == OB_GREASE_PENCIL)) {
     *ofs += BLI_snprintf_rlen(info + *ofs,
                               len - *ofs,
 
@@ -747,7 +751,6 @@ void ED_info_draw_stats(
 
   BKE_view_layer_synced_ensure(scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
-  Object *obedit = OBEDIT_FROM_OBACT(ob);
   eObjectMode object_mode = ob ? (eObjectMode)ob->mode : OB_MODE_OBJECT;
   const int font_id = BLF_default();
 
@@ -820,18 +823,18 @@ void ED_info_draw_stats(
     stats_row(col1, labels[STROKES], col2, stats_fmt.totgpstroke, nullptr, y, height);
     stats_row(col1, labels[POINTS], col2, stats_fmt.totgppoint, nullptr, y, height);
   }
-  else if (obedit) {
-    if (obedit->type == OB_MESH) {
+  else if (ob && ob->mode == OB_MODE_EDIT) {
+    if (ob->type == OB_MESH) {
       stats_row(col1, labels[VERTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
       stats_row(col1, labels[EDGES], col2, stats_fmt.totedgesel, stats_fmt.totedge, y, height);
       stats_row(col1, labels[FACES], col2, stats_fmt.totfacesel, stats_fmt.totface, y, height);
       stats_row(col1, labels[TRIS], col2, stats_fmt.tottri, nullptr, y, height);
     }
-    else if (obedit->type == OB_ARMATURE) {
+    else if (ob->type == OB_ARMATURE) {
       stats_row(col1, labels[JOINTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
       stats_row(col1, labels[BONES], col2, stats_fmt.totbonesel, stats_fmt.totbone, y, height);
     }
-    else if (obedit->type != OB_FONT) {
+    else if (ob->type != OB_FONT) {
       stats_row(col1, labels[VERTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
     }
   }

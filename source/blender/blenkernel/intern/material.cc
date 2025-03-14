@@ -342,10 +342,6 @@ Material ***BKE_object_material_array_p(Object *ob)
     MetaBall *mb = static_cast<MetaBall *>(ob->data);
     return &(mb->mat);
   }
-  if (ob->type == OB_GPENCIL_LEGACY) {
-    bGPdata *gpd = static_cast<bGPdata *>(ob->data);
-    return &(gpd->mat);
-  }
   if (ob->type == OB_CURVES) {
     Curves *curves = static_cast<Curves *>(ob->data);
     return &(curves->mat);
@@ -378,10 +374,6 @@ short *BKE_object_material_len_p(Object *ob)
   if (ob->type == OB_MBALL) {
     MetaBall *mb = static_cast<MetaBall *>(ob->data);
     return &(mb->totcol);
-  }
-  if (ob->type == OB_GPENCIL_LEGACY) {
-    bGPdata *gpd = static_cast<bGPdata *>(ob->data);
-    return &(gpd->totcol);
   }
   if (ob->type == OB_CURVES) {
     Curves *curves = static_cast<Curves *>(ob->data);
@@ -601,7 +593,7 @@ void BKE_id_material_append(Main *bmain, ID *id, Material *ma)
   Material ***matar = BKE_id_material_array_p(id);
   if (matar) {
     short *totcol = BKE_id_material_len_p(id);
-    Material **mat = MEM_cnew_array<Material *>((*totcol) + 1, "newmatar");
+    Material **mat = MEM_calloc_arrayN<Material *>((*totcol) + 1, "newmatar");
     if (*totcol) {
       memcpy(mat, *matar, sizeof(void *) * (*totcol));
     }
@@ -752,10 +744,15 @@ static const ID *get_evaluated_object_data_with_materials(const Object *ob)
 
 Material *BKE_object_material_get_eval(Object *ob, short act)
 {
-  BLI_assert(DEG_is_evaluated_object(ob));
-
   const ID *data = get_evaluated_object_data_with_materials(ob);
-  const int slots_num = BKE_object_material_count_eval(ob);
+  return const_cast<Material *>(BKE_object_material_get_eval(*ob, *data, act));
+}
+
+const Material *BKE_object_material_get_eval(const Object &ob, const ID &data, const short act)
+{
+  BLI_assert(DEG_is_evaluated_object(&ob));
+
+  const int slots_num = BKE_object_material_count_eval(ob, data);
 
   if (slots_num == 0) {
     return nullptr;
@@ -763,13 +760,13 @@ Material *BKE_object_material_get_eval(Object *ob, short act)
 
   /* Clamp to number of slots if index is out of range, same convention as used for rendering. */
   const int slot_index = clamp_i(act - 1, 0, slots_num - 1);
-  const int tot_slots_object = ob->totcol;
+  const int tot_slots_object = ob.totcol;
 
   /* Check if slot is overwritten by object. */
   if (slot_index < tot_slots_object) {
-    if (ob->matbits) {
-      if (ob->matbits[slot_index]) {
-        Material *material = ob->mat[slot_index];
+    if (ob.matbits) {
+      if (ob.matbits[slot_index]) {
+        Material *material = ob.mat[slot_index];
         if (material != nullptr) {
           return material;
         }
@@ -778,12 +775,12 @@ Material *BKE_object_material_get_eval(Object *ob, short act)
   }
 
   /* Otherwise use data from object-data. */
-  const short *data_slots_num_ptr = BKE_id_material_len_p(const_cast<ID *>(data));
+  const short *data_slots_num_ptr = BKE_id_material_len_p(const_cast<ID *>(&data));
   if (!data_slots_num_ptr) {
     return nullptr;
   }
   const int data_slots_num = *data_slots_num_ptr;
-  Material **data_materials = *BKE_id_material_array_p(const_cast<ID *>(data));
+  Material **data_materials = *BKE_id_material_array_p(const_cast<ID *>(&data));
   if (slot_index < data_slots_num) {
     Material *material = data_materials[slot_index];
     return material;
@@ -801,6 +798,17 @@ int BKE_object_material_count_eval(const Object *ob)
   const ID *id = get_evaluated_object_data_with_materials(const_cast<Object *>(ob));
   const short *len_p = BKE_id_material_len_p(const_cast<ID *>(id));
   return std::max(ob->totcol, len_p ? *len_p : 0);
+}
+
+int BKE_object_material_count_eval(const Object &ob, const ID &data)
+{
+  BLI_assert(DEG_is_evaluated_object(&ob));
+  if (ob.type == OB_EMPTY) {
+    return 0;
+  }
+  BLI_assert(ob.data != nullptr);
+  const short *len_p = BKE_id_material_len_p(const_cast<ID *>(&data));
+  return std::max(ob.totcol, len_p ? *len_p : 0);
 }
 
 std::optional<int> BKE_id_material_index_max_eval(const ID &id)
@@ -826,6 +834,14 @@ std::optional<int> BKE_id_material_index_max_eval(const ID &id)
       return 0;
     default:
       break;
+  }
+  return 0;
+}
+
+int BKE_id_material_used_eval(const ID &id)
+{
+  if (std::optional<int> max_index = BKE_id_material_index_max_eval(id)) {
+    return *max_index + 1;
   }
   return 0;
 }
@@ -967,8 +983,8 @@ void BKE_object_material_resize(Main *bmain, Object *ob, const short totcol, boo
     }
   }
   else if (ob->totcol < totcol) {
-    newmatar = MEM_cnew_array<Material *>(totcol, "newmatar");
-    newmatbits = MEM_cnew_array<char>(totcol, "newmatbits");
+    newmatar = MEM_calloc_arrayN<Material *>(totcol, "newmatar");
+    newmatbits = MEM_calloc_arrayN<char>(totcol, "newmatbits");
     if (ob->totcol) {
       memcpy(newmatar, ob->mat, sizeof(void *) * ob->totcol);
       memcpy(newmatbits, ob->matbits, sizeof(char) * ob->totcol);
@@ -1057,7 +1073,7 @@ void BKE_id_material_assign(Main *bmain, ID *id, Material *ma, short act)
   }
 
   if (act > *totcolp) {
-    matar = MEM_cnew_array<Material *>(act, "matarray1");
+    matar = MEM_calloc_arrayN<Material *>(act, "matarray1");
 
     if (*totcolp) {
       memcpy(matar, *matarar, sizeof(void *) * (*totcolp));
@@ -1106,7 +1122,7 @@ static void object_material_assign(
   }
 
   if (act > *totcolp) {
-    matar = MEM_cnew_array<Material *>(act, "matarray1");
+    matar = MEM_calloc_arrayN<Material *>(act, "matarray1");
 
     if (*totcolp) {
       memcpy(matar, *matarar, sizeof(void *) * (*totcolp));
@@ -1293,7 +1309,7 @@ void BKE_object_material_from_eval_data(Main *bmain, Object *ob_orig, const ID *
 
   /* Create new material slots based on materials on evaluated geometry. */
   *orig_totcol = *eval_totcol;
-  *orig_mat = *eval_totcol > 0 ? MEM_cnew_array<Material *>(*eval_totcol, __func__) : nullptr;
+  *orig_mat = *eval_totcol > 0 ? MEM_calloc_arrayN<Material *>(*eval_totcol, __func__) : nullptr;
   for (int i = 0; i < *eval_totcol; i++) {
     Material *material_eval = (*eval_mat)[i];
     if (material_eval != nullptr) {
@@ -1658,7 +1674,7 @@ void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *o
       ma->texpaintslot = static_cast<TexPaintSlot *>(
           MEM_callocN(sizeof(TexPaintSlot) * count, "texpaint_slots"));
 
-      bNode *active_node = blender::bke::node_get_active_paint_canvas(ma->nodetree);
+      bNode *active_node = blender::bke::node_get_active_paint_canvas(*ma->nodetree);
 
       fill_texpaint_slots_recursive(ma->nodetree, active_node, ob, ma, count, slot_filter);
 
@@ -2033,24 +2049,24 @@ static void material_default_surface_init(Material *ma)
       nullptr, &ma->id, "Shader Nodetree", ntreeType_Shader->idname);
   ma->use_nodes = true;
 
-  bNode *principled = blender::bke::node_add_static_node(nullptr, ntree, SH_NODE_BSDF_PRINCIPLED);
-  bNodeSocket *base_color = blender::bke::node_find_socket(principled, SOCK_IN, "Base Color");
+  bNode *principled = blender::bke::node_add_static_node(nullptr, *ntree, SH_NODE_BSDF_PRINCIPLED);
+  bNodeSocket *base_color = blender::bke::node_find_socket(*principled, SOCK_IN, "Base Color");
   copy_v3_v3(((bNodeSocketValueRGBA *)base_color->default_value)->value, &ma->r);
 
-  bNode *output = blender::bke::node_add_static_node(nullptr, ntree, SH_NODE_OUTPUT_MATERIAL);
+  bNode *output = blender::bke::node_add_static_node(nullptr, *ntree, SH_NODE_OUTPUT_MATERIAL);
 
-  blender::bke::node_add_link(ntree,
-                              principled,
-                              blender::bke::node_find_socket(principled, SOCK_OUT, "BSDF"),
-                              output,
-                              blender::bke::node_find_socket(output, SOCK_IN, "Surface"));
+  blender::bke::node_add_link(*ntree,
+                              *principled,
+                              *blender::bke::node_find_socket(*principled, SOCK_OUT, "BSDF"),
+                              *output,
+                              *blender::bke::node_find_socket(*output, SOCK_IN, "Surface"));
 
   principled->location[0] = 10.0f;
   principled->location[1] = 300.0f;
   output->location[0] = 300.0f;
   output->location[1] = 300.0f;
 
-  blender::bke::node_set_active(ntree, output);
+  blender::bke::node_set_active(*ntree, *output);
 }
 
 static void material_default_volume_init(Material *ma)
@@ -2062,21 +2078,21 @@ static void material_default_volume_init(Material *ma)
   ma->use_nodes = true;
 
   bNode *principled = blender::bke::node_add_static_node(
-      nullptr, ntree, SH_NODE_VOLUME_PRINCIPLED);
-  bNode *output = blender::bke::node_add_static_node(nullptr, ntree, SH_NODE_OUTPUT_MATERIAL);
+      nullptr, *ntree, SH_NODE_VOLUME_PRINCIPLED);
+  bNode *output = blender::bke::node_add_static_node(nullptr, *ntree, SH_NODE_OUTPUT_MATERIAL);
 
-  blender::bke::node_add_link(ntree,
-                              principled,
-                              blender::bke::node_find_socket(principled, SOCK_OUT, "Volume"),
-                              output,
-                              blender::bke::node_find_socket(output, SOCK_IN, "Volume"));
+  blender::bke::node_add_link(*ntree,
+                              *principled,
+                              *blender::bke::node_find_socket(*principled, SOCK_OUT, "Volume"),
+                              *output,
+                              *blender::bke::node_find_socket(*output, SOCK_IN, "Volume"));
 
   principled->location[0] = 10.0f;
   principled->location[1] = 300.0f;
   output->location[0] = 300.0f;
   output->location[1] = 300.0f;
 
-  blender::bke::node_set_active(ntree, output);
+  blender::bke::node_set_active(*ntree, *output);
 }
 
 static void material_default_holdout_init(Material *ma)
@@ -2087,21 +2103,21 @@ static void material_default_holdout_init(Material *ma)
       nullptr, &ma->id, "Shader Nodetree", ntreeType_Shader->idname);
   ma->use_nodes = true;
 
-  bNode *holdout = blender::bke::node_add_static_node(nullptr, ntree, SH_NODE_HOLDOUT);
-  bNode *output = blender::bke::node_add_static_node(nullptr, ntree, SH_NODE_OUTPUT_MATERIAL);
+  bNode *holdout = blender::bke::node_add_static_node(nullptr, *ntree, SH_NODE_HOLDOUT);
+  bNode *output = blender::bke::node_add_static_node(nullptr, *ntree, SH_NODE_OUTPUT_MATERIAL);
 
-  blender::bke::node_add_link(ntree,
-                              holdout,
-                              blender::bke::node_find_socket(holdout, SOCK_OUT, "Holdout"),
-                              output,
-                              blender::bke::node_find_socket(output, SOCK_IN, "Surface"));
+  blender::bke::node_add_link(*ntree,
+                              *holdout,
+                              *blender::bke::node_find_socket(*holdout, SOCK_OUT, "Holdout"),
+                              *output,
+                              *blender::bke::node_find_socket(*output, SOCK_IN, "Surface"));
 
   holdout->location[0] = 10.0f;
   holdout->location[1] = 300.0f;
   output->location[0] = 300.0f;
   output->location[1] = 300.0f;
 
-  blender::bke::node_set_active(ntree, output);
+  blender::bke::node_set_active(*ntree, *output);
 }
 
 Material *BKE_material_default_empty()

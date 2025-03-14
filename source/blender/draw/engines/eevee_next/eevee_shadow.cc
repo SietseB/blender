@@ -9,8 +9,10 @@
  */
 
 #include "BLI_math_matrix.hh"
+#include "GPU_batch_utils.hh"
 #include "GPU_compute.hh"
 
+#include "GPU_context.hh"
 #include "eevee_instance.hh"
 
 #include "GPU_debug.hh"
@@ -118,6 +120,7 @@ void ShadowTileMap::sync_cubeface(eLightType light_type_,
 
 void ShadowTileMap::debug_draw() const
 {
+#ifdef WITH_DRAW_DEBUG
   /** Used for debug drawing. */
   const float4 debug_color[6] = {
       {1.0f, 0.1f, 0.1f, 1.0f},
@@ -132,6 +135,7 @@ void ShadowTileMap::debug_draw() const
 
   float4x4 persinv = winmat * viewmat;
   drw_debug_matrix_as_bbox(math::invert(persinv), color);
+#endif
 }
 
 /** \} */
@@ -676,6 +680,10 @@ void ShadowModule::begin_sync()
   jittered_transparent_casters_.clear();
   update_casters_ = true;
 
+  if (box_batch_ == nullptr) {
+    box_batch_ = GPU_batch_unit_cube();
+  }
+
   {
     Manager &manager = *inst_.manager;
 
@@ -737,7 +745,6 @@ void ShadowModule::begin_sync()
       sub.bind_resources(inst_.hiz_buffer.front);
       sub.bind_resources(inst_.lights);
 
-      box_batch_ = DRW_cache_cube_get();
       tilemap_usage_transparent_ps_ = &sub;
     }
   }
@@ -1106,7 +1113,7 @@ void ShadowModule::debug_end_sync()
   /* Init but not filled if no active object. */
   debug_draw_ps_.init();
 
-  Object *object_active = DRW_context_state_get()->obact;
+  Object *object_active = DRW_context_get()->obact;
   if (object_active == nullptr) {
     return;
   }

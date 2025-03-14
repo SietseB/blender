@@ -16,11 +16,14 @@
 
 #include "opensubdiv_capi_type.hh"
 
-struct OpenSubdiv_Buffer;
+#include "GPU_storage_buffer.hh"
+
 struct OpenSubdiv_EvaluatorCache;
 struct OpenSubdiv_EvaluatorSettings;
 struct OpenSubdiv_PatchCoord;
-
+namespace blender::gpu {
+class VertBuf;
+}
 namespace blender::opensubdiv {
 
 class TopologyRefinerImpl;
@@ -128,45 +131,44 @@ class EvalOutputAPI {
                             float *dPdv);
 
   // Fill the output buffers and variables with data from the PatchMap.
-  void getPatchMap(OpenSubdiv_Buffer *patch_map_handles,
-                   OpenSubdiv_Buffer *patch_map_quadtree,
+  void getPatchMap(blender::gpu::VertBuf *patch_map_handles,
+                   blender::gpu::VertBuf *patch_map_quadtree,
                    int *min_patch_face,
                    int *max_patch_face,
                    int *max_depth,
                    int *patches_are_triangular);
 
   // Copy the patch arrays buffer used by OpenSubDiv for the source data to the given buffer.
-  void fillPatchArraysBuffer(OpenSubdiv_Buffer *patch_arrays_buffer);
+  GPUStorageBuf *create_patch_arrays_buf();
 
   // Wrap the patch index buffer used by OpenSubDiv for the source data with the given buffer.
-  void wrapPatchIndexBuffer(OpenSubdiv_Buffer *patch_index_buffer);
+  GPUStorageBuf *get_patch_index_buf();
 
   // Wrap the patch param buffer used by OpenSubDiv for the source data with the given buffer.
-  void wrapPatchParamBuffer(OpenSubdiv_Buffer *patch_param_buffer);
+  GPUStorageBuf *get_patch_param_buf();
 
   // Wrap the buffer used by OpenSubDiv for the source data with the given buffer.
-  void wrapSrcBuffer(OpenSubdiv_Buffer *src_buffer);
+  gpu::VertBuf *get_source_buf();
 
   // Wrap the buffer used by OpenSubDiv for the extra source data with the given buffer.
-  void wrapSrcVertexDataBuffer(OpenSubdiv_Buffer *src_buffer);
+  gpu::VertBuf *get_source_data_buf();
 
   // Copy the patch arrays buffer used by OpenSubDiv for the face varying channel with the given
   // buffer.
-  void fillFVarPatchArraysBuffer(const int face_varying_channel,
-                                 OpenSubdiv_Buffer *patch_arrays_buffer);
+  GPUStorageBuf *create_face_varying_patch_array_buf(const int face_varying_channel);
 
   // Wrap the patch index buffer used by OpenSubDiv for the face varying channel with the given
   // buffer.
-  void wrapFVarPatchIndexBuffer(const int face_varying_channel,
-                                OpenSubdiv_Buffer *patch_index_buffer);
+  GPUStorageBuf *get_face_varying_patch_index_buf(const int face_varying_channel);
 
   // Wrap the patch param buffer used by OpenSubDiv for the face varying channel with the given
   // buffer.
-  void wrapFVarPatchParamBuffer(const int face_varying_channel,
-                                OpenSubdiv_Buffer *patch_param_buffer);
+  GPUStorageBuf *get_face_varying_patch_param_buf(const int face_varying_channel);
 
   // Wrap thebuffer used by OpenSubDiv for the face varying channel with the given buffer.
-  void wrapFVarSrcBuffer(const int face_varying_channel, OpenSubdiv_Buffer *src_buffer);
+  gpu::VertBuf *get_face_varying_source_buf(const int face_varying_channel);
+  /** Get the source buffer offset for the given channel. */
+  int get_face_varying_source_offset(const int face_varying_channel) const;
 
   // Return true if source vertex data has been set.
   bool hasVertexData() const;

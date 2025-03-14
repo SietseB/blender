@@ -672,7 +672,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
 
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
       if (scene->ed) {
-        SEQ_for_each_callback(&scene->ed->seqbase, strip_sound_proxy_update_cb, bmain);
+        blender::seq::for_each_callback(&scene->ed->seqbase, strip_sound_proxy_update_cb, bmain);
       }
     }
 
@@ -1027,7 +1027,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
         bNode *node = static_cast<bNode *>(ntree->nodes.first);
 
         while (node) {
-          blender::bke::node_unique_name(ntree, node);
+          blender::bke::node_unique_name(*ntree, *node);
           node = node->next;
         }
 
@@ -1111,7 +1111,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
 
     if (bmain->versionfile == 250 && bmain->subversionfile > 1) {
       LISTBASE_FOREACH (Mesh *, me, &bmain->meshes) {
-        CustomData_free_layer_active(&me->fdata_legacy, CD_MDISPS, me->totface_legacy);
+        CustomData_free_layer_active(&me->fdata_legacy, CD_MDISPS);
       }
 
       LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
@@ -1339,7 +1339,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
         sce->r.ffcodecdata.audio_codec = 0x0; /* `CODEC_ID_NONE` */
       }
       if (sce->ed) {
-        SEQ_for_each_callback(&sce->ed->seqbase, strip_set_volume_cb, nullptr);
+        blender::seq::for_each_callback(&sce->ed->seqbase, strip_set_volume_cb, nullptr);
       }
     }
 
@@ -1566,7 +1566,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
 
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
       if (scene->ed) {
-        SEQ_for_each_callback(&scene->ed->seqbase, strip_set_sat_cb, nullptr);
+        blender::seq::for_each_callback(&scene->ed->seqbase, strip_set_sat_cb, nullptr);
       }
     }
 
@@ -1859,7 +1859,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
           }
         }
         LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
-          if (blender::bke::node_count_socket_links(ntree, sock) == 0 &&
+          if (blender::bke::node_count_socket_links(*ntree, *sock) == 0 &&
               !((sock->flag & (SOCK_HIDDEN | SOCK_UNAVAIL)) != 0))
           {
             bNodeSocket *gsock = do_versions_node_group_add_socket_2_56_2(
@@ -1997,7 +1997,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
       scene->r.ffcodecdata.audio_channels = 2;
       scene->audio.volume = 1.0f;
       if (scene->ed) {
-        SEQ_for_each_callback(&scene->ed->seqbase, strip_set_pitch_cb, nullptr);
+        blender::seq::for_each_callback(&scene->ed->seqbase, strip_set_pitch_cb, nullptr);
       }
     }
 

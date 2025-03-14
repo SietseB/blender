@@ -134,6 +134,7 @@ set(SRC_DNA_DEFAULTS_INC
 # Utility & other headers.
 set(SRC_DNA_OTHER_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_array_utils.hh
+  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_print.hh
 )
 
 add_subdirectory(datatoc)
@@ -149,6 +150,7 @@ add_subdirectory(draw)
 add_subdirectory(draw/intern/shaders)
 add_subdirectory(draw/engines/eevee_next/shaders)
 add_subdirectory(draw/engines/gpencil/shaders)
+add_subdirectory(draw/engines/overlay/shaders)
 add_subdirectory(draw/engines/workbench/shaders)
 add_subdirectory(render)
 add_subdirectory(blenfont)

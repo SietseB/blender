@@ -7,10 +7,11 @@
 #include "draw_object_infos_info.hh"
 
 #ifdef GPU_LIBRARY_SHADER
-SHADER_LIBRARY_CREATE_INFO(draw_modelmat_new)
+SHADER_LIBRARY_CREATE_INFO(draw_modelmat)
 #endif
 
 #include "draw_model_lib.glsl"
+#include "draw_object_infos_lib.glsl"
 #include "gpu_shader_codegen_lib.glsl"
 #include "gpu_shader_math_matrix_lib.glsl"
 #include "gpu_shader_math_vector_lib.glsl"
@@ -23,7 +24,7 @@ int g_attr_id = 0;
 
 /* Point clouds and curves are not compatible with volume grids.
  * They will fallback to their own attributes loading. */
-#if defined(MAT_VOLUME) && !defined(MAT_GEOM_CURVES) && !defined(MAT_GEOM_POINT_CLOUD)
+#if defined(MAT_VOLUME) && !defined(MAT_GEOM_CURVES) && !defined(MAT_GEOM_POINTCLOUD)
 #  if defined(VOLUME_INFO_LIB) && !defined(MAT_GEOM_WORLD)
 #    define GRID_ATTRIBUTES
 #  endif
@@ -58,7 +59,7 @@ vec3 attr_load_orco(sampler3D tex)
 {
   g_attr_id += 1;
 #  ifdef GRID_ATTRIBUTES
-  return OrcoTexCoFactors[0].xyz + g_lP * OrcoTexCoFactors[1].xyz;
+  return drw_object_orco(g_lP);
 #  else
   return g_wP;
 #  endif

@@ -667,6 +667,15 @@ void BKE_nlatrack_remove_and_free(ListBase *tracks, NlaTrack *nlt, bool do_id_us
   BKE_nlatrack_free(nlt, do_id_user);
 }
 
+bool BKE_nlatrack_is_enabled(const AnimData &adt, const NlaTrack &nlt)
+{
+  if (adt.flag & ADT_NLA_SOLO_TRACK) {
+    return (nlt.flag & NLATRACK_SOLO);
+  }
+
+  return !(nlt.flag & NLATRACK_MUTED);
+}
+
 /* *************************************************** */
 /* NLA Evaluation <-> Editing Stuff */
 
@@ -714,8 +723,8 @@ static float nlastrip_get_frame_actionclip(NlaStrip *strip, float cframe, short 
       return strip->actstart;
     }
 
-    /* - the 'fmod(..., actlength * scale)' is needed to get the repeats working
-     * - the '/ scale' is needed to ensure that scaling influences the timing within the repeat
+    /* - The `fmod(..., actlength * scale)` is needed to get the repeats working.
+     * - The `/ scale` is needed to ensure that scaling influences the timing within the repeat.
      */
     return strip->actend - fmodf(cframe - strip->start, actlength * scale) / scale;
   }

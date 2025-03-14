@@ -59,7 +59,7 @@ size_t BKE_libblock_get_alloc_info(short type, const char **r_name);
  * Allocates and returns memory of the right size for the specified block type,
  * initialized to zero.
  */
-void *BKE_libblock_alloc_notest(short type) ATTR_WARN_UNUSED_RESULT;
+ID *BKE_libblock_alloc_notest(short type) ATTR_WARN_UNUSED_RESULT;
 /**
  * Allocates and returns an ID block of the specified type, with the specified name
  * (adjusted as necessary to ensure uniqueness), and appended to the specified list.
@@ -340,6 +340,7 @@ ID *BKE_libblock_find_name(Main *bmain,
                            const std::optional<Library *> lib = std::nullopt)
     ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 ID *BKE_libblock_find_session_uid(Main *bmain, short type, uint32_t session_uid);
+ID *BKE_libblock_find_session_uid(Main *bmain, uint32_t session_uid);
 ID *BKE_libblock_find_name_and_library(Main *bmain,
                                        short type,
                                        const char *name,

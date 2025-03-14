@@ -62,7 +62,7 @@ static void id_property_int_update_enum_items(const bNodeSocketValueMenu *value,
   if (value->enum_items && !value->enum_items->items.is_empty()) {
     const Span<bke::RuntimeNodeEnumItem> items = value->enum_items->items;
     idprop_items_num = items.size();
-    idprop_items = MEM_cnew_array<IDPropertyUIDataEnumItem>(items.size(), __func__);
+    idprop_items = MEM_calloc_arrayN<IDPropertyUIDataEnumItem>(items.size(), __func__);
     for (const int i : items.index_range()) {
       const bke::RuntimeNodeEnumItem &item = items[i];
       IDPropertyUIDataEnumItem &idprop_item = idprop_items[i];
@@ -81,7 +81,7 @@ static void id_property_int_update_enum_items(const bNodeSocketValueMenu *value,
    * int value. */
   if (idprop_items_num == 0) {
     idprop_items_num = 1;
-    idprop_items = MEM_cnew_array<IDPropertyUIDataEnumItem>(1, __func__);
+    idprop_items = MEM_calloc_arrayN<IDPropertyUIDataEnumItem>(1, __func__);
     idprop_items->value = 0;
     idprop_items->identifier = BLI_strdup("DUMMY");
     idprop_items->name = BLI_strdup("");
@@ -96,19 +96,14 @@ static void id_property_int_update_enum_items(const bNodeSocketValueMenu *value,
 }
 
 static std::unique_ptr<IDProperty, bke::idprop::IDPropertyDeleter> id_name_or_value_prop(
-    const StringRefNull identifier,
-    ID *id,
-    const std::optional<ID_Type> id_type,
-    const bool use_name_for_ids)
+    const StringRefNull identifier, ID *id, const ID_Type id_type, const bool use_name_for_ids)
 {
   if (use_name_for_ids) {
     return bke::idprop::create(identifier, id ? id->name + 2 : "");
   }
   auto prop = bke::idprop::create(identifier, id);
-  if (id_type) {
-    IDPropertyUIDataID *ui_data = (IDPropertyUIDataID *)IDP_ui_data_ensure(prop.get());
-    ui_data->id_type = *id_type;
-  }
+  IDPropertyUIDataID *ui_data = (IDPropertyUIDataID *)IDP_ui_data_ensure(prop.get());
+  ui_data->id_type = id_type;
   return prop;
 }
 
@@ -150,7 +145,7 @@ std::unique_ptr<IDProperty, bke::idprop::IDPropertyDeleter> id_property_create_f
       ui_data->base.rna_subtype = value->subtype;
       ui_data->soft_min = double(value->min);
       ui_data->soft_max = double(value->max);
-      ui_data->default_array = (double *)MEM_mallocN(sizeof(double[3]), "mod_prop_default");
+      ui_data->default_array = MEM_malloc_arrayN<double>(3, "mod_prop_default");
       ui_data->default_array_len = 3;
       for (const int i : IndexRange(3)) {
         ui_data->default_array[i] = double(value->value[i]);
@@ -165,7 +160,7 @@ std::unique_ptr<IDProperty, bke::idprop::IDPropertyDeleter> id_property_create_f
           Span<float>{value->value[0], value->value[1], value->value[2], value->value[3]});
       IDPropertyUIDataFloat *ui_data = (IDPropertyUIDataFloat *)IDP_ui_data_ensure(property.get());
       ui_data->base.rna_subtype = PROP_COLOR;
-      ui_data->default_array = (double *)MEM_mallocN(sizeof(double[4]), __func__);
+      ui_data->default_array = MEM_malloc_arrayN<double>(4, __func__);
       ui_data->default_array_len = 4;
       ui_data->min = 0.0;
       ui_data->max = FLT_MAX;
@@ -229,25 +224,25 @@ std::unique_ptr<IDProperty, bke::idprop::IDPropertyDeleter> id_property_create_f
       const bNodeSocketValueCollection *value = static_cast<const bNodeSocketValueCollection *>(
           socket.socket_data);
       ID *id = reinterpret_cast<ID *>(value->value);
-      return id_name_or_value_prop(identifier, id, std::nullopt, use_name_for_ids);
+      return id_name_or_value_prop(identifier, id, ID_GR, use_name_for_ids);
     }
     case SOCK_TEXTURE: {
       const bNodeSocketValueTexture *value = static_cast<const bNodeSocketValueTexture *>(
           socket.socket_data);
       ID *id = reinterpret_cast<ID *>(value->value);
-      return id_name_or_value_prop(identifier, id, std::nullopt, use_name_for_ids);
+      return id_name_or_value_prop(identifier, id, ID_TE, use_name_for_ids);
     }
     case SOCK_IMAGE: {
       const bNodeSocketValueImage *value = static_cast<const bNodeSocketValueImage *>(
           socket.socket_data);
       ID *id = reinterpret_cast<ID *>(value->value);
-      return id_name_or_value_prop(identifier, id, std::nullopt, use_name_for_ids);
+      return id_name_or_value_prop(identifier, id, ID_IM, use_name_for_ids);
     }
     case SOCK_MATERIAL: {
       const bNodeSocketValueMaterial *value = static_cast<const bNodeSocketValueMaterial *>(
           socket.socket_data);
       ID *id = reinterpret_cast<ID *>(value->value);
-      return id_name_or_value_prop(identifier, id, std::nullopt, use_name_for_ids);
+      return id_name_or_value_prop(identifier, id, ID_MA, use_name_for_ids);
     }
     case SOCK_MATRIX:
     case SOCK_CUSTOM:

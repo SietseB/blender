@@ -31,6 +31,7 @@ set(SRC
   intern/grease_pencil_ondine.cc
   intern/grease_pencil_ops.cc
   intern/grease_pencil_primitive.cc
+  intern/grease_pencil_randomize.cc
   intern/grease_pencil_select.cc
   intern/grease_pencil_shape_keys.cc
   intern/grease_pencil_trim.cc

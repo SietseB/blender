@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 4.4.0 Beta (b'aad0bd21487d')\n"
+"Project-Id-Version: Blender 4.4.0 Beta (b'eceb81b21fa3')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-10 15:22+0000\n"
+"POT-Creation-Date: 2025-03-10 09:31+0000\n"
 "PO-Revision-Date: 2023-11-14 19:14+0000\n"
 "Last-Translator: Lee YeonJoo <yzoo2@naver.com>\n"
 "Language-Team: Korean <https://translate.blender.org/projects/blender-ui/ui/ko/>\n"
@@ -69,10 +69,6 @@ msgstr "슬롯"
 
 msgid "Action F-Curves"
 msgstr "액션 F-커브"
-
-
-msgid "Collection of action F-Curves"
-msgstr "액션 F-커브의 컬렉션"
 
 
 msgid "Action Group"
@@ -12803,10 +12799,6 @@ msgid "A collection of F-Curves for animation"
 msgstr "에니메이션에 대한 F-커브의 컬렉션"
 
 
-msgid "The individual F-Curves that make up the action"
-msgstr "액션을 구성하는 개별 F-커브"
-
-
 msgid "Frame Range"
 msgstr "프레임 범위"
 
@@ -12815,17 +12807,9 @@ msgid "Groups"
 msgstr "그룹"
 
 
-msgid "Convenient groupings of F-Curves"
-msgstr "F-커브의 편의 그룹핑"
-
-
 msgctxt "ID"
 msgid "ID Root Type"
 msgstr "ID 루트 유형"
-
-
-msgid "Type of ID block that action can be used on - DO NOT CHANGE UNLESS YOU KNOW WHAT YOU ARE DOING"
-msgstr "액션을 사용할 수있는 ID 블록의 유형 - 수행중인 액션을 알지 못하면 변경하지 마십시오"
 
 
 msgid "Layers"
@@ -13134,22 +13118,6 @@ msgstr "루프"
 
 msgid "Brush's capabilities"
 msgstr "브러시의 기능"
-
-
-msgid "Clone Alpha"
-msgstr "클론 알파"
-
-
-msgid "Opacity of clone image display"
-msgstr "클론 이미지 표시의 투명도"
-
-
-msgid "Clone Image"
-msgstr "클론 이미지"
-
-
-msgid "Clone Offset"
-msgstr "클론 오프셋"
 
 
 msgid "Local"
@@ -20177,11 +20145,6 @@ msgid "Offset the number of the frame to use in the animation"
 msgstr "에니메이션에서 사용하는 프레임의 번호를 오프셋"
 
 
-msgctxt "Sequence"
-msgid "Clip"
-msgstr "클립"
-
-
 msgid "Window Manager"
 msgstr "창 관리자"
 
@@ -23914,30 +23877,6 @@ msgid "Clean Up"
 msgstr "정리"
 
 
-msgid "Special Characters"
-msgstr "특수 문자"
-
-
-msgid "Kerning"
-msgstr "자간"
-
-
-msgid "Text"
-msgstr "텍스트"
-
-
-msgid "Metaball"
-msgstr "메타볼"
-
-
-msgid "Names"
-msgstr "이름"
-
-
-msgid "Bone Roll"
-msgstr "본 롤"
-
-
 msgid "Pivot Point"
 msgstr "피벗 포인트"
 
@@ -24010,6 +23949,10 @@ msgid "Assign Material"
 msgstr "매테리얼을 할당"
 
 
+msgid "Metaball"
+msgstr "메타볼"
+
+
 msgid "Light"
 msgstr "라이트"
 
@@ -24070,6 +24013,10 @@ msgid "Propagate"
 msgstr "전파"
 
 
+msgid "Names"
+msgstr "이름"
+
+
 msgid "Toggle Bone Options"
 msgstr "본 옵션을 토글"
 
@@ -24100,6 +24047,22 @@ msgstr "페이스 강도를 설정"
 
 msgid "Merge"
 msgstr "병합"
+
+
+msgid "Special Characters"
+msgstr "특수 문자"
+
+
+msgid "Kerning"
+msgstr "자간"
+
+
+msgid "Text"
+msgstr "텍스트"
+
+
+msgid "Bone Roll"
+msgstr "본 롤"
 
 
 msgid "Basic"
@@ -40618,6 +40581,10 @@ msgid "Select all stroke points between other strokes"
 msgstr "각 스트로크 사이의 모든 스트로크 포인트 선택"
 
 
+msgid "Fill Opacity"
+msgstr "채우기 불투명도"
+
+
 msgctxt "Operator"
 msgid "Snap Cursor to Selected Points"
 msgstr "커서를 선택한 포인트에 스냅"
@@ -52515,10 +52482,6 @@ msgid "Exports UVs from the modified mesh"
 msgstr "수정된 메쉬에서 UV를 내보내기"
 
 
-msgid "Fill Opacity"
-msgstr "채우기 불투명도"
-
-
 msgid "Set amount of opacity for exported UV layout"
 msgstr "내보내기된 UV 레이어에 대해 불투명도의 양을 설정"
 
@@ -55135,8 +55098,24 @@ msgid "Image used as canvas"
 msgstr "캔버스로 사용된 이미지"
 
 
+msgid "Clone Alpha"
+msgstr "클론 알파"
+
+
+msgid "Opacity of clone image display"
+msgstr "클론 이미지 표시의 투명도"
+
+
+msgid "Clone Image"
+msgstr "클론 이미지"
+
+
 msgid "Image used as clone source"
 msgstr "클론 소스로 사용된 이미지"
+
+
+msgid "Clone Offset"
+msgstr "클론 오프셋"
 
 
 msgid "Dither"
@@ -65177,6 +65156,11 @@ msgstr "씬"
 msgctxt "Sequence"
 msgid "Movie"
 msgstr "무비"
+
+
+msgctxt "Sequence"
+msgid "Clip"
+msgstr "클립"
 
 
 msgctxt "Sequence"

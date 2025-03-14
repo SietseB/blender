@@ -82,8 +82,9 @@ class Axes : Overlay {
     }
     DRWState state_common = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH;
     ps_.state_set(state_common | DRW_STATE_DEPTH_LESS_EQUAL, state.clipping_plane_count);
-    ps_.shader_set(res.shaders.extra_shape.get());
+    ps_.shader_set(res.shaders->extra_shape.get());
     ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
     res.select_bind(ps_);
 
     axes_buf.end_sync(ps_, res.shapes.arrows.get());

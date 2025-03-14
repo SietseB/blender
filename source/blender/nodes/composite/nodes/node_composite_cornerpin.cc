@@ -63,12 +63,12 @@ class CornerPinOperation : public NodeOperation {
   {
     const float3x3 homography_matrix = compute_homography_matrix();
 
-    Result &input_image = get_input("Image");
-    Result &output_image = get_result("Image");
-    Result &output_mask = get_result("Plane");
+    const Result &input_image = this->get_input("Image");
+    Result &output_image = this->get_result("Image");
+    Result &output_mask = this->get_result("Plane");
     if (input_image.is_single_value() || homography_matrix == float3x3::identity()) {
       if (output_image.should_compute()) {
-        input_image.pass_through(output_image);
+        output_image.share_data(input_image);
       }
       if (output_mask.should_compute()) {
         output_mask.allocate_single_value();
@@ -228,10 +228,10 @@ class CornerPinOperation : public NodeOperation {
 
   float3x3 compute_homography_matrix()
   {
-    float2 lower_left = get_input("Lower Left").get_single_value_default(float4(0.0f)).xy();
-    float2 lower_right = get_input("Lower Right").get_single_value_default(float4(0.0f)).xy();
-    float2 upper_right = get_input("Upper Right").get_single_value_default(float4(0.0f)).xy();
-    float2 upper_left = get_input("Upper Left").get_single_value_default(float4(0.0f)).xy();
+    float2 lower_left = get_input("Lower Left").get_single_value_default(float3(0.0f)).xy();
+    float2 lower_right = get_input("Lower Right").get_single_value_default(float3(0.0f)).xy();
+    float2 upper_right = get_input("Upper Right").get_single_value_default(float3(0.0f)).xy();
+    float2 upper_left = get_input("Upper Left").get_single_value_default(float3(0.0f)).xy();
 
     /* The inputs are invalid because the plane is not convex, fallback to an identity operation in
      * that case. */
@@ -273,5 +273,5 @@ void register_node_type_cmp_cornerpin()
   ntype.declare = file_ns::cmp_node_cornerpin_declare;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
-  blender::bke::node_register_type(&ntype);
+  blender::bke::node_register_type(ntype);
 }

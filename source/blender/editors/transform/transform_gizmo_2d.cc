@@ -50,7 +50,7 @@
 #include "transform.hh"
 #include "transform_gizmo.hh"
 
-using blender::Vector;
+namespace blender::ed::transform {
 
 /* -------------------------------------------------------------------- */
 /** \name Shared Callback's
@@ -95,7 +95,7 @@ static bool gizmo2d_generic_poll(const bContext *C, wmGizmoGroupType *gzgt)
         return false;
       }
       Scene *scene = CTX_data_scene(C);
-      Editing *ed = SEQ_editing_get(scene);
+      Editing *ed = seq::editing_get(scene);
       if (ed == nullptr) {
         return false;
       }
@@ -246,17 +246,18 @@ static bool gizmo2d_calc_bounds(const bContext *C, float *r_center, float *r_min
   }
   else if (area->spacetype == SPACE_SEQ) {
     Scene *scene = CTX_data_scene(C);
-    Editing *ed = SEQ_editing_get(scene);
-    ListBase *seqbase = SEQ_active_seqbase_get(ed);
-    ListBase *channels = SEQ_channels_displayed_get(ed);
-    blender::VectorSet strips = SEQ_query_rendered_strips(
-        scene, channels, seqbase, scene->r.cfra, 0);
+    Editing *ed = seq::editing_get(scene);
+    ListBase *seqbase = seq::active_seqbase_get(ed);
+    ListBase *channels = seq::channels_displayed_get(ed);
+    VectorSet strips = seq::query_rendered_strips(scene, channels, seqbase, scene->r.cfra, 0);
     strips.remove_if([&](Strip *strip) { return (strip->flag & SELECT) == 0; });
     int selected_strips = strips.size();
     if (selected_strips > 0) {
       has_select = true;
-      SEQ_image_transform_bounding_box_from_collection(
-          scene, strips, selected_strips != 1, r_min, r_max);
+      const Bounds<float2> box = seq::image_transform_bounding_box_from_collection(
+          scene, strips, selected_strips != 1);
+      copy_v2_v2(r_min, box.min);
+      copy_v2_v2(r_max, box.max);
     }
     if (selected_strips > 1) {
       /* Don't draw the cage as transforming multiple strips isn't currently very useful as it
@@ -270,7 +271,8 @@ static bool gizmo2d_calc_bounds(const bContext *C, float *r_center, float *r_min
       const int pivot_point = scene->toolsettings->sequencer_tool_settings->pivot_point;
       if (pivot_point == V3D_AROUND_CURSOR) {
         SpaceSeq *sseq = static_cast<SpaceSeq *>(area->spacedata.first);
-        SEQ_image_preview_unit_to_px(scene, sseq->cursor, r_center);
+        const float2 cursor_pixel = seq::image_preview_unit_to_px(scene, sseq->cursor);
+        copy_v2_v2(r_center, cursor_pixel);
       }
       else {
         mid_v2_v2v2(r_center, r_min, r_max);
@@ -298,11 +300,10 @@ static int gizmo2d_calc_transform_orientation(const bContext *C)
   }
 
   Scene *scene = CTX_data_scene(C);
-  Editing *ed = SEQ_editing_get(scene);
-  ListBase *seqbase = SEQ_active_seqbase_get(ed);
-  ListBase *channels = SEQ_channels_displayed_get(ed);
-  blender::VectorSet strips = SEQ_query_rendered_strips(
-      scene, channels, seqbase, scene->r.cfra, 0);
+  Editing *ed = seq::editing_get(scene);
+  ListBase *seqbase = seq::active_seqbase_get(ed);
+  ListBase *channels = seq::channels_displayed_get(ed);
+  VectorSet strips = seq::query_rendered_strips(scene, channels, seqbase, scene->r.cfra, 0);
   strips.remove_if([&](Strip *strip) { return (strip->flag & SELECT) == 0; });
 
   bool use_local_orient = strips.size() == 1;
@@ -321,19 +322,17 @@ static float gizmo2d_calc_rotation(const bContext *C)
   }
 
   Scene *scene = CTX_data_scene(C);
-  Editing *ed = SEQ_editing_get(scene);
-  ListBase *seqbase = SEQ_active_seqbase_get(ed);
-  ListBase *channels = SEQ_channels_displayed_get(ed);
-  blender::VectorSet strips = SEQ_query_rendered_strips(
-      scene, channels, seqbase, scene->r.cfra, 0);
+  Editing *ed = seq::editing_get(scene);
+  ListBase *seqbase = seq::active_seqbase_get(ed);
+  ListBase *channels = seq::channels_displayed_get(ed);
+  VectorSet strips = seq::query_rendered_strips(scene, channels, seqbase, scene->r.cfra, 0);
   strips.remove_if([&](Strip *strip) { return (strip->flag & SELECT) == 0; });
 
   if (strips.size() == 1) {
     /* Only return the strip rotation if only one is selected. */
     for (Strip *strip : strips) {
       StripTransform *transform = strip->data->transform;
-      float mirror[2];
-      SEQ_image_transform_mirror_factor_get(strip, mirror);
+      const float2 mirror = seq::image_transform_mirror_factor_get(strip);
       return transform->rotation * mirror[0] * mirror[1];
     }
   }
@@ -345,18 +344,16 @@ static bool seq_get_strip_pivot_median(const Scene *scene, float r_pivot[2])
 {
   zero_v2(r_pivot);
 
-  Editing *ed = SEQ_editing_get(scene);
-  ListBase *seqbase = SEQ_active_seqbase_get(ed);
-  ListBase *channels = SEQ_channels_displayed_get(ed);
-  blender::VectorSet strips = SEQ_query_rendered_strips(
-      scene, channels, seqbase, scene->r.cfra, 0);
+  Editing *ed = seq::editing_get(scene);
+  ListBase *seqbase = seq::active_seqbase_get(ed);
+  ListBase *channels = seq::channels_displayed_get(ed);
+  VectorSet strips = seq::query_rendered_strips(scene, channels, seqbase, scene->r.cfra, 0);
   strips.remove_if([&](Strip *strip) { return (strip->flag & SELECT) == 0; });
   bool has_select = !strips.is_empty();
 
   if (has_select) {
     for (Strip *strip : strips) {
-      float origin[2];
-      SEQ_image_transform_origin_offset_pixelspace_get(scene, strip, origin);
+      const float2 origin = seq::image_transform_origin_offset_pixelspace_get(scene, strip);
       add_v2_v2(r_pivot, origin);
     }
     mul_v2_fl(r_pivot, 1.0f / strips.size());
@@ -381,13 +378,13 @@ static bool gizmo2d_calc_transform_pivot(const bContext *C, float r_pivot[2])
     const int pivot_point = scene->toolsettings->sequencer_tool_settings->pivot_point;
 
     if (pivot_point == V3D_AROUND_CURSOR) {
-      SEQ_image_preview_unit_to_px(scene, sseq->cursor, r_pivot);
+      const float2 cursor_pixel = seq::image_preview_unit_to_px(scene, sseq->cursor);
+      copy_v2_v2(r_pivot, cursor_pixel);
 
-      Editing *ed = SEQ_editing_get(scene);
-      ListBase *seqbase = SEQ_active_seqbase_get(ed);
-      ListBase *channels = SEQ_channels_displayed_get(ed);
-      blender::VectorSet strips = SEQ_query_rendered_strips(
-          scene, channels, seqbase, scene->r.cfra, 0);
+      Editing *ed = seq::editing_get(scene);
+      ListBase *seqbase = seq::active_seqbase_get(ed);
+      ListBase *channels = seq::channels_displayed_get(ed);
+      VectorSet strips = seq::query_rendered_strips(scene, channels, seqbase, scene->r.cfra, 0);
       strips.remove_if([&](Strip *strip) { return (strip->flag & SELECT) == 0; });
       has_select = !strips.is_empty();
     }
@@ -833,7 +830,7 @@ static void gizmo2d_resize_draw_prepare(const bContext *C, wmGizmoGroup *gzgroup
     if (i < 2) {
       float axis[3] = {0.0f}, rotated_axis[3];
       axis[i] = 1.0f;
-      rotate_v3_v3v3fl(rotated_axis, axis, blender::float3{0, 0, 1}, ggd->rotation);
+      rotate_v3_v3v3fl(rotated_axis, axis, float3{0, 0, 1}, ggd->rotation);
       WM_gizmo_set_matrix_rotation_from_z_axis(gz, rotated_axis);
     }
   }
@@ -1043,3 +1040,5 @@ void ED_widgetgroup_gizmo2d_rotate_callbacks_set(wmGizmoGroupType *gzgt)
 }
 
 /** \} */
+
+}  // namespace blender::ed::transform

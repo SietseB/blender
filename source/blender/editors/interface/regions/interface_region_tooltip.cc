@@ -25,6 +25,8 @@
 
 #include <fmt/format.h>
 
+#include "AS_essentials_library.hh"
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_userdef_types.h"
@@ -1006,12 +1008,14 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     if (but->rnapoin.owner_id) {
       const ID *id = but->rnapoin.owner_id;
       if (ID_IS_LINKED(id)) {
+        blender::StringRefNull assets_path = blender::asset_system::essentials_directory_path();
+        const bool is_builtin = BLI_path_contains(assets_path.c_str(), id->lib->filepath);
+        const blender::StringRef title = is_builtin ? TIP_("Built-in Asset") : TIP_("Library");
+        const blender::StringRef lib_path = id->lib->filepath;
+        const blender::StringRef path = is_builtin ? lib_path.substr(assets_path.size()) :
+                                                     id->lib->filepath;
         UI_tooltip_text_field_add(
-            *data,
-            fmt::format(fmt::runtime(TIP_("Library: {}")), id->lib->filepath),
-            {},
-            UI_TIP_STYLE_NORMAL,
-            UI_TIP_LC_NORMAL);
+            *data, fmt::format("{}: {}", title, path), {}, UI_TIP_STYLE_NORMAL, UI_TIP_LC_NORMAL);
       }
     }
   }
@@ -1100,7 +1104,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
 
     if (but->rnaprop) {
       BLI_assert(but->rnaindex == -1);
-      has_alpha = RNA_property_array_length(&but->rnapoin, but->rnaprop) == 4;
+      has_alpha = RNA_property_array_length(&but->rnapoin, but->rnaprop) >= 4;
       if (has_alpha) {
         color[3] = RNA_property_float_get_index(&but->rnapoin, but->rnaprop, 3);
       }
@@ -1128,7 +1132,7 @@ static std::unique_ptr<uiTooltipData> ui_tooltip_data_from_button_or_extra_icon(
     uiTooltipImage image_data;
     image_data.width = int(w);
     image_data.height = int(w / (has_alpha ? 4.0f : 3.0f));
-    image_data.ibuf = IMB_allocImBuf(image_data.width, image_data.height, 32, IB_rect);
+    image_data.ibuf = IMB_allocImBuf(image_data.width, image_data.height, 32, IB_byte_data);
     image_data.border = true;
     image_data.premultiplied = false;
 
@@ -1364,7 +1368,7 @@ static ARegion *ui_tooltip_create_with_data(bContext *C,
 
   /* Clamp to window bounds. */
   {
-    /* Ensure at least 5 px above screen bounds.
+    /* Ensure at least 5 pixels above screen bounds.
      * #UI_UNIT_Y is just a guess to be above the menu item. */
     if (init_rect_overlap != nullptr) {
       const int pad = max_ff(1.0f, U.pixelsize) * 5;
@@ -1519,7 +1523,7 @@ ARegion *UI_tooltip_create_from_button_or_extra_icon(
   }
   std::unique_ptr<uiTooltipData> data = nullptr;
 
-  if (but->tip_custom_func) {
+  if (!is_label && but->tip_custom_func) {
     data = ui_tooltip_data_from_custom_func(C, but);
   }
 
@@ -1717,7 +1721,7 @@ static void ui_tooltip_from_clip(MovieClip &clip, uiTooltipData &data)
       /* Resize. */
       float scale = (200.0f * UI_SCALE_FAC) / float(std::max(ibuf->x, ibuf->y));
       IMB_scale(ibuf, scale * ibuf->x, scale * ibuf->y, IMBScaleFilter::Box, false);
-      IMB_rect_from_float(ibuf);
+      IMB_byte_from_float(ibuf);
 
       uiTooltipImage image_data;
       image_data.width = ibuf->x;

@@ -44,6 +44,7 @@ void node_operatortypes()
   WM_operatortype_append(NODE_OT_hide_socket_toggle);
   WM_operatortype_append(NODE_OT_node_copy_color);
   WM_operatortype_append(NODE_OT_deactivate_viewer);
+  WM_operatortype_append(NODE_OT_activate_viewer);
 
   WM_operatortype_append(NODE_OT_duplicate);
   WM_operatortype_append(NODE_OT_delete);
@@ -85,6 +86,7 @@ void node_operatortypes()
   WM_operatortype_append(NODE_OT_add_mask);
   WM_operatortype_append(NODE_OT_add_material);
   WM_operatortype_append(NODE_OT_add_color);
+  WM_operatortype_append(NODE_OT_add_import_node);
 
   WM_operatortype_append(NODE_OT_new_node_tree);
 

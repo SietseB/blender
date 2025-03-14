@@ -58,7 +58,7 @@ bool BKE_subsurf_modifier_runtime_init(SubsurfModifierData *smd, const bool use_
 
   /* Allocate runtime data if it did not exist yet. */
   if (runtime_data == nullptr) {
-    runtime_data = MEM_cnew<SubsurfRuntimeData>(__func__);
+    runtime_data = MEM_callocN<SubsurfRuntimeData>(__func__);
     smd->modifier.runtime = runtime_data;
   }
   runtime_data->settings = settings;
@@ -101,14 +101,13 @@ bool BKE_subsurf_modifier_has_split_normals(const SubsurfModifierData *smd, cons
 
 static bool is_subdivision_evaluation_possible_on_gpu()
 {
-  /* Only OpenGL is supported for OpenSubdiv evaluation for now. */
-  if (GPU_backend_get_type() != GPU_BACKEND_OPENGL) {
+  if (GPU_backend_get_type() == GPU_BACKEND_NONE) {
     return false;
   }
 
   /* Now that we know it is OpenGL, check for Qualcomm GPUs,
    * which GPU subdiv is broken on some of (#124515) */
-  if (GPU_type_matches(GPU_DEVICE_QUALCOMM, GPU_OS_WIN, GPU_DRIVER_ANY)) {
+  if (GPU_type_matches_ex(GPU_DEVICE_QUALCOMM, GPU_OS_WIN, GPU_DRIVER_ANY, GPU_BACKEND_OPENGL)) {
     return false;
   }
 

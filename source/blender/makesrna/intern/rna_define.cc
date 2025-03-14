@@ -695,7 +695,7 @@ BlenderRNA *RNA_create()
 {
   BlenderRNA *brna;
 
-  brna = static_cast<BlenderRNA *>(MEM_callocN(sizeof(BlenderRNA), "BlenderRNA"));
+  brna = MEM_callocN<BlenderRNA>("BlenderRNA");
   const char *error_message = nullptr;
 
   BLI_listbase_clear(&DefRNA.structs);
@@ -814,7 +814,7 @@ void RNA_struct_free(BlenderRNA *brna, StructRNA *srna)
               srna_identifier);
     }
   }
-
+  MEM_SAFE_DELETE(srna->cont.prop_lookup_set);
   for (prop = static_cast<PropertyRNA *>(srna->cont.properties.first); prop; prop = nextprop) {
     nextprop = prop->next;
 
@@ -944,14 +944,14 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
     }
   }
 
-  srna = static_cast<StructRNA *>(MEM_callocN(sizeof(StructRNA), "StructRNA"));
+  srna = MEM_callocN<StructRNA>("StructRNA");
   DefRNA.laststruct = srna;
 
   if (srnafrom) {
     /* Copy from struct to derive stuff, a bit clumsy since we can't
      * use #MEM_dupallocN, data structs may not be allocated but builtin. */
     memcpy(srna, srnafrom, sizeof(StructRNA));
-    srna->cont.prophash = nullptr;
+    srna->cont.prop_lookup_set = nullptr;
     BLI_listbase_clear(&srna->cont.properties);
     BLI_listbase_clear(&srna->functions);
     srna->py_type = nullptr;
@@ -988,7 +988,7 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
   rna_brna_structs_add(brna, srna);
 
   if (DefRNA.preprocess) {
-    ds = static_cast<StructDefRNA *>(MEM_callocN(sizeof(StructDefRNA), "StructDefRNA"));
+    ds = MEM_callocN<StructDefRNA>("StructDefRNA");
     ds->srna = srna;
     rna_addtail(&DefRNA.structs, ds);
 
@@ -1003,6 +1003,8 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
   }
   else {
     RNA_def_struct_flag(srna, STRUCT_RUNTIME);
+    srna->cont.prop_lookup_set =
+        MEM_new<blender::CustomIDVectorSet<PropertyRNA *, PropertyRNAIdentifierGetter>>(__func__);
   }
 
   if (srnafrom) {
@@ -1013,6 +1015,10 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
     /* define some builtin properties */
     prop = RNA_def_property(&srna->cont, "rna_properties", PROP_COLLECTION, PROP_NONE);
     prop->flag_internal |= PROP_INTERN_BUILTIN;
+    /* Properties with internal flag #PROP_INTERN_BUILTIN are not included for lookup. */
+    if (srna->cont.prop_lookup_set) {
+      srna->cont.prop_lookup_set->remove_as(prop->identifier);
+    }
     RNA_def_property_ui_text(prop, "Properties", "RNA property collection");
 
     if (DefRNA.preprocess) {
@@ -1312,7 +1318,7 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_,
       DefRNA.error = true;
     }
 
-    dprop = static_cast<PropertyDefRNA *>(MEM_callocN(sizeof(PropertyDefRNA), "PropertyDefRNA"));
+    dprop = MEM_callocN<PropertyDefRNA>("PropertyDefRNA");
     rna_addtail(&dcont->properties, dprop);
   }
   else {
@@ -1490,8 +1496,8 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_,
     RNA_def_property_flag(prop, PROP_IDPROPERTY);
     prop->flag_internal |= PROP_INTERN_RUNTIME;
 #ifdef RNA_RUNTIME
-    if (cont->prophash) {
-      BLI_ghash_insert(cont->prophash, (void *)prop->identifier, prop);
+    if (cont->prop_lookup_set) {
+      cont->prop_lookup_set->add(prop);
     }
 #endif
   }
@@ -3536,6 +3542,28 @@ void RNA_def_property_string_search_func(PropertyRNA *prop,
   }
 }
 
+void RNA_def_property_string_filepath_filter_func(PropertyRNA *prop, const char *filter)
+{
+  StructRNA *srna = DefRNA.laststruct;
+
+  if (!DefRNA.preprocess) {
+    CLOG_ERROR(&LOG, "only during preprocessing.");
+    return;
+  }
+
+  switch (prop->type) {
+    case PROP_STRING: {
+      StringPropertyRNA *sprop = (StringPropertyRNA *)prop;
+      sprop->path_filter = (StringPropertyPathFilterFunc)filter;
+      break;
+    }
+    default:
+      CLOG_ERROR(&LOG, "\"%s.%s\", type is not string.", srna->identifier, prop->identifier);
+      DefRNA.error = true;
+      break;
+  }
+}
+
 void RNA_def_property_string_funcs_runtime(PropertyRNA *prop,
                                            StringPropertyGetFunc getfunc,
                                            StringPropertyLengthFunc lengthfunc,
@@ -4536,7 +4564,7 @@ static FunctionRNA *rna_def_function(StructRNA *srna, const char *identifier)
     }
   }
 
-  func = static_cast<FunctionRNA *>(MEM_callocN(sizeof(FunctionRNA), "FunctionRNA"));
+  func = MEM_callocN<FunctionRNA>("FunctionRNA");
   func->identifier = identifier;
   func->description = identifier;
 
@@ -4544,7 +4572,7 @@ static FunctionRNA *rna_def_function(StructRNA *srna, const char *identifier)
 
   if (DefRNA.preprocess) {
     dsrna = rna_find_struct_def(srna);
-    dfunc = static_cast<FunctionDefRNA *>(MEM_callocN(sizeof(FunctionDefRNA), "FunctionDefRNA"));
+    dfunc = MEM_callocN<FunctionDefRNA>("FunctionDefRNA");
     rna_addtail(&dsrna->functions, dfunc);
     dfunc->func = func;
   }
@@ -4699,7 +4727,7 @@ int rna_parameter_size(PropertyRNA *parm)
 #endif
       }
       case PROP_COLLECTION:
-        return sizeof(ListBase);
+        return sizeof(CollectionVector);
     }
   }
 
@@ -4723,7 +4751,7 @@ void RNA_enum_item_add(EnumPropertyItem **items, int *totitem, const EnumPropert
   int tot = *totitem;
 
   if (tot == 0) {
-    *items = static_cast<EnumPropertyItem *>(MEM_callocN(sizeof(EnumPropertyItem[8]), __func__));
+    *items = MEM_calloc_arrayN<EnumPropertyItem>(8, __func__);
 /* Ensure we get crashes on missing calls to 'RNA_enum_item_end', see #74227. */
 #ifndef NDEBUG
     memset(*items, 0xff, sizeof(EnumPropertyItem[8]));
@@ -4841,21 +4869,12 @@ void RNA_def_func_free_pointers(FunctionRNA *func)
   }
 }
 
-void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA *prop)
+void RNA_def_property_duplicate_pointers(StructOrFunctionRNA * /*cont_*/, PropertyRNA *prop)
 {
-  ContainerRNA *cont = static_cast<ContainerRNA *>(cont_);
   int a;
 
-  /* annoying since we just added this to a hash, could make this add the correct key to the hash
-   * in the first place */
   if (prop->identifier) {
-    if (cont->prophash) {
-      prop->identifier = BLI_strdup(prop->identifier);
-      BLI_ghash_reinsert(cont->prophash, (void *)prop->identifier, prop, nullptr, nullptr);
-    }
-    else {
-      prop->identifier = BLI_strdup(prop->identifier);
-    }
+    prop->identifier = BLI_strdup(prop->identifier);
   }
 
   if (prop->name) {
@@ -4870,8 +4889,8 @@ void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA
       BoolPropertyRNA *bprop = (BoolPropertyRNA *)prop;
 
       if (bprop->defaultarray) {
-        bool *array = static_cast<bool *>(
-            MEM_mallocN(sizeof(bool) * prop->totarraylength, "RNA_def_property_store"));
+        bool *array = MEM_malloc_arrayN<bool>(size_t(prop->totarraylength),
+                                              "RNA_def_property_store");
         memcpy(array, bprop->defaultarray, sizeof(bool) * prop->totarraylength);
         bprop->defaultarray = array;
       }
@@ -4881,8 +4900,8 @@ void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA
       IntPropertyRNA *iprop = (IntPropertyRNA *)prop;
 
       if (iprop->defaultarray) {
-        int *array = static_cast<int *>(
-            MEM_mallocN(sizeof(int) * prop->totarraylength, "RNA_def_property_store"));
+        int *array = MEM_malloc_arrayN<int>(size_t(prop->totarraylength),
+                                            "RNA_def_property_store");
         memcpy(array, iprop->defaultarray, sizeof(int) * prop->totarraylength);
         iprop->defaultarray = array;
       }
@@ -4892,9 +4911,9 @@ void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA
       EnumPropertyRNA *eprop = (EnumPropertyRNA *)prop;
 
       if (eprop->item) {
-        EnumPropertyItem *array = static_cast<EnumPropertyItem *>(MEM_mallocN(
-            sizeof(EnumPropertyItem) * (eprop->totitem + 1), "RNA_def_property_store"));
-        memcpy(array, eprop->item, sizeof(EnumPropertyItem) * (eprop->totitem + 1));
+        EnumPropertyItem *array = MEM_malloc_arrayN<EnumPropertyItem>(size_t(eprop->totitem) + 1,
+                                                                      "RNA_def_property_store");
+        memcpy(array, eprop->item, sizeof(*array) * (eprop->totitem + 1));
         eprop->item = array;
 
         for (a = 0; a < eprop->totitem; a++) {
@@ -4915,8 +4934,8 @@ void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA
       FloatPropertyRNA *fprop = (FloatPropertyRNA *)prop;
 
       if (fprop->defaultarray) {
-        float *array = static_cast<float *>(
-            MEM_mallocN(sizeof(float) * prop->totarraylength, "RNA_def_property_store"));
+        float *array = MEM_malloc_arrayN<float>(size_t(prop->totarraylength),
+                                                "RNA_def_property_store");
         memcpy(array, fprop->defaultarray, sizeof(float) * prop->totarraylength);
         fprop->defaultarray = array;
       }
@@ -5031,8 +5050,8 @@ static void rna_def_property_free(StructOrFunctionRNA *cont_, PropertyRNA *prop)
   ContainerRNA *cont = static_cast<ContainerRNA *>(cont_);
 
   if (prop->flag_internal & PROP_INTERN_RUNTIME) {
-    if (cont->prophash) {
-      BLI_ghash_remove(cont->prophash, prop->identifier, nullptr, nullptr);
+    if (cont->prop_lookup_set) {
+      cont->prop_lookup_set->remove_as(prop->identifier);
     }
 
     RNA_def_property_free_pointers(prop);

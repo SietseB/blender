@@ -18,10 +18,11 @@ namespace blender::io::csv {
 struct CSVImportParams {
   /** Full path to the source CSV file to import. */
   char filepath[FILE_MAX];
+  char delimiter = ',';
 
   ReportList *reports = nullptr;
 };
 
-PointCloud *import_csv_as_point_cloud(const CSVImportParams &import_params);
+PointCloud *import_csv_as_pointcloud(const CSVImportParams &import_params);
 
 }  // namespace blender::io::csv
