@@ -56,7 +56,7 @@ static void rna_Palette_unshaded_color_remove(Palette *palette,
 
   BKE_palette_unshaded_color_remove(palette, color);
 
-  RNA_POINTER_INVALIDATE(color_ptr);
+  color_ptr->invalidate();
 }
 
 static void rna_Palette_unshaded_color_move(Palette *palette,
@@ -81,7 +81,7 @@ static void rna_Palette_unshaded_color_move(Palette *palette,
   BLI_assert(ELEM(direction, -1, 0, 1));
   BLI_listbase_link_move(&palette->unshaded_colors, color, direction);
 
-  RNA_POINTER_INVALIDATE(color_ptr);
+  color_ptr->invalidate();
 }
 
 static MixingColor *rna_Palette_mixing_color_new(Palette *palette)
@@ -114,7 +114,7 @@ static void rna_Palette_mixing_color_remove(Palette *palette,
 
   BKE_palette_mixing_color_remove(palette, color);
 
-  RNA_POINTER_INVALIDATE(color_ptr);
+  color_ptr->invalidate();
 }
 
 static void rna_Palette_mixing_color_move(Palette *palette,
@@ -139,7 +139,7 @@ static void rna_Palette_mixing_color_move(Palette *palette,
   BLI_assert(ELEM(direction, -1, 0, 1));
   BLI_listbase_link_move(&palette->mixing_colors, color, direction);
 
-  RNA_POINTER_INVALIDATE(color_ptr);
+  color_ptr->invalidate();
 }
 
 static void rna_Palette_mixing_colors_mix(Palette *palette,
@@ -174,7 +174,7 @@ static void rna_PaletteColor_mixed_color_remove(PaletteColor *palcolor, PointerR
 
   BKE_palettecolor_mixed_color_remove(palcolor, mixcolor);
 
-  RNA_POINTER_INVALIDATE(mixcolor_ptr);
+  mixcolor_ptr->invalidate();
 }
 
 static void rna_PaletteColor_mixed_color_clear(PaletteColor *color)

@@ -3641,7 +3641,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop,
                            "Clear Background",
                            "Clear the background when drawing this object (Ondine watercolor)");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   RNA_define_lib_overridable(false);
 

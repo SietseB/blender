@@ -254,12 +254,13 @@ static void deform_drawing(const GreasePencilNoiseModifierData &mmd,
 
   if (mmd.factor_uvs > 0.0f) {
     if (bke::SpanAttributeWriter<float> rotations = attributes.lookup_or_add_for_write_span<float>(
-        "rotation", bke::AttrDomain::Point))
+            "rotation", bke::AttrDomain::Point))
     {
       filtered_strokes.foreach_index(GrainSize(512), [&](const int stroke_i) {
         const IndexRange points = points_by_curve[stroke_i];
         const int noise_len = math::ceil(points.size() * noise_scale) + 2;
-        const Array<float> table = noise_table(noise_len, floored_noise_offset, seed + 4 + stroke_i);
+        const Array<float> table = noise_table(
+            noise_len, floored_noise_offset, seed + 4 + stroke_i);
         Array<float> table_next;
         if (use_random_smooth) {
           table_next = noise_table(noise_len, floored_noise_offset, seed_next + 4 + stroke_i);
@@ -452,8 +453,10 @@ static void panel_draw(const bContext *C, Panel *panel)
   uiItemR(col, ptr, "noise_offset", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "seed", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  if (uiLayout *color_layout = uiLayoutPanelPropWithBoolHeader(
-          C, layout, ptr, "open_color_panel", "use_color", IFACE_("Color")))
+  if (uiLayout *color_layout =
+          uiLayoutPanelPropWithBoolHeader(
+              C, layout, ptr, "open_color_panel", ptr, "use_color", IFACE_("Color"))
+              .body)
   {
     uiLayout *color_col = uiLayoutColumn(color_layout, false);
     uiLayoutSetActive(color_col, RNA_boolean_get(ptr, "use_color"));

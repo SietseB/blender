@@ -350,8 +350,8 @@ struct PaintOperationExecutor {
       delta_times.finish();
     }
 
-    drawing_->seeds_for_write()[active_curve] = rand() * 4096 + rand();
-    drawing_->ensure_unique_seeds();
+    self.drawing_->seeds_for_write()[active_curve] = rand() * 4096 + rand();
+    self.drawing_->ensure_unique_seeds();
     curve_attributes_to_skip.add(".seed");
 
     bke::SpanAttributeWriter<int> materials = attributes.lookup_or_add_for_write_span<int>(

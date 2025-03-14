@@ -1417,7 +1417,7 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
 
 PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_entries)
 {
-  PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
+  PaletteColor *color = MEM_callocN<PaletteColor>(__func__);
   BLI_addhead(&palette->last_used_colors, color);
 
   /* Limit number of last used colors */
@@ -1431,7 +1431,7 @@ PaletteColor *BKE_palette_last_used_color_add(Palette *palette, const int max_en
 
 PaletteColor *BKE_palette_unshaded_color_add(Palette *palette)
 {
-  PaletteColor *color = MEM_cnew<PaletteColor>(__func__);
+  PaletteColor *color = MEM_callocN<PaletteColor>(__func__);
   BLI_addtail(&palette->unshaded_colors, color);
   return color;
 }
@@ -1446,7 +1446,7 @@ void BKE_palette_unshaded_color_remove(Palette *palette, PaletteColor *color)
 
 MixingColor *BKE_palette_mixing_color_add(Palette *palette)
 {
-  MixingColor *color = MEM_cnew<MixingColor>(__func__);
+  MixingColor *color = MEM_callocN<MixingColor>(__func__);
   BLI_addtail(&palette->mixing_colors, color);
   return color;
 }
@@ -1460,7 +1460,7 @@ void BKE_palette_mixing_color_remove(Palette *palette, MixingColor *color)
 
 MixingColor *BKE_palettecolor_mixed_color_add(PaletteColor *palcolor)
 {
-  MixingColor *color = MEM_cnew<MixingColor>(__func__);
+  MixingColor *color = MEM_callocN<MixingColor>(__func__);
   BLI_addtail(&palcolor->mixed_colors, color);
   return color;
 }
