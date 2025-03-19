@@ -154,10 +154,11 @@ static void modify_drawing(const GreasePencilShapeKeyModifierData &smd,
   IndexMaskMemory mask_memory;
   const IndexMask stroke_mask = modifier::greasepencil::get_filtered_stroke_mask(
       ctx.object, curves, smd.influence, mask_memory);
-  bool positions_have_changed = false;
   const int edited_shape_key_index = (smd.flag & MOD_GREASE_PENCIL_SHAPE_KEY_IN_EDIT_MODE) != 0 ?
                                          smd.index_edited :
                                          -1;
+  Vector<int> shape_key_indices;
+  Vector<float> shape_key_factors;
 
   int shape_key_index;
   LISTBASE_FOREACH_INDEX (
@@ -178,7 +179,6 @@ static void modify_drawing(const GreasePencilShapeKeyModifierData &smd,
       continue;
     }
 
-    const std::string shape_key_id = std::to_string(shape_key_index);
     const float factor = (shape_key_index == edited_shape_key_index) ?
                              1.0f :
                              shape_key->value * smd.factor;
@@ -186,11 +186,17 @@ static void modify_drawing(const GreasePencilShapeKeyModifierData &smd,
       continue;
     }
 
-    positions_have_changed |= ed::greasepencil::shape_key::apply_shape_key_to_drawing(
-        drawing, shape_key_id, stroke_mask, factor);
+    shape_key_indices.append(shape_key_index);
+    shape_key_factors.append(factor);
   }
 
-  if (positions_have_changed) {
+  if (shape_key_indices.is_empty()) {
+    return;
+  }
+
+  if (ed::greasepencil::shape_key::apply_shape_keys_to_drawing(
+          drawing, shape_key_indices, shape_key_factors, stroke_mask))
+  {
     drawing.tag_positions_changed();
   }
 }
@@ -242,11 +248,13 @@ static void modify_geometry_set(ModifierData *md,
   Array<bool> shape_key_is_inactive = get_inactive_shape_keys(smd, grease_pencil);
 
   /* Modify layers. */
-  int shape_key_index;
   IndexMaskMemory mask_memory;
   const IndexMask layer_mask = modifier::greasepencil::get_filtered_layer_mask(
       grease_pencil, smd.influence, mask_memory);
 
+  Vector<int> shape_key_indices;
+  Vector<float> shape_key_factors;
+  int shape_key_index;
   LISTBASE_FOREACH_INDEX (
       GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
   {
@@ -263,11 +271,12 @@ static void modify_geometry_set(ModifierData *md,
       continue;
     }
 
-    const std::string shape_key_id = std::to_string(shape_key_index);
-    const float factor = shape_key->value * smd.factor;
-
-    ed::greasepencil::shape_key::apply_shape_key_to_layers(
-        grease_pencil, shape_key_id, layer_mask, factor);
+    shape_key_indices.append(shape_key_index);
+    shape_key_factors.append(shape_key->value * smd.factor);
+  }
+  if (!shape_key_indices.is_empty()) {
+    ed::greasepencil::shape_key::apply_shape_keys_to_layers(
+        grease_pencil, shape_key_indices, shape_key_factors, layer_mask);
   }
 
   /* Modify drawings. */
@@ -302,21 +311,21 @@ static void modify_geometry_set(ModifierData *md,
       }
 
       /* Check for changes in layer transform. */
-      const int base_layer_index =
+      const int layer_index =
           grease_pencil.layer(drawing_infos[info_i].layer_index).runtime->shape_key_edit_index - 1;
-      if (base_layer_index == -1) {
+      if (layer_index == -1) {
         continue;
       }
-      const Layer &base_layer = grease_pencil_orig.layer(base_layer_index);
-      const float3 translation_delta = float3(base_layer.translation) -
+      const Layer &layer = grease_pencil_orig.layer(layer_index);
+      const float3 translation_delta = float3(layer.translation) -
                                        ed::greasepencil::shape_key::get_base_layer_translation(
-                                           edit_data, base_layer_index);
-      const float3 rotation_delta = float3(base_layer.rotation) -
+                                           edit_data, layer_index);
+      const float3 rotation_delta = float3(layer.rotation) -
                                     ed::greasepencil::shape_key::get_base_layer_rotation(
-                                        edit_data, base_layer_index);
-      const float3 scale_delta = float3(base_layer.scale) /
-                                 ed::greasepencil::shape_key::get_base_layer_scale(
-                                     edit_data, base_layer_index);
+                                        edit_data, layer_index);
+      const float3 scale_delta = float3(layer.scale) /
+                                 ed::greasepencil::shape_key::get_base_layer_scale(edit_data,
+                                                                                   layer_index);
       if (math::is_zero(translation_delta) && math::is_zero(rotation_delta) &&
           math::is_equal(scale_delta, {1.0f, 1.0f, 1.0f}))
       {
@@ -329,7 +338,7 @@ static void modify_geometry_set(ModifierData *md,
               translation_delta, rotation_delta, scale_delta));
       bke::CurvesGeometry &curves = drawing.strokes_for_write();
       MutableSpan<float3> positions = curves.positions_for_write();
-      threading::parallel_for(curves.points_range(), 4096, [&](const IndexRange point_range) {
+      threading::parallel_for(curves.points_range(), 512, [&](const IndexRange point_range) {
         for (const int point : point_range) {
           positions[point] = math::transform_point(transform_matrix, positions[point]);
         }

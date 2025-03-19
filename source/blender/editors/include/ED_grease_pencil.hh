@@ -1002,21 +1002,21 @@ ColorGeometry4f randomize_color(const BrushGpencilSettings &settings,
 namespace shape_key {
 struct ShapeKeyEditData;
 
-void apply_shape_key_to_layers(GreasePencil &grease_pencil,
-                               const StringRef shape_key_id,
-                               const IndexMask &layer_mask,
-                               float factor);
-bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
-                                const StringRef shape_key_id,
-                                const IndexMask &stroke_mask,
-                                float factor);
+void apply_shape_keys_to_layers(GreasePencil &grease_pencil,
+                                Span<int> shape_key_indices,
+                                Span<float> shape_key_factors,
+                                const IndexMask &layer_mask);
+bool apply_shape_keys_to_drawing(bke::greasepencil::Drawing &drawing,
+                                 Span<int> shape_key_indices,
+                                 Span<float> shape_key_factors,
+                                 const IndexMask &stroke_mask);
 
 float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, int layer_index);
 float3 get_base_layer_rotation(const ShapeKeyEditData &edit_data, int layer_index);
 float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, int layer_index);
 
 void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
-                                 const Span<bke::greasepencil::Drawing *> drawings);
+                                 Span<bke::greasepencil::Drawing *> drawings);
 
 }  // namespace shape_key
 

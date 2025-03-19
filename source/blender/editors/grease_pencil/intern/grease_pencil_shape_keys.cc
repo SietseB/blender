@@ -787,10 +787,63 @@ static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *ar
   BLF_disable(font_id, BLF_SHADOW);
 }
 
-bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
-                                const StringRef shape_key_id,
-                                const IndexMask &stroke_mask,
-                                const float factor)
+/* Data structure for a collection of shape key deltas, collected for a list of shape keys and
+ * a given geometry attribute (e.g. 'fill_color' or 'radius'). */
+template<typename T> struct ShapeKeysDeltas {
+  /* Is the attribute shaped by any of the shape keys? */
+  bool is_shaped;
+  /* Per shape key: flag if there is a delta for that shape key. */
+  Array<bool> has_delta;
+  /* Per shape key: the delta values of the attribute for that shape key. */
+  Array<VArraySpan<T>> deltas;
+  /* The attribute values in the drawing. */
+  MutableSpan<T> in_drawing;
+};
+
+/* Collect the shape key deltas for a list of shape keys and a given geometry attribute. */
+template<typename T>
+static ShapeKeysDeltas<T> collect_shape_keys_deltas(const Span<int> shape_key_indices,
+                                                    const StringRef shape_key_attribute,
+                                                    bke::MutableAttributeAccessor &attributes,
+                                                    const bke::AttrDomain domain)
+{
+  ShapeKeysDeltas<T> collection;
+  collection.is_shaped = false;
+  collection.has_delta = Array<bool>(shape_key_indices.size(), false);
+  collection.deltas = Array<VArraySpan<T>>(shape_key_indices.size());
+
+  /* Check for each shape key if the shape key delta exists. */
+  for (const int index : shape_key_indices.index_range()) {
+    const std::string attribute_name = SHAPE_KEY_ATTRIBUTE_PREFIX +
+                                       std::to_string(shape_key_indices[index]) +
+                                       shape_key_attribute;
+    if (!attributes.contains(attribute_name)) {
+      continue;
+    }
+    collection.is_shaped = true;
+    collection.has_delta[index] = true;
+    collection.deltas[index] = *attributes.lookup<T>(attribute_name, domain);
+  }
+
+  return collection;
+}
+
+template<typename Fn>
+void apply_shape_keys_to_geometry(const IndexRange shape_keys,
+                                  const Span<bool> shape_key_has_delta,
+                                  Fn &&fn)
+{
+  for (const int shape_key : shape_keys) {
+    if (shape_key_has_delta[shape_key]) {
+      fn(shape_key);
+    }
+  }
+}
+
+bool apply_shape_keys_to_drawing(bke::greasepencil::Drawing &drawing,
+                                 const Span<int> shape_key_indices,
+                                 const Span<float> shape_key_factors,
+                                 const IndexMask &stroke_mask)
 {
   using namespace blender::bke;
 
@@ -803,174 +856,244 @@ bool apply_shape_key_to_drawing(bke::greasepencil::Drawing &drawing,
   const VArray<int> base_stroke_indices = *attributes.lookup_or_default<int>(
       SHAPE_KEY_BASE_STROKE_INDEX, AttrDomain::Curve, 0);
   const VArray<bool> cyclic = curves.cyclic();
+  const IndexRange shape_key_range = shape_key_indices.index_range();
 
-  /* Get shape key attributes. */
-  MutableSpan<ColorGeometry4f> fill_colors;
-  MutableSpan<float> fill_opacities;
-  MutableSpan<float> radii;
-  MutableSpan<float> opacities;
-  MutableSpan<ColorGeometry4f> vertex_colors;
-  VArraySpan<math::Quaternion> position_angles;
+  /* Collect the shape key deltas of all given shape keys. */
+  ShapeKeysDeltas<ColorGeometry4f> fill_color = collect_shape_keys_deltas<ColorGeometry4f>(
+      shape_key_indices, SHAPE_KEY_STROKE_FILL_COLOR, attributes, AttrDomain::Curve);
+
+  ShapeKeysDeltas<float> fill_opacity = collect_shape_keys_deltas<float>(
+      shape_key_indices, SHAPE_KEY_STROKE_FILL_OPACITY, attributes, AttrDomain::Curve);
+
+  ShapeKeysDeltas<float> radius = collect_shape_keys_deltas<float>(
+      shape_key_indices, SHAPE_KEY_POINT_RADIUS, attributes, AttrDomain::Point);
+
+  ShapeKeysDeltas<float> opacity = collect_shape_keys_deltas<float>(
+      shape_key_indices, SHAPE_KEY_POINT_OPACITY, attributes, AttrDomain::Point);
+
+  ShapeKeysDeltas<ColorGeometry4f> vertex_color = collect_shape_keys_deltas<ColorGeometry4f>(
+      shape_key_indices, SHAPE_KEY_POINT_VERTEX_COLOR, attributes, AttrDomain::Point);
+
   MutableSpan<float3> positions;
+  ShapeKeysDeltas<float> position_distance = collect_shape_keys_deltas<float>(
+      shape_key_indices, SHAPE_KEY_POINT_POS_DISTANCE, attributes, AttrDomain::Point);
+  ShapeKeysDeltas<math::Quaternion> position_angle = collect_shape_keys_deltas<math::Quaternion>(
+      shape_key_indices, SHAPE_KEY_POINT_POS_ANGLE, attributes, AttrDomain::Point);
 
-  const VArraySpan fill_color_deltas = *attributes.lookup<ColorGeometry4f>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR, AttrDomain::Curve);
-  const VArraySpan fill_opacity_deltas = *attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_OPACITY,
-      AttrDomain::Curve);
-  const VArraySpan radius_deltas = *attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS, AttrDomain::Point);
-  const VArraySpan opacity_deltas = *attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY, AttrDomain::Point);
-  const VArraySpan vertex_color_deltas = *attributes.lookup<ColorGeometry4f>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_VERTEX_COLOR, AttrDomain::Point);
-  const VArraySpan position_distance = *attributes.lookup<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE, AttrDomain::Point);
-
-  const bool has_fill_color = !fill_color_deltas.is_empty();
-  const bool has_fill_opacity = !fill_opacity_deltas.is_empty();
-  const bool has_radius = !radius_deltas.is_empty();
-  const bool has_opacity = !opacity_deltas.is_empty();
-  const bool has_vertex_color = !vertex_color_deltas.is_empty();
-  const bool has_distance = !position_distance.is_empty();
-
-  if (has_fill_color) {
-    fill_colors = drawing.fill_colors_for_write();
+  if (fill_color.is_shaped) {
+    fill_color.in_drawing = drawing.fill_colors_for_write();
   }
-  if (has_fill_opacity) {
-    fill_opacities = drawing.fill_opacities_for_write();
+  if (fill_opacity.is_shaped) {
+    fill_opacity.in_drawing = drawing.fill_opacities_for_write();
   }
-  if (has_radius) {
-    radii = drawing.radii_for_write();
+  if (radius.is_shaped) {
+    radius.in_drawing = drawing.radii_for_write();
   }
-  if (has_opacity) {
-    opacities = drawing.opacities_for_write();
+  if (opacity.is_shaped) {
+    opacity.in_drawing = drawing.opacities_for_write();
   }
-  if (has_vertex_color) {
-    vertex_colors = drawing.vertex_colors_for_write();
+  if (vertex_color.is_shaped) {
+    vertex_color.in_drawing = drawing.vertex_colors_for_write();
   }
-  if (has_distance) {
+  if (position_distance.is_shaped) {
     positions = curves.positions_for_write();
-    position_angles = *attributes.lookup<math::Quaternion>(
-        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE, AttrDomain::Point);
   }
 
-  /* Apply shape key to strokes and points. */
-  stroke_mask.foreach_index(GrainSize(256), [&](const int stroke) {
+  /* Apply shape keys to strokes and points. */
+  stroke_mask.foreach_index(GrainSize(512), [&](const int stroke) {
+    const IndexRange points = points_by_curve[stroke];
+
     /* Shape key: stroke fill color. */
-    if (has_fill_color) {
-      add_v4_v4(fill_colors[stroke], float4(fill_color_deltas[stroke]) * factor);
-      clamp_v4(fill_colors[stroke], 0.0f, 1.0f);
+    if (fill_color.is_shaped) {
+      apply_shape_keys_to_geometry(
+          shape_key_range, fill_color.has_delta, [&](const int shape_key) {
+            add_v4_v4(fill_color.in_drawing[stroke],
+                      float4(fill_color.deltas[shape_key][stroke]) * shape_key_factors[shape_key]);
+          });
+      clamp_v4(fill_color.in_drawing[stroke], 0.0f, 1.0f);
     }
 
     /* Shape key: stroke fill opacity. */
-    if (has_fill_opacity) {
-      fill_opacities[stroke] = math::clamp(
-          fill_opacities[stroke] + fill_opacity_deltas[stroke] * factor, 0.0f, 1.0f);
+    if (fill_opacity.is_shaped) {
+      apply_shape_keys_to_geometry(
+          shape_key_range, fill_opacity.has_delta, [&](const int shape_key) {
+            fill_opacity.in_drawing[stroke] += fill_opacity.deltas[shape_key][stroke] *
+                                               shape_key_factors[shape_key];
+          });
+      fill_opacity.in_drawing[stroke] = math::clamp(fill_opacity.in_drawing[stroke], 0.0f, 1.0f);
     }
 
-    const IndexRange points = points_by_curve[stroke];
-    for (const int point : points) {
-      /* Shape key: point radius. */
-      if (has_radius) {
-        radii[point] = math::max(radii[point] + radius_deltas[point] * factor, 0.0f);
-      }
-      /* Shape key: point opacity. */
-      if (has_opacity) {
-        opacities[point] = math::clamp(
-            opacities[point] + opacity_deltas[point] * factor, 0.0f, 1.0f);
-      }
-      /* Shape key: vertex colors. */
-      if (has_vertex_color) {
-        add_v4_v4(vertex_colors[point], float4(vertex_color_deltas[point]) * factor);
-        clamp_v4(vertex_colors[point], 0.0f, 1.0f);
+    if (radius.is_shaped || opacity.is_shaped || vertex_color.is_shaped) {
+      for (const int point : points) {
+        /* Shape key: point radius. */
+        if (radius.is_shaped) {
+          apply_shape_keys_to_geometry(
+              shape_key_range, radius.has_delta, [&](const int shape_key) {
+                radius.in_drawing[point] += radius.deltas[shape_key][point] *
+                                            shape_key_factors[shape_key];
+              });
+          radius.in_drawing[point] = math::max(radius.in_drawing[point], 0.0f);
+        }
+        /* Shape key: point opacity. */
+        if (opacity.is_shaped) {
+          apply_shape_keys_to_geometry(
+              shape_key_range, opacity.has_delta, [&](const int shape_key) {
+                opacity.in_drawing[point] += opacity.deltas[shape_key][point] *
+                                             shape_key_factors[shape_key];
+              });
+          opacity.in_drawing[point] = math::clamp(opacity.in_drawing[point], 0.0f, 1.0f);
+        }
+        /* Shape key: vertex colors. */
+        if (vertex_color.is_shaped) {
+          apply_shape_keys_to_geometry(
+              shape_key_range, vertex_color.has_delta, [&](const int shape_key) {
+                add_v4_v4(vertex_color.in_drawing[point],
+                          float4(vertex_color.deltas[shape_key][point]) *
+                              shape_key_factors[shape_key]);
+              });
+          clamp_v4(vertex_color.in_drawing[point], 0.0f, 1.0f);
+        }
       }
     }
 
     /* Shape key: point position. */
-    if (has_distance) {
-      float3 vector_to_next_point = {1.0f, 0.0f, 0.0f};
-      const float3 position_first = positions[points.first()];
-      const float3 position_one_before_last =
-          positions[points.size() > 1 ? (points.last() - 1) : points.first()];
-      for (const int point : points) {
-        if (position_distance[point] == 0.0f) {
+    if (!position_distance.is_shaped) {
+      return;
+    }
+    float3 vector_to_next_point = {1.0f, 0.0f, 0.0f};
+    const float3 position_first = positions[points.first()];
+    const float3 position_one_before_last =
+        positions[points.size() > 1 ? (points.last() - 1) : points.first()];
+
+    for (const int point : points) {
+      float3 position_delta = {0.0f, 0.0f, 0.0f};
+      if (point == points.last()) {
+        if (cyclic[stroke]) {
+          vector_to_next_point = position_first - positions[point];
+        }
+        else if (points.size() > 1) {
+          vector_to_next_point = positions[point] - position_one_before_last;
+        }
+      }
+      else {
+        vector_to_next_point = positions[point + 1] - positions[point];
+      }
+
+      for (const int shape_key : shape_key_range) {
+        if (!position_distance.has_delta[shape_key] ||
+            position_distance.deltas[shape_key][point] == 0.0f)
+        {
           continue;
         }
 
         /* Convert quaternion rotation and distance to a point position delta. */
         float matrix[3][3];
-        const math::Quaternion angle = position_angles[point];
-        quat_to_mat3(matrix, &angle.w);
-        if (point == points.last()) {
-          if (cyclic[stroke]) {
-            vector_to_next_point = position_first - positions[point];
-          }
-          else if (points.size() > 1) {
-            vector_to_next_point = positions[point] - position_one_before_last;
-          }
-        }
-        else {
-          vector_to_next_point = positions[point + 1] - positions[point];
-        }
-        mul_m3_v3(matrix, vector_to_next_point);
-        normalize_v3(vector_to_next_point);
-
-        /* Apply the delta to the point position. */
-        const float3 position_delta = vector_to_next_point * (position_distance[point] * factor);
-        positions[point] += position_delta;
+        quat_to_mat3(matrix, &position_angle.deltas[shape_key][point].w);
+        float3 vector_to_shaped_point = vector_to_next_point;
+        mul_m3_v3(matrix, vector_to_shaped_point);
+        position_delta += math::normalize(vector_to_shaped_point) *
+                          (position_distance.deltas[shape_key][point] *
+                           shape_key_factors[shape_key]);
       }
+
+      /* Apply the delta to the point position. */
+      positions[point] += position_delta;
     }
   });
 
-  return has_distance;
+  return position_distance.is_shaped;
 }
 
-void apply_shape_key_to_layers(GreasePencil &grease_pencil,
-                               const StringRef shape_key_id,
-                               const IndexMask &layer_mask,
-                               const float factor)
+void apply_shape_keys_to_layers(GreasePencil &grease_pencil,
+                                const Span<int> shape_key_indices,
+                                const Span<float> shape_key_factors,
+                                const IndexMask &layer_mask)
 {
   bke::AttributeAccessor layer_attributes = grease_pencil.attributes();
-  const VArray<float3> shape_key_translations = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_TRANSLATION,
-      bke::AttrDomain::Layer,
-      float3(0.0f, 0.0f, 0.0f));
-  const VArray<float3> shape_key_rotations = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_ROTATION,
-      bke::AttrDomain::Layer,
-      float3(0.0f, 0.0f, 0.0f));
-  const VArray<float3> shape_key_scales = *layer_attributes.lookup_or_default<float3>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_SCALE,
-      bke::AttrDomain::Layer,
-      float3(0.0f, 0.0f, 0.0f));
-  const VArray<float> shape_key_opacities = *layer_attributes.lookup_or_default<float>(
-      SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_OPACITY,
-      bke::AttrDomain::Layer,
-      0.0f);
+
+  for (const int shape_key : shape_key_indices.index_range()) {
+    const std::string shape_key_id = std::to_string(shape_key_indices[shape_key]);
+    const VArray<float3> shape_key_translations = *layer_attributes.lookup_or_default<float3>(
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_TRANSLATION,
+        bke::AttrDomain::Layer,
+        float3(0.0f, 0.0f, 0.0f));
+    const VArray<float3> shape_key_rotations = *layer_attributes.lookup_or_default<float3>(
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_ROTATION,
+        bke::AttrDomain::Layer,
+        float3(0.0f, 0.0f, 0.0f));
+    const VArray<float3> shape_key_scales = *layer_attributes.lookup_or_default<float3>(
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_SCALE,
+        bke::AttrDomain::Layer,
+        float3(0.0f, 0.0f, 0.0f));
+    const VArray<float> shape_key_opacities = *layer_attributes.lookup_or_default<float>(
+        SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_LAYER_OPACITY,
+        bke::AttrDomain::Layer,
+        0.0f);
+
+    layer_mask.foreach_index([&](const int layer_i) {
+      bke::greasepencil::Layer &layer = grease_pencil.layer(layer_i);
+
+      copy_v3_v3(layer.translation,
+                 float3(layer.translation) +
+                     shape_key_translations[layer_i] * shape_key_factors[shape_key]);
+      copy_v3_v3(layer.rotation,
+                 float3(layer.rotation) +
+                     shape_key_rotations[layer_i] * shape_key_factors[shape_key]);
+      copy_v3_v3(layer.scale,
+                 float3(layer.scale) + shape_key_scales[layer_i] * shape_key_factors[shape_key]);
+      layer.opacity += shape_key_opacities[layer_i] * shape_key_factors[shape_key];
+    });
+  }
 
   layer_mask.foreach_index([&](const int layer_i) {
     bke::greasepencil::Layer &layer = grease_pencil.layer(layer_i);
-
-    copy_v3_v3(layer.translation,
-               float3(layer.translation) + shape_key_translations[layer_i] * factor);
-    copy_v3_v3(layer.rotation, float3(layer.rotation) + shape_key_rotations[layer_i] * factor);
-    copy_v3_v3(layer.scale, float3(layer.scale) + shape_key_scales[layer_i] * factor);
-    layer.opacity = math::clamp(layer.opacity + shape_key_opacities[layer_i] * factor, 0.0f, 1.0f);
+    layer.opacity = math::clamp(layer.opacity, 0.0f, 1.0f);
   });
 }
 
-static bool attributes_have_different_sharing_info(const StringRef attribute_name,
-                                                   const bke::AttrDomain domain,
-                                                   const bke::MutableAttributeAccessor &attributes,
-                                                   const bke::AttributeAccessor &base_attributes)
+/* Determine if an attribute may have different values in attribute collection A and B.
+ * Returns true when the values may differ, returns false when the attribute values are definitely
+ * the same. */
+static bool attribute_may_differ(const StringRef attribute_name,
+                                 const bke::AttrDomain domain,
+                                 const bke::MutableAttributeAccessor &attributes_a,
+                                 const bke::AttributeAccessor &attributes_b)
 {
-  const ImplicitSharingInfo *sharing_info = attributes.lookup(attribute_name, domain).sharing_info;
-  const ImplicitSharingInfo *base_sharing_info =
-      base_attributes.lookup(attribute_name, domain).sharing_info;
-  return sharing_info == nullptr || base_sharing_info == nullptr ||
-         sharing_info != base_sharing_info;
+  /* Attribute values are the same when they fall back to the default value in both collections. */
+  if (!attributes_a.contains(attribute_name) && !attributes_b.contains(attribute_name)) {
+    return false;
+  }
+
+  /* Attribute values are the same when they have the same implicit sharing info. */
+  const ImplicitSharingInfo *sharing_info_a =
+      attributes_a.lookup(attribute_name, domain).sharing_info;
+  const ImplicitSharingInfo *sharing_info_b =
+      attributes_b.lookup(attribute_name, domain).sharing_info;
+  return sharing_info_a == nullptr || sharing_info_b == nullptr ||
+         sharing_info_a != sharing_info_b;
 }
+
+/* Data structure for retrieving the shape key delta between an edited drawing and the base drawing
+ * for a given geometry attribute (e.g. 'fill_color' or 'radius'). */
+template<typename T> struct ShapeKeyDelta {
+  bool check_for_delta;
+  std::atomic<bool> has_delta = false;
+  /* The geometry attribute in the edited drawing. */
+  MutableSpan<T> in_edited_drawing;
+  /* The geometry attribute in the base drawing. */
+  VArray<T> in_base_drawing;
+  /* The shape key delta between the edited and the base drawing. */
+  Array<T> deltas;
+};
+
+struct ShapeKeyPositionDelta {
+  bool check_for_delta;
+  std::atomic<bool> has_delta = false;
+  MutableSpan<float3> in_edited_drawing;
+  Span<float3> in_base_drawing;
+  Array<float> distance_deltas;
+  Array<math::Quaternion> angle_deltas;
+};
 
 /* Get the shape key deltas of all strokes and points in the given drawings.
  * While getting the deltas, revert the shape-keyed attributes to their base values. */
@@ -1003,92 +1126,75 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
 
       /* Compare implicit sharing info of shape key attributes in the base drawing and the shape
        * key drawing. When the pointers to the sharing info match, we know that the attributes have
-       * the same values, so we don't have to check for shape key deltas. */
-      Array<ColorGeometry4f> fill_color_deltas;
-      MutableSpan<ColorGeometry4f> fill_colors;
-      VArray<ColorGeometry4f> base_fill_colors;
-      std::atomic<bool> fill_color_has_delta = false;
-      const bool check_fill_color = attributes_have_different_sharing_info(
+       * the same values and that we don't have to check for shape key deltas. */
+      ShapeKeyDelta<ColorGeometry4f> fill_color{};
+      fill_color.check_for_delta = attribute_may_differ(
           "fill_color", AttrDomain::Curve, attributes, base_attributes);
-      if (check_fill_color) {
-        fill_color_deltas = Array<ColorGeometry4f>(curves.curves_num(),
+      if (fill_color.check_for_delta) {
+        fill_color.deltas = Array<ColorGeometry4f>(curves.curves_num(),
                                                    ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-        fill_colors = drawing.fill_colors_for_write();
-        base_fill_colors = *base_attributes.lookup_or_default<ColorGeometry4f>(
+        fill_color.in_edited_drawing = drawing.fill_colors_for_write();
+        fill_color.in_base_drawing = *base_attributes.lookup_or_default<ColorGeometry4f>(
             "fill_color", AttrDomain::Curve, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
       }
 
-      Array<float> fill_opacity_deltas;
-      MutableSpan<float> fill_opacities;
-      VArray<float> base_fill_opacities;
-      std::atomic<bool> fill_opacity_has_delta = false;
-      const bool check_fill_opacity = attributes_have_different_sharing_info(
+      ShapeKeyDelta<float> fill_opacity{};
+      fill_opacity.check_for_delta = attribute_may_differ(
           "fill_opacity", AttrDomain::Curve, attributes, base_attributes);
-      if (check_fill_opacity) {
-        fill_opacity_deltas = Array<float>(curves.curves_num(), 0.0f);
-        fill_opacities = drawing.fill_opacities_for_write();
-        base_fill_opacities = *base_attributes.lookup_or_default<float>(
+      if (fill_opacity.check_for_delta) {
+        fill_opacity.deltas = Array<float>(curves.curves_num(), 0.0f);
+        fill_opacity.in_edited_drawing = drawing.fill_opacities_for_write();
+        fill_opacity.in_base_drawing = *base_attributes.lookup_or_default<float>(
             "fill_opacity", AttrDomain::Curve, 1.0f);
       }
 
-      Array<math::Quaternion> angle_deltas;
-      Array<float> distance_deltas;
-      MutableSpan<float3> positions;
-      Span<float3> base_positions;
-      std::atomic<bool> position_has_delta = false;
-      const bool check_position = attributes_have_different_sharing_info(
+      ShapeKeyPositionDelta position{};
+      position.check_for_delta = attribute_may_differ(
           "position", AttrDomain::Point, attributes, base_attributes);
-      if (check_position) {
-        angle_deltas = Array<math::Quaternion>(curves.points_num(), math::Quaternion::identity());
-        distance_deltas = Array<float>(curves.points_num(), 0.0f);
-        positions = curves.positions_for_write();
-        base_positions = base_curves.positions();
+      if (position.check_for_delta) {
+        position.angle_deltas = Array<math::Quaternion>(curves.points_num(),
+                                                        math::Quaternion::identity());
+        position.distance_deltas = Array<float>(curves.points_num(), 0.0f);
+        position.in_edited_drawing = curves.positions_for_write();
+        position.in_base_drawing = base_curves.positions();
       }
 
-      Array<float> radius_deltas;
-      MutableSpan<float> radii;
-      VArray<float> base_radii;
-      std::atomic<bool> radius_has_delta = false;
-      const bool check_radius = attributes_have_different_sharing_info(
+      ShapeKeyDelta<float> radius{};
+      radius.check_for_delta = attribute_may_differ(
           "radius", AttrDomain::Point, attributes, base_attributes);
-      if (check_radius) {
-        radius_deltas = Array<float>(curves.points_num(), 0.0f);
-        radii = drawing.radii_for_write();
-        base_radii = *base_attributes.lookup_or_default<float>("radii", AttrDomain::Point, 0.01f);
+      if (radius.check_for_delta) {
+        radius.deltas = Array<float>(curves.points_num(), 0.0f);
+        radius.in_edited_drawing = drawing.radii_for_write();
+        radius.in_base_drawing = *base_attributes.lookup_or_default<float>(
+            "radii", AttrDomain::Point, 0.01f);
       }
 
-      Array<float> opacity_deltas;
-      MutableSpan<float> opacities;
-      VArray<float> base_opacities;
-      std::atomic<bool> opacity_has_delta = false;
-      const bool check_opacity = attributes_have_different_sharing_info(
+      ShapeKeyDelta<float> opacity{};
+      opacity.check_for_delta = attribute_may_differ(
           "opacity", AttrDomain::Point, attributes, base_attributes);
-      if (check_opacity) {
-        opacity_deltas = Array<float>(curves.points_num(), 0.0f);
-        opacities = drawing.opacities_for_write();
-        base_opacities = *base_attributes.lookup_or_default<float>(
+      if (opacity.check_for_delta) {
+        opacity.deltas = Array<float>(curves.points_num(), 0.0f);
+        opacity.in_edited_drawing = drawing.opacities_for_write();
+        opacity.in_base_drawing = *base_attributes.lookup_or_default<float>(
             "opacity", AttrDomain::Point, 1.0f);
       }
 
-      Array<ColorGeometry4f> vertex_color_deltas;
-      MutableSpan<ColorGeometry4f> vertex_colors;
-      VArray<ColorGeometry4f> base_vertex_colors;
-      std::atomic<bool> vertex_color_has_delta = false;
-      const bool check_vertex_color = attributes_have_different_sharing_info(
+      ShapeKeyDelta<ColorGeometry4f> vertex_color{};
+      vertex_color.check_for_delta = attribute_may_differ(
           "vertex_color", AttrDomain::Point, attributes, base_attributes);
-      if (check_vertex_color) {
-        vertex_color_deltas = Array<ColorGeometry4f>(curves.points_num(),
+      if (vertex_color.check_for_delta) {
+        vertex_color.deltas = Array<ColorGeometry4f>(curves.points_num(),
                                                      ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
-        vertex_colors = drawing.vertex_colors_for_write();
-        base_vertex_colors = *base_attributes.lookup_or_default<ColorGeometry4f>(
+        vertex_color.in_edited_drawing = drawing.vertex_colors_for_write();
+        vertex_color.in_base_drawing = *base_attributes.lookup_or_default<ColorGeometry4f>(
             "vertex_color", AttrDomain::Point, ColorGeometry4f(0.0f, 0.0f, 0.0f, 0.0f));
       }
 
       /* Loop over edited strokes and look for changed shape key properties. */
-      if (check_fill_color || check_fill_opacity || check_position || check_radius ||
-          check_opacity || check_vertex_color)
+      if (fill_color.check_for_delta || fill_opacity.check_for_delta || position.check_for_delta ||
+          radius.check_for_delta || opacity.check_for_delta || vertex_color.check_for_delta)
       {
-        threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange curves_range) {
+        threading::parallel_for(curves.curves_range(), 512, [&](const IndexRange curves_range) {
           bool fill_color_changed = false;
           bool fill_opacity_changed = false;
           bool position_changed = false;
@@ -1111,53 +1217,58 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
             }
 
             /* Store delta of stroke fill color. */
-            if (check_fill_color) {
-              const float4 color_delta = float4(fill_colors[stroke]) -
-                                         float4(base_fill_colors[base_stroke]);
+            if (fill_color.check_for_delta) {
+              const float4 color_delta = float4(fill_color.in_edited_drawing[stroke]) -
+                                         float4(fill_color.in_base_drawing[base_stroke]);
               if (!math::is_zero(color_delta, EPSILON)) {
                 fill_color_changed = true;
-                fill_color_deltas[stroke] = ColorGeometry4f(color_delta);
+                fill_color.deltas[stroke] = ColorGeometry4f(color_delta);
               }
               /* Restore to base value. */
-              fill_colors[stroke] = base_fill_colors[base_stroke];
+              fill_color.in_edited_drawing[stroke] = fill_color.in_base_drawing[base_stroke];
             }
 
             /* Store delta of stroke fill opacity. */
-            if (check_fill_opacity) {
-              const float delta = fill_opacities[stroke] - base_fill_opacities[base_stroke];
+            if (fill_opacity.check_for_delta) {
+              const float delta = fill_opacity.in_edited_drawing[stroke] -
+                                  fill_opacity.in_base_drawing[base_stroke];
               if (math::abs(delta) > EPSILON) {
                 fill_opacity_changed = true;
-                fill_opacity_deltas[stroke] = delta;
+                fill_opacity.deltas[stroke] = delta;
               }
               /* Restore to base value. */
-              fill_opacities[stroke] = base_fill_opacities[base_stroke];
+              fill_opacity.in_edited_drawing[stroke] = fill_opacity.in_base_drawing[base_stroke];
             }
 
             /* Get stroke point deltas. */
-            if (!(check_position || check_radius || check_opacity || check_vertex_color)) {
+            if (!(position.check_for_delta || radius.check_for_delta || opacity.check_for_delta ||
+                  vertex_color.check_for_delta))
+            {
               continue;
             }
             const IndexRange points = points_by_curve[stroke];
             float3 vector_to_next_point = {1.0f, 0.0f, 0.0f};
             for (const int point : points) {
-              if (check_position) {
+              if (position.check_for_delta) {
                 /* Get angle and distance between base point and shape-keyed point. */
-                if (positions[point] != base_positions[point]) {
-                  float3 vector_to_shaped_point = positions[point] - base_positions[point];
+                if (position.in_edited_drawing[point] != position.in_base_drawing[point]) {
+                  float3 vector_to_shaped_point = position.in_edited_drawing[point] -
+                                                  position.in_base_drawing[point];
                   const float distance = math::length(vector_to_shaped_point);
                   if (distance > EPSILON) {
                     if (point == points.last()) {
                       if (cyclic[stroke]) {
-                        vector_to_next_point = base_positions[points.first()] -
-                                               base_positions[point];
+                        vector_to_next_point = position.in_base_drawing[points.first()] -
+                                               position.in_base_drawing[point];
                       }
                       else if (points.size() > 1) {
-                        vector_to_next_point = base_positions[point] -
-                                               base_positions[points.last() - 1];
+                        vector_to_next_point = position.in_base_drawing[point] -
+                                               position.in_base_drawing[points.last() - 1];
                       }
                     }
                     else {
-                      vector_to_next_point = base_positions[point + 1] - base_positions[point];
+                      vector_to_next_point = position.in_base_drawing[point + 1] -
+                                             position.in_base_drawing[point];
                     }
                     vector_to_shaped_point = math::normalize(vector_to_shaped_point);
                     vector_to_next_point = math::normalize(vector_to_next_point);
@@ -1166,104 +1277,107 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
                         angle, vector_to_next_point, vector_to_shaped_point);
 
                     position_changed = true;
-                    distance_deltas[point] = distance;
-                    angle_deltas[point] = math::Quaternion(angle);
+                    position.distance_deltas[point] = distance;
+                    position.angle_deltas[point] = math::Quaternion(angle);
                   }
                   /* Restore to base value. */
-                  positions[point] = base_positions[point];
+                  position.in_edited_drawing[point] = position.in_base_drawing[point];
                 }
               }
 
               /* Get radius delta. */
-              if (check_radius) {
-                const float delta = radii[point] - base_radii[point];
+              if (radius.check_for_delta) {
+                const float delta = radius.in_edited_drawing[point] -
+                                    radius.in_base_drawing[point];
                 if (math::abs(delta) > EPSILON) {
                   radius_changed = true;
-                  radius_deltas[point] = delta;
+                  radius.deltas[point] = delta;
                 }
                 /* Restore to base value. */
-                radii[point] = base_radii[point];
+                radius.in_edited_drawing[point] = radius.in_base_drawing[point];
               }
 
               /* Get opacity delta. */
-              if (check_opacity) {
-                const float delta = opacities[point] - base_opacities[point];
+              if (opacity.check_for_delta) {
+                const float delta = opacity.in_edited_drawing[point] -
+                                    opacity.in_base_drawing[point];
                 if (math::abs(delta) > EPSILON) {
                   opacity_changed = true;
-                  opacity_deltas[point] = delta;
+                  opacity.deltas[point] = delta;
                 }
                 /* Restore to base value. */
-                opacities[point] = base_opacities[point];
+                opacity.in_edited_drawing[point] = opacity.in_base_drawing[point];
               }
 
               /* Get vertex color delta. */
-              if (check_vertex_color) {
-                const float4 color_delta = float4(vertex_colors[point]) -
-                                           float4(base_vertex_colors[point]);
+              if (vertex_color.check_for_delta) {
+                const float4 color_delta = float4(vertex_color.in_edited_drawing[point]) -
+                                           float4(vertex_color.in_base_drawing[point]);
                 if (!math::is_zero(color_delta, EPSILON)) {
                   vertex_color_changed = true;
-                  vertex_color_deltas[point] = ColorGeometry4f(color_delta);
+                  vertex_color.deltas[point] = ColorGeometry4f(color_delta);
                 }
                 /* Restore to base value. */
-                vertex_colors[point] = base_vertex_colors[point];
+                vertex_color.in_edited_drawing[point] = vertex_color.in_base_drawing[point];
               }
             }
           }
 
           if (fill_color_changed) {
-            fill_color_has_delta.store(true, std::memory_order_relaxed);
+            fill_color.has_delta.store(true, std::memory_order_relaxed);
           }
           if (fill_opacity_changed) {
-            fill_opacity_has_delta.store(true, std::memory_order_relaxed);
+            fill_opacity.has_delta.store(true, std::memory_order_relaxed);
           }
           if (position_changed) {
-            position_has_delta.store(true, std::memory_order_relaxed);
+            position.has_delta.store(true, std::memory_order_relaxed);
           }
           if (radius_changed) {
-            radius_has_delta.store(true, std::memory_order_relaxed);
+            radius.has_delta.store(true, std::memory_order_relaxed);
           }
           if (opacity_changed) {
-            opacity_has_delta.store(true, std::memory_order_relaxed);
+            opacity.has_delta.store(true, std::memory_order_relaxed);
           }
           if (vertex_color_changed) {
-            vertex_color_has_delta.store(true, std::memory_order_relaxed);
+            vertex_color.has_delta.store(true, std::memory_order_relaxed);
           }
         });
       }
 
-      /* Store stroke and point delta attributes for the edited shape key. */
-      if (fill_color_has_delta) {
+      /* Store stroke and point deltas for the edited shape key. Or remove them when there is no
+       * delta for the geometry attribute. */
+      if (fill_color.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<ColorGeometry4f>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR,
             AttrDomain::Curve);
-        attr_deltas.span.copy_from(fill_color_deltas);
+        attr_deltas.span.copy_from(fill_color.deltas);
         attr_deltas.finish();
       }
       else {
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_COLOR);
       }
-      if (fill_opacity_has_delta) {
+      if (fill_opacity.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_STROKE_FILL_OPACITY,
             AttrDomain::Curve);
-        attr_deltas.span.copy_from(fill_opacity_deltas);
+        attr_deltas.span.copy_from(fill_opacity.deltas);
         attr_deltas.finish();
       }
       else {
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id +
                           SHAPE_KEY_STROKE_FILL_OPACITY);
       }
-      if (position_has_delta) {
+      if (position.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_DISTANCE,
             AttrDomain::Point);
-        attr_deltas.span.copy_from(distance_deltas);
+        attr_deltas.span.copy_from(position.distance_deltas);
         attr_deltas.finish();
         SpanAttributeWriter attr_deltas1 =
             attributes.lookup_or_add_for_write_span<math::Quaternion>(
                 SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE,
                 AttrDomain::Point);
-        attr_deltas1.span.copy_from(angle_deltas);
+        attr_deltas1.span.copy_from(position.angle_deltas);
         attr_deltas1.finish();
 
         drawing.tag_positions_changed();
@@ -1273,30 +1387,30 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
                           SHAPE_KEY_POINT_POS_DISTANCE);
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_POS_ANGLE);
       }
-      if (radius_has_delta) {
+      if (radius.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS, AttrDomain::Point);
-        attr_deltas.span.copy_from(radius_deltas);
+        attr_deltas.span.copy_from(radius.deltas);
         attr_deltas.finish();
       }
       else {
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_RADIUS);
       }
-      if (opacity_has_delta) {
+      if (opacity.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<float>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY,
             AttrDomain::Point);
-        attr_deltas.span.copy_from(opacity_deltas);
+        attr_deltas.span.copy_from(opacity.deltas);
         attr_deltas.finish();
       }
       else {
         attributes.remove(SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_OPACITY);
       }
-      if (vertex_color_has_delta) {
+      if (vertex_color.has_delta) {
         SpanAttributeWriter attr_deltas = attributes.lookup_or_add_for_write_span<ColorGeometry4f>(
             SHAPE_KEY_ATTRIBUTE_PREFIX + shape_key_id + SHAPE_KEY_POINT_VERTEX_COLOR,
             AttrDomain::Point);
-        attr_deltas.span.copy_from(vertex_color_deltas);
+        attr_deltas.span.copy_from(vertex_color.deltas);
         attr_deltas.finish();
       }
       else {
@@ -1307,6 +1421,9 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
   });
 }
 
+/* Get the shape key deltas for layers and drawings by comparing the edited shape key values with
+ * the base values.
+ * This also reverts the shape-keyed drawings to their base versions. */
 static void get_shape_key_deltas(ShapeKeyEditData &edit_data)
 {
   using namespace bke;
@@ -1500,9 +1617,11 @@ static void edit_init(bContext *C, wmOperator *op)
   /* Apply the edited shape key to the layers. During edit, the shape key changes to layers must be
    * visible in the UI (layer transformation and opacity), so we apply them manually (and not by
    * the shape key modifier). */
+  Array<int> edited_shape_key(1, edit_data.edited_shape_key_index);
+  Array<float> factor(1, 1.0f);
   IndexMask all_layers(IndexRange(grease_pencil.layers().size()));
   const std::string shape_key_id = std::to_string(edit_data.edited_shape_key_index);
-  apply_shape_key_to_layers(grease_pencil, shape_key_id, all_layers, 1.0f);
+  apply_shape_keys_to_layers(grease_pencil, edited_shape_key, factor, all_layers);
 
   /* Store the base drawings. */
   edit_data.base_geometry.reinitialize(grease_pencil.drawings().size());
@@ -1537,7 +1656,7 @@ static void edit_init(bContext *C, wmOperator *op)
           /* Apply the edited shape key to the drawing, so we can measure deltas when we finish
            * editing. */
           IndexMask all_strokes(IndexRange(drawing.strokes().curves_num()));
-          apply_shape_key_to_drawing(drawing, shape_key_id, all_strokes, 1.0f);
+          apply_shape_keys_to_drawing(drawing, edited_shape_key, factor, all_strokes);
         }
       });
 
@@ -1631,7 +1750,8 @@ static int new_from_mix_exec(bContext *C, wmOperator *op)
   store_base_layers(edit_data);
 
   /* Apply all active shape keys to the layers. */
-  IndexMask all_layers(IndexRange(grease_pencil.layers().size()));
+  Vector<int> shape_key_indices;
+  Vector<float> shape_key_factors;
   int shape_key_index;
   LISTBASE_FOREACH_INDEX (
       GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
@@ -1639,9 +1759,12 @@ static int new_from_mix_exec(bContext *C, wmOperator *op)
     if ((shape_key->value == 0.0f) || (shape_key->flag & GREASE_PENCIL_SHAPE_KEY_MUTED) != 0) {
       continue;
     }
-
-    const std::string shape_key_id = std::to_string(shape_key_index);
-    apply_shape_key_to_layers(grease_pencil, shape_key_id, all_layers, shape_key->value);
+    shape_key_indices.append(shape_key_index);
+    shape_key_factors.append(shape_key->value);
+  }
+  if (!shape_key_indices.is_empty()) {
+    IndexMask all_layers(IndexRange(grease_pencil.layers().size()));
+    apply_shape_keys_to_layers(grease_pencil, shape_key_indices, shape_key_factors, all_layers);
   }
 
   /* Store the base drawings and apply the active shape keys. */
@@ -1672,19 +1795,11 @@ static int new_from_mix_exec(bContext *C, wmOperator *op)
           base_stroke_indices.span.copy_from(stroke_indices);
           base_stroke_indices.finish();
 
-          /* Apply all active shape keys to the drawings. */
-          IndexMask all_strokes(IndexRange(drawing.strokes().curves_num()));
-          int shape_key_index;
-          LISTBASE_FOREACH_INDEX (
-              GreasePencilShapeKey *, shape_key, &grease_pencil.shape_keys, shape_key_index)
-          {
-            if ((shape_key->value == 0.0f) ||
-                (shape_key->flag & GREASE_PENCIL_SHAPE_KEY_MUTED) != 0) {
-              continue;
-            }
-
-            const std::string shape_key_id = std::to_string(shape_key_index);
-            apply_shape_key_to_drawing(drawing, shape_key_id, all_strokes, shape_key->value);
+          /* Apply all active shape keys to the drawing. */
+          if (!shape_key_indices.is_empty()) {
+            IndexMask all_strokes(IndexRange(drawing.strokes().curves_num()));
+            apply_shape_keys_to_drawing(
+                drawing, shape_key_indices, shape_key_factors, all_strokes);
           }
         }
       });
