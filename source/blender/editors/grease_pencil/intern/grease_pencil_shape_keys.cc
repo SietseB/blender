@@ -227,6 +227,12 @@ static int add_exec(bContext *C, wmOperator *op)
     if (md == nullptr) {
       BKE_report(op->reports, RPT_ERROR, "Unable to add a Shape Key modifier to the object");
     }
+    else {
+      /* By default, put the shape key modifier on top of the modifier list. The user can change
+       * the order afterwards for specific use cases. */
+      const int index = BLI_findindex(&object->modifiers, md);
+      BLI_listbase_move_index(&object->modifiers, index, 0);
+    }
   }
 
   DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);

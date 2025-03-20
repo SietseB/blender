@@ -384,12 +384,8 @@ static void panel_draw(const bContext *C, Panel *panel)
   PointerRNA *ptr = modifier_panel_get_property_pointers(panel, &ob_ptr);
 
   uiLayoutSetPropSep(layout, true);
-  if (uiLayout *general_panel = uiLayoutPanelProp(
-          C, layout, ptr, "open_general_panel", IFACE_("General")))
-  {
-    uiLayoutSetPropSep(general_panel, true);
-    uiItemR(general_panel, ptr, "factor", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  }
+
+  uiItemR(layout, ptr, "factor", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   if (uiLayout *influence_panel = uiLayoutPanelProp(
           C, layout, ptr, "open_influence_panel", IFACE_("Influence")))
