@@ -109,6 +109,9 @@ bool ED_grease_pencil_vertex_segment_selection_enabled(const ToolSettings *tool_
 bool ED_grease_pencil_segment_selection_enabled(const ToolSettings *tool_settings,
                                                 const Object *object);
 
+/**
+ * True if a shape key is currently edited.
+ */
 bool ED_grease_pencil_shape_key_in_edit_mode();
 
 /** \} */

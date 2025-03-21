@@ -77,8 +77,7 @@ struct ShapeKeyEditData {
   GreasePencil *grease_pencil;
   int edited_shape_key_index;
 
-  ScrArea *area;
-  ARegion *region;
+  ARegionType *region_type;
   void *draw_handle;
 
   Array<LayerBase> base_layers;
@@ -714,7 +713,7 @@ static void edit_exit(bContext *C, wmOperator *op)
 
   /* Remove viewport draw handler. */
   if (edit_data->draw_handle) {
-    ED_region_draw_cb_exit(edit_data->region->runtime->type, edit_data->draw_handle);
+    ED_region_draw_cb_exit(edit_data->region_type, edit_data->draw_handle);
   }
 
   DEG_id_tag_update(&edit_data->grease_pencil->id, ID_RECALC_GEOMETRY);
@@ -725,72 +724,71 @@ static void edit_exit(bContext *C, wmOperator *op)
   op->customdata = nullptr;
 }
 
-static void edit_viewport_draw(const bContext * /*C*/, ARegion *region, void *arg)
+static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*/)
 {
-  ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(arg);
-
-  /* Draw only in the region set by the operator. */
-  if (region != edit_data.region) {
-    return;
-  }
+  ScrArea *area = CTX_wm_area(C);
 
   /* Calculate inner bounds of the viewport. */
   int header_height = 0;
   int footer_height = 0;
-  int npanel_width = 0;
-  LISTBASE_FOREACH (ARegion *, region, &edit_data.area->regionbase) {
+  int npanel_label_width = 0;
+  LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     if (!region->runtime->visible) {
       continue;
     }
-    if (region->alignment == RGN_ALIGN_TOP &&
-        ELEM(region->regiontype, RGN_TYPE_TOOL_HEADER, RGN_TYPE_HEADER))
-    {
-      header_height += region->winy;
+    const int alignment = RGN_ALIGN_ENUM_FROM_MASK(region->alignment);
+    if (alignment == RGN_ALIGN_TOP) {
+      if (ELEM(region->regiontype, RGN_TYPE_TOOL_HEADER, RGN_TYPE_HEADER)) {
+        header_height += region->winy;
+      }
     }
-    if (region->alignment == RGN_ALIGN_BOTTOM &&
-        ELEM(region->regiontype, RGN_TYPE_ASSET_SHELF, RGN_TYPE_ASSET_SHELF_HEADER))
-    {
+    if (alignment == RGN_ALIGN_BOTTOM && region->regiontype == RGN_TYPE_ASSET_SHELF) {
       footer_height += region->winy;
     }
-    if (region->alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
-      npanel_width = region->winx > 0 ? 20 * UI_SCALE_FAC : 0;
+    if (alignment == RGN_ALIGN_RIGHT && region->regiontype == RGN_TYPE_UI) {
+      npanel_label_width = region->winx > 0 ? 20 * UI_SCALE_FAC : 0;
     }
   }
 
   /* Draw rectangle outline. */
-  float half_line_w = 2.5f * UI_SCALE_FAC;
+  const float half_line_w = 2.0f * UI_SCALE_FAC;
   rcti *rect = &region->winrct;
-  float color[4];
-  UI_GetThemeColor4fv(TH_SELECT_ACTIVE, color);
+  float alert_color[4];
+  UI_GetThemeColor4fv(TH_SELECT, alert_color);
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-  immUniformColor4fv(color);
+  immUniformColor4fv(alert_color);
   GPU_line_width(2.0f * half_line_w);
   imm_draw_box_wire_2d(pos,
                        half_line_w,
-                       half_line_w + footer_height,
-                       rect->xmax - rect->xmin - npanel_width - half_line_w,
-                       rect->ymax - rect->ymin - header_height - 2.0f);
-  immUnbindProgram();
+                       footer_height + half_line_w,
+                       rect->xmax - rect->xmin - npanel_label_width - half_line_w,
+                       rect->ymax - rect->ymin - half_line_w);
 
-  /* Draw text. */
+  /* Draw text in colored box. */
   const int font_id = BLF_default();
   const uiStyle *style = UI_style_get();
-  BLF_size(font_id, style->widget.points * UI_SCALE_FAC);
-  BLF_color4fv(font_id, color);
-  BLF_enable(font_id, BLF_SHADOW);
-  BLF_shadow(font_id, FontShadowType::Outline, blender::float4{0.0f, 0.0f, 0.0f, 0.3f});
-  BLF_shadow_offset(font_id, 1, -1);
-  const char *text;
-  text = TIP_("Editing Shape Key");
-  float x = (rect->xmax - rect->xmin - npanel_width) * 0.5f -
-            BLF_width(font_id, text, strlen(text)) * 0.5f;
-  float y = rect->ymax - rect->ymin - header_height - style->widget.points * UI_SCALE_FAC -
-            half_line_w * 3.0f;
+  const float font_size = style->widget.points * UI_SCALE_FAC;
+  BLF_size(font_id, font_size);
+  float text_color[4] = {0.85f, 0.85f, 0.85f, 1.0f};
+  BLF_color4fv(font_id, text_color);
+  const char *text = IFACE_("Editing Shape Key");
+  float text_width;
+  float text_height;
+  BLF_width_and_height(font_id, text, strlen(text), &text_width, &text_height);
+  const float x = (rect->xmax - rect->xmin - npanel_label_width) * 0.5f - text_width * 0.5f;
+  const float y = rect->ymax - rect->ymin - header_height - font_size - half_line_w * 3.0f;
+  const float padding_x = 7.0f * UI_SCALE_FAC;
+  const float padding_y = 4.0f * UI_SCALE_FAC;
+  GPU_line_width(text_height + 2.0f * padding_y);
+  imm_draw_box_wire_2d(
+      pos, x - padding_x, y + padding_y, x + text_width + padding_x, y + padding_y);
+  immUnbindProgram();
+  GPU_line_width(1.0f);
+
   BLF_position(font_id, x, y, 0);
   BLF_draw(font_id, text, strlen(text));
-  BLF_disable(font_id, BLF_SHADOW);
 }
 
 /* Data structure for a collection of shape key deltas, collected for a list of shape keys and
@@ -1585,37 +1583,11 @@ static void edit_init(bContext *C, wmOperator *op)
     is_first = false;
   }
 
-  /* Get largest 3D viewport in all windows. */
-  edit_data.area = nullptr;
-  edit_data.region = nullptr;
-  int max_width = 0;
-  const wmWindowManager *wm = CTX_wm_manager(C);
-  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
-    bScreen *screen = WM_window_get_active_screen(window);
-    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-      if (area->spacetype == SPACE_VIEW3D) {
-        int width = area->totrct.xmax - area->totrct.xmin;
-        if (width > max_width) {
-          edit_data.area = area;
-          max_width = width;
-        }
-      }
-    }
-  }
-  if (edit_data.area) {
-    LISTBASE_FOREACH (ARegion *, region, &edit_data.area->regionbase) {
-      if (region->regiontype == RGN_TYPE_WINDOW) {
-        edit_data.region = region;
-      }
-    }
-  }
-
-  /* Add draw handler to viewport for colored rectangle (marking 'edit mode'). */
-  if (edit_data.region) {
-    edit_data.draw_handle = ED_region_draw_cb_activate(
-        edit_data.region->runtime->type, edit_viewport_draw, &edit_data, REGION_DRAW_POST_PIXEL);
-    ED_region_tag_redraw(edit_data.region);
-  }
+  /* Add draw handler to the viewport for a colored rectangle marking shaoe key 'edit mode'. */
+  const SpaceType *space_type = BKE_spacetype_from_id(SPACE_VIEW3D);
+  edit_data.region_type = BKE_regiontype_from_id(space_type, RGN_TYPE_WINDOW);
+  edit_data.draw_handle = ED_region_draw_cb_activate(
+      edit_data.region_type, edit_viewport_draw, nullptr, REGION_DRAW_POST_PIXEL);
 
   /* Store relevant shape key data of base layers: translation, rotation, scale and opacity. */
   store_base_layers(edit_data);
