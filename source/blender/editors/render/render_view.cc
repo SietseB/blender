@@ -355,7 +355,9 @@ void RENDER_OT_view_cancel(wmOperatorType *ot)
 /** \name Show Render Viewer Operator
  * \{ */
 
-static wmOperatorStatus render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus render_view_show_invoke(bContext *C,
+                                                wmOperator *op,
+                                                const wmEvent * /*event*/)
 {
   wmWindow *wincur = CTX_wm_window(C);
   const bool ondine_render = RNA_boolean_get(op->ptr, "ondine");

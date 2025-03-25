@@ -1020,7 +1020,7 @@ static void weight_gradient_finish(WeightGradientToolData *tool)
   MEM_delete(tool);
 }
 
-static int weight_gradient_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus weight_gradient_exec(bContext *C, wmOperator *op)
 {
   wmGesture *gesture = static_cast<wmGesture *>(op->customdata);
   if (gesture == nullptr || gesture->user_data.data == nullptr) {
@@ -1145,12 +1145,12 @@ static void weight_gradient_cancel(const bContext &C, WeightGradientToolData &to
   weight_gradient_finish(&tool);
 }
 
-static int weight_gradient_modal(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus weight_gradient_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   wmGesture &gesture = *static_cast<wmGesture *>(op->customdata);
   WeightGradientToolData &tool = *static_cast<WeightGradientToolData *>(gesture.user_data.data);
 
-  int result = WM_gesture_straightline_modal(C, op, event);
+  wmOperatorStatus result = WM_gesture_straightline_modal(C, op, event);
 
   /* Check for mouse release. */
   if (result & OPERATOR_RUNNING_MODAL) {
@@ -1294,7 +1294,7 @@ static bool active_vertex_group_is_locked(const bContext &C)
   return (object_defgroup->flag & DG_LOCK_WEIGHT);
 }
 
-static int weight_gradient_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus weight_gradient_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   /* Check if active vertex group is locked. */
   if (active_vertex_group_is_locked(*C)) {
@@ -1303,7 +1303,7 @@ static int weight_gradient_invoke(bContext *C, wmOperator *op, const wmEvent *ev
   }
 
   /* Invoke interactive line drawing (representing the gradient) in viewport. */
-  const int result = WM_gesture_straightline_invoke(C, op, event);
+  const wmOperatorStatus result = WM_gesture_straightline_invoke(C, op, event);
   if ((result & OPERATOR_RUNNING_MODAL) == 0) {
     return result;
   }

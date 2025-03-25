@@ -152,7 +152,7 @@ static void increase_index(GreasePencil &grease_pencil, const int index)
   }
 }
 
-static int add_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus add_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
 
@@ -279,7 +279,7 @@ static void attribute_remove(bke::MutableAttributeAccessor &attributes,
   }
 }
 
-static int remove_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus remove_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
   int index = grease_pencil->active_shape_key_index;
@@ -350,7 +350,7 @@ static int remove_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static int remove_all_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus remove_all_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
   grease_pencil->active_shape_key_index = -1;
@@ -479,7 +479,7 @@ static void attribute_move(bke::MutableAttributeAccessor attributes,
   }
 }
 
-static int move_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus move_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
   const int old_index = grease_pencil->active_shape_key_index;
@@ -581,7 +581,7 @@ static void attributes_duplicate(bke::MutableAttributeAccessor &attributes,
   attributes.add(attribute_id_dst, meta_data.value().domain, meta_data.value().data_type, init);
 }
 
-static int duplicate_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
   const int index_src = grease_pencil->active_shape_key_index;
@@ -1669,7 +1669,7 @@ static void edit_init(bContext *C, wmOperator *op)
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
 }
 
-static int edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
+static wmOperatorStatus edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
 {
   /* Operator ends when the 'in edit mode' flag is disabled by the Finish Edit operator. */
   if (!in_edit_mode) {
@@ -1682,7 +1682,7 @@ static int edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
   return OPERATOR_PASS_THROUGH;
 }
 
-static int edit_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus edit_exec(bContext *C, wmOperator *op)
 {
   /* Initialize the shape key edit mode. */
   edit_init(C, op);
@@ -1712,7 +1712,7 @@ static void GREASE_PENCIL_OT_shape_key_edit(wmOperatorType *ot)
   ot->cancel = edit_exit;
 }
 
-static int edit_finish_exec(bContext * /*C*/, wmOperator * /*op*/)
+static wmOperatorStatus edit_finish_exec(bContext * /*C*/, wmOperator * /*op*/)
 {
   in_edit_mode = false;
   return OPERATOR_FINISHED;
@@ -1736,7 +1736,7 @@ static void GREASE_PENCIL_OT_shape_key_edit_finish(wmOperatorType *ot)
   ot->exec = edit_finish_exec;
 }
 
-static int new_from_mix_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus new_from_mix_exec(bContext *C, wmOperator *op)
 {
   using namespace bke::greasepencil;
 

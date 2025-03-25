@@ -90,8 +90,8 @@ void RENDER_OT_shutter_curve_preset(wmOperatorType *ot);
 /**
  * New window uses x,y to set position.
  */
-ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports, const bool use_ondine=false);
-int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *event);
+ScrArea *render_view_open(
+    bContext *C, int mx, int my, ReportList *reports, const bool use_ondine = false);
 
 void RENDER_OT_view_show(wmOperatorType *ot);
 void RENDER_OT_view_cancel(wmOperatorType *ot);
