@@ -89,7 +89,7 @@ void ED_view3d_text_colors_get(const Scene *scene,
 {
   /* Text fully opaque, shadow slightly transparent. */
   r_text_color[3] = 1.0f;
-  r_shadow_color[3] = 0.4f;
+  r_shadow_color[3] = 0.3f;
 
   /* Default text color from TH_TEXT_HI. If it is too close
    * to the background color, darken or lighten it. */

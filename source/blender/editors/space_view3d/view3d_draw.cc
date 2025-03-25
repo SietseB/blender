@@ -1581,6 +1581,10 @@ void view3d_draw_region_info(const bContext *C, ARegion *region)
     BLF_shadow_offset(font_id, 0, 0);
     BLF_shadow(font_id, FontShadowType::Outline, shadow_color);
 
+    if (v3d->overlay.flag & V3D_OVERLAY_GP_SHOW_EDIT_SHAPE_KEY) {
+      yoffset -= VIEW3D_OVERLAY_LINEHEIGHT * 1.4f;
+    }
+
     if ((v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0) {
       if ((U.uiflag & USER_SHOW_FPS) && ED_screen_animation_no_scrub(wm)) {
         ED_scene_draw_fps(scene, xoffset, &yoffset);

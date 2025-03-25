@@ -9,6 +9,7 @@
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
 #include "BKE_grease_pencil.hh"
+#include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
@@ -711,6 +712,18 @@ static void edit_exit(bContext *C, wmOperator *op)
     skd.shape_key_edit_data = nullptr;
   }
 
+  /* Clear 'edit mode' state in 3D viewports. */
+  const Main *bmain = CTX_data_main(C);
+  LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      if (area->spacetype != SPACE_VIEW3D) {
+        continue;
+      }
+      View3D *v3d = static_cast<View3D *>(area->spacedata.first);
+      v3d->overlay.flag &= ~V3D_OVERLAY_GP_SHOW_EDIT_SHAPE_KEY;
+    }
+  }
+
   /* Remove viewport draw handler. */
   if (edit_data->draw_handle) {
     ED_region_draw_cb_exit(edit_data->region_type, edit_data->draw_handle);
@@ -751,8 +764,8 @@ static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*
   }
 
   /* Draw rectangle outline. */
-  const float half_line_w = 2.0f * UI_SCALE_FAC;
-  rcti *rect = &region->winrct;
+  const float half_line_w = 2.5f * UI_SCALE_FAC;
+  rcti *outer_rect = &region->winrct;
   float alert_color[4];
   UI_GetThemeColor4fv(TH_SELECT, alert_color);
   GPUVertFormat *format = immVertexFormat();
@@ -763,10 +776,11 @@ static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*
   imm_draw_box_wire_2d(pos,
                        half_line_w,
                        footer_height + half_line_w,
-                       rect->xmax - rect->xmin - npanel_label_width - half_line_w,
-                       rect->ymax - rect->ymin - half_line_w);
+                       outer_rect->xmax - outer_rect->xmin - npanel_label_width - half_line_w,
+                       outer_rect->ymax - outer_rect->ymin - half_line_w);
 
   /* Draw text in colored box. */
+  const rcti *inner_rect = ED_region_visible_rect(region);
   const int font_id = BLF_default();
   const uiStyle *style = UI_style_get();
   const float font_size = style->widget.points * UI_SCALE_FAC;
@@ -777,10 +791,11 @@ static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*
   float text_width;
   float text_height;
   BLF_width_and_height(font_id, text, strlen(text), &text_width, &text_height);
-  const float x = (rect->xmax - rect->xmin - npanel_label_width) * 0.5f - text_width * 0.5f;
-  const float y = rect->ymax - rect->ymin - header_height - font_size - half_line_w * 3.0f;
   const float padding_x = 7.0f * UI_SCALE_FAC;
   const float padding_y = 4.0f * UI_SCALE_FAC;
+  const float x = float(inner_rect->xmin) + (0.5f * U.widget_unit) + 2.0f;
+  const float y = float(inner_rect->ymax) - (0.1f * U.widget_unit) - text_height -
+                  2.0f * padding_y - 4.0f;
   GPU_line_width(text_height + 2.0f * padding_y);
   imm_draw_box_wire_2d(
       pos, x - padding_x, y + padding_y, x + text_width + padding_x, y + padding_y);
@@ -1583,11 +1598,23 @@ static void edit_init(bContext *C, wmOperator *op)
     is_first = false;
   }
 
-  /* Add draw handler to the viewport for a colored rectangle marking shaoe key 'edit mode'. */
+  /* Add draw handler to the viewport for a colored rectangle marking shape key 'edit mode'. */
   const SpaceType *space_type = BKE_spacetype_from_id(SPACE_VIEW3D);
   edit_data.region_type = BKE_regiontype_from_id(space_type, RGN_TYPE_WINDOW);
   edit_data.draw_handle = ED_region_draw_cb_activate(
       edit_data.region_type, edit_viewport_draw, nullptr, REGION_DRAW_POST_PIXEL);
+
+  /* Set 'edit mode' state in 3D viewports. */
+  const Main *bmain = CTX_data_main(C);
+  LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      if (area->spacetype != SPACE_VIEW3D) {
+        continue;
+      }
+      View3D *v3d = static_cast<View3D *>(area->spacedata.first);
+      v3d->overlay.flag |= V3D_OVERLAY_GP_SHOW_EDIT_SHAPE_KEY;
+    }
+  }
 
   /* Store relevant shape key data of base layers: translation, rotation, scale and opacity. */
   store_base_layers(edit_data);
