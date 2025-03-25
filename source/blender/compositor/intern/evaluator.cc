@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_memory_utils.hh"
+#include "BLI_string.h"
 
 #include "DNA_node_types.h"
 
@@ -82,6 +83,23 @@ bool Evaluator::validate_node_tree()
     return false;
   }
 
+  for (const bNodeTree *node_tree : derived_node_tree_->used_btrees()) {
+    for (const bNode *node : node_tree->all_nodes()) {
+      /* The poll method of those two nodes perform raw pointer comparisons of node trees, so they
+       * can wrongly fail since the compositor localizes the node tree, changing its pointer value
+       * than the one in the main database. So handle those two nodes. */
+      if (STR_ELEM(node->idname, "CompositorNodeRLayers", "CompositorNodeCryptomatteV2")) {
+        continue;
+      }
+
+      const char *disabled_hint = nullptr;
+      if (!node->typeinfo->poll(node->typeinfo, node_tree, &disabled_hint)) {
+        context_.set_info_message("Compositor node tree has unsupported nodes.");
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -109,6 +127,10 @@ void Evaluator::map_node_operation_inputs_to_their_results(DNode node,
 {
   for (const bNodeSocket *input : node->input_sockets()) {
     const DInputSocket dinput{node.context(), input};
+
+    if (!input->is_available()) {
+      continue;
+    }
 
     DSocket dorigin = get_input_origin_socket(dinput);
 

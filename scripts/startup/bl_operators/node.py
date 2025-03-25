@@ -314,7 +314,7 @@ class NODE_OT_interface_item_new(NodeInterfaceOperator, Operator):
 
         active_item = interface.active
         # Panels have the extra option to add a toggle.
-        if active_item and active_item.item_type == 'PANEL' and tree.type in {'GEOMETRY', 'SHADER'}:
+        if active_item and active_item.item_type == 'PANEL':
             items.append(('PANEL_TOGGLE', "Panel Toggle", ""))
 
         return items
@@ -569,7 +569,6 @@ class NODE_OT_viewer_shortcut_set(Operator):
         )
 
     def execute(self, context):
-        nodes = context.space_data.edit_tree.nodes
         selected_nodes = context.selected_nodes
 
         if len(selected_nodes) == 0:
@@ -651,7 +650,7 @@ class NODE_OT_viewer_shortcut_get(Operator):
 class NODE_FH_image_node(FileHandler):
     bl_idname = "NODE_FH_image_node"
     bl_label = "Image node"
-    bl_import_operator = "node.add_file"
+    bl_import_operator = "node.add_image"
     bl_file_extensions = ";".join((*bpy.path.extensions_image, *bpy.path.extensions_movie))
 
     @classmethod

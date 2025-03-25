@@ -452,7 +452,7 @@ static bool seq_effect_add_properties_poll(const bContext * /*C*/,
   return true;
 }
 
-static int sequencer_add_scene_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_scene_strip_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -478,7 +478,7 @@ static int sequencer_add_scene_strip_exec(bContext *C, wmOperator *op)
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
   DEG_relations_tag_update(bmain);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
@@ -497,7 +497,9 @@ static void sequencer_disable_one_time_properties(bContext *C, wmOperator *op)
   }
 }
 
-static int sequencer_add_scene_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_scene_strip_invoke(bContext *C,
+                                                         wmOperator *op,
+                                                         const wmEvent *event)
 {
   sequencer_disable_one_time_properties(C, op);
   if (!RNA_struct_property_is_set(op->ptr, "scene")) {
@@ -552,7 +554,7 @@ static EnumPropertyItem strip_new_scene_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-static int sequencer_add_scene_strip_new_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_scene_strip_new_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -577,14 +579,14 @@ static int sequencer_add_scene_strip_new_exec(bContext *C, wmOperator *op)
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
   DEG_relations_tag_update(bmain);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_scene_strip_new_invoke(bContext *C,
-                                                wmOperator *op,
-                                                const wmEvent * /*event*/)
+static wmOperatorStatus sequencer_add_scene_strip_new_invoke(bContext *C,
+                                                             wmOperator *op,
+                                                             const wmEvent * /*event*/)
 {
   sequencer_disable_one_time_properties(C, op);
   sequencer_generic_invoke_xy__internal(C, op, 0, STRIP_TYPE_SCENE);
@@ -651,7 +653,7 @@ void SEQUENCER_OT_scene_strip_add_new(wmOperatorType *ot)
   RNA_def_property_flag(ot->prop, PROP_ENUM_NO_TRANSLATE);
 }
 
-static int sequencer_add_movieclip_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_movieclip_strip_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -678,12 +680,14 @@ static int sequencer_add_movieclip_strip_exec(bContext *C, wmOperator *op)
   seq_load_apply_generic_options(C, op, strip);
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_movieclip_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_movieclip_strip_invoke(bContext *C,
+                                                             wmOperator *op,
+                                                             const wmEvent *event)
 {
   if (!RNA_struct_property_is_set(op->ptr, "clip")) {
     return WM_enum_search_invoke(C, op, event);
@@ -718,7 +722,7 @@ void SEQUENCER_OT_movieclip_strip_add(wmOperatorType *ot)
   ot->prop = prop;
 }
 
-static int sequencer_add_mask_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_mask_strip_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -742,12 +746,14 @@ static int sequencer_add_mask_strip_exec(bContext *C, wmOperator *op)
   seq_load_apply_generic_options(C, op, strip);
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_mask_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_mask_strip_invoke(bContext *C,
+                                                        wmOperator *op,
+                                                        const wmEvent *event)
 {
   if (!RNA_struct_property_is_set(op->ptr, "mask")) {
     return WM_enum_search_invoke(C, op, event);
@@ -905,7 +911,7 @@ static void sequencer_add_movie_multiple_strips(bContext *C,
           /* The video has sound, shift the video strip up a channel to make room for the sound
            * strip. */
           added_strips.append(strip_sound);
-          strip_movie->machine++;
+          seq::strip_channel_set(strip_movie, strip_movie->machine + 1);
         }
       }
 
@@ -967,7 +973,7 @@ static bool sequencer_add_movie_single_strip(bContext *C,
       added_strips.append(strip_sound);
       /* The video has sound, shift the video strip up a channel to make room for the sound
        * strip. */
-      strip_movie->machine++;
+      seq::strip_channel_set(strip_movie, strip_movie->machine + 1);
     }
   }
 
@@ -1000,7 +1006,7 @@ static bool sequencer_add_movie_single_strip(bContext *C,
   return true;
 }
 
-static int sequencer_add_movie_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_movie_strip_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -1053,7 +1059,7 @@ static int sequencer_add_movie_strip_exec(bContext *C, wmOperator *op)
   seq_build_proxy(C, movie_strips);
   DEG_relations_tag_update(bmain);
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   /* Free custom data. */
   sequencer_add_cancel(C, op);
@@ -1061,7 +1067,9 @@ static int sequencer_add_movie_strip_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_movie_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_movie_strip_invoke(bContext *C,
+                                                         wmOperator *op,
+                                                         const wmEvent *event)
 {
   PropertyRNA *prop;
   Scene *scene = CTX_data_scene(C);
@@ -1196,7 +1204,7 @@ static bool sequencer_add_sound_single_strip(bContext *C, wmOperator *op, seq::L
   return true;
 }
 
-static int sequencer_add_sound_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_sound_strip_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -1224,12 +1232,14 @@ static int sequencer_add_sound_strip_exec(bContext *C, wmOperator *op)
 
   DEG_relations_tag_update(bmain);
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_sound_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_sound_strip_invoke(bContext *C,
+                                                         wmOperator *op,
+                                                         const wmEvent *event)
 {
   /* This is for drag and drop. */
   if ((RNA_struct_property_is_set(op->ptr, "files") &&
@@ -1377,7 +1387,7 @@ static void sequencer_add_image_strip_load_files(wmOperator *op,
   }
 }
 
-static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
   Editing *ed = seq::editing_ensure(scene);
@@ -1423,7 +1433,7 @@ static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
   seq_load_apply_generic_options(C, op, strip);
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   /* Free custom data. */
   sequencer_add_cancel(C, op);
@@ -1431,7 +1441,9 @@ static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_image_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static wmOperatorStatus sequencer_add_image_strip_invoke(bContext *C,
+                                                         wmOperator *op,
+                                                         const wmEvent *event)
 {
   PropertyRNA *prop;
   Scene *scene = CTX_data_scene(C);
@@ -1494,7 +1506,7 @@ void SEQUENCER_OT_image_strip_add(wmOperatorType *ot)
                   "Use placeholders for missing frames of the strip");
 }
 
-static int sequencer_add_effect_strip_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus sequencer_add_effect_strip_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
   Editing *ed = seq::editing_ensure(scene);
@@ -1537,14 +1549,14 @@ static int sequencer_add_effect_strip_exec(bContext *C, wmOperator *op)
   }
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
-  WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  sequencer_select_do_updates(C, scene);
 
   return OPERATOR_FINISHED;
 }
 
-static int sequencer_add_effect_strip_invoke(bContext *C,
-                                             wmOperator *op,
-                                             const wmEvent * /*event*/)
+static wmOperatorStatus sequencer_add_effect_strip_invoke(bContext *C,
+                                                          wmOperator *op,
+                                                          const wmEvent * /*event*/)
 {
   bool is_type_set = RNA_struct_property_is_set(op->ptr, "type");
   int type = -1;

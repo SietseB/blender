@@ -375,9 +375,9 @@ static const EnumPropertyItem display_channels_items[] = {
      ICON_IMAGE_ZDEPTH,
      "Z-Buffer",
      "Display Z-buffer associated with image (mapped from camera clip start to end)"},
-    {SI_SHOW_R, "RED", ICON_COLOR_RED, "Red", ""},
-    {SI_SHOW_G, "GREEN", ICON_COLOR_GREEN, "Green", ""},
-    {SI_SHOW_B, "BLUE", ICON_COLOR_BLUE, "Blue", ""},
+    {SI_SHOW_R, "RED", ICON_RGB_RED, "Red", ""},
+    {SI_SHOW_G, "GREEN", ICON_RGB_GREEN, "Green", ""},
+    {SI_SHOW_B, "BLUE", ICON_RGB_BLUE, "Blue", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -508,6 +508,21 @@ static const EnumPropertyItem fileselectparams_recursion_level_items[] = {
      0,
      "Three Levels",
      "List all sub-directories' content, three levels of recursion"},
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
+static const EnumPropertyItem fileselectparams_display_type_items[] = {
+    {FILE_VERTICALDISPLAY,
+     "LIST_VERTICAL",
+     ICON_LONGDISPLAY,
+     "Vertical List",
+     "Display files as a vertical list"},
+    {FILE_HORIZONTALDISPLAY,
+     "LIST_HORIZONTAL",
+     ICON_SHORTDISPLAY,
+     "Horizontal List",
+     "Display files as a horizontal list"},
+    {FILE_IMGDISPLAY, "THUMBNAIL", ICON_IMGDISPLAY, "Thumbnails", "Display files as thumbnails"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -1446,7 +1461,7 @@ static const EnumPropertyItem *rna_3DViewShading_render_pass_itemf(bContext *C,
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
   const bool aov_available = BKE_view_layer_has_valid_aov(view_layer);
-  const bool eevee_next_active = STREQ(scene->r.engine, "BLENDER_EEVEE_NEXT");
+  const bool eevee_active = STREQ(scene->r.engine, "BLENDER_EEVEE_NEXT");
 
   int totitem = 0;
   EnumPropertyItem *result = nullptr;
@@ -1471,7 +1486,7 @@ static const EnumPropertyItem *rna_3DViewShading_render_pass_itemf(bContext *C,
                   EEVEE_RENDER_PASS_CRYPTOMATTE_OBJECT,
                   EEVEE_RENDER_PASS_CRYPTOMATTE_ASSET,
                   EEVEE_RENDER_PASS_CRYPTOMATTE_MATERIAL) &&
-             !eevee_next_active)
+             !eevee_active)
     {
     }
     else if (!aov_available && STREQ(item->name, "Shader AOV")) {
@@ -2206,7 +2221,7 @@ static void rna_ConsoleLine_current_character_set(PointerRNA *ptr, const int ind
   ci->cursor = BLI_str_utf8_offset_from_index(ci->line, ci->len, index);
 }
 
-/* Space Dopesheet */
+/* Space Dope-sheet */
 
 static void rna_SpaceDopeSheetEditor_action_set(PointerRNA *ptr,
                                                 PointerRNA value,
@@ -2885,6 +2900,31 @@ static bool rna_FileSelectParams_use_lib_get(PointerRNA *ptr)
   FileSelectParams *params = static_cast<FileSelectParams *>(ptr->data);
 
   return params && (params->type == FILE_LOADLIB);
+}
+
+static const EnumPropertyItem *rna_FileSelectParams_display_type_itemf(bContext * /*C*/,
+                                                                       PointerRNA *ptr,
+                                                                       PropertyRNA * /*prop*/,
+                                                                       bool *r_free)
+{
+  if (RNA_struct_is_a(ptr->type, &RNA_FileAssetSelectParams)) {
+    EnumPropertyItem *items = nullptr;
+    int totitem = 0;
+
+    /* Only expose preview and column view for asset browsing. */
+    RNA_enum_items_add_value(
+        &items, &totitem, fileselectparams_display_type_items, FILE_HORIZONTALDISPLAY);
+    RNA_enum_items_add_value(
+        &items, &totitem, fileselectparams_display_type_items, FILE_IMGDISPLAY);
+
+    RNA_enum_item_end(&items, &totitem);
+    *r_free = true;
+
+    return items;
+  }
+
+  *r_free = false;
+  return fileselectparams_display_type_items;
 }
 
 static const EnumPropertyItem *rna_FileSelectParams_recursion_level_itemf(bContext * /*C*/,
@@ -6181,7 +6221,7 @@ static void rna_def_space_sequencer(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, nullptr, "view");
   RNA_def_property_enum_items(prop, rna_enum_space_sequencer_view_type_items);
   RNA_def_property_ui_text(
-      prop, "View Type", "Type of the Sequencer view (blender::seq::SEQuencer, preview or both)");
+      prop, "View Type", "Type of the Sequencer view (sequencer, preview or both)");
   RNA_def_property_update(prop, 0, "rna_Sequencer_view_type_update");
 
   /* display type, fairly important */
@@ -7054,21 +7094,6 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem file_display_items[] = {
-      {FILE_VERTICALDISPLAY,
-       "LIST_VERTICAL",
-       ICON_LONGDISPLAY,
-       "Vertical List",
-       "Display files as a vertical list"},
-      {FILE_HORIZONTALDISPLAY,
-       "LIST_HORIZONTAL",
-       ICON_SHORTDISPLAY,
-       "Horizontal List",
-       "Display files as a horizontal list"},
-      {FILE_IMGDISPLAY, "THUMBNAIL", ICON_IMGDISPLAY, "Thumbnails", "Display files as thumbnails"},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
   static const EnumPropertyItem display_size_items[] = {
       {32, "TINY", 0, "Tiny", ""},
       {64, "SMALL", 0, "Small", ""},
@@ -7109,7 +7134,8 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "display_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "display");
-  RNA_def_property_enum_items(prop, file_display_items);
+  RNA_def_property_enum_items(prop, fileselectparams_display_type_items);
+  RNA_def_property_enum_funcs(prop, nullptr, nullptr, "rna_FileSelectParams_display_type_itemf");
   RNA_def_property_ui_text(prop, "Display Mode", "Display mode for the file list");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
 
@@ -7268,6 +7294,21 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Display Size", "Change the size of thumbnails in discrete steps");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_LIST, nullptr);
+
+  prop = RNA_def_property(srna, "list_display_size", PROP_INT, PROP_NONE);
+  RNA_def_property_int_sdna(prop, nullptr, "list_thumbnail_size");
+  RNA_def_property_ui_text(prop, "Display Size", "Change the size of thumbnails in list views");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_LIST, nullptr);
+  RNA_def_property_int_default(prop, 32);
+  RNA_def_property_range(prop, 16, 128);
+  RNA_def_property_ui_range(prop, 16, 128, 1, 0);
+
+  prop = RNA_def_property(srna, "list_column_size", PROP_INT, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Columns Size", "The width of columns in horizontal list views");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_LIST, nullptr);
+  RNA_def_property_int_default(prop, 32);
+  RNA_def_property_range(prop, 32, 750);
+  RNA_def_property_ui_range(prop, 32, 750, 1, 0);
 }
 
 static void rna_def_fileselect_asset_params(BlenderRNA *brna)
@@ -7332,6 +7373,24 @@ static void rna_def_fileselect_asset_params(BlenderRNA *brna)
   /* Asset drag info saved by buttons stores the import method, so the space must redraw when
    * import method changes. */
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_LIST, nullptr);
+
+  prop = RNA_def_property(srna, "instance_collections_on_link", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "import_flags", FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_LINK);
+  RNA_def_property_ui_text(prop,
+                           "Instance Collections on Linking",
+                           "Create instances for collections when linking, rather than adding "
+                           "them directly to the scene");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
+
+  prop = RNA_def_property(srna, "instance_collections_on_append", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, nullptr, "import_flags", FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_APPEND);
+  RNA_def_property_ui_text(prop,
+                           "Instance Collections on Appending",
+                           "Create instances for collections when appending, rather than adding "
+                           "them directly to the scene");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
 }
 
 static void rna_def_filemenu_entry(BlenderRNA *brna)
@@ -7802,9 +7861,9 @@ static void rna_def_space_node(BlenderRNA *brna)
        "Display image with RGB colors and alpha transparency"},
       {0, "COLOR", ICON_IMAGE_RGB, "Color", "Display image with RGB colors"},
       {SNODE_SHOW_ALPHA, "ALPHA", ICON_IMAGE_ALPHA, "Alpha", "Display alpha transparency channel"},
-      {SNODE_SHOW_R, "RED", ICON_COLOR_RED, "Red", ""},
-      {SNODE_SHOW_G, "GREEN", ICON_COLOR_GREEN, "Green", ""},
-      {SNODE_SHOW_B, "BLUE", ICON_COLOR_BLUE, "Blue", ""},
+      {SNODE_SHOW_R, "RED", ICON_RGB_RED, "Red", ""},
+      {SNODE_SHOW_G, "GREEN", ICON_RGB_GREEN, "Green", ""},
+      {SNODE_SHOW_B, "BLUE", ICON_RGB_BLUE, "Blue", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };
 

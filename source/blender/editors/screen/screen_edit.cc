@@ -1044,9 +1044,9 @@ static void screen_cursor_set(wmWindow *win, const int xy[2])
 
   LISTBASE_FOREACH (ScrArea *, area_iter, &screen->areabase) {
     az = ED_area_actionzone_find_xy(area_iter, xy);
-    /* Scrollers use default cursor and their zones extend outside of their
-     * areas. Ignore here so we can always detect screen edges - #110085. */
-    if (az && az->type != AZONE_REGION_SCROLL) {
+    /* We used to exclude AZONE_REGION_SCROLL as those used
+     * to overlap screen edges, but they no longer do so. */
+    if (az) {
       area = area_iter;
       break;
     }
@@ -1057,11 +1057,27 @@ static void screen_cursor_set(wmWindow *win, const int xy[2])
       WM_cursor_set(win, WM_CURSOR_EDIT);
     }
     else if (az->type == AZONE_REGION) {
-      if (ELEM(az->edge, AE_LEFT_TO_TOPRIGHT, AE_RIGHT_TO_TOPLEFT)) {
-        WM_cursor_set(win, WM_CURSOR_X_MOVE);
+      const bool is_hidden = (az->region->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL));
+      if (is_hidden) {
+        switch (az->edge) {
+          case AE_LEFT_TO_TOPRIGHT:
+            WM_cursor_set(win, WM_CURSOR_W_ARROW);
+            break;
+          case AE_RIGHT_TO_TOPLEFT:
+            WM_cursor_set(win, WM_CURSOR_E_ARROW);
+            break;
+          case AE_TOP_TO_BOTTOMRIGHT:
+            WM_cursor_set(win, WM_CURSOR_N_ARROW);
+            break;
+          case AE_BOTTOM_TO_TOPLEFT:
+            WM_cursor_set(win, WM_CURSOR_S_ARROW);
+            break;
+        }
       }
       else {
-        WM_cursor_set(win, WM_CURSOR_Y_MOVE);
+        WM_cursor_set(win,
+                      ELEM(az->edge, AE_LEFT_TO_TOPRIGHT, AE_RIGHT_TO_TOPLEFT) ? WM_CURSOR_X_MOVE :
+                                                                                 WM_CURSOR_Y_MOVE);
       }
     }
   }

@@ -12,6 +12,7 @@
 #include "BLI_assert.h"
 #include "BLI_map.hh"
 #include "DNA_listBase.h"
+#include "SEQ_transform.hh"
 #include <cstddef>
 #define DNA_DEPRECATED_ALLOW
 
@@ -135,7 +136,7 @@ Strip *sequence_alloc(ListBase *lb, int timeline_frame, int machine, int type)
 
   strip->flag = SELECT;
   strip->start = timeline_frame;
-  strip->machine = machine;
+  strip_channel_set(strip, machine);
   strip->sat = 1.0;
   strip->mul = 1.0;
   strip->blend_opacity = 100.0;
@@ -431,7 +432,7 @@ static MetaStack *seq_meta_stack_alloc(const Scene *scene, Strip *strip_meta)
   ms->parseq = strip_meta;
 
   /* Reference to previously displayed timeline data. */
-  Strip *higher_level_meta = SEQ_lookup_meta_by_strip(ed, strip_meta);
+  Strip *higher_level_meta = lookup_meta_by_strip(ed, strip_meta);
   ms->oldbasep = higher_level_meta ? &higher_level_meta->seqbase : &ed->seqbase;
   ms->old_channels = higher_level_meta ? &higher_level_meta->channels : &ed->channels;
 
@@ -459,7 +460,7 @@ void meta_stack_set(const Scene *scene, Strip *dst_seq)
     /* Allocate meta stack in a way, that represents meta hierarchy in timeline. */
     seq_meta_stack_alloc(scene, dst_seq);
     Strip *meta_parent = dst_seq;
-    while ((meta_parent = SEQ_lookup_meta_by_strip(ed, meta_parent))) {
+    while ((meta_parent = lookup_meta_by_strip(ed, meta_parent))) {
       seq_meta_stack_alloc(scene, meta_parent);
     }
 

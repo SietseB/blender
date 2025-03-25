@@ -68,6 +68,7 @@ static char global_role_texture_painting[MAX_COLORSPACE_NAME];
 static char global_role_default_byte[MAX_COLORSPACE_NAME];
 static char global_role_default_float[MAX_COLORSPACE_NAME];
 static char global_role_default_sequencer[MAX_COLORSPACE_NAME];
+static char global_role_aces_interchange[MAX_COLORSPACE_NAME];
 
 static ListBase global_colorspaces = {nullptr, nullptr};
 static ListBase global_displays = {nullptr, nullptr};
@@ -464,7 +465,8 @@ static void colormanage_cache_handle_release(void *cache_handle)
 static bool colormanage_role_color_space_name_get(OCIO_ConstConfigRcPtr *config,
                                                   char *colorspace_name,
                                                   const char *role,
-                                                  const char *backup_role)
+                                                  const char *backup_role,
+                                                  const bool optional = false)
 {
   OCIO_ConstColorSpaceRcPtr *ociocs;
 
@@ -480,9 +482,10 @@ static bool colormanage_role_color_space_name_get(OCIO_ConstConfigRcPtr *config,
   }
 
   if (ociocs == nullptr) {
-    if (!G.quiet) {
+    if (!optional && !G.quiet) {
       printf("Color management: Error, could not find role \"%s\"\n", role);
     }
+    colorspace_name[0] = '\0';
     return false;
   }
 
@@ -513,6 +516,9 @@ static bool colormanage_load_config(OCIO_ConstConfigRcPtr *config)
   ok &= colormanage_role_color_space_name_get(
       config, global_role_default_float, OCIO_ROLE_DEFAULT_FLOAT, OCIO_ROLE_SCENE_LINEAR);
 
+  colormanage_role_color_space_name_get(
+      config, global_role_aces_interchange, OCIO_ROLE_ACES_INTERCHANGE, nullptr, true);
+
   /* load colorspaces */
   const int tot_colorspace = OCIO_configGetNumColorSpaces(config);
   for (int index = 0; index < tot_colorspace; index++) {
@@ -527,8 +533,8 @@ static bool colormanage_load_config(OCIO_ConstConfigRcPtr *config)
 
     colorspace->num_aliases = OCIO_colorSpaceGetNumAliases(ocio_colorspace);
     if (colorspace->num_aliases > 0) {
-      colorspace->aliases = static_cast<char(*)[MAX_COLORSPACE_NAME]>(MEM_callocN(
-          sizeof(*colorspace->aliases) * colorspace->num_aliases, "ColorSpace aliases"));
+      colorspace->aliases = MEM_calloc_arrayN<char[MAX_COLORSPACE_NAME]>(
+          size_t(colorspace->num_aliases), "ColorSpace aliases");
       for (int i = 0; i < colorspace->num_aliases; i++) {
         BLI_strncpy(colorspace->aliases[i],
                     OCIO_colorSpaceGetAlias(ocio_colorspace, i),
@@ -1367,6 +1373,8 @@ const char *IMB_colormanagement_role_colorspace_name_get(int role)
       return global_role_default_float;
     case COLOR_ROLE_DEFAULT_BYTE:
       return global_role_default_byte;
+    case COLOR_ROLE_ACES_INTERCHANGE:
+      return global_role_aces_interchange;
     default:
       if (!G.quiet) {
         printf("Unknown role was passed to %s\n", __func__);
@@ -1451,6 +1459,11 @@ const char *IMB_colormanagement_get_rect_colorspace(ImBuf *ibuf)
   }
 
   return IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_DEFAULT_BYTE);
+}
+
+ColorSpace *IMB_colormanagement_space_get_named(const char *name)
+{
+  return colormanage_colorspace_get_named(name);
 }
 
 bool IMB_colormanagement_space_is_data(ColorSpace *colorspace)
@@ -1781,8 +1794,8 @@ static void do_display_buffer_apply_thread(DisplayBufferThread *handle)
   int channels = handle->channels;
   int width = handle->width;
   int height = handle->tot_line;
-  float *linear_buffer = static_cast<float *>(MEM_mallocN(
-      size_t(channels) * width * height * sizeof(float), "color conversion linear buffer"));
+  float *linear_buffer = MEM_malloc_arrayN<float>(
+      size_t(channels) * size_t(width) * size_t(height), "color conversion linear buffer");
 
   bool is_straight_alpha;
   display_buffer_apply_get_linear_buffer(handle, height, linear_buffer, &is_straight_alpha);
@@ -2743,7 +2756,6 @@ uchar *IMB_display_buffer_acquire(ImBuf *ibuf,
                                   void **cache_handle)
 {
   uchar *display_buffer;
-  size_t buffer_size;
   ColormanageCacheViewSettings cache_view_settings;
   ColormanageCacheDisplaySettings cache_display_settings;
   ColorManagedViewSettings default_view_settings;
@@ -2800,8 +2812,8 @@ uchar *IMB_display_buffer_acquire(ImBuf *ibuf,
 
   /* ensure color management bit fields exists */
   if (!ibuf->display_buffer_flags) {
-    ibuf->display_buffer_flags = static_cast<uint *>(
-        MEM_callocN(sizeof(uint) * global_tot_display, "imbuf display_buffer_flags"));
+    ibuf->display_buffer_flags = MEM_calloc_arrayN<uint>(size_t(global_tot_display),
+                                                         "imbuf display_buffer_flags");
   }
   else if (ibuf->userflags & IB_DISPLAY_BUFFER_INVALID) {
     /* all display buffers were marked as invalid from other areas,
@@ -2820,8 +2832,8 @@ uchar *IMB_display_buffer_acquire(ImBuf *ibuf,
     return display_buffer;
   }
 
-  buffer_size = DISPLAY_BUFFER_CHANNELS * size_t(ibuf->x) * ibuf->y * sizeof(char);
-  display_buffer = static_cast<uchar *>(MEM_mallocN(buffer_size, "imbuf display buffer"));
+  display_buffer = MEM_malloc_arrayN<uchar>(
+      DISPLAY_BUFFER_CHANNELS * size_t(ibuf->x) * size_t(ibuf->y), "imbuf display buffer");
 
   colormanage_display_buffer_process(
       ibuf, display_buffer, applied_view_settings, display_settings);
@@ -2857,8 +2869,8 @@ void IMB_display_buffer_transform_apply(uchar *display_buffer,
   ColormanageProcessor *cm_processor = IMB_colormanagement_display_processor_new(view_settings,
                                                                                  display_settings);
 
-  buffer = static_cast<float *>(MEM_mallocN(size_t(channels) * width * height * sizeof(float),
-                                            "display transform temp buffer"));
+  buffer = MEM_malloc_arrayN<float>(size_t(channels) * size_t(width) * size_t(height),
+                                    "display transform temp buffer");
   memcpy(buffer, linear_buffer, size_t(channels) * width * height * sizeof(float));
 
   IMB_colormanagement_processor_apply(cm_processor, buffer, width, height, channels, predivide);
@@ -2893,8 +2905,8 @@ void IMB_display_buffer_transform_apply_float(float *float_display_buffer,
   ColormanageProcessor *cm_processor = IMB_colormanagement_display_processor_new(view_settings,
                                                                                  display_settings);
 
-  buffer = static_cast<float *>(MEM_mallocN(size_t(channels) * width * height * sizeof(float),
-                                            "display transform temp buffer"));
+  buffer = MEM_malloc_arrayN<float>(size_t(channels) * size_t(width) * size_t(height),
+                                    "display transform temp buffer");
   memcpy(buffer, linear_buffer, size_t(channels) * width * height * sizeof(float));
 
   IMB_colormanagement_processor_apply(cm_processor, buffer, width, height, channels, predivide);
@@ -3581,8 +3593,8 @@ static void partial_buffer_update_rect(ImBuf *ibuf,
       channels = 4;
     }
 
-    display_buffer_float = static_cast<float *>(MEM_mallocN(
-        size_t(channels) * width * height * sizeof(float), "display buffer for dither"));
+    display_buffer_float = MEM_malloc_arrayN<float>(
+        size_t(channels) * size_t(width) * size_t(height), "display buffer for dither");
   }
 
   if (cm_processor) {
