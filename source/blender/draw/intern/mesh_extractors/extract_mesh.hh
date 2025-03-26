@@ -34,8 +34,6 @@ struct BMLoop;
 
 namespace blender::draw {
 
-#define MIN_RANGE_LEN 1024
-
 /* ---------------------------------------------------------------------- */
 /** \name Mesh Render Data
  * \{ */
@@ -62,12 +60,8 @@ struct MeshRenderData {
 
   bool use_hide;
   bool use_subsurf_fdots;
-  bool use_final_mesh;
   bool hide_unmapped_edges;
   bool use_simplify_normals;
-
-  /** Use for #MeshStatVis calculation which use world-space coords. */
-  float4x4 object_to_world;
 
   const ToolSettings *toolsettings;
   /** Edit Mesh */
@@ -185,15 +179,14 @@ BLI_INLINE const float *bm_face_no_get(const MeshRenderData &mr, const BMFace *e
  * \param edit_mode_active: When true, use the modifiers from the edit-data,
  * otherwise don't use modifiers as they are not from this object.
  */
-std::unique_ptr<MeshRenderData> mesh_render_data_create(Object &object,
-                                                        Mesh &mesh,
-                                                        bool is_editmode,
-                                                        bool is_paint_mode,
-                                                        const float4x4 &object_to_world,
-                                                        bool do_final,
-                                                        bool do_uvedit,
-                                                        bool use_hide,
-                                                        const ToolSettings *ts);
+MeshRenderData mesh_render_data_create(Object &object,
+                                       Mesh &mesh,
+                                       bool is_editmode,
+                                       bool is_paint_mode,
+                                       bool do_final,
+                                       bool do_uvedit,
+                                       bool use_hide,
+                                       const ToolSettings *ts);
 void mesh_render_data_update_corner_normals(MeshRenderData &mr);
 void mesh_render_data_update_face_normals(MeshRenderData &mr);
 void mesh_render_data_update_loose_geom(MeshRenderData &mr, MeshBufferCache &cache);
@@ -272,10 +265,10 @@ void extract_edge_factor_subdiv(const DRWSubdivCache &subdiv_cache,
                                 gpu::VertBuf &pos_nor,
                                 gpu::VertBuf &vbo);
 
-void extract_tris(const MeshRenderData &mr,
-                  const SortedFaceData &face_sorted,
-                  MeshBatchCache &cache,
-                  gpu::IndexBuf &ibo);
+void extract_tris(const MeshRenderData &mr, const SortedFaceData &face_sorted, gpu::IndexBuf &ibo);
+void create_material_subranges(const SortedFaceData &face_sorted,
+                               gpu::IndexBuf &tris_ibo,
+                               MutableSpan<gpu::IndexBuf *> ibos);
 void extract_tris_subdiv(const DRWSubdivCache &subdiv_cache,
                          MeshBatchCache &cache,
                          gpu::IndexBuf &ibo);
@@ -390,15 +383,17 @@ void extract_sculpt_data_subdiv(const MeshRenderData &mr,
 
 void extract_orco(const MeshRenderData &mr, gpu::VertBuf &vbo);
 
-void extract_mesh_analysis(const MeshRenderData &mr, gpu::VertBuf &vbo);
+void extract_mesh_analysis(const MeshRenderData &mr,
+                           const float4x4 &object_to_world,
+                           gpu::VertBuf &vbo);
 
-void extract_attributes(const MeshRenderData &mr,
-                        const Span<DRW_AttributeRequest> requests,
-                        const Span<gpu::VertBuf *> vbos);
-void extract_attributes_subdiv(const MeshRenderData &mr,
-                               const DRWSubdivCache &subdiv_cache,
-                               const Span<DRW_AttributeRequest> requests,
-                               const Span<gpu::VertBuf *> vbos);
+void extract_attribute(const MeshRenderData &mr,
+                       const DRW_AttributeRequest &request,
+                       gpu::VertBuf &vbo);
+void extract_attribute_subdiv(const MeshRenderData &mr,
+                              const DRWSubdivCache &subdiv_cache,
+                              const DRW_AttributeRequest &request,
+                              gpu::VertBuf &vbo);
 void extract_attr_viewer(const MeshRenderData &mr, gpu::VertBuf &vbo);
 
 }  // namespace blender::draw
