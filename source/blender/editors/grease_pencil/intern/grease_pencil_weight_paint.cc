@@ -1030,6 +1030,7 @@ static wmOperatorStatus weight_gradient_exec(bContext *C, wmOperator *op)
 
   /* Get gradient type (linear/radial). */
   const WeightGradientType gradient_type = WeightGradientType(RNA_enum_get(op->ptr, "type"));
+  const bool limit_start = RNA_boolean_get(op->ptr, "limit_start");
 
   /* Get position and length of the interactive gradient line in the viewport. */
   const int x_start = RNA_int_get(op->ptr, "xstart");
@@ -1067,12 +1068,15 @@ static wmOperatorStatus weight_gradient_exec(bContext *C, wmOperator *op)
               case WeightGradientType::Linear: {
                 /* For the linear gradient, get the orthogonal position of the stroke point towards
                  * the gradient line. */
-                const float dist_on_gradient_line = math::max(
-                    0.0f, math::dot(vec_point_to_gradient, gradient_vector));
-                if (dist_on_gradient_line > gradient_length_sq) {
+                const float dist_on_gradient_line = math::dot(vec_point_to_gradient,
+                                                              gradient_vector);
+                if (dist_on_gradient_line > gradient_length_sq ||
+                    (limit_start && dist_on_gradient_line < 0.0f))
+                {
                   continue;
                 }
-                gradient_factor = (dist_on_gradient_line / gradient_length_sq) * gradient_length;
+                gradient_factor = (math::max(0.0f, dist_on_gradient_line) / gradient_length_sq) *
+                                  gradient_length;
                 break;
               }
               case WeightGradientType::Radial: {
@@ -1353,6 +1357,12 @@ static void GREASE_PENCIL_OT_weight_gradient(wmOperatorType *ot)
       ot->srna, "type", gradient_types, 0, "Type", "The gradient type (linear or gradient)");
   RNA_def_property_flag(prop, PROP_HIDDEN);
   prop = RNA_def_enum(ot->srna, "mode", brush_modes, 0, "Mode", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN);
+  prop = RNA_def_boolean(ot->srna,
+                         "limit_start",
+                         false,
+                         "Limit Start",
+                         "Only affect points from the start of the line, nothing before");
   RNA_def_property_flag(prop, PROP_HIDDEN);
 
   WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);

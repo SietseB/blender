@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import operator
 import bpy
 from bpy.types import Menu, Panel, WindowManager
 from bpy.app.translations import (
@@ -1915,8 +1916,9 @@ def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact
 
         # Gradient type: linear/radial
         if brush.gpencil_weight_tool == 'GRADIENT':
-            # Bit of a trick, but the only working way to expose the operator property `type`
-            layout.prop(WindowManager.operator_properties_last("grease_pencil.weight_gradient"), "type", expand=True)
+            operator_properties = WindowManager.operator_properties_last("grease_pencil.weight_gradient")
+            layout.prop(operator_properties, "type", expand=True)
+            layout.prop(operator_properties, "limit_start")
 
 
 def brush_basic_grease_pencil_vertex_settings(layout, context, brush, *, compact=False):
