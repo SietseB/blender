@@ -1916,9 +1916,10 @@ def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact
 
         # Gradient type: linear/radial
         if brush.gpencil_weight_tool == 'GRADIENT':
-            operator_properties = WindowManager.operator_properties_last("grease_pencil.weight_gradient")
-            layout.prop(operator_properties, "type", expand=True)
-            layout.prop(operator_properties, "limit_start")
+            props = WindowManager.operator_properties_last("grease_pencil.weight_gradient")
+            layout.prop(props, "type", expand=True)
+            if props.type == 'LINEAR':
+                layout.prop(props, "limit_start")
 
 
 def brush_basic_grease_pencil_vertex_settings(layout, context, brush, *, compact=False):
