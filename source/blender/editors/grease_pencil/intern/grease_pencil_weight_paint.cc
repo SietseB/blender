@@ -1057,6 +1057,7 @@ static wmOperatorStatus weight_gradient_exec(bContext *C, wmOperator *op)
                 cache.deform_verts[point].dw)
             {
               cache.deform_weights.set(point, cache.point_original_weights[point]);
+              cache.point_flags[point] &= ~WPAINT_GRADIENT_POINT_IS_MODIFIED;
             }
 
             /* Get the vector of gradient line starting point to the stroke point. */
