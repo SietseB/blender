@@ -350,6 +350,29 @@ static wmOperatorStatus remove_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static bool active_poll(bContext *C)
+{
+  if (!editable_grease_pencil_poll(C)) {
+    return false;
+  }
+
+  GreasePencil *grease_pencil = from_context(*C);
+  return !BLI_listbase_is_empty(&grease_pencil->shape_keys) && !in_edit_mode;
+}
+
+static void GREASE_PENCIL_OT_shape_key_remove(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Remove Shape Key";
+  ot->idname = "GREASE_PENCIL_OT_shape_key_remove";
+  ot->description = "Remove the active shape key in the Grease Pencil object";
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Callbacks. */
+  ot->poll = active_poll;
+  ot->exec = remove_exec;
+}
+
 static wmOperatorStatus remove_all_exec(bContext *C, wmOperator *op)
 {
   GreasePencil *grease_pencil = from_context(*C);
@@ -418,29 +441,6 @@ static wmOperatorStatus remove_all_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static bool active_poll(bContext *C)
-{
-  if (!editable_grease_pencil_poll(C)) {
-    return false;
-  }
-
-  GreasePencil *grease_pencil = from_context(*C);
-  return !BLI_listbase_is_empty(&grease_pencil->shape_keys) && !in_edit_mode;
-}
-
-static void GREASE_PENCIL_OT_shape_key_remove(wmOperatorType *ot)
-{
-  /* Identifiers. */
-  ot->name = "Remove Shape Key";
-  ot->idname = "GREASE_PENCIL_OT_shape_key_remove";
-  ot->description = "Remove the active shape key in the Grease Pencil object";
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* Callbacks. */
-  ot->poll = active_poll;
-  ot->exec = remove_exec;
-}
-
 static void GREASE_PENCIL_OT_shape_key_remove_all(wmOperatorType *ot)
 {
   /* Identifiers. */
@@ -452,6 +452,34 @@ static void GREASE_PENCIL_OT_shape_key_remove_all(wmOperatorType *ot)
   /* Callbacks. */
   ot->poll = active_poll;
   ot->exec = remove_all_exec;
+}
+
+static wmOperatorStatus clear_exec(bContext *C, wmOperator * /*op*/)
+{
+  GreasePencil *grease_pencil = from_context(*C);
+
+  LISTBASE_FOREACH (GreasePencilShapeKey *, shape_key, &grease_pencil->shape_keys) {
+    shape_key->value = math::clamp(0.0f, shape_key->range_min, shape_key->range_max);
+  }
+
+  DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_shape_key_clear(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Clear Shape Keys";
+  ot->idname = "GREASE_PENCIL_OT_shape_key_clear";
+  ot->description =
+      "Reset the values of all shape keys to 0 or to the closest value within the range";
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Callbacks. */
+  ot->poll = active_poll;
+  ot->exec = clear_exec;
 }
 
 static void attribute_move(bke::MutableAttributeAccessor attributes,
@@ -589,7 +617,7 @@ static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
   const float value_src = shape_key_src->value;
 
   /* Create new shape key, based on the active one. */
-  if (add_exec(C, op) == OPERATOR_CANCELLED) {
+  if (add_exec(C, op) & OPERATOR_CANCELLED) {
     return OPERATOR_CANCELLED;
   }
   GreassePencilShapeKey *shape_key_dst = BKE_grease_pencil_shape_key_active_get(grease_pencil);
@@ -1688,8 +1716,12 @@ static wmOperatorStatus edit_exec(bContext *C, wmOperator *op)
   edit_init(C, op);
 
   /* Add an extra undo step, otherwise the applied shape key can be undone too easily by the
-   * user, resulting in the shape key being gone up in smoke. */
-  ED_undo_push_op(C, op);
+   * user, resulting in the shape key being gone up in smoke.
+   * TODO: Undo during editing doesn't work properly! Shape key is applied twice in the viewport.
+   * And the edit operator doesn't get canceled when undoing to a point before shape key editing
+   * started.
+   */
+  // ED_undo_push_op(C, op);
 
   /* Add a modal handler for this operator. */
   WM_event_add_modal_handler(C, op);
@@ -1741,7 +1773,7 @@ static wmOperatorStatus new_from_mix_exec(bContext *C, wmOperator *op)
   using namespace bke::greasepencil;
 
   /* Create a new shape key, based on the active one. */
-  if (add_exec(C, op) == OPERATOR_CANCELLED) {
+  if (add_exec(C, op) & OPERATOR_CANCELLED) {
     return OPERATOR_CANCELLED;
   }
 
@@ -1843,7 +1875,7 @@ static void GREASE_PENCIL_OT_shape_key_new_from_mix(wmOperatorType *ot)
   ot->prop = prop;
 }
 
-// static void GREASE_PENCIL_OT_shape_key_apply_all(wmOperatorType *ot) {}
+// TODO: static void GREASE_PENCIL_OT_shape_key_apply_all(wmOperatorType *ot) {}
 
 }  // namespace blender::ed::greasepencil::shape_key
 
@@ -1856,12 +1888,13 @@ void ED_operatortypes_grease_pencil_shape_keys()
 {
   using namespace blender::ed::greasepencil::shape_key;
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_add);
-  WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_move);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_duplicate);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_new_from_mix);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit_finish);
+  WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove_all);
+  WM_operatortype_append(GREASE_PENCIL_OT_shape_key_clear);
   // TODO: WM_operatortype_append(GREASE_PENCIL_OT_shape_key_apply_all);
 }

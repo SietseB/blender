@@ -596,8 +596,8 @@ class GREASE_PENCIL_MT_shape_keys_context_menu(Menu):
     def draw(self, _context):
         layout = self.layout
 
-        layout.operator("grease_pencil.shape_key_new_from_mix", icon='ADD', text="New from Mix")
         layout.operator("grease_pencil.shape_key_duplicate", icon='DUPLICATE', text="Duplicate")
+        layout.operator("grease_pencil.shape_key_new_from_mix", icon='ADD', text="New from Mix")
         layout.separator()
         layout.operator("grease_pencil.shape_key_remove_all", icon='X', text="Delete All")
         # layout.operator("grease_pencil.shape_key_apply_all", icon='NODE_COMPOSITING', text="Apply All")
@@ -614,7 +614,7 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
         shape_key = grease_pencil.shape_keys.active
 
         row = layout.row()
-        mt_rows = 6
+        mt_rows = 7
 
         col = row.column()
         col.template_list("GREASE_PENCIL_UL_shape_keys", "", grease_pencil, "shape_keys", grease_pencil.shape_keys,
@@ -625,13 +625,15 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
         sub.operator("grease_pencil.shape_key_add", icon='ADD', text="")
         sub.operator("grease_pencil.shape_key_remove", icon='REMOVE', text="")
 
-        if shape_key:
-            col.separator()
-            col.operator("grease_pencil.shape_key_move", icon='TRIA_UP', text="").direction = 'UP'
-            col.operator("grease_pencil.shape_key_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+        sub.separator()
+        sub.operator("grease_pencil.shape_key_move", icon='TRIA_UP', text="").direction = 'UP'
+        sub.operator("grease_pencil.shape_key_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
         sub.separator()
         sub.menu("GREASE_PENCIL_MT_shape_keys_context_menu", icon='DOWNARROW_HLT', text="")
+
+        sub.separator(factor=3.5)
+        sub.operator("grease_pencil.shape_key_clear", icon="X", text="")
 
         if shape_key:
             row = layout.row()
