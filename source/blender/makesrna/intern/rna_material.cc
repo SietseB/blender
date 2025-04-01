@@ -770,6 +770,18 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
 
   /* Ondine additions. */
 
+  /* Stroke wetness. */
+  prop = RNA_def_property(srna, "stroke_wetness", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "stroke_wetness");
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05f, 2);
+  RNA_def_property_ui_text(prop,
+                           "Wetness",
+                           "Wetness of the strokes with this material (when more than 0.0 this "
+                           "overrides the layer wetness)");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_update");
+
   /* Texture density. */
   prop = RNA_def_property(srna, "texture_density", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "texture_density");

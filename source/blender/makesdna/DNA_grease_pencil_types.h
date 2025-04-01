@@ -97,6 +97,7 @@ typedef struct OndineRenderStroke {
   float render_stroke_opacity;
   float render_stroke_radius;
   float render_thickness;
+  float render_wetness;
   float render_dist_to_camera;
   int render_flag;
   float render_bbox[4];

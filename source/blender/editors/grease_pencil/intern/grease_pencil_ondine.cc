@@ -261,6 +261,8 @@ void OndinePrepareRender::set_render_data(Object *object,
               if (mat_style->flag & GP_MATERIAL_HIDE) {
                 continue;
               }
+              render_strokes[curve_i].render_wetness = mat_style->stroke_wetness;
+
               const bool has_stroke = ((mat_style->flag & GP_MATERIAL_STROKE_SHOW) &&
                                        (mat_style->stroke_rgba[3] >
                                         GPENCIL_ALPHA_OPACITY_THRESHOLD));

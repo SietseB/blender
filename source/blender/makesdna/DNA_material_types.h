@@ -101,13 +101,14 @@ typedef struct MaterialGPencilStyle {
   /** Rotation for texture for Dots and Squares. */
   float alignment_rotation;
 
-  /* Ondine additions for stroke textures. */
+  /* Ondine additions. */
+  float stroke_wetness;
+  /* Stroke textures. */
   float texture_density;
   float texture_angle_variation;
   int ondine_flag;
   float ondine_gradient_scale[2];
   float ondine_gradient_offset[2];
-  char _pad[4];
 } MaterialGPencilStyle;
 
 /* MaterialGPencilStyle->flag */

@@ -109,9 +109,15 @@ class MATERIAL_PT_gpencil_surface(GPMaterialButtonsPanel, Panel):
     def draw_header_preset(self, _context):
         MATERIAL_PT_gpencil_material_presets.draw_panel_header(self.layout)
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+
+        ma = context.material
+        if ma is None or ma.grease_pencil is None:
+            return
+
+        layout.prop(ma.grease_pencil, "stroke_wetness")
 
 
 class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
