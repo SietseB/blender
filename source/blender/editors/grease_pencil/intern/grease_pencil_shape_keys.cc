@@ -13,6 +13,7 @@
 #include "BKE_modifier.hh"
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
+#include "BKE_undo_system.hh"
 
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
@@ -83,6 +84,8 @@ struct ShapeKeyEditData {
 
   Array<LayerBase> base_layers;
   Array<bke::CurvesGeometry> base_geometry;
+
+  int initial_undo_step;
 };
 
 float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, const int layer_index)
@@ -677,16 +680,30 @@ static void GREASE_PENCIL_OT_shape_key_duplicate(wmOperatorType *ot)
   ot->prop = prop;
 }
 
+/* Find the Grease Pencil object of the shape key that has been edited. Theoretically the
+ * `edit_data.grease_pencil` pointer could be changed since the shape key editing started. */
+static void ensure_valid_grease_pencil_of_edited_shapekey(bContext *C, ShapeKeyEditData &edit_data)
+{
+  Main *bmain = CTX_data_main(C);
+  LISTBASE_FOREACH (GreasePencil *, grease_pencil, &bmain->grease_pencils) {
+    if (grease_pencil->flag & GREASE_PENCIL_SHAPE_KEY_IS_EDITED) {
+      edit_data.grease_pencil = grease_pencil;
+      break;
+    }
+  }
+}
+
+/* After shape key editing, restore the layer transformation and opacity to base values. */
 static void restore_base_layers(ShapeKeyEditData &edit_data)
 {
   using namespace bke::greasepencil;
 
   /* Restore layer properties possibly affected by shape key. */
   for (Layer *layer : edit_data.grease_pencil->layers_for_write()) {
-    if (layer->runtime->shape_key_edit_index == 0) {
+    if (layer->shape_key_edit_index == 0) {
       continue;
     }
-    const int base_layer_index = layer->runtime->shape_key_edit_index - 1;
+    const int base_layer_index = layer->shape_key_edit_index - 1;
     const LayerBase &base_layer = edit_data.base_layers[base_layer_index];
     copy_v3_v3(layer->translation, base_layer.translation);
     copy_v3_v3(layer->rotation, base_layer.rotation);
@@ -695,6 +712,7 @@ static void restore_base_layers(ShapeKeyEditData &edit_data)
   }
 }
 
+/* After shape key editing, remove the temporary stroke index attribute from each drawing. */
 static void remove_stroke_index_attributes(ShapeKeyEditData &edit_data)
 {
   using namespace bke::greasepencil;
@@ -721,6 +739,9 @@ static void edit_exit(bContext *C, wmOperator *op)
   if (edit_data == nullptr) {
     return;
   }
+
+  /* Make sure that the pointer to our Grease Pencil object is still valid. */
+  ensure_valid_grease_pencil_of_edited_shapekey(C, *edit_data);
 
   /* Restore base layers. */
   restore_base_layers(*edit_data);
@@ -757,6 +778,10 @@ static void edit_exit(bContext *C, wmOperator *op)
     ED_region_draw_cb_exit(edit_data->region_type, edit_data->draw_handle);
   }
 
+  /* Remove edit state flag. */
+  edit_data->grease_pencil->flag &= ~GREASE_PENCIL_SHAPE_KEY_IS_EDITED;
+
+  /* Update Grease Pencil object. */
   DEG_id_tag_update(&edit_data->grease_pencil->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, edit_data->grease_pencil);
 
@@ -1155,14 +1180,13 @@ void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
   threading::parallel_for(drawings.index_range(), 1, [&](const IndexRange drawing_range) {
     for (const int drawing_i : drawing_range) {
       Drawing &drawing = *drawings[drawing_i];
-      if (drawing.runtime->shape_key_edit_index == 0) {
+      if (drawing.base.shape_key_edit_index == 0) {
         continue;
       }
 
       /* Get edited and base geometry. */
       CurvesGeometry &curves = drawing.strokes_for_write();
-      CurvesGeometry &base_curves =
-          edit_data.base_geometry[drawing.runtime->shape_key_edit_index - 1];
+      CurvesGeometry &base_curves = edit_data.base_geometry[drawing.base.shape_key_edit_index - 1];
       MutableAttributeAccessor attributes = curves.attributes_for_write();
       AttributeAccessor base_attributes = base_curves.attributes();
       const OffsetIndices points_by_curve = curves.points_by_curve();
@@ -1494,12 +1518,12 @@ static void get_shape_key_deltas(ShapeKeyEditData &edit_data)
     const Layer &layer = grease_pencil.layer(layer_i);
 
     /* Skip when base layer is missing. */
-    if (layer.runtime->shape_key_edit_index == 0) {
+    if (layer.shape_key_edit_index == 0) {
       continue;
     }
 
     /* Compare edited layer with base layer. */
-    const LayerBase &base_layer = edit_data.base_layers[layer.runtime->shape_key_edit_index - 1];
+    const LayerBase &base_layer = edit_data.base_layers[layer.shape_key_edit_index - 1];
     const float3 translation_delta = float3(layer.translation) - base_layer.translation;
     const float3 rotation_delta = float3(layer.rotation) - base_layer.rotation;
     const float3 scale_delta = float3(layer.scale) - base_layer.scale;
@@ -1593,7 +1617,7 @@ static void store_base_layers(ShapeKeyEditData &edit_data)
 
     /* Store the base layer and an index reference on the layer with the applied shape key. */
     edit_data.base_layers[layer_i] = layer_base;
-    layer.runtime->shape_key_edit_index = layer_i + 1;
+    layer.shape_key_edit_index = layer_i + 1;
   }
 }
 
@@ -1608,6 +1632,7 @@ static void edit_init(bContext *C, wmOperator *op)
   op->customdata = &edit_data;
   edit_data.grease_pencil = &grease_pencil;
   edit_data.edited_shape_key_index = grease_pencil.active_shape_key_index;
+  grease_pencil.flag |= GREASE_PENCIL_SHAPE_KEY_IS_EDITED;
 
   /* Set flag now we enter edit mode. */
   in_edit_mode = true;
@@ -1664,7 +1689,7 @@ static void edit_init(bContext *C, wmOperator *op)
           GreasePencilDrawingBase *drawing_base = grease_pencil.drawing(drawing_i);
           Drawing &drawing = (reinterpret_cast<GreasePencilDrawing *>(drawing_base))->wrap();
           if (drawing_base->type != GP_DRAWING) {
-            drawing.runtime->shape_key_edit_index = 0;
+            drawing.base.shape_key_edit_index = 0;
             continue;
           }
 
@@ -1672,7 +1697,7 @@ static void edit_init(bContext *C, wmOperator *op)
            * implicit sharing, so the copying is delayed until a geometry attribute changes.)
            * The base geometry is used to compute the deltas when we finish shape key editing. */
           edit_data.base_geometry[drawing_i] = drawing.strokes();
-          drawing.runtime->shape_key_edit_index = drawing_i + 1;
+          drawing.base.shape_key_edit_index = drawing_i + 1;
 
           /* Mark all strokes with an index, so we can map them to the base strokes. */
           bke::MutableAttributeAccessor attributes =
@@ -1693,15 +1718,42 @@ static void edit_init(bContext *C, wmOperator *op)
         }
       });
 
+  /* Log the current position in the undo stack. This enables us to cancel edit mode when the user
+   * makes undo steps to the point before shape key editing started. */
+  edit_data.initial_undo_step = 0;
+  UndoStack *undo_stack = ED_undo_stack_get();
+  if (undo_stack->step_active) {
+    edit_data.initial_undo_step = BLI_findindex(&undo_stack->steps, undo_stack->step_active);
+  }
+  ED_undo_push(C, "Start Edit Shape Key");
+
   DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, &grease_pencil);
 }
 
-static wmOperatorStatus edit_modal(bContext *C, wmOperator *op, const wmEvent * /*event*/)
+static wmOperatorStatus edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  /* Operator ends when the 'in edit mode' flag is disabled by the Finish Edit operator. */
+  /* Check the undo stack. When the user undoes to the point before shape key editing started, we
+   * want to cancel the shape key editing. */
+  if (!ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
+    UndoStack *undo_stack = ED_undo_stack_get();
+    if (undo_stack->step_active) {
+      ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
+      const int active_undo_step = BLI_findindex(&undo_stack->steps, undo_stack->step_active);
+      if (active_undo_step <= edit_data.initial_undo_step) {
+        /* Cancel edit mode when the user undoes 'out of' shape key editing. */
+        in_edit_mode = false;
+        edit_exit(C, op);
+        return OPERATOR_FINISHED;
+      }
+    }
+  }
+
+  /* Operator is completed when the 'in edit mode' flag is disabled by the Finish Edit operator. */
   if (!in_edit_mode) {
+    /* Grab all the shape key deltas and wrap up shape key edit mode. */
     ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
+    ensure_valid_grease_pencil_of_edited_shapekey(C, edit_data);
     get_shape_key_deltas(edit_data);
     edit_exit(C, op);
     return OPERATOR_FINISHED;
@@ -1714,14 +1766,6 @@ static wmOperatorStatus edit_exec(bContext *C, wmOperator *op)
 {
   /* Initialize the shape key edit mode. */
   edit_init(C, op);
-
-  /* Add an extra undo step, otherwise the applied shape key can be undone too easily by the
-   * user, resulting in the shape key being gone up in smoke.
-   * TODO: Undo during editing doesn't work properly! Shape key is applied twice in the viewport.
-   * And the edit operator doesn't get canceled when undoing to a point before shape key editing
-   * started.
-   */
-  // ED_undo_push_op(C, op);
 
   /* Add a modal handler for this operator. */
   WM_event_add_modal_handler(C, op);
@@ -1812,13 +1856,13 @@ static wmOperatorStatus new_from_mix_exec(bContext *C, wmOperator *op)
           GreasePencilDrawingBase *drawing_base = grease_pencil.drawing(drawing_i);
           Drawing &drawing = (reinterpret_cast<GreasePencilDrawing *>(drawing_base))->wrap();
           if (drawing_base->type != GP_DRAWING) {
-            drawing.runtime->shape_key_edit_index = 0;
+            drawing.base.shape_key_edit_index = 0;
             continue;
           }
 
           /* Store the base geometry (a full copy). */
           edit_data.base_geometry[drawing_i] = drawing.strokes();
-          drawing.runtime->shape_key_edit_index = drawing_i + 1;
+          drawing.base.shape_key_edit_index = drawing_i + 1;
 
           /* Mark all strokes with an index, so we can map them to the base strokes. */
           bke::MutableAttributeAccessor attributes =

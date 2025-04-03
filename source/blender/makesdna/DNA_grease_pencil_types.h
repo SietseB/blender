@@ -126,6 +126,11 @@ typedef struct GreasePencilDrawingBase {
    * Flag. Used to set e.g. the selection status. See `GreasePencilDrawingBaseFlag`.
    */
   uint32_t flag;
+  /**
+   * Index of the base drawing when editing a shape key, incremented by one.
+   */
+  int shape_key_edit_index;
+  char _pad1[4];
 } GreasePencilDrawingBase;
 
 /**
@@ -367,7 +372,11 @@ typedef struct GreasePencilLayer {
    * Use the functions is the `bke::greasepencil::Layer` class instead.
    */
   float translation[3], rotation[3], scale[3];
-  char _pad3[4];
+
+  /**
+   * Index of the base layer when editing a shape key, incremented by one.
+   */
+  int shape_key_edit_index;
 
   /** Ondine watercolor additions. */
   uint32_t ondine_flag;
@@ -434,6 +443,7 @@ typedef enum GreasePencilFlag {
   GREASE_PENCIL_AUTOLOCK_LAYERS = (1 << 1),
   GREASE_PENCIL_STROKE_ORDER_3D = (1 << 2),
   GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS = (1 << 3),
+  GREASE_PENCIL_SHAPE_KEY_IS_EDITED = (1 << 4),
 } GreasePencilFlag;
 
 /**

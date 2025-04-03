@@ -306,13 +306,13 @@ static void modify_geometry_set(ModifierData *md,
     for (const int info_i : info_range) {
       /* Check for onion-skin style base drawings. */
       Drawing &drawing = *drawing_infos[info_i].drawing;
-      if (drawing.runtime->is_shape_key_onion_skin_drawing == false) {
+      if (!drawing.runtime->is_shape_key_onion_skin_drawing) {
         continue;
       }
 
       /* Check for changes in layer transform. */
       const int layer_index =
-          grease_pencil.layer(drawing_infos[info_i].layer_index).runtime->shape_key_edit_index - 1;
+          grease_pencil.layer(drawing_infos[info_i].layer_index).shape_key_edit_index - 1;
       if (layer_index == -1) {
         continue;
       }

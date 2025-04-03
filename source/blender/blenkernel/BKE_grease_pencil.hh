@@ -78,11 +78,6 @@ class DrawingRuntime {
   mutable std::atomic<int> user_count = 1;
 
   /**
-   * Index of the base drawing when editing a shape key, incremented by one.
-   */
-  mutable int shape_key_edit_index;
-
-  /**
    * Reference to a base drawing when the user is editing a shape key. This is an onion-skin-style
    * drawing shown in the viewport with all deformations except the edited shape key changes. For
    * visually showing the difference with and without the edited shape key.
@@ -461,11 +456,6 @@ class LayerRuntime {
   /* Whether this layer's visibility is animated (via the ".hide" RNA property). This is only set
    * when creating a copy of of the owning GreasePencil ID for the depsgraph evaluation. */
   bool is_visibility_animated_;
-
-  /**
-   * Index of the base layer when editing a shape key, incremented by one.
-   */
-  mutable int shape_key_edit_index;
 
  public:
   /* Reset all runtime data. */

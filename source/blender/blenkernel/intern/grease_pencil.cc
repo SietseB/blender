@@ -453,6 +453,7 @@ Drawing::Drawing(const Drawing &other)
 {
   this->base.type = GP_DRAWING;
   this->base.flag = other.base.flag;
+  this->base.shape_key_edit_index = other.base.shape_key_edit_index;
 
   new (&this->geometry) bke::CurvesGeometry(other.strokes());
   /* Initialize runtime data. */
@@ -462,7 +463,6 @@ Drawing::Drawing(const Drawing &other)
   this->runtime->triangles_cache = other.runtime->triangles_cache;
   this->runtime->curve_plane_normals_cache = other.runtime->curve_plane_normals_cache;
   this->runtime->curve_texture_matrices = other.runtime->curve_texture_matrices;
-  this->runtime->shape_key_edit_index = other.runtime->shape_key_edit_index;
   this->runtime->shape_key_onion_skin_drawing = nullptr;
 }
 
@@ -472,6 +472,8 @@ Drawing::Drawing(Drawing &&other)
   other.base.type = GP_DRAWING;
   this->base.flag = other.base.flag;
   other.base.flag = 0;
+  this->base.shape_key_edit_index = other.base.shape_key_edit_index;
+  other.base.shape_key_edit_index = 0;
 
   new (&this->geometry) bke::CurvesGeometry(std::move(other.geometry.wrap()));
 
@@ -1312,7 +1314,7 @@ Layer::Layer(const Layer &other) : Layer()
   /* Tag the frames map, so the frame storage is recreated once the DNA is saved. */
   this->tag_frames_map_changed();
 
-  this->runtime->shape_key_edit_index = other.runtime->shape_key_edit_index;
+  this->shape_key_edit_index = other.shape_key_edit_index;
 
   /* TODO: what about masks cache? */
 
@@ -2311,12 +2313,13 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
     }
   }
 
-  /* When a shape key is edited, we calculate the shape key deltas on the fly. The deltas are the
+  /* Check for shape key editing.
+   * When a shape key is edited, we calculate the shape key deltas on the fly. The deltas are the
    * differences between the base drawing and the edited shape key drawing.
    * While getting the deltas, we revert the shape-keyed attributes to their base values, because
    * the shape key modifier(s) will take care of applying the shape key deltas on top of the base
    * values.
-   * The advantage of this approach is that the user can determine the order of modifiers
+   * The idea behind this approach is that the user can determine the order of modifiers
    * (e.g. a shape key applied after an armature deform). */
   bool shape_key_is_edited = false;
   ModifierData *smd = md;
@@ -2331,12 +2334,14 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
       shape_key_is_edited = true;
       const ModifierEvalContext ctx = {depsgraph, object};
       const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(smd->type));
+      /* The shape key modifier takes care of grabbing the shape key deltas. */
       mti->before_modify_geometry_set(smd, &ctx, &geometry_set);
     }
     break;
   }
 
-  /* When a shape key is edited, we store the grease pencil drawings at the evaluated frame as a
+  /* Create an 'onion-skin' reference when editing a shape key.
+   * When a shape key is edited, we store the grease pencil drawings at the evaluated frame as a
    * 'onion-skin' reference. This base reference is shown in the viewport in onion-skin style, so
    * the user can easily see the difference between the drawing with and without the edited shape
    * key. */
@@ -2350,6 +2355,7 @@ static void grease_pencil_evaluate_modifiers(Depsgraph *depsgraph,
       }
       if (Drawing *drawing = grease_pencil.get_drawing_at(*layer, frame)) {
         if (drawings.add(drawing)) {
+          /* Make a copy of the drawing as an 'onion-skin' reference. */
           Drawing base_drawing = *drawing;
           drawing->runtime->shape_key_onion_skin_drawing = MEM_new<Drawing>(__func__,
                                                                             base_drawing);
