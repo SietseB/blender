@@ -3725,12 +3725,30 @@ void GreasePencil::autolock_inactive_layers()
 {
   using namespace blender::bke::greasepencil;
 
-  for (Layer *layer : this->layers_for_write()) {
-    if (this->is_layer_active(layer)) {
-      layer->set_locked(false);
-      continue;
+  TreeNode *active_node = this->get_active_node();
+  if (active_node == nullptr) {
+    return;
+  }
+
+  /* Lock all inactive tree nodes. */
+  for (TreeNode *node : this->nodes_for_write()) {
+    node->set_locked(node != active_node);
+  }
+
+  /* When the active node is a layer group, unlock all nodes within that group. */
+  if (active_node->is_group()) {
+    for (TreeNode *node : this->nodes_for_write()) {
+      if (node->is_child_of(active_node->as_group())) {
+        node->set_locked(false);
+      }
     }
-    layer->set_locked(true);
+  }
+
+  /* Unlock the parent layer groups of the active node. So the chain of layer groups from
+   * the root up to the active node is unlocked. */
+  TreeNode *node = active_node->is_group() ? active_node : active_node->parent_node();
+  for (; node; node = node->parent_node()) {
+    node->set_locked(false);
   }
 }
 
@@ -3738,35 +3756,38 @@ void GreasePencil::autolock_inactive_layer_groups()
 {
   using namespace blender::bke::greasepencil;
 
-  /* Get active layer group. */
-  LayerGroup *active_layer_group = nullptr;
   TreeNode *active_node = this->get_active_node();
-  if (active_node) {
-    active_layer_group = active_node->is_group() ? &active_node->as_group() :
-                                                   &active_node->as_layer().parent_group();
+  if (active_node == nullptr) {
+    return;
   }
-  /* Lock all layers that are not part of the active layer group. */
-  for (Layer *layer : this->layers_for_write()) {
-    if (&layer->parent_group() == active_layer_group) {
-      layer->set_locked(false);
-      continue;
+
+  /* Get the group level of the active layer tree node. */
+  const int unlock_level = active_node->depth() + (active_node->is_group() ? 1 : 0);
+  const bool include_children = active_node->is_group();
+
+  /* Lock all nodes outside the active group level. When a group itself is selected, we include all
+   * children of that group. */
+  for (TreeNode *node : this->nodes_for_write()) {
+    if ((node->depth() == unlock_level && !node->is_group()) ||
+        (include_children && node->depth() >= unlock_level))
+    {
+      node->set_locked(false);
     }
-    layer->set_locked(true);
-  }
-  /* Lock all inactive layer groups. */
-  for (LayerGroup *layer_group : this->layer_groups_for_write()) {
-    if (layer_group == active_layer_group) {
-      layer_group->set_locked(false);
-      continue;
+    else {
+      node->set_locked(true);
     }
-    layer_group->set_locked(true);
   }
-  /* But unlock the parent layer groups of the active group. So the chain of layer groups from
+
+  /* Unlock the group itself. */
+  if (active_node->is_group()) {
+    active_node->set_locked(false);
+  }
+
+  /* Unlock the parent layer groups of the active group. So the chain of layer groups from
    * the root up to the active group is unlocked. */
-  for (LayerGroup *layer_group = active_layer_group; layer_group;
-       layer_group = layer_group->as_node().parent_group())
-  {
-    layer_group->set_locked(false);
+  TreeNode *node = active_node->is_group() ? active_node : active_node->parent_node();
+  for (; node; node = node->parent_node()) {
+    node->set_locked(false);
   }
 }
 

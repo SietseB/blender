@@ -72,18 +72,15 @@ static void rna_grease_pencil_autolock_layers(Main * /*bmain*/, Scene * /*scene*
     if (grease_pencil->flag & GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS) {
       grease_pencil->flag &= ~GREASE_PENCIL_AUTOLOCK_LAYER_GROUPS;
 
-      for (LayerGroup *layer_group : grease_pencil->layer_groups_for_write()) {
-        layer_group->set_locked(false);
-      }
-      for (Layer *layer : grease_pencil->layers_for_write()) {
-        layer->set_locked(false);
+      for (TreeNode *node : grease_pencil->nodes_for_write()) {
+        node->set_locked(false);
       }
     }
     grease_pencil->autolock_inactive_layers();
   }
   else {
-    for (Layer *layer : grease_pencil->layers_for_write()) {
-      layer->set_locked(false);
+    for (TreeNode *node : grease_pencil->nodes_for_write()) {
+      node->set_locked(false);
     }
   }
 
@@ -107,11 +104,8 @@ static void rna_grease_pencil_autolock_layer_groups(Main * /*bmain*/,
     grease_pencil->autolock_inactive_layer_groups();
   }
   else {
-    for (LayerGroup *layer_group : grease_pencil->layer_groups_for_write()) {
-      layer_group->set_locked(false);
-    }
-    for (Layer *layer : grease_pencil->layers_for_write()) {
-      layer->set_locked(false);
+    for (TreeNode *node : grease_pencil->nodes_for_write()) {
+      node->set_locked(false);
     }
   }
 
