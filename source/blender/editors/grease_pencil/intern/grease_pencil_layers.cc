@@ -292,6 +292,51 @@ static void GREASE_PENCIL_OT_layer_move(wmOperatorType *ot)
   ot->prop = RNA_def_enum(ot->srna, "direction", enum_layer_move_direction, 0, "Direction", "");
 }
 
+static wmOperatorStatus grease_pencil_layer_group_active_exec(bContext *C, wmOperator *op)
+{
+  using namespace blender::bke::greasepencil;
+  Object *object = CTX_data_active_object(C);
+  GreasePencil &grease_pencil = *static_cast<GreasePencil *>(object->data);
+  const int layer_group_index = RNA_int_get(op->ptr, "layer_group");
+
+  if (!grease_pencil.layer_groups().index_range().contains(layer_group_index)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  if (grease_pencil.has_active_layer()) {
+    WM_msg_publish_rna_prop(
+        CTX_wm_message_bus(C), &grease_pencil.id, &grease_pencil, GreasePencilv3Layers, active);
+  }
+
+  LayerGroup *layer_group = grease_pencil.layer_groups_for_write()[layer_group_index];
+  grease_pencil.set_active_node(&layer_group->as_node());
+
+  WM_msg_publish_rna_prop(
+      CTX_wm_message_bus(C), &grease_pencil.id, &grease_pencil, GreasePencilv3LayerGroup, active);
+
+  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, &grease_pencil);
+
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_layer_group_active(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Set Active Layer Group";
+  ot->idname = "GREASE_PENCIL_OT_layer_group_active";
+  ot->description = "Set the active Grease Pencil layer group";
+
+  /* callbacks */
+  ot->exec = grease_pencil_layer_group_active_exec;
+  ot->poll = active_grease_pencil_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  PropertyRNA *prop = RNA_def_int(
+      ot->srna, "layer_group", 0, 0, INT_MAX, "Grease Pencil Layer Group", "", 0, INT_MAX);
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
 static wmOperatorStatus grease_pencil_layer_active_exec(bContext *C, wmOperator *op)
 {
   using namespace blender::bke::greasepencil;
@@ -1246,6 +1291,7 @@ void ED_operatortypes_grease_pencil_layers()
   WM_operatortype_append(GREASE_PENCIL_OT_layer_remove);
   WM_operatortype_append(GREASE_PENCIL_OT_layer_move);
   WM_operatortype_append(GREASE_PENCIL_OT_layer_active);
+  WM_operatortype_append(GREASE_PENCIL_OT_layer_group_active);
   WM_operatortype_append(GREASE_PENCIL_OT_layer_hide);
   WM_operatortype_append(GREASE_PENCIL_OT_layer_reveal);
   WM_operatortype_append(GREASE_PENCIL_OT_layer_isolate);
