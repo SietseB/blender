@@ -13,6 +13,8 @@
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
 
+#include "BLI_function_ref.hh"
+
 #include "BKE_screen.hh"
 
 #include "NOD_socket_items.hh"
@@ -37,7 +39,7 @@ static void draw_item_in_list(uiList * /*ui_list*/,
     RNA_float_get_array(itemptr, "color", color);
     uiTemplateNodeSocket(row, const_cast<bContext *>(C), color);
   }
-  uiLayoutSetEmboss(row, UI_EMBOSS_NONE);
+  uiLayoutSetEmboss(row, blender::ui::EmbossType::None);
   uiItemR(row, itemptr, "name", UI_ITEM_NONE, "", ICON_NONE);
 }
 

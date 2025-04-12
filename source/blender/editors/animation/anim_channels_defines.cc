@@ -4641,7 +4641,33 @@ const bAnimChannelType *ANIM_channel_get_typeinfo(const bAnimListElem *ale)
 
 /* --------------------------- */
 
-void ANIM_channel_debug_print_info(bAnimListElem *ale, short indent_level)
+static blender::StringRefNull setting_name(const eAnimChannel_Settings setting)
+{
+  switch (setting) {
+    case ACHANNEL_SETTING_SELECT:
+      return "SELECT";
+    case ACHANNEL_SETTING_PROTECT:
+      return "PROTECT";
+    case ACHANNEL_SETTING_MUTE:
+      return "MUTE";
+    case ACHANNEL_SETTING_EXPAND:
+      return "EXPAND";
+    case ACHANNEL_SETTING_VISIBLE:
+      return "VISIBLE";
+    case ACHANNEL_SETTING_SOLO:
+      return "SOLO";
+    case ACHANNEL_SETTING_PINNED:
+      return "PINNED";
+    case ACHANNEL_SETTING_MOD_OFF:
+      return "MOD_OFF";
+    case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+      return "ALWAYS_VISIBLE";
+  }
+
+  return "unknown setting";
+}
+
+void ANIM_channel_debug_print_info(bAnimContext &ac, bAnimListElem *ale, short indent_level)
 {
   const bAnimChannelType *acf = ANIM_channel_get_typeinfo(ale);
 
@@ -4651,26 +4677,73 @@ void ANIM_channel_debug_print_info(bAnimListElem *ale, short indent_level)
   }
 
   /* print info */
-  if (acf) {
-    char name[ANIM_CHAN_NAME_SIZE]; /* hopefully this will be enough! */
-
-    /* get UI name */
-    if (acf->name) {
-      acf->name(ale, name);
-    }
-    else {
-      STRNCPY(name, "<No name>");
-    }
-
-    /* print type name + ui name */
-    printf("ChanType: <%s> Name: \"%s\"\n", acf->channel_type_name, name);
+  if (!ale) {
+    printf("<Invalid channel - nullptr>\n");
+    return;
   }
-  else if (ale) {
+
+  if (!acf) {
     printf("ChanType: <Unknown - %d>\n", ale->type);
+    return;
+  }
+
+  /* Get UI name. */
+  char name[ANIM_CHAN_NAME_SIZE];
+  if (acf->name) {
+    acf->name(ale, name);
   }
   else {
-    printf("<Invalid channel - nullptr>\n");
+    STRNCPY(name, "<No name>");
   }
+
+  printf("ChanType: <%-25s> Name: \"%s\"\n       ", acf->channel_type_name, name);
+
+  /* Print settings. */
+  blender::Vector<eAnimChannel_Settings> settings = {
+      ACHANNEL_SETTING_SELECT,
+      ACHANNEL_SETTING_PROTECT,
+      ACHANNEL_SETTING_MUTE,
+      ACHANNEL_SETTING_EXPAND,
+      ACHANNEL_SETTING_VISIBLE,
+      ACHANNEL_SETTING_SOLO,
+      ACHANNEL_SETTING_PINNED,
+      ACHANNEL_SETTING_MOD_OFF,
+      ACHANNEL_SETTING_ALWAYS_VISIBLE,
+  };
+  for (const eAnimChannel_Settings setting : settings) {
+    if (!acf->has_setting(&ac, ale, setting)) {
+      continue;
+    }
+
+    bool is_neg = false;
+    const int setting_flag = acf->setting_flag(&ac, setting, &is_neg);
+
+    short setting_type = 0;
+    const void *setting_ptr = acf->setting_ptr(ale, setting, &setting_type);
+
+    bool setting_value = false;
+    switch (setting_type) {
+      case sizeof(int): {
+        const int as_int = *static_cast<const int *>(setting_ptr);
+        setting_value = bool(as_int & setting_flag) != is_neg;
+        break;
+      }
+      case sizeof(short): {
+        const short as_short = *static_cast<const short *>(setting_ptr);
+        setting_value = bool(as_short & static_cast<short>(setting_flag)) != is_neg;
+        break;
+      }
+      default:
+        BLI_assert_unreachable();
+    }
+
+    std::string show_name = setting_name(setting);
+    if (!setting_value) {
+      BLI_str_tolower_ascii(show_name.data(), show_name.length());
+    }
+    printf("%-15s", show_name.c_str());
+  }
+  printf("\n");
 }
 
 bAction *ANIM_channel_action_get(const bAnimListElem *ale)
@@ -5807,7 +5880,7 @@ static void draw_grease_pencil_layer_widgets(bAnimListElem *ale,
 
   /* Layer onion skinning switch. */
   offset -= ICON_WIDTH;
-  UI_block_emboss_set(block, UI_EMBOSS_NONE);
+  UI_block_emboss_set(block, blender::ui::EmbossType::None);
   PropertyRNA *onion_skinning_prop = RNA_struct_find_property(&ptr, "use_onion_skinning");
 
   const std::optional<std::string> onion_skinning_rna_path = RNA_path_from_ID_to_property(
@@ -5829,7 +5902,7 @@ static void draw_grease_pencil_layer_widgets(bAnimListElem *ale,
 
   /* Mask layer. */
   offset -= ICON_WIDTH;
-  UI_block_emboss_set(block, UI_EMBOSS_NONE);
+  UI_block_emboss_set(block, blender::ui::EmbossType::None);
   PropertyRNA *layer_mask_prop = RNA_struct_find_property(&ptr, "use_masks");
 
   const std::optional<std::string> layer_mask_rna_path = RNA_path_from_ID_to_property(
@@ -5850,7 +5923,7 @@ static void draw_grease_pencil_layer_widgets(bAnimListElem *ale,
   /* Layer opacity. */
   const short width = SLIDER_WIDTH * 0.6;
   offset -= width;
-  UI_block_emboss_set(block, UI_EMBOSS);
+  UI_block_emboss_set(block, blender::ui::EmbossType::Emboss);
   PropertyRNA *opacity_prop = RNA_struct_find_property(&ptr, "opacity");
   const std::optional<std::string> opacity_rna_path = RNA_path_from_ID_to_property(&ptr,
                                                                                    opacity_prop);
@@ -5896,7 +5969,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
   ymid = BLI_rctf_cent_y(rect) - 0.5f * ICON_WIDTH;
 
   /* no button backdrop behind icons */
-  UI_block_emboss_set(block, UI_EMBOSS_NONE);
+  UI_block_emboss_set(block, blender::ui::EmbossType::None);
 
   /* step 1) draw expand widget ....................................... */
   if (acf->has_setting(ac, ale, ACHANNEL_SETTING_EXPAND)) {
@@ -5955,7 +6028,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
       const short width = ac->region->winx - offset - (margin_x * 2);
       uiBut *but;
 
-      UI_block_emboss_set(block, UI_EMBOSS);
+      UI_block_emboss_set(block, blender::ui::EmbossType::Emboss);
 
       but = uiDefButR(block,
                       UI_BTYPE_TEXT,
@@ -5980,7 +6053,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
         WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_RENAME, nullptr);
       }
 
-      UI_block_emboss_set(block, UI_EMBOSS_NONE);
+      UI_block_emboss_set(block, blender::ui::EmbossType::None);
     }
     else {
       /* Cannot get property/cannot or rename for some reason, so clear rename index
@@ -6105,7 +6178,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
         uiBut *but;
         PointerRNA *opptr_b;
 
-        UI_block_emboss_set(block, UI_EMBOSS);
+        UI_block_emboss_set(block, blender::ui::EmbossType::Emboss);
 
         offset -= UI_UNIT_X;
         but = uiDefIconButO(block,
@@ -6122,7 +6195,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
         opptr_b = UI_but_operator_ptr_ensure(but);
         RNA_int_set(opptr_b, "track_index", channel_index);
 
-        UI_block_emboss_set(block, UI_EMBOSS_NONE);
+        UI_block_emboss_set(block, blender::ui::EmbossType::None);
       }
 
       /* Slot ID type indicator. */
@@ -6159,7 +6232,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
       offset -= SLIDER_WIDTH;
 
       /* need backdrop behind sliders... */
-      UI_block_emboss_set(block, UI_EMBOSS);
+      UI_block_emboss_set(block, blender::ui::EmbossType::Emboss);
 
       if (ale->owner) { /* Slider using custom RNA Access ---------- */
         if (ale->type == ANIMTYPE_NLACURVE) {
@@ -6226,7 +6299,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
 
             /* Layer onion skinning switch. */
             offset -= ICON_WIDTH;
-            UI_block_emboss_set(block, UI_EMBOSS_NONE);
+            UI_block_emboss_set(block, blender::ui::EmbossType::None);
             prop = RNA_struct_find_property(&ptr, "use_annotation_onion_skinning");
             if (const std::optional<std::string> gp_rna_path = RNA_path_from_ID_to_property(&ptr,
                                                                                             prop))
@@ -6250,7 +6323,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
             /* Layer opacity. */
             const short width = SLIDER_WIDTH * 0.6;
             offset -= width;
-            UI_block_emboss_set(block, UI_EMBOSS);
+            UI_block_emboss_set(block, blender::ui::EmbossType::Emboss);
             prop = RNA_struct_find_property(&ptr, "annotation_opacity");
             if (const std::optional<std::string> gp_rna_path = RNA_path_from_ID_to_property(&ptr,
                                                                                             prop))

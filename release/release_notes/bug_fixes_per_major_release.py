@@ -312,8 +312,10 @@ class CommitInfo:
         command = ['git', 'show', '-s', '--format=%B', self.hash]
         command_output = subprocess.run(command, capture_output=True).stdout.decode('utf-8')
 
-        # Find every instance of #NUMBER. These are the report that the commit claims to fix.
-        match = re.findall(r'#(\d+)', command_output)
+        # Find every instance of SPACE#NUMBER. These are the report that the commit claims to fix.
+        # We are looking for the SPACE part because otherwise commits that fix issues in other repos,
+        # E.g. Fix blender/blender-maunal#NUMBER, will be picked out for processing.
+        match = re.findall(r'\s#+(\d+)', command_output)
         if match:
             self.fixed_reports = match
 
@@ -541,7 +543,7 @@ def version_extraction(report_body: str) -> tuple[list[str], list[str]]:
         if lower_line.startswith('work'):
             # Use `work` to be able to detect both "worked" and "working".
             if (not example_in_line) and not ("brok" in lower_line):
-                # Don't add the line to the working_lines if it contains the letters "brok"
+                # Don't add the line to the working_lines if it contains the letters `brok`.
                 # because it means the user probably wrote something like "Worked: It was also broken in X.X"
                 # which lead to incorrect information.
                 working_lines += f'{line}\n'

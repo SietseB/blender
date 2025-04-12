@@ -39,13 +39,13 @@ void write_radiance_indirect(uchar layer_index, ivec2 texel, vec3 radiance)
 {
   /* TODO(fclem): Layered texture. */
   if (layer_index == 0u) {
-    imageStore(indirect_radiance_1_img, texel, vec4(radiance, 1.0));
+    imageStore(indirect_radiance_1_img, texel, vec4(radiance, 1.0f));
   }
   else if (layer_index == 1u) {
-    imageStore(indirect_radiance_2_img, texel, vec4(radiance, 1.0));
+    imageStore(indirect_radiance_2_img, texel, vec4(radiance, 1.0f));
   }
   else if (layer_index == 2u) {
-    imageStore(indirect_radiance_3_img, texel, vec4(radiance, 1.0));
+    imageStore(indirect_radiance_3_img, texel, vec4(radiance, 1.0f));
   }
 }
 
@@ -58,7 +58,7 @@ void main()
 
   /* Bias the shading point position because of depth buffer precision.
    * Constant is taken from https://www.terathon.com/gdc07_lengyel.pdf. */
-  const float bias = 2.4e-7;
+  const float bias = 2.4e-7f;
   depth -= bias;
 
   vec3 P = drw_point_screen_to_world(vec3(uvcoordsvar.xy, depth));
@@ -72,9 +72,15 @@ void main()
     closure_light_set(stack, i, closure_light_new(gbuffer_closure_get(gbuf, i), V));
   }
 
+  uchar receiver_light_set = 0;
+  if (gbuffer_light_linking_unpack(gbuf.header)) {
+    uint object_id = texelFetch(gbuf_header_tx, ivec3(texel, 1), 0).x;
+    ObjectInfos object_infos = drw_infos[object_id];
+    receiver_light_set = receiver_light_set_get(object_infos);
+  }
+
   /* TODO(fclem): If transmission (no SSS) is present, we could reduce LIGHT_CLOSURE_EVAL_COUNT
    * by 1 for this evaluation and skip evaluating the transmission closure twice. */
-  uchar receiver_light_set = gbuffer_light_link_receiver_unpack(gbuf.header);
   light_eval_reflection(stack, P, Ng, V, vPz, receiver_light_set);
 
   if (use_transmission) {

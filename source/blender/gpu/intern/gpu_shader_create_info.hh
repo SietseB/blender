@@ -122,7 +122,8 @@
 #  define GEOMETRY_LAYOUT(...) .geometry_layout(__VA_ARGS__)
 #  define GEOMETRY_OUT(stage_interface) .geometry_out(stage_interface)
 
-#  define SUBPASS_IN(slot, type, name, rog) .subpass_in(slot, Type::type, #name, rog)
+#  define SUBPASS_IN(slot, type, img_type, name, rog) \
+    .subpass_in(slot, Type::type, ImageType::img_type, #name, rog)
 
 #  define FRAGMENT_OUT(slot, type, name) .fragment_out(slot, Type::type, #name)
 #  define FRAGMENT_OUT_DUAL(slot, type, name, blend) \
@@ -160,7 +161,6 @@
 #  define BUILTINS(builtin) .builtins(builtin)
 
 #  define VERTEX_SOURCE(filename) .vertex_source(filename)
-#  define GEOMETRY_SOURCE(filename) .geometry_source(filename)
 #  define FRAGMENT_SOURCE(filename) .fragment_source(filename)
 #  define COMPUTE_SOURCE(filename) .compute_source(filename)
 
@@ -240,7 +240,7 @@
 #  define GEOMETRY_LAYOUT(...)
 #  define GEOMETRY_OUT(stage_interface) using namespace interface::stage_interface;
 
-#  define SUBPASS_IN(slot, type, name, rog) const type name = {};
+#  define SUBPASS_IN(slot, type, img_type, name, rog) const type name = {};
 
 #  define FRAGMENT_OUT(slot, type, name) \
     namespace gl_FragmentShader { \
@@ -642,8 +642,6 @@ struct ShaderCreateInfo {
   bool auto_resource_location_ = false;
   /** If true, force depth and stencil tests to always happen before fragment shader invocation. */
   bool early_fragment_test_ = false;
-  /** If true, force the use of the GL shader introspection for resource location. */
-  bool legacy_resource_location_ = false;
   /** Allow optimization when fragment shader writes to `gl_FragDepth`. */
   DepthWrite depth_write_ = DepthWrite::UNCHANGED;
   /** GPU Backend compatibility flag. Temporary requirement until Metal enablement is fully
@@ -744,7 +742,24 @@ struct ShaderCreateInfo {
   };
   Vector<FragOut> fragment_outputs_;
 
-  using SubpassIn = FragOut;
+  struct SubpassIn {
+    int index;
+    Type type;
+    ImageType img_type;
+    StringRefNull name;
+    /* NOTE: Currently only supported by Metal. */
+    int raster_order_group;
+
+    bool operator==(const SubpassIn &b) const
+    {
+      TEST_EQUAL(*this, b, index);
+      TEST_EQUAL(*this, b, type);
+      TEST_EQUAL(*this, b, img_type);
+      TEST_EQUAL(*this, b, name);
+      TEST_EQUAL(*this, b, raster_order_group);
+      return true;
+    }
+  };
   Vector<SubpassIn> subpass_inputs_;
 
   Vector<SpecializationConstant> specialization_constants_;
@@ -979,9 +994,10 @@ struct ShaderCreateInfo {
    * be difficult to inject implicitly and will require more high level changes.
    * TODO(fclem): OpenGL can emulate that using `GL_EXT_shader_framebuffer_fetch`.
    */
-  Self &subpass_in(int slot, Type type, StringRefNull name, int raster_order_group = -1)
+  Self &subpass_in(
+      int slot, Type type, ImageType img_type, StringRefNull name, int raster_order_group = -1)
   {
-    subpass_inputs_.append({slot, type, DualBlend::NONE, name, raster_order_group});
+    subpass_inputs_.append({slot, type, img_type, name, raster_order_group});
     return *(Self *)this;
   }
 
@@ -1122,12 +1138,6 @@ struct ShaderCreateInfo {
     return *(Self *)this;
   }
 
-  Self &geometry_source(StringRefNull filename)
-  {
-    geometry_source_ = filename;
-    return *(Self *)this;
-  }
-
   Self &fragment_source(StringRefNull filename)
   {
     fragment_source_ = filename;
@@ -1200,12 +1210,6 @@ struct ShaderCreateInfo {
   Self &auto_resource_location(bool value)
   {
     auto_resource_location_ = value;
-    return *(Self *)this;
-  }
-
-  Self &legacy_resource_location(bool value)
-  {
-    legacy_resource_location_ = value;
     return *(Self *)this;
   }
 

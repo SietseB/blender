@@ -2799,9 +2799,7 @@ static void rekey_particle(PEData *data, int pa_index)
   }
 
   /* replace keys */
-  if (pa->hair) {
-    MEM_freeN(pa->hair);
-  }
+  MEM_freeN(pa->hair);
   pa->hair = new_keys;
 
   point->totkey = pa->totkey = data->totrekey;
@@ -3184,9 +3182,7 @@ static void subdivide_particle(PEData *data, int pa_index)
   nekey->co = nkey->co;
   nekey->time = &nkey->time;
 
-  if (pa->hair) {
-    MEM_freeN(pa->hair);
-  }
+  MEM_freeN(pa->hair);
   pa->hair = new_keys;
 
   if (point->keys) {
@@ -3403,7 +3399,8 @@ void PARTICLE_OT_weight_set(wmOperatorType *ot)
 /** \name Cursor Drawing
  * \{ */
 
-static void brush_drawcursor(bContext *C, int x, int y, void * /*customdata*/)
+static void brush_drawcursor(
+    bContext *C, int x, int y, float /*x_tilt*/, float /*y_tilt*/, void * /*customdata*/)
 {
   Scene *scene = CTX_data_scene(C);
   ParticleEditSettings *pset = PE_settings(scene);
@@ -5057,6 +5054,9 @@ static wmOperatorStatus brush_edit_modal(bContext *C, wmOperator *op, const wmEv
     case MOUSEMOVE:
       brush_edit_apply_event(C, op, event);
       break;
+    default: {
+      break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;

@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 /** #wmEvent.customdata type. */
 enum {
   EVT_DATA_TIMER = 2,
@@ -38,7 +40,7 @@ enum {
  * \note Also used for #wmKeyMapItem.type which is saved in key-map files,
  * do not change the values of existing values which can be used in key-maps.
  */
-enum {
+enum wmEventType : int16_t {
   /* Non-event, for example disabled timer. */
   EVENT_NONE = 0x0000,
 
@@ -166,8 +168,9 @@ enum {
   EVT_ENDKEY = 0x00aa,      /* 170 */
   /* Note that 'PADPERIOD' is defined out-of-order. */
   EVT_UNKNOWNKEY = 0x00ab, /* 171 */
-  EVT_OSKEY = 0x00ac,      /* 172 */
-  EVT_GRLESSKEY = 0x00ad,  /* 173 */
+  /** OS modifier, see: #KM_OSKEY for details. */
+  EVT_OSKEY = 0x00ac,     /* 172 */
+  EVT_GRLESSKEY = 0x00ad, /* 173 */
   /* Media keys. */
   EVT_MEDIAPLAY = 0x00ae,  /* 174 */
   EVT_MEDIASTOP = 0x00af,  /* 175 */

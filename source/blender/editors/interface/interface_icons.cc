@@ -379,7 +379,7 @@ static void vicon_handletype_auto_clamp_draw(
 static void icon_node_socket_draw(int socket_type, int x, int y, int w, int h, float /*alpha*/)
 {
   /* Factor to account for the draw function of the node socket being based on the widget unit,
-   * which is 10 px by default, which differs from icons. */
+   * which is 10 pixels by default, which differs from icons. */
   constexpr float size_factor = 10.0f / float(ICON_DEFAULT_WIDTH);
 
   const float socket_radius = w * 0.5f * size_factor;
@@ -633,6 +633,8 @@ DEF_ICON_NODE_SOCKET_DRAW(material, eNodeSocketDatatype::SOCK_MATERIAL)
 DEF_ICON_NODE_SOCKET_DRAW(rotation, eNodeSocketDatatype::SOCK_ROTATION)
 DEF_ICON_NODE_SOCKET_DRAW(menu, eNodeSocketDatatype::SOCK_MENU)
 DEF_ICON_NODE_SOCKET_DRAW(matrix, eNodeSocketDatatype::SOCK_MATRIX)
+DEF_ICON_NODE_SOCKET_DRAW(bundle, eNodeSocketDatatype::SOCK_BUNDLE)
+DEF_ICON_NODE_SOCKET_DRAW(closure, eNodeSocketDatatype::SOCK_CLOSURE)
 
 /* Dynamically render icon instead of rendering a plain color to a texture/buffer
  * This is not strictly a "vicon", as it needs access to icon->obj to get the color info,
@@ -916,8 +918,8 @@ static void icon_verify_datatoc(IconImage *iimg)
   }
 
   if (iimg->datatoc_rect) {
-    ImBuf *bbuf = IMB_ibImageFromMemory(
-        iimg->datatoc_rect, iimg->datatoc_size, IB_byte_data, nullptr, "<matcap icon>");
+    ImBuf *bbuf = IMB_load_image_from_memory(
+        iimg->datatoc_rect, iimg->datatoc_size, IB_byte_data, "<matcap icon>");
     /* w and h were set on initialize */
     if (bbuf->x != iimg->h && bbuf->y != iimg->w) {
       IMB_scale(bbuf, iimg->w, iimg->h, IMBScaleFilter::Box, false);
@@ -1025,6 +1027,8 @@ static void init_internal_icons()
   def_internal_vicon(ICON_NODE_SOCKET_ROTATION, icon_node_socket_draw_rotation);
   def_internal_vicon(ICON_NODE_SOCKET_MENU, icon_node_socket_draw_menu);
   def_internal_vicon(ICON_NODE_SOCKET_MATRIX, icon_node_socket_draw_matrix);
+  def_internal_vicon(ICON_NODE_SOCKET_BUNDLE, icon_node_socket_draw_bundle);
+  def_internal_vicon(ICON_NODE_SOCKET_CLOSURE, icon_node_socket_draw_closure);
 }
 
 #else
@@ -1369,11 +1373,10 @@ PreviewImage *UI_icon_to_preview(int icon_id)
   else if (di->data.buffer.image) {
     ImBuf *bbuf;
 
-    bbuf = IMB_ibImageFromMemory(di->data.buffer.image->datatoc_rect,
-                                 di->data.buffer.image->datatoc_size,
-                                 IB_byte_data,
-                                 nullptr,
-                                 __func__);
+    bbuf = IMB_load_image_from_memory(di->data.buffer.image->datatoc_rect,
+                                      di->data.buffer.image->datatoc_size,
+                                      IB_byte_data,
+                                      __func__);
     if (bbuf) {
       PreviewImage *prv = BKE_previewimg_create();
 

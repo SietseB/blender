@@ -14,7 +14,7 @@
 #  ifdef __APPLE__
 #    include <MoltenVK/vk_mvk_moltenvk.h>
 #  else
-#    include <vulkan/vulkan.h>
+#    include <vulkan/vulkan_core.h>
 #  endif
 #endif
 
@@ -123,6 +123,11 @@ typedef enum {
    * Support for window decoration styles.
    */
   GHOST_kCapabilityWindowDecorationStyles = (1 << 8),
+  /**
+   * Support for the "Hyper" modifier key.
+   */
+  GHOST_kCapabilityKeyboardHyperKey = (1 << 9),
+
 } GHOST_TCapabilityFlag;
 
 /**
@@ -134,7 +139,7 @@ typedef enum {
    GHOST_kCapabilityPrimaryClipboard | GHOST_kCapabilityGPUReadFrontBuffer | \
    GHOST_kCapabilityClipboardImages | GHOST_kCapabilityDesktopSample | \
    GHOST_kCapabilityInputIME | GHOST_kCapabilityTrackpadPhysicalDirection | \
-   GHOST_kCapabilityWindowDecorationStyles)
+   GHOST_kCapabilityWindowDecorationStyles | GHOST_kCapabilityKeyboardHyperKey)
 
 /* Xtilt and Ytilt represent how much the pen is tilted away from
  * vertically upright in either the X or Y direction, with X and Y the
@@ -755,7 +760,82 @@ typedef struct {
   VkSemaphore acquire_semaphore;
   /** Semaphore to signal after the image has been updated. */
   VkSemaphore present_semaphore;
+  /** Fence to signal after the image has been updated. */
+  VkFence submission_fence;
 } GHOST_VulkanSwapChainData;
+
+typedef enum {
+  /**
+   * Use RAM to transfer the render result to the XR swapchain.
+   *
+   * Application renders a view, downloads the result to CPU RAM, GHOST_XrGraphicsBindingVulkan
+   * will upload it to a GPU buffer and copy the buffer to the XR swapchain.
+   */
+  GHOST_kVulkanXRModeCPU,
+
+  /**
+   * Use Linux FD to transfer the render result to the XR swapchain.
+   *
+   * Application renders a view, export the memory in an FD handle. GHOST_XrGraphicsBindingVulkan
+   * will import the memory and copy the image to the swapchain.
+   */
+  GHOST_kVulkanXRModeFD,
+
+  /**
+   * Use Win32 handle to transfer the render result to the XR swapchain.
+   *
+   * Application renders a view, export the memory in an win32 handle.
+   * GHOST_XrGraphicsBindingVulkan will import the memory and copy the image to the swapchain.
+   */
+  GHOST_kVulkanXRModeWin32,
+} GHOST_TVulkanXRModes;
+
+typedef struct {
+  /**
+   * Mode to use for data transfer between the application rendered result and the OpenXR
+   * swapchain. This is set by the GHOST and should be respected by the application.
+   */
+  GHOST_TVulkanXRModes data_transfer_mode;
+
+  /**
+   * Resolution of view render result.
+   */
+  VkExtent2D extent;
+
+  union {
+    struct {
+
+      /**
+       * Host accessible data containing the image data. Data is stored in the selected swapchain
+       * format. Only used when data_transfer_mode == GHOST_kVulkanXRModeCPU.
+       */
+      void *image_data;
+    } cpu;
+    struct {
+      /**
+       * Handle of the exported GPU memory. Depending on the data_transfer_mode the actual handle
+       * type can be different (void-pointer/int/..).
+       */
+      uint64_t image_handle;
+
+      /**
+       * Data format of the image.
+       */
+      VkFormat image_format;
+
+      /**
+       * Allocation size of the exported memory.
+       */
+      VkDeviceSize memory_size;
+
+      /**
+       * Offset of the texture/buffer inside the allocated memory.
+       */
+      VkDeviceSize memory_offset;
+    } gpu;
+  };
+
+} GHOST_VulkanOpenXRData;
 
 typedef struct {
   VkInstance instance;
@@ -815,8 +895,10 @@ struct GHOST_XrError;
 typedef enum GHOST_TXrGraphicsBinding {
   GHOST_kXrGraphicsUnknown = 0,
   GHOST_kXrGraphicsOpenGL,
+  GHOST_kXrGraphicsVulkan,
 #  ifdef WIN32
-  GHOST_kXrGraphicsD3D11,
+  GHOST_kXrGraphicsOpenGLD3D11,
+  GHOST_kXrGraphicsVulkanD3D11,
 #  endif
   /* For later */
   //  GHOST_kXrGraphicsVulkan,

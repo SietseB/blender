@@ -56,6 +56,7 @@ void VKDevice::deinit()
   pipelines.free_data();
   descriptor_set_layouts_.deinit();
   orphaned_data.deinit(*this);
+  vmaDestroyPool(mem_allocator_, vma_pools.external_memory);
   vmaDestroyAllocator(mem_allocator_);
   mem_allocator_ = VK_NULL_HANDLE;
 
@@ -133,6 +134,15 @@ void VKDevice::init_functions()
   functions.vkSetDebugUtilsObjectName = LOAD_FUNCTION(vkSetDebugUtilsObjectNameEXT);
   functions.vkCreateDebugUtilsMessenger = LOAD_FUNCTION(vkCreateDebugUtilsMessengerEXT);
   functions.vkDestroyDebugUtilsMessenger = LOAD_FUNCTION(vkDestroyDebugUtilsMessengerEXT);
+
+  /* VK_KHR_external_memory_fd */
+  functions.vkGetMemoryFd = LOAD_FUNCTION(vkGetMemoryFdKHR);
+
+#ifdef _WIN32
+  /* VK_KHR_external_memory_win32 */
+  functions.vkGetMemoryWin32Handle = LOAD_FUNCTION(vkGetMemoryWin32HandleKHR);
+#endif
+
 #undef LOAD_FUNCTION
 }
 
@@ -149,7 +159,9 @@ void VKDevice::init_physical_device_properties()
   vk_physical_device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
   vk_physical_device_driver_properties_.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+  vk_physical_device_id_properties_.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
   vk_physical_device_properties.pNext = &vk_physical_device_driver_properties_;
+  vk_physical_device_driver_properties_.pNext = &vk_physical_device_id_properties_;
 
   vkGetPhysicalDeviceProperties2(vk_physical_device_, &vk_physical_device_properties);
   vk_physical_device_properties_ = vk_physical_device_properties.properties;
@@ -206,6 +218,48 @@ void VKDevice::init_memory_allocator()
   info.device = vk_device_;
   info.instance = vk_instance_;
   vmaCreateAllocator(&info, &mem_allocator_);
+
+  /* External memory pool */
+  /* Initialize a dummy image create info to find the memory type index that will be used for
+   * allocating. */
+  VkExternalMemoryHandleTypeFlags vk_external_memory_handle_type = 0;
+#ifdef _WIN32
+  vk_external_memory_handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+  vk_external_memory_handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif
+  VkExternalMemoryImageCreateInfo external_image_create_info = {
+      VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+      nullptr,
+      vk_external_memory_handle_type};
+  VkImageCreateInfo image_create_info = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                                         &external_image_create_info,
+                                         0,
+                                         VK_IMAGE_TYPE_2D,
+                                         VK_FORMAT_R8G8B8A8_UNORM,
+                                         {1024, 1024, 1},
+                                         1,
+                                         1,
+                                         VK_SAMPLE_COUNT_1_BIT,
+                                         VK_IMAGE_TILING_OPTIMAL,
+                                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                             VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                             VK_IMAGE_USAGE_SAMPLED_BIT,
+                                         VK_SHARING_MODE_EXCLUSIVE,
+                                         0,
+                                         nullptr,
+                                         VK_IMAGE_LAYOUT_UNDEFINED};
+  VmaAllocationCreateInfo allocation_create_info = {};
+  allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+  uint32_t memory_type_index;
+  vmaFindMemoryTypeIndexForImageInfo(
+      mem_allocator_, &image_create_info, &allocation_create_info, &memory_type_index);
+
+  vma_pools.external_memory_info.handleTypes = vk_external_memory_handle_type;
+  VmaPoolCreateInfo pool_create_info = {};
+  pool_create_info.memoryTypeIndex = memory_type_index;
+  pool_create_info.pMemoryAllocateNext = &vma_pools.external_memory_info;
+  vmaCreatePool(mem_allocator_, &pool_create_info, &vma_pools.external_memory);
 }
 
 void VKDevice::init_dummy_buffer()
@@ -401,26 +455,6 @@ VKThreadData &VKDevice::current_thread_data()
   thread_data_.append(thread_data);
   return *thread_data;
 }
-
-#if 0
-VKDiscardPool &VKDevice::discard_pool_for_current_thread(bool thread_safe)
-{
-  std::unique_lock lock(resources.mutex, std::defer_lock);
-  if (!thread_safe) {
-    lock.lock();
-  }
-  pthread_t current_thread_id = pthread_self();
-  if (BLI_thread_is_main()) {
-    for (VKThreadData *thread_data : thread_data_) {
-      if (pthread_equal(thread_data->thread_id, current_thread_id)) {
-        return thread_data->resource_pool_get().discard_pool;
-      }
-    }
-  }
-
-  return orphaned_data;
-}
-#endif
 
 void VKDevice::context_register(VKContext &context)
 {

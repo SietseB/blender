@@ -187,6 +187,8 @@ enum eWM_CapabilitiesFlag {
   WM_CAPABILITY_TRACKPAD_PHYSICAL_DIRECTION = (1 << 7),
   /** Support for window decoration styles. */
   WM_CAPABILITY_WINDOW_DECORATION_STYLES = (1 << 8),
+  /** Support for the "Hyper" modifier key. */
+  WM_CAPABILITY_KEYBOARD_HYPER_KEY = (1 << 9),
   /** The initial value, indicates the value needs to be set by inspecting GHOST. */
   WM_CAPABILITY_INITIALIZED = (1u << 31),
 };
@@ -502,7 +504,7 @@ void WM_cursor_time(wmWindow *win, int nr);
 wmPaintCursor *WM_paint_cursor_activate(short space_type,
                                         short region_type,
                                         bool (*poll)(bContext *C),
-                                        void (*draw)(bContext *C, int, int, void *customdata),
+                                        wmPaintCursorDraw draw,
                                         void *customdata);
 
 bool WM_paint_cursor_end(wmPaintCursor *handle);
@@ -765,7 +767,10 @@ void wm_event_init_from_window(wmWindow *win, wmEvent *event);
 /**
  * At maximum, every time_step seconds it triggers `event_type` events.
  */
-wmTimer *WM_event_timer_add(wmWindowManager *wm, wmWindow *win, int event_type, double time_step);
+wmTimer *WM_event_timer_add(wmWindowManager *wm,
+                            wmWindow *win,
+                            wmEventType event_type,
+                            double time_step);
 wmTimer *WM_event_timer_add_notifier(wmWindowManager *wm,
                                      wmWindow *win,
                                      unsigned int type,

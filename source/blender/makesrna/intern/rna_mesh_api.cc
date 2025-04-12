@@ -163,7 +163,7 @@ static void rna_Mesh_normals_split_custom_set_from_vertices(Mesh *mesh,
 
 static void rna_Mesh_transform(Mesh *mesh, const float mat[16], bool shape_keys)
 {
-  BKE_mesh_transform(mesh, (const float(*)[4])mat, shape_keys);
+  blender::bke::mesh_transform(*mesh, blender::float4x4(mat), shape_keys);
 
   DEG_id_tag_update(&mesh->id, 0);
 }
@@ -196,6 +196,8 @@ static void rna_Mesh_update(Mesh *mesh,
   mesh->runtime->vert_normals_cache.tag_dirty();
   mesh->runtime->face_normals_cache.tag_dirty();
   mesh->runtime->corner_normals_cache.tag_dirty();
+  mesh->runtime->vert_normals_true_cache.tag_dirty();
+  mesh->runtime->face_normals_true_cache.tag_dirty();
 
   DEG_id_tag_update(&mesh->id, 0);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, mesh);

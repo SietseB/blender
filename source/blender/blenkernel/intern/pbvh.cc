@@ -817,11 +817,11 @@ static const SharedCache<Vector<float3>> &vert_normals_cache_eval(const Object &
   if (object_orig.mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
     if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh_no_subsurf(&object_eval)) {
       if (mesh_topology_count_matches(*mesh_eval, mesh_orig)) {
-        return mesh_eval->runtime->vert_normals_cache;
+        return mesh_eval->runtime->vert_normals_true_cache;
       }
     }
     if (const Mesh *mesh_eval = BKE_object_get_mesh_deform_eval(&object_eval)) {
-      return mesh_eval->runtime->vert_normals_cache;
+      return mesh_eval->runtime->vert_normals_true_cache;
     }
   }
 
@@ -830,7 +830,7 @@ static const SharedCache<Vector<float3>> &vert_normals_cache_eval(const Object &
     return ss.vert_normals_deform;
   }
 
-  return mesh_orig.runtime->vert_normals_cache;
+  return mesh_orig.runtime->vert_normals_true_cache;
 }
 static SharedCache<Vector<float3>> &vert_normals_cache_eval_for_write(Object &object_orig,
                                                                       Object &object_eval)
@@ -848,11 +848,11 @@ static const SharedCache<Vector<float3>> &face_normals_cache_eval(const Object &
   if (object_orig.mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
     if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh_no_subsurf(&object_eval)) {
       if (mesh_topology_count_matches(*mesh_eval, mesh_orig)) {
-        return mesh_eval->runtime->face_normals_cache;
+        return mesh_eval->runtime->face_normals_true_cache;
       }
     }
     if (const Mesh *mesh_eval = BKE_object_get_mesh_deform_eval(&object_eval)) {
-      return mesh_eval->runtime->face_normals_cache;
+      return mesh_eval->runtime->face_normals_true_cache;
     }
   }
 
@@ -861,7 +861,7 @@ static const SharedCache<Vector<float3>> &face_normals_cache_eval(const Object &
     return ss.face_normals_deform;
   }
 
-  return mesh_orig.runtime->face_normals_cache;
+  return mesh_orig.runtime->face_normals_true_cache;
 }
 static SharedCache<Vector<float3>> &face_normals_cache_eval_for_write(Object &object_orig,
                                                                       Object &object_eval)
@@ -1424,27 +1424,6 @@ int count_grid_quads(const BitGroupVector<> &grid_hidden,
 
 }  // namespace blender::bke::pbvh
 
-blender::Bounds<blender::float3> BKE_pbvh_redraw_BB(const blender::bke::pbvh::Tree &pbvh)
-{
-  using namespace blender;
-  using namespace blender::bke::pbvh;
-  if (tree_is_empty(pbvh)) {
-    return {};
-  }
-  Bounds<float3> bounds = negative_bounds();
-
-  PBVHIter iter;
-  pbvh_iter_begin(&iter, const_cast<blender::bke::pbvh::Tree &>(pbvh), {});
-  Node *node;
-  while ((node = pbvh_iter_next(&iter, Node::Leaf))) {
-    if (node->flag_ & Node::UpdateRedraw) {
-      bounds = bounds::merge(bounds, node->bounds_);
-    }
-  }
-
-  return bounds;
-}
-
 namespace blender::bke::pbvh {
 
 IndexMask nodes_to_face_selection_grids(const SubdivCCG &subdiv_ccg,
@@ -1589,21 +1568,6 @@ Span<int> node_face_indices_calc_grids(const SubdivCCG &subdiv_ccg,
 }
 
 }  // namespace blender::bke::pbvh
-
-namespace blender::bke::pbvh {
-
-Bounds<float3> node_bounds(const Node &node)
-{
-  return node.bounds_;
-}
-
-}  // namespace blender::bke::pbvh
-
-blender::Bounds<blender::float3> BKE_pbvh_node_get_original_BB(
-    const blender::bke::pbvh::Node *node)
-{
-  return node->bounds_orig_;
-}
 
 void BKE_pbvh_node_get_bm_orco_data(const blender::bke::pbvh::BMeshNode &node,
                                     blender::Span<blender::float3> &r_orig_positions,
@@ -2016,10 +1980,10 @@ void clip_ray_ortho(
   const float offset_vec[3] = {1e-3f, 1e-3f, 1e-3f};
 
   if (original) {
-    bb_root = BKE_pbvh_node_get_original_BB(&first_node(pbvh));
+    bb_root = first_node(pbvh).bounds_orig();
   }
   else {
-    bb_root = node_bounds(first_node(pbvh));
+    bb_root = first_node(pbvh).bounds();
   }
 
   /* Calc rough clipping to avoid overflow later. See #109555. */
@@ -2429,7 +2393,7 @@ Span<float3> vert_positions_eval(const Depsgraph &depsgraph, const Object &objec
 Span<float3> vert_positions_eval_from_eval(const Object &object_eval)
 {
   BLI_assert(!DEG_is_original_object(&object_eval));
-  const Object &object_orig = *DEG_get_original_object(&const_cast<Object &>(object_eval));
+  const Object &object_orig = *DEG_get_original_object(&object_eval);
   return vert_positions_eval(object_orig, object_eval);
 }
 
@@ -2441,22 +2405,21 @@ MutableSpan<float3> vert_positions_eval_for_write(const Depsgraph &depsgraph, Ob
 
 Span<float3> vert_normals_eval(const Depsgraph &depsgraph, const Object &object_orig)
 {
-  const Object &object_eval = *DEG_get_evaluated_object(&depsgraph,
-                                                        &const_cast<Object &>(object_orig));
+  const Object &object_eval = *DEG_get_evaluated_object(&depsgraph, &object_orig);
   return vert_normals_cache_eval(object_orig, object_eval).data();
 }
 
 Span<float3> vert_normals_eval_from_eval(const Object &object_eval)
 {
   BLI_assert(!DEG_is_original_object(&object_eval));
-  Object &object_orig = *DEG_get_original_object(&const_cast<Object &>(object_eval));
+  const Object &object_orig = *DEG_get_original_object(&object_eval);
   return vert_normals_cache_eval(object_orig, object_eval).data();
 }
 
 Span<float3> face_normals_eval_from_eval(const Object &object_eval)
 {
   BLI_assert(!DEG_is_original_object(&object_eval));
-  Object &object_orig = *DEG_get_original_object(&const_cast<Object &>(object_eval));
+  const Object &object_orig = *DEG_get_original_object(&object_eval);
   return face_normals_cache_eval(object_orig, object_eval).data();
 }
 

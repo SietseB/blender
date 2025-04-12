@@ -381,6 +381,8 @@ static std::optional<ID_Type> socket_type_to_id_type(const eNodeSocketDatatype s
     case SOCK_ROTATION:
     case SOCK_MENU:
     case SOCK_MATRIX:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       return std::nullopt;
     case SOCK_OBJECT:
       return ID_OB;
@@ -636,7 +638,7 @@ static wmOperatorStatus run_node_group_exec(bContext *C, wmOperator *op)
   }
 
   geo_log::GeoTreeLog &tree_log = eval_log.log->get_tree_log(compute_context.hash());
-  tree_log.ensure_node_warnings(node_tree);
+  tree_log.ensure_node_warnings(*bmain);
   for (const geo_log::NodeWarning &warning : tree_log.all_warnings) {
     if (warning.type == geo_log::NodeWarningType::Info) {
       BKE_report(op->reports, RPT_INFO, warning.message.c_str());

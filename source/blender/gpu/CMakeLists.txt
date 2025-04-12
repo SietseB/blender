@@ -98,7 +98,8 @@ set(SRC
   intern/gpu_vertex_format.cc
   intern/gpu_vertex_format_normals.cc
   intern/gpu_viewport.cc
-
+  intern/gpu_worker.cc
+  
   GPU_attribute_convert.hh
   GPU_batch.hh
   GPU_batch_presets.hh
@@ -132,6 +133,7 @@ set(SRC
   GPU_vertex_buffer.hh
   GPU_vertex_format.hh
   GPU_viewport.hh
+  GPU_worker.hh
 
   intern/gpu_backend.hh
   intern/gpu_capabilities_private.hh
@@ -277,6 +279,7 @@ set(VULKAN_SRC
   vulkan/vk_image_view.hh
   vulkan/vk_immediate.hh
   vulkan/vk_index_buffer.hh
+  vulkan/vk_memory.hh
   vulkan/vk_memory_layout.hh
   vulkan/vk_pipeline_pool.hh
   vulkan/vk_pixel_buffer.hh

@@ -68,6 +68,8 @@
 #include "BKE_node_tree_update.hh"
 #include "BKE_preview_image.hh"
 #include "BKE_type_conversions.hh"
+#include "NOD_geometry_nodes_bundle.hh"
+#include "NOD_geometry_nodes_closure.hh"
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
@@ -77,7 +79,9 @@
 #include "NOD_common.hh"
 #include "NOD_composite.hh"
 #include "NOD_geo_bake.hh"
+#include "NOD_geo_bundle.hh"
 #include "NOD_geo_capture_attribute.hh"
+#include "NOD_geo_closure.hh"
 #include "NOD_geo_foreach_geometry_element.hh"
 #include "NOD_geo_index_switch.hh"
 #include "NOD_geo_menu_switch.hh"
@@ -203,7 +207,11 @@ static void ntree_copy_data(Main * /*bmain*/,
     dst_runtime.reference_lifetimes_info = std::make_unique<ReferenceLifetimesInfo>(
         *ntree_src->runtime->reference_lifetimes_info);
     for (ReferenceSetInfo &reference_set : dst_runtime.reference_lifetimes_info->reference_sets) {
-      if (ELEM(reference_set.type, ReferenceSetType::LocalReferenceSet)) {
+      if (ELEM(reference_set.type,
+               ReferenceSetType::LocalReferenceSet,
+               ReferenceSetType::ClosureInputReferenceSet,
+               ReferenceSetType::ClosureOutputData))
+      {
         reference_set.socket = socket_map.lookup(reference_set.socket);
       }
       for (auto &socket : reference_set.potential_data_origins) {
@@ -330,6 +338,8 @@ static void library_foreach_node_socket(bNodeSocket *sock, LibraryForeachIDData 
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
     case SOCK_MENU:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       break;
   }
 }
@@ -656,6 +666,27 @@ static void update_node_location_legacy(bNodeTree &ntree)
   }
 }
 
+/* Some node properties were turned into inputs, so we write the input values back to the
+ * properties upon write to maintain forward compatibility. */
+static void write_compositor_legacy_properties(bNodeTree &node_tree)
+{
+  if (node_tree.type != NTREE_COMPOSIT) {
+    return;
+  }
+
+  for (bNode *node : node_tree.all_nodes()) {
+    auto write_input_to_property_bool_char = [&](const char *identifier, char &property) {
+      const bNodeSocket *input = blender::bke::node_find_socket(*node, SOCK_IN, identifier);
+      property = input->default_value_typed<bNodeSocketValueBoolean>()->value;
+    };
+
+    if (node->type_legacy == CMP_NODE_GLARE) {
+      NodeGlare *storage = static_cast<NodeGlare *>(node->storage);
+      write_input_to_property_bool_char("Diagonal Star", storage->star_45);
+    }
+  }
+}
+
 }  // namespace forward_compat
 
 static void write_node_socket_default_value(BlendWriter *writer, const bNodeSocket *sock)
@@ -712,6 +743,8 @@ static void write_node_socket_default_value(BlendWriter *writer, const bNodeSock
       break;
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       BLI_assert_unreachable();
       break;
   }
@@ -738,6 +771,7 @@ void node_tree_blend_write(BlendWriter *writer, bNodeTree *ntree)
 
   if (!BLO_write_is_undo(writer)) {
     forward_compat::update_node_location_legacy(*ntree);
+    forward_compat::write_compositor_legacy_properties(*ntree);
   }
 
   for (bNode *node : ntree->all_nodes()) {
@@ -882,6 +916,20 @@ void node_tree_blend_write(BlendWriter *writer, bNodeTree *ntree)
     if (node->type_legacy == GEO_NODE_BAKE) {
       nodes::socket_items::blend_write<nodes::BakeItemsAccessor>(writer, *node);
     }
+    if (node->type_legacy == GEO_NODE_COMBINE_BUNDLE) {
+      nodes::socket_items::blend_write<nodes::CombineBundleItemsAccessor>(writer, *node);
+    }
+    if (node->type_legacy == GEO_NODE_SEPARATE_BUNDLE) {
+      nodes::socket_items::blend_write<nodes::SeparateBundleItemsAccessor>(writer, *node);
+    }
+    if (node->type_legacy == GEO_NODE_CLOSURE_OUTPUT) {
+      nodes::socket_items::blend_write<nodes::ClosureInputItemsAccessor>(writer, *node);
+      nodes::socket_items::blend_write<nodes::ClosureOutputItemsAccessor>(writer, *node);
+    }
+    if (node->type_legacy == GEO_NODE_EVALUATE_CLOSURE) {
+      nodes::socket_items::blend_write<nodes::EvaluateClosureInputItemsAccessor>(writer, *node);
+      nodes::socket_items::blend_write<nodes::EvaluateClosureOutputItemsAccessor>(writer, *node);
+    }
     if (node->type_legacy == GEO_NODE_MENU_SWITCH) {
       nodes::socket_items::blend_write<nodes::MenuSwitchItemsAccessor>(writer, *node);
     }
@@ -961,6 +1009,8 @@ static bool is_node_socket_supported(const bNodeSocket *sock)
     case SOCK_ROTATION:
     case SOCK_MENU:
     case SOCK_MATRIX:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       return true;
   }
   return false;
@@ -1178,6 +1228,26 @@ void node_tree_blend_read_data(BlendDataReader *reader, ID *owner_id, bNodeTree 
         }
         case GEO_NODE_BAKE: {
           nodes::socket_items::blend_read_data<nodes::BakeItemsAccessor>(reader, *node);
+          break;
+        }
+        case GEO_NODE_COMBINE_BUNDLE: {
+          nodes::socket_items::blend_read_data<nodes::CombineBundleItemsAccessor>(reader, *node);
+          break;
+        }
+        case GEO_NODE_CLOSURE_OUTPUT: {
+          nodes::socket_items::blend_read_data<nodes::ClosureInputItemsAccessor>(reader, *node);
+          nodes::socket_items::blend_read_data<nodes::ClosureOutputItemsAccessor>(reader, *node);
+          break;
+        }
+        case GEO_NODE_EVALUATE_CLOSURE: {
+          nodes::socket_items::blend_read_data<nodes::EvaluateClosureInputItemsAccessor>(reader,
+                                                                                         *node);
+          nodes::socket_items::blend_read_data<nodes::EvaluateClosureOutputItemsAccessor>(reader,
+                                                                                          *node);
+          break;
+        }
+        case GEO_NODE_SEPARATE_BUNDLE: {
+          nodes::socket_items::blend_read_data<nodes::SeparateBundleItemsAccessor>(reader, *node);
           break;
         }
         case GEO_NODE_MENU_SWITCH: {
@@ -1904,17 +1974,6 @@ bNodeSocket *node_find_enabled_output_socket(bNode &node, const StringRef name)
   return node_find_enabled_socket(node, SOCK_OUT, name);
 }
 
-static bool unique_identifier_check(void *arg, const char *identifier)
-{
-  const ListBase *lb = static_cast<const ListBase *>(arg);
-  LISTBASE_FOREACH (bNodeSocket *, sock, lb) {
-    if (STREQ(sock->identifier, identifier)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 static bNodeSocket *make_socket(bNodeTree *ntree,
                                 bNode * /*node*/,
                                 const int in_out,
@@ -1935,7 +1994,18 @@ static bNodeSocket *make_socket(bNodeTree *ntree,
   }
   /* Make the identifier unique. */
   BLI_uniquename_cb(
-      unique_identifier_check, lb, "socket", '_', auto_identifier, sizeof(auto_identifier));
+      [&](const StringRef check_name) {
+        LISTBASE_FOREACH (bNodeSocket *, sock, lb) {
+          if (sock->identifier == check_name) {
+            return true;
+          }
+        }
+        return false;
+      },
+      "socket",
+      '_',
+      auto_identifier,
+      sizeof(auto_identifier));
 
   bNodeSocket *sock = MEM_callocN<bNodeSocket>(__func__);
   sock->runtime = MEM_new<bNodeSocketRuntime>(__func__);
@@ -1998,6 +2068,8 @@ static void socket_id_user_increment(bNodeSocket *sock)
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       break;
   }
 }
@@ -2046,6 +2118,8 @@ static bool socket_id_user_decrement(bNodeSocket *sock)
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       break;
   }
   return false;
@@ -2104,6 +2178,8 @@ void node_modify_socket_type(bNodeTree &ntree,
         case SOCK_TEXTURE:
         case SOCK_MATERIAL:
         case SOCK_MENU:
+        case SOCK_BUNDLE:
+        case SOCK_CLOSURE:
           break;
       }
     }
@@ -2247,6 +2323,10 @@ std::optional<StringRefNull> node_static_socket_type(const int type, const int s
       return "NodeSocketMaterial";
     case SOCK_MENU:
       return "NodeSocketMenu";
+    case SOCK_BUNDLE:
+      return "NodeSocketBundle";
+    case SOCK_CLOSURE:
+      return "NodeSocketClosure";
     case SOCK_CUSTOM:
       break;
   }
@@ -2344,6 +2424,10 @@ std::optional<StringRefNull> node_static_socket_interface_type_new(const int typ
       return "NodeTreeInterfaceSocketMaterial";
     case SOCK_MENU:
       return "NodeTreeInterfaceSocketMenu";
+    case SOCK_BUNDLE:
+      return "NodeTreeInterfaceSocketBundle";
+    case SOCK_CLOSURE:
+      return "NodeTreeInterfaceSocketClosure";
     case SOCK_CUSTOM:
       break;
   }
@@ -2385,6 +2469,10 @@ std::optional<StringRefNull> node_static_socket_label(const int type, const int 
       return "Material";
     case SOCK_MENU:
       return "Menu";
+    case SOCK_BUNDLE:
+      return "Bundle";
+    case SOCK_CLOSURE:
+      return "Closure";
     case SOCK_CUSTOM:
       break;
   }
@@ -2863,6 +2951,8 @@ static void *socket_value_storage(bNodeSocket &socket)
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_BUNDLE:
+    case SOCK_CLOSURE:
       /* Unmovable types. */
       break;
   }
@@ -3631,7 +3721,8 @@ void node_tree_set_output(bNodeTree &ntree)
         }
       }
 
-      if (output == 0) {
+      /* Only geometry nodes is allowed to have no active output in the node tree. */
+      if (output == 0 && !is_geometry) {
         node->flag |= NODE_DO_OUTPUT;
       }
     }
@@ -4282,6 +4373,12 @@ const CPPType *socket_type_to_geo_nodes_base_cpp_type(const eNodeSocketDatatype 
     case SOCK_MATRIX:
       cpp_type = &CPPType::get<float4x4>();
       break;
+    case SOCK_BUNDLE:
+      cpp_type = &CPPType::get<nodes::BundlePtr>();
+      break;
+    case SOCK_CLOSURE:
+      cpp_type = &CPPType::get<nodes::ClosurePtr>();
+      break;
     default:
       cpp_type = slow_socket_type_to_geo_nodes_base_cpp_type(type);
       break;
@@ -4315,6 +4412,12 @@ std::optional<eNodeSocketDatatype> geo_nodes_base_cpp_type_to_socket_type(const 
   }
   if (type.is<std::string>()) {
     return SOCK_STRING;
+  }
+  if (type.is<nodes::BundlePtr>()) {
+    return SOCK_BUNDLE;
+  }
+  if (type.is<nodes::ClosurePtr>()) {
+    return SOCK_CLOSURE;
   }
   return std::nullopt;
 }
@@ -4351,42 +4454,26 @@ std::optional<eNodeSocketDatatype> grid_type_to_socket_type(const VolumeGridType
   }
 }
 
-struct SocketTemplateIdentifierCallbackData {
-  bNodeSocketTemplate *list;
-  bNodeSocketTemplate *ntemp;
-};
-
-static bool unique_socket_template_identifier_check(void *arg, const char *name)
-{
-  const SocketTemplateIdentifierCallbackData *data =
-      static_cast<const SocketTemplateIdentifierCallbackData *>(arg);
-
-  for (bNodeSocketTemplate *ntemp = data->list; ntemp->type >= 0; ntemp++) {
-    if (ntemp != data->ntemp) {
-      if (STREQ(ntemp->identifier, name)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 static void unique_socket_template_identifier(bNodeSocketTemplate *list,
                                               bNodeSocketTemplate *ntemp,
                                               const char defname[],
                                               const char delim)
 {
-  SocketTemplateIdentifierCallbackData data;
-  data.list = list;
-  data.ntemp = ntemp;
-
-  BLI_uniquename_cb(unique_socket_template_identifier_check,
-                    &data,
-                    defname,
-                    delim,
-                    ntemp->identifier,
-                    sizeof(ntemp->identifier));
+  BLI_uniquename_cb(
+      [&](const StringRef check_name) {
+        for (bNodeSocketTemplate *ntemp_iter = list; ntemp_iter->type >= 0; ntemp_iter++) {
+          if (ntemp_iter != ntemp) {
+            if (ntemp_iter->identifier == check_name) {
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      defname,
+      delim,
+      ntemp->identifier,
+      sizeof(ntemp->identifier));
 }
 
 void node_type_socket_templates(bNodeType *ntype,

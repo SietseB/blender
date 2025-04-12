@@ -132,7 +132,7 @@ bool shape_key_report_if_any_locked(Object *ob, ReportList *reports)
 /** \name Add Shape Key Function
  * \{ */
 
-static void ED_object_shape_key_add(bContext *C, Object *ob, const bool from_mix)
+static void object_shape_key_add(bContext *C, Object *ob, const bool from_mix)
 {
   Main *bmain = CTX_data_main(C);
   KeyBlock *kb = BKE_object_shapekey_insert(bmain, ob, nullptr, from_mix);
@@ -344,7 +344,7 @@ static wmOperatorStatus shape_key_add_exec(bContext *C, wmOperator *op)
   Object *ob = context_object(C);
   const bool from_mix = RNA_boolean_get(op->ptr, "from_mix");
 
-  ED_object_shape_key_add(C, ob, from_mix);
+  object_shape_key_add(C, ob, from_mix);
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   DEG_relations_tag_update(CTX_data_main(C));
@@ -372,6 +372,35 @@ void OBJECT_OT_shape_key_add(wmOperatorType *ot)
                   true,
                   "From Mix",
                   "Create the new shape key from the existing mix of keys");
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Shape Key Duplicate Operator
+ * \{ */
+
+static wmOperatorStatus shape_key_copy_exec(bContext *C, wmOperator * /*op*/)
+{
+  Object *ob = context_object(C);
+  Key *key = BKE_key_from_object(ob);
+  BKE_keyblock_duplicate(key, BKE_keyblock_from_object(ob));
+  WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
+  DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+  DEG_relations_tag_update(CTX_data_main(C));
+  return OPERATOR_FINISHED;
+}
+
+void OBJECT_OT_shape_key_copy(wmOperatorType *ot)
+{
+  ot->name = "Duplicate Shape Key";
+  ot->idname = "OBJECT_OT_shape_key_copy";
+  ot->description = "Duplicate the acive shape key";
+
+  ot->poll = shape_key_mode_exists_poll;
+  ot->exec = shape_key_copy_exec;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /** \} */

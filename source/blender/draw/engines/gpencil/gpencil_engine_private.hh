@@ -9,6 +9,7 @@
 #pragma once
 
 #include "BLI_memblock.h"
+#include "DNA_shader_fx_types.h"
 #include "DRW_render.hh"
 
 #include "BLI_bitmap.h"
@@ -123,6 +124,7 @@ struct Instance final : public DrawEngine {
   PassSimple smaa_edge_ps = {"smaa_edge"};
   PassSimple smaa_weight_ps = {"smaa_weight"};
   PassSimple smaa_resolve_ps = {"smaa_resolve"};
+  PassSimple accumulate_ps = {"aa_accumulate"};
   /* Composite the object depth to the default depth buffer to occlude overlays. */
   PassSimple merge_depth_ps = {"merge_depth_ps"};
   /* Invert mask buffer content. */
@@ -140,7 +142,7 @@ struct Instance final : public DrawEngine {
   Texture snapshot_depth_tx = {"snapshot_depth_tx"};
   Texture snapshot_color_tx = {"snapshot_color_tx"};
   Texture snapshot_reveal_tx = {"snapshot_reveal_tx"};
-  /* Textures used by Antialiasing. */
+  /* Textures used by Anti-aliasing. */
   Texture smaa_area_tx = {"smaa_area_tx"};
   Texture smaa_search_tx = {"smaa_search_tx"};
 
@@ -205,6 +207,9 @@ struct Instance final : public DrawEngine {
   /* Pointer to dtxl->depth */
   GPUTexture *scene_depth_tx;
   GPUFrameBuffer *scene_fb;
+  /* Used for render accumulation antialiasing. */
+  Texture accumulation_tx = {"gp_accumulation_tx"};
+  Framebuffer accumulation_fb = {"gp_accumulation_fb"};
   /* Copy of txl->dummy_tx */
   GPUTexture *dummy_tx;
   /* Copy of v3d->shading.single_color. */
@@ -313,6 +318,10 @@ struct Instance final : public DrawEngine {
 
   void draw(Manager &manager) final;
 
+  void antialiasing_accumulate(Manager &manager, float alpha);
+
+  static float2 antialiasing_sample_get(int sample_index, int sample_count);
+
  private:
   tObject *object_sync_do(Object *ob, ResourceHandle res_handle);
 
@@ -335,6 +344,33 @@ struct Instance final : public DrawEngine {
 
   void antialiasing_init();
   void antialiasing_draw(Manager &manager);
+
+  struct VfxFramebufferRef {
+    /* These may not be allocated yet, use address of future pointer. */
+    GPUFrameBuffer **fb;
+    GPUTexture **color_tx;
+    GPUTexture **reveal_tx;
+  };
+
+  SwapChain<VfxFramebufferRef, 2> vfx_swapchain_;
+
+  PassSimple &vfx_pass_create(const char *name,
+                              DRWState state,
+                              GPUShader *sh,
+                              tObject *tgp_ob,
+                              GPUSamplerState sampler = GPUSamplerState::internal_sampler());
+
+  void vfx_blur_sync(BlurShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_colorize_sync(ColorizeShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_flip_sync(FlipShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_rim_sync(RimShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_pixelize_sync(PixelShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_shadow_sync(ShadowShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_glow_sync(GlowShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_wave_sync(WaveShaderFxData *fx, Object *ob, tObject *tgp_ob);
+  void vfx_swirl_sync(SwirlShaderFxData *fx, Object *ob, tObject *tgp_ob);
+
+  void vfx_sync(Object *ob, tObject *tgp_ob);
 
   static void material_pool_free(void *storage)
   {
@@ -395,11 +431,5 @@ LightPool *gpencil_light_pool_add(Instance *inst);
  * Creates a single pool containing all lights assigned (light linked) for a given object.
  */
 LightPool *gpencil_light_pool_create(Instance *inst, Object *ob);
-
-/* effects */
-void gpencil_vfx_cache_populate(Instance *inst,
-                                Object *ob,
-                                tObject *tgp_ob,
-                                const bool is_edit_mode);
 
 }  // namespace blender::draw::gpencil

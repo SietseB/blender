@@ -37,16 +37,18 @@ void main()
     ClosureSubsurface closure = to_closure_subsurface(gbuffer_closure_get(gbuf, 0));
     float max_radius = reduce_max(closure.sss_radius);
 
-    imageStoreFast(radiance_img, texel, vec4(radiance, 0.0));
-    imageStoreFast(object_id_img, texel, uvec4(gbuf.object_id));
+    uint object_id = texelFetch(gbuf_header_tx, ivec3(texel, 1), 0).x;
+
+    imageStoreFast(radiance_img, texel, vec4(radiance, 0.0f));
+    imageStoreFast(object_id_img, texel, uvec4(object_id));
 
     float depth = texelFetch(depth_tx, texel, 0).r;
     /* TODO(fclem): Check if this simplifies. */
     float vPz = drw_depth_screen_to_view(depth);
     float homcoord = drw_view().winmat[2][3] * vPz + drw_view().winmat[3][3];
-    float sample_scale = drw_view().winmat[0][0] * (0.5 * max_radius / homcoord);
+    float sample_scale = drw_view().winmat[0][0] * (0.5f * max_radius / homcoord);
     float pixel_footprint = sample_scale * float(textureSize(gbuf_header_tx, 0).x);
-    if (pixel_footprint > 1.0) {
+    if (pixel_footprint > 1.0f) {
       /* Race condition doesn't matter here. */
       has_visible_sss = 1u;
     }

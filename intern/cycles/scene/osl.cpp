@@ -143,13 +143,12 @@ void OSLManager::device_update_pre(Device *device, Scene *scene)
   }
 }
 
-void OSLManager::device_update_post(Device *device, Scene *scene, Progress &progress)
+void OSLManager::device_update_post(Device *device,
+                                    Scene *scene,
+                                    Progress &progress,
+                                    const bool reload_kernels)
 {
-  if (!need_update()) {
-    return;
-  }
-
-  {
+  if (need_update()) {
     scoped_callback_timer timer([scene](double time) {
       if (scene->update_stats) {
         scene->update_stats->osl.times.add_entry({"jit", time});
@@ -181,21 +180,23 @@ void OSLManager::device_update_post(Device *device, Scene *scene, Progress &prog
     OSLRenderServices::image_manager = nullptr;
   }
 
-  /* setup shader engine */
-  foreach_osl_device(device, [this, &progress](Device *sub_device, OSLGlobals *og) {
-    if (og->use) {
-      OSL::ShadingSystem *ss = get_shading_system(sub_device);
+  /* Load OSL kernels on changes to shaders, or when main kernels got reloaded. */
+  if (need_update() || reload_kernels) {
+    foreach_osl_device(device, [this, &progress](Device *sub_device, OSLGlobals *og) {
+      if (og->use) {
+        OSL::ShadingSystem *ss = get_shading_system(sub_device);
 
-      og->ss = ss;
-      og->ts = get_texture_system();
-      og->services = static_cast<OSLRenderServices *>(ss->renderer());
+        og->ss = ss;
+        og->ts = get_texture_system();
+        og->services = static_cast<OSLRenderServices *>(ss->renderer());
 
-      /* load kernels */
-      if (!sub_device->load_osl_kernels()) {
-        progress.set_error(sub_device->error_message());
+        /* load kernels */
+        if (!sub_device->load_osl_kernels()) {
+          progress.set_error(sub_device->error_message());
+        }
       }
-    }
-  });
+    });
+  }
 
   need_update_ = false;
 }
@@ -777,6 +778,29 @@ OSLNode *OSLShaderManager::osl_node(ShaderGraph *graph,
         if (metadata.type == TypeDesc::STRING) {
           if (metadata.name == "widget" && metadata.sdefault[0] == "null") {
             socket_flags |= SocketType::LINK_OSL_INITIALIZER;
+          }
+          else if (metadata.name == "defaultgeomprop") {
+            /* the following match up to MaterialX default geometry properties
+             * that we use to help set socket flags to the corresponding
+             * geometry link equivalents. */
+            if (metadata.sdefault[0] == "Nobject") {
+              socket_flags |= SocketType::LINK_TEXTURE_NORMAL;
+            }
+            else if (metadata.sdefault[0] == "Nworld") {
+              socket_flags |= SocketType::LINK_NORMAL;
+            }
+            else if (metadata.sdefault[0] == "Pobject") {
+              socket_flags |= SocketType::LINK_TEXTURE_GENERATED;
+            }
+            else if (metadata.sdefault[0] == "Pworld") {
+              socket_flags |= SocketType::LINK_POSITION;
+            }
+            else if (metadata.sdefault[0] == "Tworld") {
+              socket_flags |= SocketType::LINK_TANGENT;
+            }
+            else if (metadata.sdefault[0] == "UV0") {
+              socket_flags |= SocketType::LINK_TEXTURE_UV;
+            }
           }
         }
       }

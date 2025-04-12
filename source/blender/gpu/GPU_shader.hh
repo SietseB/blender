@@ -335,9 +335,6 @@ void GPU_shader_warm_cache(GPUShader *shader, int limit);
  * called. */
 void GPU_shader_set_parent(GPUShader *shader, GPUShader *parent);
 
-/** DEPRECATED: Kept only because of BGL API. */
-int GPU_shader_get_program(GPUShader *shader);
-
 /**
  * Indexed commonly used uniform name for faster lookup into the uniform cache.
  */
@@ -425,7 +422,7 @@ class StaticShader : NonCopyable {
   std::string info_name_;
   std::atomic<GPUShader *> shader_ = nullptr;
   /* TODO: Failed compilation detection should be supported by the GPUShader API. */
-  std::atomic_bool failed_ = false;
+  std::atomic<bool> failed_ = false;
   std::mutex mutex_;
 
   void move(StaticShader &&other)

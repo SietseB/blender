@@ -774,6 +774,10 @@ bool ui_but_rna_equals_ex(const uiBut *but,
 /* NOTE: if `but->poin` is allocated memory for every `uiDefBut*`, things fail. */
 static bool ui_but_equals_old(const uiBut *but, const uiBut *oldbut)
 {
+  if (but->type != oldbut->type) {
+    return false;
+  }
+
   if (but->identity_cmp_func) {
     /* If the buttons have their own identity comparator callbacks (and they match), use this to
      * determine equality. */
@@ -829,7 +833,7 @@ static bool ui_but_equals_old(const uiBut *but, const uiBut *oldbut)
     return false;
   }
 
-  if ((but->type == UI_BTYPE_VIEW_ITEM) && (oldbut->type == UI_BTYPE_VIEW_ITEM)) {
+  if (but->type == UI_BTYPE_VIEW_ITEM) {
     uiButViewItem *but_item = (uiButViewItem *)but;
     uiButViewItem *oldbut_item = (uiButViewItem *)oldbut;
     if (!but_item->view_item || !oldbut_item->view_item ||
@@ -1691,7 +1695,7 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
           continue;
         }
       }
-      else if (but->emboss != UI_EMBOSS_PULLDOWN) {
+      else if (but->emboss != blender::ui::EmbossType::Pulldown) {
         continue;
       }
 
@@ -3819,7 +3823,7 @@ uiBlock *UI_block_begin(const bContext *C,
                         wmWindow *window,
                         ARegion *region,
                         std::string name,
-                        eUIEmbossType emboss)
+                        blender::ui::EmbossType emboss)
 {
   uiBlock *block = MEM_new<uiBlock>(__func__);
   block->active = true;
@@ -3866,7 +3870,10 @@ uiBlock *UI_block_begin(const bContext *C,
   return block;
 }
 
-uiBlock *UI_block_begin(const bContext *C, ARegion *region, std::string name, eUIEmbossType emboss)
+uiBlock *UI_block_begin(const bContext *C,
+                        ARegion *region,
+                        std::string name,
+                        blender::ui::EmbossType emboss)
 {
   return UI_block_begin(C, CTX_data_scene(C), CTX_wm_window(C), region, std::move(name), emboss);
 }
@@ -3880,12 +3887,12 @@ void ui_block_add_dynamic_listener(uiBlock *block,
   BLI_addtail(&block->dynamic_listeners, listener);
 }
 
-eUIEmbossType UI_block_emboss_get(uiBlock *block)
+blender::ui::EmbossType UI_block_emboss_get(uiBlock *block)
 {
   return block->emboss;
 }
 
-void UI_block_emboss_set(uiBlock *block, eUIEmbossType emboss)
+void UI_block_emboss_set(uiBlock *block, blender::ui::EmbossType emboss)
 {
   block->emboss = emboss;
 }
@@ -4917,7 +4924,7 @@ static uiBut *ui_def_but_rna(uiBlock *block,
   }
 
   if (type == UI_BTYPE_MENU) {
-    if (but->emboss == UI_EMBOSS_PULLDOWN) {
+    if (but->emboss == blender::ui::EmbossType::Pulldown) {
       ui_but_submenu_enable(block, but);
     }
   }

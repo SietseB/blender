@@ -107,7 +107,9 @@ if(WITH_VULKAN_BACKEND)
 
     intern/GHOST_ContextVK.hh
   )
-
+  list(APPEND INC
+    ../../extern/vulkan_memory_allocator/
+  )
   list(APPEND INC_SYS
     PUBLIC ${VULKAN_INCLUDE_DIRS}
   )
@@ -208,13 +210,11 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
     list(APPEND SRC
       intern/GHOST_DisplayManagerX11.cc
       intern/GHOST_SystemX11.cc
-      intern/GHOST_TaskbarX11.cc
       intern/GHOST_WindowX11.cc
 
       intern/GHOST_DisplayManagerX11.hh
       intern/GHOST_IconX11.hh
       intern/GHOST_SystemX11.hh
-      intern/GHOST_TaskbarX11.hh
       intern/GHOST_WindowX11.hh
     )
 
@@ -248,16 +248,6 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       add_definitions(-DWITH_XF86KEYSYM)
       list(APPEND INC_SYS
         ${X11_XF86keysym_INCLUDE_PATH}
-      )
-    endif()
-
-    if(WITH_X11_XF86VMODE)
-      add_definitions(-DWITH_X11_XF86VMODE)
-      list(APPEND INC_SYS
-        ${X11_Xxf86vm_INCLUDE_PATH}
-      )
-      list(APPEND LIB
-        ${X11_Xxf86vmode_LIB}
       )
     endif()
 
@@ -589,19 +579,39 @@ if(WITH_XR_OPENXR)
     # Header only library.
     ../../extern/tinygltf/tiny_gltf.h
   )
+  if(WIN32)
+    list(APPEND SRC
+      intern/GHOST_XrGraphicsBindingD3D.cc
+      
+      intern/GHOST_XrGraphicsBindingD3D.hh
+    )
+  endif()
+
   list(APPEND INC_SYS
     ../../extern/json/include
     ../../extern/tinygltf
   )
   list(APPEND INC_SYS
-    ${EIGEN3_INCLUDE_DIRS}
     ${XR_OPENXR_SDK_INCLUDE_DIR}
   )
   list(APPEND LIB
     ${XR_OPENXR_SDK_LIBRARIES}
+    PRIVATE bf::dependencies::eigen
   )
 
-  set(XR_PLATFORM_DEFINES -DXR_USE_GRAPHICS_API_OPENGL)
+  set(XR_PLATFORM_DEFINES
+  )
+  if(WITH_OPENGL_BACKEND)
+    list(APPEND XR_PLATFORM_DEFINES -DXR_USE_GRAPHICS_API_OPENGL)
+  endif()
+  if(WITH_VULKAN_BACKEND)
+    list(APPEND XR_PLATFORM_DEFINES -DXR_USE_GRAPHICS_API_VULKAN)
+    list(APPEND SRC
+      intern/GHOST_XrGraphicsBindingVulkan.cc
+
+      intern/GHOST_XrGraphicsBindingVulkan.hh
+    )
+  endif()
 
   # Add compiler defines as required by the OpenXR specification.
   if(WIN32)

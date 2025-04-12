@@ -1752,7 +1752,7 @@ static void calc_sharpen_filter(const Depsgraph &depsgraph,
         tls.translations.resize(verts.size());
         const MutableSpan<float3> translations = tls.translations;
 
-        Vector<BMVert *, 64> neighbors;
+        BMeshNeighborVerts neighbors;
 
         int i = 0;
         for (BMVert *vert : verts) {
@@ -1989,7 +1989,7 @@ static void mesh_filter_sharpen_init(const Depsgraph &depsgraph,
     max_factor = std::max(sharpen_factors[i], max_factor);
   }
 
-  max_factor = 1.0f / max_factor;
+  max_factor = math::safe_rcp(max_factor);
   for (int i = 0; i < totvert; i++) {
     sharpen_factors[i] *= max_factor;
     sharpen_factors[i] = 1.0f - pow2f(1.0f - sharpen_factors[i]);
@@ -2523,7 +2523,7 @@ void register_operator_props(wmOperatorType *ot)
 
   /* Smooth filter requires entire event history. */
   prop = RNA_def_collection_runtime(ot->srna, "event_history", &RNA_OperatorStrokeElement, "", "");
-  RNA_def_property_flag(prop, PropertyFlag(int(PROP_HIDDEN) | int(PROP_SKIP_SAVE)));
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 static void sculpt_mesh_ui_exec(bContext * /*C*/, wmOperator *op)

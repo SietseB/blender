@@ -20,8 +20,8 @@ uint get_global_invocation_index()
 
 vec2 decode_uv(uint encoded_uv)
 {
-  float u = float((encoded_uv >> 16) & 0xFFFFu) / 65535.0;
-  float v = float(encoded_uv & 0xFFFFu) / 65535.0;
+  float u = float((encoded_uv >> 16) & 0xFFFFu) / 65535.0f;
+  float v = float(encoded_uv & 0xFFFFu) / 65535.0f;
   return vec2(u, v);
 }
 
@@ -100,7 +100,7 @@ void add_newell_cross_v3_v3v3(inout vec3 n, vec3 v_prev, vec3 v_curr)
 uint coarse_face_index_from_subdiv_quad_index(uint subdiv_quad_index, uint coarse_face_count)
 {
   uint first = 0;
-  uint last = coarse_face_count - 1;
+  uint last = coarse_face_count;
 
   while (first != last) {
     uint middle = (first + last) / 2;
@@ -113,7 +113,7 @@ uint coarse_face_index_from_subdiv_quad_index(uint subdiv_quad_index, uint coars
     }
   }
 
-  if (subdiv_face_offset[first] == subdiv_quad_index) {
+  if (first < coarse_face_count && subdiv_face_offset[first] == subdiv_quad_index) {
     return first;
   }
 

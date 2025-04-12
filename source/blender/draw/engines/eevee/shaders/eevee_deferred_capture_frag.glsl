@@ -24,12 +24,12 @@ void main()
   GBufferReader gbuf = gbuffer_read(gbuf_header_tx, gbuf_closure_tx, gbuf_normal_tx, texel);
 
   if (gbuf.closure_count == 0) {
-    out_radiance = vec4(0.0);
+    out_radiance = vec4(0.0f);
     return;
   }
 
-  vec3 albedo_front = vec3(0.0);
-  vec3 albedo_back = vec3(0.0);
+  vec3 albedo_front = vec3(0.0f);
+  vec3 albedo_back = vec3(0.0f);
 
   for (uchar i = 0; i < GBUFFER_LAYER_MAX && i < gbuf.closure_count; i++) {
     ClosureUndetermined cl = gbuffer_closure_get(gbuf, i);
@@ -41,7 +41,7 @@ void main()
         break;
       case CLOSURE_BSDF_TRANSLUCENT_ID:
       case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
-        albedo_back += (gbuf.thickness != 0.0) ? square(cl.color) : cl.color;
+        albedo_back += (gbuf.thickness != 0.0f) ? square(cl.color) : cl.color;
         break;
       case CLOSURE_NONE_ID:
         /* TODO(fclem): Assert. */
@@ -62,10 +62,13 @@ void main()
   cl_transmit.N = gbuf.surface_N;
   cl_transmit.type = CLOSURE_BSDF_TRANSLUCENT_ID;
 
+  uint object_id = texelFetch(gbuf_header_tx, ivec3(texel, 1), 0).x;
+  ObjectInfos object_infos = drw_infos[object_id];
+  uchar receiver_light_set = receiver_light_set_get(object_infos);
+
   /* Direct light. */
   ClosureLightStack stack;
   stack.cl[0] = closure_light_new(cl, V);
-  uchar receiver_light_set = gbuffer_light_link_receiver_unpack(gbuf.header);
   light_eval_reflection(stack, P, Ng, V, vPz, receiver_light_set);
 
   vec3 radiance_front = stack.cl[0].light_shadowed;
@@ -83,5 +86,5 @@ void main()
   /* TODO(fclem): Correct transmission eval. */
   radiance_back += spherical_harmonics_evaluate_lambert(-Ng, sh);
 
-  out_radiance = vec4(radiance_front * albedo_front + radiance_back * albedo_back, 0.0);
+  out_radiance = vec4(radiance_front * albedo_front + radiance_back * albedo_back, 0.0f);
 }

@@ -357,12 +357,16 @@ static bool space_image_main_area_not_uv_brush_poll(bContext *C)
 /** \name View Pan Operator
  * \{ */
 
+namespace {
+
 struct ViewPanData {
   float x, y;
   float xof, yof;
   int launch_event;
   bool own_cursor;
 };
+
+}  // namespace
 
 static void image_view_pan_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -504,6 +508,8 @@ void IMAGE_OT_view_pan(wmOperatorType *ot)
 /** \name View Zoom Operator
  * \{ */
 
+namespace {
+
 struct ViewZoomData {
   float origx, origy;
   float zoom;
@@ -519,6 +525,8 @@ struct ViewZoomData {
   SpaceImage *sima;
   ARegion *region;
 };
+
+}  // namespace
 
 static void image_view_zoom_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -2307,7 +2315,7 @@ static wmOperatorStatus image_save_sequence_exec(bContext *C, wmOperator *op)
     ibuf = IMB_moviecacheIter_getImBuf(iter);
 
     if (ibuf != nullptr && ibuf->userflags & IB_BITMAPDIRTY) {
-      if (0 == IMB_saveiff(ibuf, ibuf->filepath, IB_byte_data)) {
+      if (0 == IMB_save_image(ibuf, ibuf->filepath, IB_byte_data)) {
         BKE_reportf(op->reports, RPT_ERROR, "Could not write image: %s", strerror(errno));
         break;
       }
@@ -2722,7 +2730,7 @@ static void image_new_cancel(bContext * /*C*/, wmOperator *op)
 void IMAGE_OT_new(wmOperatorType *ot)
 {
   PropertyRNA *prop;
-  static float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+  static const float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 
   /* identifiers */
   ot->name = "New Image";
@@ -4041,6 +4049,9 @@ static wmOperatorStatus change_frame_modal(bContext *C, wmOperator *op, const wm
         return OPERATOR_FINISHED;
       }
       break;
+    default: {
+      break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -4281,7 +4292,7 @@ static void tile_fill_init(PointerRNA *ptr, Image *ima, ImageTile *tile)
 static void def_fill_tile(StructOrFunctionRNA *srna)
 {
   PropertyRNA *prop;
-  static float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+  static const float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
   prop = RNA_def_float_color(
       srna, "color", 4, nullptr, 0.0f, FLT_MAX, "Color", "Default fill color", 0.0f, 1.0f);
   RNA_def_property_subtype(prop, PROP_COLOR_GAMMA);

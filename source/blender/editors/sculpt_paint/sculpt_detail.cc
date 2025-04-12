@@ -148,7 +148,7 @@ static wmOperatorStatus sculpt_detail_flood_fill_exec(bContext *C, wmOperator *o
                                           min_edge_len,
                                           max_edge_len,
                                           center,
-                                          nullptr,
+                                          std::nullopt,
                                           size,
                                           false,
                                           false))
@@ -401,6 +401,9 @@ static wmOperatorStatus sculpt_sample_detail_size_modal(bContext *C,
 
       return OPERATOR_CANCELLED;
     }
+    default: {
+      break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -633,7 +636,7 @@ static void dyntopo_detail_size_sample_from_surface(Object &ob,
   BMVert *active_vertex = std::get<BMVert *>(ss.active_vert());
 
   float len_accum = 0;
-  Vector<BMVert *, 64> neighbors;
+  BMeshNeighborVerts neighbors;
   for (BMVert *neighbor : vert_neighbors_get_bmesh(*active_vertex, neighbors)) {
     len_accum += len_v3v3(active_vertex->co, neighbor->co);
   }

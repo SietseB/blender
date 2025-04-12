@@ -1140,7 +1140,7 @@ static uiBlock *wm_enum_search_menu(bContext *C, ARegion *region, void *arg)
   const int height = UI_searchbox_size_y();
   static char search[256] = "";
 
-  uiBlock *block = UI_block_begin(C, region, "_popup", UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, "_popup", blender::ui::EmbossType::Emboss);
   UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_MOVEMOUSE_QUIT | UI_BLOCK_SEARCH_MENU);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_POPUP);
 
@@ -1429,7 +1429,7 @@ static uiBlock *wm_block_create_redo(bContext *C, ARegion *region, void *arg_op)
   const uiStyle *style = UI_style_get_dpi();
   int width = 15 * UI_UNIT_X;
 
-  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, __func__, blender::ui::EmbossType::Emboss);
   UI_block_flag_disable(block, UI_BLOCK_LOOP);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_REGULAR);
 
@@ -1527,7 +1527,7 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *region, void *user_
   const bool small = data->size == WM_POPUP_SIZE_SMALL;
   const short icon_size = (small ? 32 : 40) * UI_SCALE_FAC;
 
-  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, __func__, blender::ui::EmbossType::Emboss);
   UI_block_flag_disable(block, UI_BLOCK_LOOP);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_POPUP);
   UI_popup_dummy_panel_set(region, block);
@@ -1686,7 +1686,7 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *region, void *user_d
   wmOperator *op = data->op;
   const uiStyle *style = UI_style_get_dpi();
 
-  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, __func__, blender::ui::EmbossType::Emboss);
   UI_block_flag_disable(block, UI_BLOCK_LOOP);
   UI_block_flag_enable(block, UI_BLOCK_KEEP_OPEN | UI_BLOCK_MOVEMOUSE_QUIT);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_REGULAR);
@@ -2000,7 +2000,7 @@ static uiBlock *wm_block_search_menu(bContext *C, ARegion *region, void *userdat
 {
   const SearchPopupInit_Data *init_data = static_cast<const SearchPopupInit_Data *>(userdata);
 
-  uiBlock *block = UI_block_begin(C, region, "_popup", UI_EMBOSS);
+  uiBlock *block = UI_block_begin(C, region, "_popup", blender::ui::EmbossType::Emboss);
   UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_MOVEMOUSE_QUIT | UI_BLOCK_SEARCH_MENU);
   UI_block_theme_style_set(block, UI_BLOCK_THEME_STYLE_POPUP);
 
@@ -2766,7 +2766,8 @@ static void radial_control_paint_curve(uint pos, Brush *br, float radius, int li
   immEnd();
 }
 
-static void radial_control_paint_cursor(bContext * /*C*/, int x, int y, void *customdata)
+static void radial_control_paint_cursor(
+    bContext * /*C*/, int x, int y, float /*x_tilt*/, float /*y_tilt*/, void *customdata)
 {
   RadialControl *rc = static_cast<RadialControl *>(customdata);
   const uiStyle *style = UI_style_get();
@@ -3297,6 +3298,8 @@ static wmOperatorStatus radial_control_modal(bContext *C, wmOperator *op, const 
     case EVT_PADENTER:
     case EVT_RETKEY:
       /* Done; value already set. */
+      /* Keep the RNA update separate from setting the value, for some properties this could lead
+       * to a continues flickering due to invalidating the overlay texture. */
       RNA_property_update(C, &rc->ptr, rc->prop);
       ret = OPERATOR_FINISHED;
       break;
@@ -3426,6 +3429,9 @@ static wmOperatorStatus radial_control_modal(bContext *C, wmOperator *op, const 
       }
       break;
     }
+    default: {
+      break;
+    }
   }
 
   /* Modal numinput inactive, try to handle numeric inputs last... */
@@ -3452,6 +3458,9 @@ static wmOperatorStatus radial_control_modal(bContext *C, wmOperator *op, const 
   if (!handled && (event->val == KM_RELEASE) && (rc->init_event == event->type) &&
       RNA_boolean_get(op->ptr, "release_confirm"))
   {
+    /* Keep the RNA update separate from setting the value, for some properties this could lead to
+     * a continues flickering due to invalidating the overlay texture. */
+    RNA_property_update(C, &rc->ptr, rc->prop);
     ret = OPERATOR_FINISHED;
   }
 

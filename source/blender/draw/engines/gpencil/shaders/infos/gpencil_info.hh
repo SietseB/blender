@@ -20,7 +20,7 @@
 #  define SMAA_PRESET_HIGH
 #  define SMAA_NO_DISCARD
 #  define SMAA_RT_METRICS viewportMetrics
-#  define SMAA_LUMA_WEIGHT float4(1.0, 1.0, 1.0, 1.0)
+#  define SMAA_LUMA_WEIGHT float4(1.0f, 1.0f, 1.0f, 1.0f)
 #endif
 
 #include "gpu_shader_create_info.hh"
@@ -137,7 +137,7 @@ GPU_SHADER_CREATE_INFO(gpencil_antialiasing)
 DEFINE("SMAA_GLSL_3")
 DEFINE_VALUE("SMAA_RT_METRICS", "viewportMetrics")
 DEFINE("SMAA_PRESET_HIGH")
-DEFINE_VALUE("SMAA_LUMA_WEIGHT", "float4(lumaWeight, lumaWeight, lumaWeight, 0.0)")
+DEFINE_VALUE("SMAA_LUMA_WEIGHT", "float4(lumaWeight, lumaWeight, lumaWeight, 0.0f)")
 DEFINE("SMAA_NO_DISCARD")
 VERTEX_OUT(gpencil_antialiasing_iface)
 PUSH_CONSTANT(VEC4, viewportMetrics)
@@ -178,6 +178,16 @@ PUSH_CONSTANT(BOOL, onlyAlpha)
 FRAGMENT_OUT_DUAL(0, VEC4, out_color, SRC_0)
 FRAGMENT_OUT_DUAL(0, VEC4, out_reveal, SRC_1)
 ADDITIONAL_INFO(gpencil_antialiasing)
+DO_STATIC_COMPILATION()
+GPU_SHADER_CREATE_END()
+
+GPU_SHADER_CREATE_INFO(gpencil_antialiasing_accumulation)
+IMAGE(0, GPENCIL_RENDER_FORMAT, READ, FLOAT_2D, src_img)
+IMAGE(1, GPENCIL_ACCUM_FORMAT, READ_WRITE, FLOAT_2D, dst_img)
+PUSH_CONSTANT(FLOAT, weight_src)
+PUSH_CONSTANT(FLOAT, weight_dst)
+FRAGMENT_SOURCE("gpencil_antialiasing_accumulation_frag.glsl")
+ADDITIONAL_INFO(draw_fullscreen)
 DO_STATIC_COMPILATION()
 GPU_SHADER_CREATE_END()
 

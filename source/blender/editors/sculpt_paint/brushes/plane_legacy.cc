@@ -9,7 +9,7 @@
  * additional filtering step.
  */
 
-#include "editors/sculpt_paint/brushes/types.hh"
+#include "editors/sculpt_paint/brushes/brushes.hh"
 
 #include "DNA_brush_types.h"
 #include "DNA_mesh_types.h"
@@ -168,7 +168,7 @@ static void do_plane_brush(const Depsgraph &depsgraph,
   float3 area_no;
   float3 area_co;
   calc_brush_plane(depsgraph, brush, object, node_mask, area_no, area_co);
-  SCULPT_tilt_apply_to_normal(area_no, ss.cache, brush.tilt_strength_factor);
+  area_no = tilt_apply_to_normal(area_no, *ss.cache, brush.tilt_strength_factor);
 
   const float offset = SCULPT_brush_plane_offset_get(sd, ss);
   const float displace = direction * ss.cache->radius * offset;

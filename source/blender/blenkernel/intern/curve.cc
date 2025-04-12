@@ -1161,6 +1161,7 @@ static void makeknots(Nurb *nu, short uv)
       if (BKE_nurb_check_valid_u(nu)) {
         nu->knotsu = MEM_calloc_arrayN<float>(size_t(KNOTSU(nu)) + 1, "makeknots");
         calcknots(nu->knotsu, nu->pntsu, nu->orderu, nu->flagu);
+        nu->flagu &= ~CU_NURB_CUSTOM;
       }
       else {
         nu->knotsu = nullptr;
@@ -1173,12 +1174,18 @@ static void makeknots(Nurb *nu, short uv)
       if (BKE_nurb_check_valid_v(nu)) {
         nu->knotsv = MEM_calloc_arrayN<float>(size_t(KNOTSV(nu)) + 1, "makeknots");
         calcknots(nu->knotsv, nu->pntsv, nu->orderv, nu->flagv);
+        nu->flagv &= ~CU_NURB_CUSTOM;
       }
       else {
         nu->knotsv = nullptr;
       }
     }
   }
+}
+
+void BKE_nurb_knot_alloc_u(Nurb *nu)
+{
+  nu->knotsu = static_cast<float *>(MEM_calloc_arrayN(KNOTSU(nu) + 1, sizeof(float), __func__));
 }
 
 void BKE_nurb_knot_calc_u(Nurb *nu)
@@ -5484,7 +5491,7 @@ std::optional<int> Curve::material_index_max() const
   LISTBASE_FOREACH (const Nurb *, nurb, &this->nurb) {
     max_index = std::max<int>(max_index, nurb->mat_nr);
   }
-  return max_index;
+  return clamp_i(max_index, 0, MAXMAT);
 }
 
 /* **** Depsgraph evaluation **** */

@@ -126,6 +126,7 @@ enum class IBOType : int8_t {
   FaceDots,
   LinesPaintMask,
   LinesAdjacency,
+  UVLines,
   EditUVTris,
   EditUVLines,
   EditUVPoints,
@@ -134,7 +135,7 @@ enum class IBOType : int8_t {
 
 struct MeshBufferList {
   /* Though using maps here may add some overhead compared to just indexed arrays, it's a bit more
-   * conventient currently, because the "buffer exists" test is very clear, it's just whether the
+   * convenient currently, because the "buffer exists" test is very clear, it's just whether the
    * map contains it (e.g. compared to "buffer is allocated but not filled with data"). The
    * sparseness *may* be useful for reducing memory usage when only few buffers are used. */
 
@@ -168,6 +169,7 @@ struct MeshBatchList {
   gpu::Batch *edit_selection_faces;
   gpu::Batch *edit_selection_fdots;
   /* Common display / Other */
+  gpu::Batch *uv_faces;
   gpu::Batch *all_verts;
   gpu::Batch *all_edges;
   gpu::Batch *loose_edges;
@@ -178,13 +180,12 @@ struct MeshBatchList {
   gpu::Batch *wire_loops;
   /* Same as wire_loops but only has uvs. */
   gpu::Batch *wire_loops_uvs;
+  gpu::Batch *wire_loops_edituvs;
   gpu::Batch *sculpt_overlays;
   gpu::Batch *surface_viewer_attribute;
 };
 
 #define MBC_BATCH_LEN (sizeof(MeshBatchList) / sizeof(void *))
-#define MBC_VBO_LEN (sizeof(MeshBufferList::vbo) / sizeof(void *))
-#define MBC_IBO_LEN (sizeof(MeshBufferList::ibo) / sizeof(void *))
 
 #define MBC_BATCH_INDEX(batch) (offsetof(MeshBatchList, batch) / sizeof(void *))
 
@@ -199,6 +200,7 @@ enum DRWBatchFlag {
   MBC_EDIT_FACEDOTS = (1u << MBC_BATCH_INDEX(edit_fdots)),
   MBC_EDIT_MESH_ANALYSIS = (1u << MBC_BATCH_INDEX(edit_mesh_analysis)),
   MBC_SKIN_ROOTS = (1u << MBC_BATCH_INDEX(edit_skin_roots)),
+  MBC_UV_FACES = (1u << MBC_BATCH_INDEX(uv_faces)),
   MBC_EDITUV_FACES_STRETCH_AREA = (1u << MBC_BATCH_INDEX(edituv_faces_stretch_area)),
   MBC_EDITUV_FACES_STRETCH_ANGLE = (1u << MBC_BATCH_INDEX(edituv_faces_stretch_angle)),
   MBC_EDITUV_FACES = (1u << MBC_BATCH_INDEX(edituv_faces)),
@@ -216,6 +218,7 @@ enum DRWBatchFlag {
   MBC_WIRE_EDGES = (1u << MBC_BATCH_INDEX(wire_edges)),
   MBC_WIRE_LOOPS = (1u << MBC_BATCH_INDEX(wire_loops)),
   MBC_WIRE_LOOPS_UVS = (1u << MBC_BATCH_INDEX(wire_loops_uvs)),
+  MBC_WIRE_LOOPS_EDITUVS = (1u << MBC_BATCH_INDEX(wire_loops_edituvs)),
   MBC_SCULPT_OVERLAYS = (1u << MBC_BATCH_INDEX(sculpt_overlays)),
   MBC_VIEWER_ATTRIBUTE_OVERLAY = (1u << MBC_BATCH_INDEX(surface_viewer_attribute)),
   MBC_SURFACE_PER_MAT = (1u << MBC_BATCH_LEN),
@@ -269,7 +272,7 @@ struct MeshBatchCache {
   MeshBatchList batch;
 
   /* Index buffer per material. These are sub-ranges of `ibo.tris`. */
-  Array<gpu::IndexBuf *> tris_per_mat;
+  Array<gpu::IndexBufPtr> tris_per_mat;
   Array<gpu::Batch *> surface_per_mat;
 
   DRWSubdivCache *subdiv_cache;
@@ -312,7 +315,8 @@ struct MeshBatchCache {
 
 #define MBC_EDITUV \
   (MBC_EDITUV_FACES_STRETCH_AREA | MBC_EDITUV_FACES_STRETCH_ANGLE | MBC_EDITUV_FACES | \
-   MBC_EDITUV_EDGES | MBC_EDITUV_VERTS | MBC_EDITUV_FACEDOTS | MBC_WIRE_LOOPS_UVS)
+   MBC_EDITUV_EDGES | MBC_EDITUV_VERTS | MBC_EDITUV_FACEDOTS | MBC_UV_FACES | \
+   MBC_WIRE_LOOPS_UVS | MBC_WIRE_LOOPS_EDITUVS)
 
 void mesh_buffer_cache_create_requested(TaskGraph &task_graph,
                                         const Scene &scene,

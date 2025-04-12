@@ -13,6 +13,7 @@
 
 #include "BKE_paint.hh"
 
+#include "draw_debug.hh"
 #include "overlay_next_instance.hh"
 
 namespace blender::draw::overlay {
@@ -467,6 +468,7 @@ void Instance::begin_sync()
 
 void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
 {
+  const bool in_object_mode = ob_ref.object->mode == OB_MODE_OBJECT;
   const bool in_edit_mode = ob_ref.object->mode == OB_MODE_EDIT;
   const bool in_paint_mode = object_is_paint_mode(ob_ref.object);
   const bool in_sculpt_mode = object_is_sculpt_mode(ob_ref);
@@ -487,13 +489,27 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
     layer.particles.edit_object_sync(manager, ob_ref, resources, state);
   }
 
+  /* For 2D UV overlays. */
+  if (!state.hide_overlays && state.is_space_image()) {
+    switch (ob_ref.object->type) {
+      case OB_MESH:
+        if (in_edit_paint_mode) {
+          /* TODO(fclem): Find a better place / condition. */
+          layer.mesh_uvs.edit_object_sync(manager, ob_ref, resources, state);
+        }
+        else if (in_object_mode) {
+          layer.mesh_uvs.object_sync(manager, ob_ref, resources, state);
+        }
+      default:
+        break;
+    }
+  }
+
   if (in_paint_mode && !state.hide_overlays) {
     switch (ob_ref.object->type) {
       case OB_MESH:
         /* TODO(fclem): Make it part of a #Meshes. */
         layer.paints.object_sync(manager, ob_ref, resources, state);
-        /* For wire-frames. */
-        layer.mesh_uvs.edit_object_sync(manager, ob_ref, resources, state);
         break;
       case OB_GREASE_PENCIL:
         layer.grease_pencil.paint_object_sync(manager, ob_ref, resources, state);
@@ -522,8 +538,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
     switch (ob_ref.object->type) {
       case OB_MESH:
         layer.meshes.edit_object_sync(manager, ob_ref, resources, state);
-        /* TODO(fclem): Find a better place / condition. */
-        layer.mesh_uvs.edit_object_sync(manager, ob_ref, resources, state);
         break;
       case OB_ARMATURE:
         layer.armatures.edit_object_sync(manager, ob_ref, resources, state);
@@ -719,6 +733,8 @@ void Instance::draw(Manager &manager)
 
   resources.acquire(DRW_context_get(), this->state);
 
+  DRW_submission_start();
+
   /* TODO(fclem): Would be better to have a v2d overlay class instead of these conditions. */
   switch (state.space_type) {
     case SPACE_NODE:
@@ -733,6 +749,8 @@ void Instance::draw(Manager &manager)
     default:
       BLI_assert_unreachable();
   }
+
+  DRW_submission_end();
 
   resources.release();
 
@@ -805,7 +823,8 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.armatures.draw_line(framebuffer, manager, view);
     layer.sculpts.draw_line(framebuffer, manager, view);
     layer.grease_pencil.draw_line(framebuffer, manager, view);
-    layer.meshes.draw_line(framebuffer, manager, view);
+    /* NOTE: Temporarily moved after grid drawing (See #136764). */
+    // layer.meshes.draw_line(framebuffer, manager, view);
     layer.curves.draw_line(framebuffer, manager, view);
   };
 
@@ -841,6 +860,10 @@ void Instance::draw_v3d(Manager &manager, View &view)
       else {
         GPU_framebuffer_clear_color(resources.overlay_line_fb, clear_color);
       }
+    }
+
+    if (BLI_thread_is_main() && !state.hide_overlays) {
+      DebugDraw::get().display_to_view(view);
     }
 
     regular.prepass.draw_line(resources.overlay_line_fb, manager, view);
@@ -889,6 +912,9 @@ void Instance::draw_v3d(Manager &manager, View &view)
     motion_paths.draw_color_only(resources.overlay_color_only_fb, manager, view);
     xray_fade.draw_color_only(resources.overlay_color_only_fb, manager, view);
     grid.draw_color_only(resources.overlay_color_only_fb, manager, view);
+
+    regular.meshes.draw_line(resources.overlay_line_fb, manager, view);
+    infront.meshes.draw_line(resources.overlay_line_in_front_fb, manager, view);
 
     draw_color_only(regular, resources.overlay_color_only_fb);
     draw_color_only(infront, resources.overlay_color_only_fb);

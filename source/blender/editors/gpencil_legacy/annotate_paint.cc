@@ -1719,7 +1719,8 @@ static void annotation_paint_cleanup(tGPsdata *p)
 /* ------------------------------- */
 
 /* Helper callback for drawing the cursor itself */
-static void annotation_draw_eraser(bContext * /*C*/, int x, int y, void *p_ptr)
+static void annotation_draw_eraser(
+    bContext * /*C*/, int x, int y, float /*x_tilt*/, float /*y_tilt*/, void *p_ptr)
 {
   tGPsdata *p = (tGPsdata *)p_ptr;
 
@@ -1779,7 +1780,8 @@ static void annotation_draw_toggle_eraser_cursor(tGPsdata *p, short enable)
                                                p);
   }
 }
-static void annotation_draw_stabilizer(bContext *C, int x, int y, void *p_ptr)
+static void annotation_draw_stabilizer(
+    bContext *C, int x, int y, float /*x_tilt*/, float /*y_tilt*/, void *p_ptr)
 {
   ARegion *region = CTX_wm_region(C);
   tGPsdata *p = (tGPsdata *)p_ptr;
@@ -2667,6 +2669,9 @@ static wmOperatorStatus annotation_draw_modal(bContext *C, wmOperator *op, const
             p->radius = 1;
           }
           break;
+        default: {
+          break;
+        }
       }
 
       /* force refresh */

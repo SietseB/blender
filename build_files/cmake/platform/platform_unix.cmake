@@ -95,11 +95,6 @@ if(DEFINED LIBDIR)
   include(platform_old_libs_update)
 
   set(WITH_STATIC_LIBS ON)
-  # OpenMP usually can't be statically linked into shared libraries,
-  # due to not being compiled with position independent code.
-  if(NOT WITH_PYTHON_MODULE)
-    set(WITH_OPENMP_STATIC ON)
-  endif()
   set(Boost_NO_BOOST_CMAKE ON)
   set(Boost_ROOT ${LIBDIR}/boost)
   set(BOOST_LIBRARYDIR ${LIBDIR}/boost/lib)
@@ -856,19 +851,6 @@ if(WITH_GHOST_X11)
         FATAL_ERROR
         "LibXi not found. "
         "Disable WITH_X11_XINPUT if you want to build without tablet support"
-      )
-    endif()
-  endif()
-
-  if(WITH_X11_XF86VMODE)
-    # XXX, why doesn't cmake make this available?
-    find_library(X11_Xxf86vmode_LIB Xxf86vm   ${X11_LIB_SEARCH_PATH})
-    mark_as_advanced(X11_Xxf86vmode_LIB)
-    if(NOT X11_Xxf86vmode_LIB)
-      message(
-        FATAL_ERROR
-        "libXxf86vm not found. "
-        "Disable WITH_X11_XF86VMODE if you want to build without"
       )
     endif()
   endif()

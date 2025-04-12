@@ -56,6 +56,7 @@
 
 #include "ED_anim_api.hh"
 #include "ED_armature.hh"
+#include "ED_buttons.hh"
 #include "ED_fileselect.hh"
 #include "ED_image.hh"
 #include "ED_keyframes_keylist.hh"
@@ -141,7 +142,7 @@ bool ED_operator_screenactive_nobackground(bContext *C)
 }
 
 /* XXX added this to prevent anim state to change during renders */
-static bool ED_operator_screenactive_norender(bContext *C)
+static bool operator_screenactive_norender(bContext *C)
 {
   if (G.is_rendering) {
     return false;
@@ -841,14 +842,17 @@ static void area_actionzone_get_rect(AZone *az, rcti *r_rect)
     const bool is_right = is_vertical && bool(az->region->v2d.scroll & V2D_SCROLL_RIGHT);
     const bool is_left = is_vertical && bool(az->region->v2d.scroll & V2D_SCROLL_LEFT);
     const bool is_top = is_horizontal && bool(az->region->v2d.scroll & V2D_SCROLL_TOP);
-    const bool is_botton = is_horizontal && bool(az->region->v2d.scroll & V2D_SCROLL_BOTTOM);
+    const bool is_bottom = is_horizontal && bool(az->region->v2d.scroll & V2D_SCROLL_BOTTOM);
     /* For scroll azones use the area around the region's scroll-bar location. */
     rcti scroller_vert = is_horizontal ? az->region->v2d.hor : az->region->v2d.vert;
     BLI_rcti_translate(&scroller_vert, az->region->winrct.xmin, az->region->winrct.ymin);
-    r_rect->xmin = scroller_vert.xmin - (is_right ? V2D_SCROLL_HIDE_HEIGHT : 0);
-    r_rect->ymin = scroller_vert.ymin - (is_top ? V2D_SCROLL_HIDE_WIDTH : 0);
-    r_rect->xmax = scroller_vert.xmax + (is_left ? V2D_SCROLL_HIDE_HEIGHT : 0);
-    r_rect->ymax = scroller_vert.ymax + (is_botton ? V2D_SCROLL_HIDE_WIDTH : 0);
+
+    /* Pull the zone in from edge and match the visible hit zone. */
+    const int edge_padding = int(-3.0f * UI_SCALE_FAC);
+    r_rect->xmin = scroller_vert.xmin - (is_right ? V2D_SCROLL_HIDE_HEIGHT : edge_padding);
+    r_rect->ymin = scroller_vert.ymin - (is_top ? V2D_SCROLL_HIDE_WIDTH : edge_padding);
+    r_rect->xmax = scroller_vert.xmax + (is_left ? V2D_SCROLL_HIDE_HEIGHT : edge_padding);
+    r_rect->ymax = scroller_vert.ymax + (is_bottom ? V2D_SCROLL_HIDE_WIDTH : edge_padding);
   }
   else {
     azone_clipped_rect_calc(az, r_rect);
@@ -1247,6 +1251,9 @@ static wmOperatorStatus actionzone_modal(bContext *C, wmOperator *op, const wmEv
     case LEFTMOUSE:
       actionzone_exit(op);
       return OPERATOR_CANCELLED;
+    default: {
+      break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -1429,6 +1436,9 @@ static wmOperatorStatus area_swap_modal(bContext *C, wmOperator *op, const wmEve
     case EVT_ESCKEY:
       area_swap_cancel(C, op);
       return OPERATOR_CANCELLED;
+    default: {
+      break;
+    }
   }
   return OPERATOR_RUNNING_MODAL;
 }
@@ -1726,17 +1736,7 @@ static void area_move_set_limits(wmWindow *win,
 
   LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
     if (dir_axis == SCREEN_AXIS_H) {
-      int areamin = ED_area_headersize();
-
-      if (area->v1->vec.y > window_rect.ymin) {
-        areamin += U.pixelsize;
-      }
-      if (area->v2->vec.y < (window_rect.ymax - 1)) {
-        areamin += U.pixelsize;
-      }
-
-      int y1 = screen_geom_area_height(area) - areamin - int(U.pixelsize);
-
+      const int y1 = area->winy - ED_area_headersize();
       /* if top or down edge selected, test height */
       if (area->v1->editflag && area->v4->editflag) {
         *bigger = min_ii(*bigger, y1);
@@ -1746,17 +1746,7 @@ static void area_move_set_limits(wmWindow *win,
       }
     }
     else {
-      int areamin = AREAMINX * UI_SCALE_FAC;
-
-      if (area->v1->vec.x > window_rect.xmin) {
-        areamin += U.pixelsize;
-      }
-      if (area->v4->vec.x < (window_rect.xmax - 1)) {
-        areamin += U.pixelsize;
-      }
-
-      int x1 = screen_geom_area_width(area) - areamin - int(U.pixelsize);
-
+      const int x1 = area->winx - (AREAMINX * UI_SCALE_FAC);
       /* if left or right edge selected, test width */
       if (area->v1->editflag && area->v2->editflag) {
         *bigger = min_ii(*bigger, x1);
@@ -1768,11 +1758,11 @@ static void area_move_set_limits(wmWindow *win,
   }
 }
 
-static void area_move_draw_cb(const wmWindow * /*win*/, void *userdata)
+static void area_move_draw_cb(const wmWindow *win, void *userdata)
 {
   const wmOperator *op = static_cast<const wmOperator *>(userdata);
   const sAreaMoveData *md = static_cast<sAreaMoveData *>(op->customdata);
-  screen_draw_move_highlight(md->screen, md->dir_axis);
+  screen_draw_move_highlight(win, md->screen, md->dir_axis);
 }
 
 /* validate selection inside screen, set variables OK */
@@ -2134,6 +2124,9 @@ static wmOperatorStatus area_move_modal(bContext *C, wmOperator *op, const wmEve
       status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
       status.item_bool(
           IFACE_("Snap"), md->snap_type == SNAP_FRACTION_AND_ADJACENT, ICON_EVENT_CTRL);
+      break;
+    }
+    default: {
       break;
     }
   }
@@ -2638,6 +2631,9 @@ static wmOperatorStatus area_split_modal(bContext *C, wmOperator *op, const wmEv
       sd->do_snap = event->val == KM_PRESS;
       update_factor = true;
       break;
+    default: {
+      break;
+    }
   }
 
   if (update_factor) {
@@ -2757,6 +2753,8 @@ struct RegionMoveData {
   AZone *az;
   ARegion *region;
   ScrArea *area;
+  wmWindow *win;
+  void *draw_callback;
   int bigger, smaller, origval;
   int orig_xy[2];
   int maxsize;
@@ -2834,8 +2832,18 @@ static bool is_split_edge(const int alignment, const AZEdge edge)
          ((alignment == RGN_ALIGN_RIGHT) && (edge == AE_LEFT_TO_TOPRIGHT));
 }
 
+static void region_scale_draw_cb(const wmWindow * /*win*/, void *userdata)
+{
+  const wmOperator *op = static_cast<const wmOperator *>(userdata);
+  RegionMoveData *rmd = static_cast<RegionMoveData *>(op->customdata);
+  screen_draw_region_scale_highlight(rmd->region);
+}
+
 static void region_scale_exit(wmOperator *op)
 {
+  RegionMoveData *rmd = static_cast<RegionMoveData *>(op->customdata);
+  WM_draw_cb_exit(rmd->win, rmd->draw_callback);
+
   MEM_freeN(op->customdata);
   op->customdata = nullptr;
 
@@ -2908,6 +2916,10 @@ static wmOperatorStatus region_scale_invoke(bContext *C, wmOperator *op, const w
     }
 
     CLAMP(rmd->maxsize, 0, 1000);
+
+    rmd->win = CTX_wm_window(C);
+    rmd->draw_callback = WM_draw_cb_activate(CTX_wm_window(C), region_scale_draw_cb, op);
+    WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, nullptr);
 
     /* add temp handler */
     G.moving |= G_TRANSFORM_WM;
@@ -3077,6 +3089,14 @@ static wmOperatorStatus region_scale_modal(bContext *C, wmOperator *op, const wm
       if (size_changed && rmd->region->runtime->type->on_user_resize) {
         rmd->region->runtime->type->on_user_resize(rmd->region);
       }
+      if (size_changed) {
+        if (ELEM(rmd->edge, AE_LEFT_TO_TOPRIGHT, AE_RIGHT_TO_TOPLEFT)) {
+          WM_cursor_set(CTX_wm_window(C), WM_CURSOR_X_MOVE);
+        }
+        else {
+          WM_cursor_set(CTX_wm_window(C), WM_CURSOR_Y_MOVE);
+        }
+      }
       ED_area_tag_redraw(rmd->area);
       WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, nullptr);
 
@@ -3084,7 +3104,7 @@ static wmOperatorStatus region_scale_modal(bContext *C, wmOperator *op, const wm
     }
     case LEFTMOUSE:
       if (event->val == KM_RELEASE) {
-        if (len_manhattan_v2v2_int(event->xy, rmd->orig_xy) <= WM_EVENT_CURSOR_MOTION_THRESHOLD) {
+        if (len_manhattan_v2v2_int(event->xy, rmd->orig_xy) <= WM_event_drag_threshold(event)) {
           if (rmd->region->flag & RGN_FLAG_HIDDEN) {
             region_scale_toggle_hidden(C, rmd);
           }
@@ -3103,7 +3123,12 @@ static wmOperatorStatus region_scale_modal(bContext *C, wmOperator *op, const wm
       break;
 
     case EVT_ESCKEY:
+      region_scale_exit(op);
+      WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, nullptr);
+      return OPERATOR_CANCELLED;
+    default: {
       break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -3224,7 +3249,7 @@ static void SCREEN_OT_frame_offset(wmOperatorType *ot)
 
   ot->exec = frame_offset_exec;
 
-  ot->poll = ED_operator_screenactive_norender;
+  ot->poll = operator_screenactive_norender;
   ot->flag = OPTYPE_UNDO_GROUPED;
   ot->undo_group = "Frame Change";
 
@@ -3286,7 +3311,7 @@ static void SCREEN_OT_frame_jump(wmOperatorType *ot)
 
   ot->exec = frame_jump_exec;
 
-  ot->poll = ED_operator_screenactive_norender;
+  ot->poll = operator_screenactive_norender;
   ot->flag = OPTYPE_UNDO_GROUPED;
   ot->undo_group = "Frame Change";
 
@@ -3399,7 +3424,7 @@ static wmOperatorStatus keyframe_jump_exec(bContext *C, wmOperator *op)
 static bool keyframe_jump_poll(bContext *C)
 {
   /* There is a keyframe jump operator specifically for the Graph Editor. */
-  return ED_operator_screenactive_norender(C) && !ED_operator_graphedit_active(C);
+  return operator_screenactive_norender(C) && !ED_operator_graphedit_active(C);
 }
 
 static void SCREEN_OT_keyframe_jump(wmOperatorType *ot)
@@ -3474,7 +3499,7 @@ static void SCREEN_OT_marker_jump(wmOperatorType *ot)
 
   ot->exec = marker_jump_exec;
 
-  ot->poll = ED_operator_screenactive_norender;
+  ot->poll = operator_screenactive_norender;
   ot->flag = OPTYPE_UNDO_GROUPED;
   ot->undo_group = "Frame Change";
 
@@ -4217,6 +4242,7 @@ static void area_join_update_data(bContext *C, sAreaJoinData *jd, const wmEvent 
     {
       /* We haven't moved enough to start a split. */
       jd->dir = SCREEN_DIR_NONE;
+      jd->split_fac = 0.0f;
       jd->dock_target = AreaDockTarget::None;
       return;
     }
@@ -4271,17 +4297,23 @@ static wmOperatorStatus area_join_modal(bContext *C, wmOperator *op, const wmEve
 
       WorkspaceStatus status(C);
       if (jd->sa1 && jd->sa1 == jd->sa2) {
-        status.item(IFACE_("Select Split"), ICON_MOUSE_LMB);
-        status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
-        status.item_bool(IFACE_("Snap"), event->modifier & KM_CTRL, ICON_EVENT_CTRL);
-      }
-      else {
-        if (jd->dock_target == AreaDockTarget::None) {
-          status.item(IFACE_("Select Area"), ICON_MOUSE_LMB);
+        if (jd->split_fac == 0.0f) {
+          status.item(IFACE_("Split/Dock"), ICON_MOUSE_LMB_DRAG);
           status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
         }
         else {
-          status.item(IFACE_("Select Location"), ICON_MOUSE_LMB);
+          status.item(IFACE_("Select Split"), ICON_MOUSE_LMB_DRAG);
+          status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
+          status.item_bool(IFACE_("Snap"), event->modifier & KM_CTRL, ICON_EVENT_CTRL);
+        }
+      }
+      else {
+        if (jd->dock_target == AreaDockTarget::None) {
+          status.item(IFACE_("Select Area"), ICON_MOUSE_LMB_DRAG);
+          status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
+        }
+        else {
+          status.item(IFACE_("Select Location"), ICON_MOUSE_LMB_DRAG);
           status.item(IFACE_("Cancel"), ICON_EVENT_ESC);
           status.item_bool(CTX_IFACE_(BLT_I18NCONTEXT_ID_SCREEN, "Precision"),
                            event->modifier & KM_ALT,
@@ -4389,6 +4421,9 @@ static wmOperatorStatus area_join_modal(bContext *C, wmOperator *op, const wmEve
     case EVT_ESCKEY:
       area_join_cancel(C, op);
       return OPERATOR_CANCELLED;
+    default: {
+      break;
+    }
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -5235,6 +5270,11 @@ static wmOperatorStatus screen_context_menu_invoke(bContext *C,
       uiPopupMenu *pup = UI_popup_menu_begin(C, IFACE_("Navigation Bar"), ICON_NONE);
       uiLayout *layout = UI_popup_menu_layout(pup);
       ED_screens_region_flip_menu_create(C, layout, nullptr);
+      const ScrArea *area = CTX_wm_area(C);
+      if (area && area->spacetype == SPACE_PROPERTIES) {
+        uiItemMenuF(
+            layout, IFACE_("Visible Tabs"), ICON_NONE, ED_buttons_visible_tabs_menu, nullptr);
+      }
       UI_popup_menu_end(C, pup);
     }
   }
@@ -5651,7 +5691,7 @@ static void SCREEN_OT_animation_step(wmOperatorType *ot)
   /* api callbacks */
   ot->invoke = screen_animation_step_invoke;
 
-  ot->poll = ED_operator_screenactive_norender;
+  ot->poll = operator_screenactive_norender;
 }
 
 /** \} */
@@ -5793,7 +5833,7 @@ static void SCREEN_OT_animation_play(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = screen_animation_play_exec;
 
-  ot->poll = ED_operator_screenactive_norender;
+  ot->poll = operator_screenactive_norender;
 
   prop = RNA_def_boolean(
       ot->srna, "reverse", false, "Play in Reverse", "Animation is played backwards");

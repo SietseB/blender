@@ -2430,9 +2430,12 @@ static bool lineart_geometry_check_visible(double model_view_proj[4][4],
   if (!use_mesh) {
     return false;
   }
-  const Bounds<float3> bounds = *use_mesh->bounds_min_max();
+  const std::optional<Bounds<float3>> bounds = use_mesh->bounds_min_max();
+  if (!bounds.has_value()) {
+    return false;
+  }
   BoundBox bb;
-  BKE_boundbox_init_from_minmax(&bb, bounds.min, bounds.max);
+  BKE_boundbox_init_from_minmax(&bb, bounds.value().min, bounds.value().max);
 
   double co[8][4];
   double tmp[3];
@@ -5437,10 +5440,10 @@ void MOD_lineart_gpencil_generate_v3(const LineartCache *cache,
       }
 
       if (src_deform_group >= 0) {
-        int vindex;
-        vindex = eci->index;
-        if (vindex >= src_mesh->verts_num) {
-          break;
+        const int64_t vindex = eci->index - cwi.chain->index_offset;
+        if (UNLIKELY(vindex >= src_mesh->verts_num)) {
+          vgroup_weights.span[point_i] = 0;
+          continue;
         }
         MDeformWeight *mdw = BKE_defvert_ensure_index(&src_dvert[vindex], src_deform_group);
 
@@ -5451,6 +5454,8 @@ void MOD_lineart_gpencil_generate_v3(const LineartCache *cache,
     stroke_materials.span[chain_i] = max_ii(mat_nr, 0);
     up_to_point += cwi.point_count;
   }
+  vgroup_weights.finish();
+
   offsets[writer.index_range().last() + 1] = up_to_point;
 
   SpanAttributeWriter<bool> stroke_cyclic = attributes.lookup_or_add_for_write_span<bool>(
