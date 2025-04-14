@@ -355,6 +355,8 @@ struct uiButNumberSlider : public uiBut {
 struct uiButColor : public uiBut {
   bool is_pallete_color = false;
   int palette_color_index = -1;
+  PointerRNA color_target = {};
+  PropertyRNA *color_target_prop = nullptr;
 };
 
 /** Derived struct for #UI_BTYPE_TAB */

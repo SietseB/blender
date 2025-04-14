@@ -2041,7 +2041,11 @@ void RNA_api_ui_layout(StructRNA *srna)
   func = RNA_def_function(srna, "template_palette", "uiTemplatePalette");
   RNA_def_function_ui_description(func, "Item. A palette used to pick colors.");
   api_ui_item_rna_common(func);
-  RNA_def_boolean(func, "color", false, "", "Display the colors as colors or values");
+  parm = RNA_def_pointer(func, "target", "AnyType", "", "Data to set the color on");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED | PARM_RNAPTR);
+  parm = RNA_def_string(
+      func, "target_property", nullptr, 0, "", "Identifier of the color property in the target");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 
   func = RNA_def_function(srna, "template_image_layers", "uiTemplateImageLayers");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);

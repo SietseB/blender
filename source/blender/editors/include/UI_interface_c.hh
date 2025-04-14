@@ -2700,7 +2700,8 @@ void uiTemplateColorPicker(uiLayout *layout,
 void uiTemplatePalette(uiLayout *layout,
                        PointerRNA *ptr,
                        blender::StringRefNull propname,
-                       bool colors);
+                       PointerRNA *target_ptr,
+                       blender::StringRefNull target_propname);
 void uiTemplateCryptoPicker(uiLayout *layout,
                             PointerRNA *ptr,
                             blender::StringRefNull propname,

@@ -120,6 +120,25 @@ class MATERIAL_PT_gpencil_surface(GPMaterialButtonsPanel, Panel):
         layout.prop(ma.grease_pencil, "stroke_wetness")
 
 
+class GPMaterialColorPalettePanel():
+    bl_label = "Color Palette"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = ".material"
+    bl_ui_units_x = 10
+
+
+class MATERIAL_PT_gpencil_strokecolor_palette(GPMaterialColorPalettePanel, Panel):
+    def draw(self, context):
+        layout = self.layout
+        paint = context.scene.tool_settings.gpencil_paint
+        gpcolor = context.material.grease_pencil
+
+        layout.template_ID(paint, "palette", new="palette.new")
+        if paint.palette:
+            layout.template_palette(paint, "palette", target=gpcolor, target_property="color")
+
+
 class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
     bl_label = "Stroke"
     bl_parent_id = "MATERIAL_PT_gpencil_surface"
@@ -144,7 +163,11 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
 
             col.prop(gpcolor, "stroke_style", text="Style")
 
-            col.prop(gpcolor, "color", text="Base Color")
+            row = col.row(heading="Base Color", align=True)
+            row.popover(panel="MATERIAL_PT_gpencil_strokecolor_palette", icon="COLOR", text="")
+            row2 = row.row(align=True)
+            row2.prop(gpcolor, "color", text="")
+            row2.prop_decorator(gpcolor, "color")
 
             if gpcolor.stroke_style == 'TEXTURE':
                 layout.separator()
@@ -194,6 +217,28 @@ class MATERIAL_PT_gpencil_strokecolor_default(GPMaterialButtonsPanel, Panel):
             col.prop(gpcolor, "use_overlap_strokes")
 
 
+class MATERIAL_PT_gpencil_fillcolor_palette(GPMaterialColorPalettePanel, Panel):
+    def draw(self, context):
+        layout = self.layout
+        paint = context.scene.tool_settings.gpencil_paint
+        gpcolor = context.material.grease_pencil
+
+        layout.template_ID(paint, "palette", new="palette.new")
+        if paint.palette:
+            layout.template_palette(paint, "palette", target=gpcolor, target_property="fill_color")
+
+
+class MATERIAL_PT_gpencil_mixcolor_palette(GPMaterialColorPalettePanel, Panel):
+    def draw(self, context):
+        layout = self.layout
+        paint = context.scene.tool_settings.gpencil_paint
+        gpcolor = context.material.grease_pencil
+
+        layout.template_ID(paint, "palette", new="palette.new")
+        if paint.palette:
+            layout.template_palette(paint, "palette", target=gpcolor, target_property="mix_color")
+
+
 class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
     bl_label = "Fill"
     bl_parent_id = "MATERIAL_PT_gpencil_surface"
@@ -214,14 +259,23 @@ class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
         col = layout.column()
         col.prop(gpcolor, "fill_style", text="Style")
 
-        if gpcolor.fill_style == 'SOLID':
-            col.prop(gpcolor, "fill_color", text="Base Color")
-
-        elif gpcolor.fill_style == 'GRADIENT':
+        if gpcolor.fill_style == 'GRADIENT':
             col.prop(gpcolor, "gradient_type")
 
-            col.prop(gpcolor, "fill_color", text="Base Color")
-            col.prop(gpcolor, "mix_color", text="Secondary Color")
+        if gpcolor.fill_style == 'GRADIENT' or gpcolor.fill_style == 'SOLID':
+            row = col.row(heading="Base Color", align=True)
+            row.popover(panel="MATERIAL_PT_gpencil_fillcolor_palette", icon="COLOR", text="")
+            row2 = row.row(align=True)
+            row2.prop(gpcolor, "fill_color", text="")
+            row2.prop_decorator(gpcolor, "fill_color")
+
+        if gpcolor.fill_style == 'GRADIENT':
+            row = col.row(heading="Secondary Color", align=True)
+            row.popover(panel="MATERIAL_PT_gpencil_mixcolor_palette", icon="COLOR", text="")
+            row2 = row.row(align=True)
+            row2.prop(gpcolor, "mix_color", text="")
+            row2.prop_decorator(gpcolor, "mix_color")
+
             col.prop(gpcolor, "mix_factor", text="Blend", slider=True)
             col.prop(gpcolor, "flip", text="Flip Colors")
 
@@ -291,7 +345,12 @@ class MATERIAL_PT_gpencil_fillcolor_default(GPMaterialButtonsPanel, Panel):
             col.prop(gpcolor, "use_fill_holdout")
 
         elif gpcolor.fill_style == 'TEXTURE':
-            col.prop(gpcolor, "fill_color", text="Base Color")
+            row = col.row(heading="Base Color", align=True)
+            row.popover(panel="MATERIAL_PT_gpencil_fillcolor_palette", icon="COLOR", text="")
+            row2 = row.row(align=True)
+            row2.prop(gpcolor, "fill_color", text="")
+            row2.prop_decorator(gpcolor, "fill_color")
+
             col.prop(gpcolor, "use_fill_holdout")
 
             col.separator()
@@ -354,9 +413,12 @@ classes = (
     MATERIAL_PT_gpencil_surface,
     MATERIAL_PT_gpencil_strokecolor,
     MATERIAL_PT_gpencil_strokecolor_default,
+    MATERIAL_PT_gpencil_strokecolor_palette,
     MATERIAL_PT_gpencil_fillcolor,
     MATERIAL_PT_gpencil_fillcolor_ondine,
     MATERIAL_PT_gpencil_fillcolor_default,
+    MATERIAL_PT_gpencil_fillcolor_palette,
+    MATERIAL_PT_gpencil_mixcolor_palette,
     MATERIAL_PT_gpencil_settings,
     MATERIAL_PT_gpencil_animation,
     MATERIAL_PT_gpencil_custom_props,

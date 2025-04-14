@@ -6592,28 +6592,31 @@ static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, co
             }
             else {
               Scene *scene = CTX_data_scene(C);
-              bool updated = false;
 
-              if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
+              if (but->rnaprop &&
+                  ELEM(RNA_property_subtype(but->rnaprop), PROP_COLOR_GAMMA, PROP_COLOR))
+              {
                 RNA_property_float_get_array_at_most(
                     &but->rnapoin, but->rnaprop, color, ARRAY_SIZE(color));
-                BKE_brush_color_set(scene, paint, brush, color);
-                updated = true;
-              }
-              else if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
-                RNA_property_float_get_array_at_most(
-                    &but->rnapoin, but->rnaprop, color, ARRAY_SIZE(color));
-                IMB_colormanagement_scene_linear_to_srgb_v3(color, color);
-                BKE_brush_color_set(scene, paint, brush, color);
-                updated = true;
-              }
+                if (color_but->color_target_prop == nullptr) {
+                  if (RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
+                    IMB_colormanagement_scene_linear_to_srgb_v3(color, color);
+                  }
+                  BKE_brush_color_set(scene, paint, brush, color);
 
-              if (updated) {
-                PropertyRNA *brush_color_prop;
-
-                PointerRNA brush_ptr = RNA_id_pointer_create(&brush->id);
-                brush_color_prop = RNA_struct_find_property(&brush_ptr, "color");
-                RNA_property_update(C, &brush_ptr, brush_color_prop);
+                  PropertyRNA *brush_color_prop;
+                  PointerRNA brush_ptr = RNA_id_pointer_create(&brush->id);
+                  brush_color_prop = RNA_struct_find_property(&brush_ptr, "color");
+                  RNA_property_update(C, &brush_ptr, brush_color_prop);
+                }
+                else {
+                  IMB_colormanagement_srgb_to_scene_linear_v3(color, color);
+                  RNA_property_float_set_array_at_most(&color_but->color_target,
+                                                       color_but->color_target_prop,
+                                                       color,
+                                                       ARRAY_SIZE(color));
+                  RNA_property_update(C, &color_but->color_target, color_but->color_target_prop);
+                }
               }
             }
           }

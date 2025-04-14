@@ -2255,7 +2255,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_vertex_palette(View3DPanel, Panel):
         row = col.row(align=True)
         row.template_ID(settings, "palette", new="palette.new")
         if settings.palette:
-            col.template_palette(settings, "palette", color=True)
+            col.template_palette(settings, "palette", target=None, target_property="")
 
 
 class VIEW3D_PT_tools_grease_pencil_brush_mixcolor(View3DPanel, Panel):
@@ -2364,7 +2364,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_mix_palette(View3DPanel, Panel):
         row = col.row(align=True)
         row.template_ID(settings, "palette", new="palette.new")
         if settings.palette:
-            col.template_palette(settings, "palette", color=True)
+            col.template_palette(settings, "palette", target=None, target_property="")
 
 
 class VIEW3D_PT_tools_grease_pencil_brush_eraser(View3DPanel, Panel):
@@ -2892,7 +2892,7 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette(View3DPanel, Panel):
         row = col.row(align=True)
         row.template_ID(settings, "palette", new="palette.new")
         if settings.palette:
-            col.template_palette(settings, "palette", color=True)
+            col.template_palette(settings, "palette", target=None, target_property="")
 
 
 class VIEW3D_PT_tools_grease_pencil_v3_brush_eraser(View3DPanel, Panel):

@@ -233,7 +233,8 @@ static void ui_template_palette_menu(bContext * /*C*/, uiLayout *layout, void * 
 void uiTemplatePalette(uiLayout *layout,
                        PointerRNA *ptr,
                        const StringRefNull propname,
-                       bool /*colors*/)
+                       PointerRNA *target_ptr,
+                       const StringRefNull target_propname)
 {
   PropertyRNA *prop = RNA_struct_find_property(ptr, propname.c_str());
   uiBut *but = nullptr;
@@ -311,6 +312,17 @@ void uiTemplatePalette(uiLayout *layout,
   col = uiLayoutColumn(layout, true);
   uiLayoutRow(col, true);
 
+  PropertyRNA *target_prop = nullptr;
+  if (target_ptr && target_ptr->data) {
+    target_prop = RNA_struct_find_property(target_ptr, target_propname.c_str());
+    if (!target_prop) {
+      RNA_warning("property not found: %s.%s",
+                  RNA_struct_identifier(target_ptr->type),
+                  target_propname.c_str());
+      return;
+    }
+  }
+
   int row_cols = 0, col_id = 0;
   LISTBASE_FOREACH (PaletteColor *, color, &palette->colors) {
     if (row_cols >= cols_per_row) {
@@ -335,6 +347,10 @@ void uiTemplatePalette(uiLayout *layout,
                                                     "");
     color_but->is_pallete_color = true;
     color_but->palette_color_index = col_id;
+    if (target_ptr != nullptr) {
+      color_but->color_target = *target_ptr;
+    }
+    color_but->color_target_prop = target_prop;
     row_cols++;
     col_id++;
   }
