@@ -16,7 +16,6 @@
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
-#include "BKE_undo_system.hh"
 
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
@@ -65,7 +64,12 @@ constexpr StringRef SHAPE_KEY_POINT_OPACITY = "-opacity";
 constexpr StringRef SHAPE_KEY_POINT_VERTEX_COLOR = "-vertex-color";
 
 /* State flag: is a shape key being edited? */
-bool in_edit_mode = false;
+enum class ShapeKeyEditState : int8_t {
+  Inactive,
+  Active,
+  Cancelled,
+};
+ShapeKeyEditState edit_state = ShapeKeyEditState::Inactive;
 
 /* Minimum value a property must be changed to consider it a shape key change. */
 constexpr float EPSILON = 1e-5f;
@@ -87,8 +91,6 @@ struct ShapeKeyEditData {
 
   Array<LayerBase> base_layers;
   Array<bke::CurvesGeometry> base_geometry;
-
-  int initial_undo_step;
 };
 
 float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, const int layer_index)
@@ -365,7 +367,8 @@ static bool active_poll(bContext *C)
   }
 
   GreasePencil *grease_pencil = from_context(*C);
-  return !BLI_listbase_is_empty(&grease_pencil->shape_keys) && !in_edit_mode;
+  return !BLI_listbase_is_empty(&grease_pencil->shape_keys) &&
+         (edit_state == ShapeKeyEditState::Inactive);
 }
 
 static void GREASE_PENCIL_OT_shape_key_remove(wmOperatorType *ot)
@@ -687,15 +690,16 @@ static void GREASE_PENCIL_OT_shape_key_duplicate(wmOperatorType *ot)
 
 /* Find the Grease Pencil object of the shape key that has been edited. Theoretically the
  * `edit_data.grease_pencil` pointer could be changed since the shape key editing started. */
-static void ensure_valid_grease_pencil_of_edited_shapekey(bContext *C, ShapeKeyEditData &edit_data)
+static bool ensure_valid_grease_pencil_of_edited_shapekey(bContext *C, ShapeKeyEditData &edit_data)
 {
   Main *bmain = CTX_data_main(C);
   LISTBASE_FOREACH (GreasePencil *, grease_pencil, &bmain->grease_pencils) {
     if (grease_pencil->flag & GREASE_PENCIL_SHAPE_KEY_IS_EDITED) {
       edit_data.grease_pencil = grease_pencil;
-      break;
+      return true;
     }
   }
+  return false;
 }
 
 /* After shape key editing, restore the layer transformation and opacity to base values. */
@@ -739,7 +743,7 @@ static void edit_exit(bContext *C, wmOperator *op)
   ShapeKeyEditData *edit_data = static_cast<ShapeKeyEditData *>(op->customdata);
 
   /* Shape key is no longer in edit mode. */
-  in_edit_mode = false;
+  edit_state = ShapeKeyEditState::Inactive;
 
   if (edit_data == nullptr) {
     return;
@@ -795,6 +799,43 @@ static void edit_exit(bContext *C, wmOperator *op)
   op->customdata = nullptr;
 }
 
+/* When cancelling shape key editing, revert the shape-keyed geometry to their base values. */
+static void edit_cancel(bContext *C, wmOperator *op)
+{
+  using namespace bke;
+  using namespace bke::greasepencil;
+
+  ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
+  ensure_valid_grease_pencil_of_edited_shapekey(C, edit_data);
+
+  /* Collect all drawings. */
+  GreasePencil &grease_pencil = *edit_data.grease_pencil;
+  Vector<Drawing *> shaped_drawings;
+  for (const int drawing_i : grease_pencil.drawings().index_range()) {
+    GreasePencilDrawingBase *drawing_base = grease_pencil.drawing(drawing_i);
+    if (drawing_base->type != GP_DRAWING) {
+      continue;
+    }
+    Drawing *drawing = &(reinterpret_cast<GreasePencilDrawing *>(drawing_base))->wrap();
+    shaped_drawings.append(drawing);
+  }
+
+  /* Revert all shape keyed geometry attributes to their base values. */
+  threading::parallel_for(shaped_drawings.index_range(), 1, [&](const IndexRange drawing_range) {
+    for (const int drawing_i : drawing_range) {
+      Drawing &drawing = *shaped_drawings[drawing_i];
+      if (drawing.base.shape_key_edit_index == 0) {
+        continue;
+      }
+
+      /* Copy the base geometry back to the drawing, cancelling all changes. */
+      drawing.strokes_for_write() = edit_data.base_geometry[drawing.base.shape_key_edit_index - 1];
+    }
+  });
+
+  edit_exit(C, op);
+}
+
 static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*/)
 {
   ScrArea *area = CTX_wm_area(C);
@@ -831,11 +872,12 @@ static void edit_viewport_draw(const bContext *C, ARegion *region, void * /*arg*
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(alert_color);
   GPU_line_width(2.0f * half_line_w);
-  imm_draw_box_wire_2d(pos,
-                       half_line_w,
-                       footer_height + half_line_w,
-                       outer_rect->xmax - outer_rect->xmin - npanel_label_width - half_line_w,
-                       outer_rect->ymax - outer_rect->ymin - half_line_w);
+  imm_draw_box_wire_2d(
+      pos,
+      half_line_w,
+      footer_height + half_line_w,
+      math::round(outer_rect->xmax - outer_rect->xmin - npanel_label_width - half_line_w),
+      math::round(outer_rect->ymax - outer_rect->ymin - half_line_w));
 
   /* Draw text in colored box. */
   const rcti *inner_rect = ED_region_visible_rect(region);
@@ -1687,7 +1729,7 @@ static void edit_init(bContext *C, wmOperator *op)
   grease_pencil.flag |= GREASE_PENCIL_SHAPE_KEY_IS_EDITED;
 
   /* Set flag now we enter edit mode. */
-  in_edit_mode = true;
+  edit_state = ShapeKeyEditState::Active;
 
   /* Mark the edited shape key in the shape key modifiers. */
   Object *object = CTX_data_active_object(C);
@@ -1770,13 +1812,8 @@ static void edit_init(bContext *C, wmOperator *op)
         }
       });
 
-  /* Log the current position in the undo stack. This enables us to cancel edit mode when the user
-   * makes undo steps to the point before shape key editing started. */
-  edit_data.initial_undo_step = 0;
-  UndoStack *undo_stack = ED_undo_stack_get();
-  if (undo_stack->step_active) {
-    edit_data.initial_undo_step = BLI_findindex(&undo_stack->steps, undo_stack->step_active);
-  }
+  /* Add an undo step, allowing the user to undo the first action while editing without leaving
+   * edit mode immediately. */
   ED_undo_push(C, "Start Edit Shape Key");
 
   DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
@@ -1785,24 +1822,24 @@ static void edit_init(bContext *C, wmOperator *op)
 
 static wmOperatorStatus edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  /* Check the undo stack. When the user undoes to the point before shape key editing started, we
-   * want to cancel the shape key editing. */
+  /* Check for a Grease Pencil object with the #GREASE_PENCIL_SHAPE_KEY_IS_EDITED flag enabled.
+   * When this flag isn't found, it means the user undoed 'out of' shape key editing. In that case
+   * we cancel the editing. */
   if (!ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
-    UndoStack *undo_stack = ED_undo_stack_get();
-    if (undo_stack->step_active) {
-      ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
-      const int active_undo_step = BLI_findindex(&undo_stack->steps, undo_stack->step_active);
-      if (active_undo_step <= edit_data.initial_undo_step) {
-        /* Cancel edit mode when the user undoes 'out of' shape key editing. */
-        in_edit_mode = false;
-        edit_exit(C, op);
-        return OPERATOR_FINISHED;
-      }
+    ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
+    if (!ensure_valid_grease_pencil_of_edited_shapekey(C, edit_data)) {
+      edit_cancel(C, op);
+      return OPERATOR_FINISHED;
     }
   }
 
-  /* Operator is completed when the 'in edit mode' flag is disabled by the Finish Edit operator. */
-  if (!in_edit_mode) {
+  /* Operator will end when the shape key 'edit state' is changed by the 'Finish Edit' or
+   * 'Cancel Edit' operator. */
+  if (edit_state == ShapeKeyEditState::Cancelled) {
+    edit_cancel(C, op);
+    return OPERATOR_FINISHED;
+  }
+  if (edit_state == ShapeKeyEditState::Inactive) {
     /* Grab all the shape key deltas and wrap up shape key edit mode. */
     ShapeKeyEditData &edit_data = *static_cast<ShapeKeyEditData *>(op->customdata);
     ensure_valid_grease_pencil_of_edited_shapekey(C, edit_data);
@@ -1837,18 +1874,18 @@ static void GREASE_PENCIL_OT_shape_key_edit(wmOperatorType *ot)
   ot->poll = active_poll;
   ot->exec = edit_exec;
   ot->modal = edit_modal;
-  ot->cancel = edit_exit;
+  ot->cancel = edit_cancel;
 }
 
 static wmOperatorStatus edit_finish_exec(bContext * /*C*/, wmOperator * /*op*/)
 {
-  in_edit_mode = false;
+  edit_state = ShapeKeyEditState::Inactive;
   return OPERATOR_FINISHED;
 }
 
 static bool edit_finish_poll(bContext * /*C*/)
 {
-  return in_edit_mode;
+  return edit_state == ShapeKeyEditState::Active;
 }
 
 static void GREASE_PENCIL_OT_shape_key_edit_finish(wmOperatorType *ot)
@@ -1862,6 +1899,26 @@ static void GREASE_PENCIL_OT_shape_key_edit_finish(wmOperatorType *ot)
   /* Callbacks. */
   ot->poll = edit_finish_poll;
   ot->exec = edit_finish_exec;
+}
+
+static wmOperatorStatus edit_cancel_exec(bContext * /*C*/, wmOperator * /*op*/)
+{
+  edit_state = ShapeKeyEditState::Cancelled;
+  return OPERATOR_FINISHED;
+}
+
+static void GREASE_PENCIL_OT_shape_key_edit_cancel(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Cancel Edit Shape Key";
+  ot->idname = "GREASE_PENCIL_OT_shape_key_edit_cancel";
+  ot->description =
+      "Cancel the editing of the active shape key, reverting all changes made to the shape key";
+  ot->flag = OPTYPE_REGISTER;
+
+  /* Callbacks. */
+  ot->poll = edit_finish_poll;
+  ot->exec = edit_cancel_exec;
 }
 
 static wmOperatorStatus new_from_mix_exec(bContext *C, wmOperator *op)
@@ -2112,7 +2169,8 @@ bool new_from_modifier(Object *object,
 
 bool ED_grease_pencil_shape_key_in_edit_mode()
 {
-  return blender::ed::greasepencil::shape_key::in_edit_mode;
+  return blender::ed::greasepencil::shape_key::edit_state ==
+         blender::ed::greasepencil::shape_key::ShapeKeyEditState::Active;
 }
 
 void ED_operatortypes_grease_pencil_shape_keys()
@@ -2124,6 +2182,7 @@ void ED_operatortypes_grease_pencil_shape_keys()
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_new_from_mix);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit_finish);
+  WM_operatortype_append(GREASE_PENCIL_OT_shape_key_edit_cancel);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_remove_all);
   WM_operatortype_append(GREASE_PENCIL_OT_shape_key_clear);

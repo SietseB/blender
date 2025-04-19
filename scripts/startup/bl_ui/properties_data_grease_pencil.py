@@ -638,11 +638,13 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
         if shape_key:
             row = layout.row()
             sub = row.column()
-            sub.active = not grease_pencil.in_shape_key_edit_mode
-            sub.operator("grease_pencil.shape_key_edit", text="Edit")
+            if grease_pencil.in_shape_key_edit_mode:
+                sub.operator("grease_pencil.shape_key_edit_finish", text="Finish Edit", depress=True)
+            else:
+                sub.operator("grease_pencil.shape_key_edit", text="Edit")
             sub = row.column()
             sub.active = grease_pencil.in_shape_key_edit_mode
-            sub.operator("grease_pencil.shape_key_edit_finish", text="Finish Edit", depress=sub.active)
+            sub.operator("grease_pencil.shape_key_edit_cancel", text="Cancel Edit")
 
             if sub.active:
                 row = layout.row()
