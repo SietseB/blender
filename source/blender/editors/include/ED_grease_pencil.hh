@@ -39,6 +39,7 @@ struct ViewContext;
 struct BVHTree;
 struct GreasePencilLineartModifierData;
 struct RV3DMatrixStore;
+struct ModifierData;
 
 namespace blender {
 class RandomNumberGenerator;
@@ -1032,8 +1033,18 @@ float3 get_base_layer_translation(const ShapeKeyEditData &edit_data, int layer_i
 float3 get_base_layer_rotation(const ShapeKeyEditData &edit_data, int layer_index);
 float3 get_base_layer_scale(const ShapeKeyEditData &edit_data, int layer_index);
 
-void get_shape_key_stroke_deltas(ShapeKeyEditData &edit_data,
-                                 Span<bke::greasepencil::Drawing *> drawings);
+void get_shape_key_stroke_deltas(
+    ShapeKeyEditData &edit_data,
+    Span<bke::greasepencil::Drawing *> shaped_drawings,
+    bool use_target = false,
+    std::optional<Span<bke::greasepencil::Drawing *>> target_drawings = {});
+
+bool new_from_modifier(Object *object,
+                       ModifierData *md,
+                       Main *bmain,
+                       Scene *scene,
+                       Depsgraph *depsgraph,
+                       ReportList *reports);
 
 }  // namespace shape_key
 

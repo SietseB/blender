@@ -527,10 +527,6 @@ typedef struct GreasePencilShapeKey {
   char _pad0[4];
   short flag;
   char _pad1[2];
-
-  /* Flipping point condition when layer order change is applied. */
-  int layer_order_compare;
-  float layer_order_value;
 } GreassePencilShapeKey;
 
 typedef enum GreasePencilShapeKeyFlag {

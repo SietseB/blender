@@ -938,6 +938,10 @@ static bool modifier_apply_shape(Main *bmain,
 
     BKE_id_free(nullptr, mesh_applied);
   }
+  else if (ob->type == OB_GREASE_PENCIL) {
+    return ed::greasepencil::shape_key::new_from_modifier(
+        ob, md_eval, bmain, scene, depsgraph, reports);
+  }
   else {
     BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
     return false;

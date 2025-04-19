@@ -887,13 +887,6 @@ static void rna_GreasePencilShapeKey_value_range(
   *max = shape_key->range_max;
 }
 
-static void rna_GreasePencilShapeKey_layer_order_value_set(PointerRNA *ptr, float value)
-{
-  GreasePencilShapeKey *shape_key = static_cast<GreasePencilShapeKey *>(ptr->data);
-  CLAMP(value, shape_key->range_min, shape_key->range_max);
-  shape_key->layer_order_value = value;
-}
-
 static constexpr float SHAPE_KEY_SLIDER_TOLERANCE = 0.001f;
 
 static void rna_GreasePencilShapeKey_slider_min_range(
@@ -938,7 +931,6 @@ static void rna_GreasePencilShapeKey_update_minmax(Main * /*bmain*/,
     return;
   }
   CLAMP(shape_key->value, shape_key->range_min, shape_key->range_max);
-  CLAMP(shape_key->layer_order_value, shape_key->range_min, shape_key->range_max);
 
   rna_grease_pencil_update(nullptr, nullptr, ptr);
 }
@@ -1816,12 +1808,6 @@ static void rna_def_grease_pencil_shape_key(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem prop_layer_order_compare_items[] = {
-      {GREASE_PENCIL_SHAPE_KEY_COMPARE_GREATER_THAN, "GREATER", 0, "Greater Than", ""},
-      {GREASE_PENCIL_SHAPE_KEY_COMPARE_LESS_THAN, "LESS", 0, "Less Than", ""},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
   srna = RNA_def_struct(brna, "GreasePencilShapeKey", nullptr);
   RNA_def_struct_sdna(srna, "GreasePencilShapeKey");
   RNA_def_struct_ui_text(srna, "Grease Pencil Shape Keys", "List of shape keys");
@@ -1890,35 +1876,6 @@ static void rna_def_grease_pencil_shape_key(BlenderRNA *brna)
       prop, "Pass Index", "Index number for filtering shape keys in the shape key modifier");
   RNA_def_property_update(
       prop, NC_GPENCIL | ND_DATA | NA_EDITED, "rna_grease_pencil_update_shape_key");
-
-  /* Flipping point of layer order change. */
-  prop = RNA_def_property(srna, "layer_order_compare", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, nullptr, "layer_order_compare");
-  RNA_def_property_enum_items(prop, prop_layer_order_compare_items);
-  RNA_def_property_ui_text(prop,
-                           "Shape Key Order If",
-                           "Comparison operator for the flipping point of a layer order change");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update_shape_key");
-
-  prop = RNA_def_property(srna, "layer_order_value", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, nullptr, "layer_order_value");
-  RNA_def_property_float_funcs(prop,
-                               nullptr,
-                               "rna_GreasePencilShapeKey_layer_order_value_set",
-                               "rna_GreasePencilShapeKey_value_range");
-  RNA_def_property_ui_range(prop, -10.0f, 10.0f, 1.0f, 3);
-  RNA_def_property_ui_text(
-      prop, "Flip Order Value", "Value for the flipping point of a layer order change");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_grease_pencil_update_shape_key");
-
-  /*
-  prop = RNA_def_property(srna, "changed_layer_order", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_funcs(
-      prop, "rna_GreasePencilShapeKey_changes_layer_order_get", nullptr);
-  RNA_def_property_ui_text(
-      prop, "Changed Layer Order", "True when the shape key changes the layer order");
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  */
 }
 
 static void rna_def_grease_pencil_shape_keys(BlenderRNA *brna, PropertyRNA *cprop)
