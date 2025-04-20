@@ -172,7 +172,7 @@ void WM_cursor_set(wmWindow *win, int curs)
     return; /* Can't set custom cursor before Window init. */
   }
 
-  if (curs == WM_CURSOR_DEFAULT && win->modalcursor) {
+  if (win->modalcursor && ELEM(curs, WM_CURSOR_DEFAULT, WM_CURSOR_PAINT, WM_CURSOR_DOT)) {
     curs = win->modalcursor;
   }
 
