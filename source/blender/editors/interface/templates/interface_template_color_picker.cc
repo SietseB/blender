@@ -239,7 +239,11 @@ void uiTemplatePalette(uiLayout *layout,
   PropertyRNA *prop = RNA_struct_find_property(ptr, propname.c_str());
   uiBut *but = nullptr;
 
-  const int cols_per_row = std::max(uiLayoutGetWidth(layout) / UI_UNIT_X, 1);
+  int cols_per_row = std::max(uiLayoutGetWidth(layout) / UI_UNIT_X, 1);
+  if (uiLayoutGetUnitsX(layout) != 0.0f) {
+    cols_per_row = std::max(
+        int(uiLayoutGetWidth(layout) * (uiLayoutGetUnitsX(layout) / 10.0f)) / UI_UNIT_X, 1);
+  }
 
   if (!prop) {
     RNA_warning("property not found: %s.%s", RNA_struct_identifier(ptr->type), propname.c_str());

@@ -127,12 +127,21 @@ class GPMaterialColorPalettePanel():
     bl_context = ".material"
     bl_ui_units_x = 10
 
+    def set_shaded_color_palette_width(self, layout, paint):
+        palette = paint.palette
+        if palette is None:
+            return
+        if palette.shader_count == 0:
+            return
+        layout.ui_units_x = palette.shader_count if palette.shader_count >= 10 else 2 * palette.shader_count
+
 
 class MATERIAL_PT_gpencil_strokecolor_palette(GPMaterialColorPalettePanel, Panel):
     def draw(self, context):
         layout = self.layout
         paint = context.scene.tool_settings.gpencil_paint
         gpcolor = context.material.grease_pencil
+        self.set_shaded_color_palette_width(layout, paint)
 
         layout.template_ID(paint, "palette", new="palette.new")
         if paint.palette:
@@ -222,6 +231,7 @@ class MATERIAL_PT_gpencil_fillcolor_palette(GPMaterialColorPalettePanel, Panel):
         layout = self.layout
         paint = context.scene.tool_settings.gpencil_paint
         gpcolor = context.material.grease_pencil
+        self.set_shaded_color_palette_width(layout, paint)
 
         layout.template_ID(paint, "palette", new="palette.new")
         if paint.palette:
@@ -233,6 +243,7 @@ class MATERIAL_PT_gpencil_mixcolor_palette(GPMaterialColorPalettePanel, Panel):
         layout = self.layout
         paint = context.scene.tool_settings.gpencil_paint
         gpcolor = context.material.grease_pencil
+        self.set_shaded_color_palette_width(layout, paint)
 
         layout.template_ID(paint, "palette", new="palette.new")
         if paint.palette:

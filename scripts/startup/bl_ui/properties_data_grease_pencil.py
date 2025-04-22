@@ -662,14 +662,6 @@ class DATA_PT_grease_pencil_shape_keys(DataButtonsPanel, Panel):
             col = layout.column()
             col.prop(shape_key, "pass_index", text="Pass Index")
 
-            '''
-            if shape_key.changed_layer_order:
-                layout.separator()
-                col = layout.column(align=True)
-                col.prop(shape_key, "layer_order_compare")
-                col.prop(shape_key, "layer_order_value", text=" ", slider=True)
-            '''
-
 
 classes = (
     GREASE_PENCIL_UL_masks,

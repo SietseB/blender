@@ -8860,6 +8860,14 @@ class TOPBAR_PT_grease_pencil_vertex_color(Panel):
         ob = context.object
         return ob and ob.type == 'GREASEPENCIL'
 
+    def set_shaded_color_palette_width(self, layout, paint):
+        palette = paint.palette
+        if palette is None:
+            return
+        if palette.shader_count == 0:
+            return
+        layout.ui_units_x = palette.shader_count if palette.shader_count >= 10 else 2 * palette.shader_count
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -8875,6 +8883,8 @@ class TOPBAR_PT_grease_pencil_vertex_color(Panel):
         ups = context.tool_settings.unified_paint_settings
         brush = paint.brush
         prop_owner = ups if use_unified_paint and ups.use_unified_color else brush
+
+        self.set_shaded_color_palette_width(layout, paint)
 
         col = layout.column()
         col.template_color_picker(prop_owner, "color", value_slider=True)
