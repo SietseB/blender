@@ -351,6 +351,11 @@ endif()
 
 if(WITH_TBB)
   find_package(TBB REQUIRED)
+  if(TBB_FOUND)
+    get_target_property(TBB_LIBRARIES TBB::tbb LOCATION)
+    get_target_property(TBB_INCLUDE_DIRS TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+  set_and_warn_library_found("TBB" TBB_FOUND WITH_TBB)
 endif()
 add_bundled_libraries(tbb/lib)
 
@@ -422,8 +427,10 @@ string(APPEND PLATFORM_LINKFLAGS
 )
 
 if(${XCODE_VERSION} VERSION_GREATER_EQUAL 15.0)
-  if("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64")
+  if("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64" AND WITH_LEGACY_MACOS_X64_LINKER)
     # Silence "no platform load command found in <static library>, assuming: macOS".
+    #
+    # NOTE: Using ld_classic costs minutes of extra linking time.
     string(APPEND PLATFORM_LINKFLAGS " -Wl,-ld_classic")
   else()
     # Silence "ld: warning: ignoring duplicate libraries".

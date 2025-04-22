@@ -277,7 +277,7 @@ static void view3d_stereo3d_setup(
     float shiftx;
 
     data = (Camera *)v3d->camera->data;
-    data_eval = (Camera *)DEG_get_evaluated_id(depsgraph, &data->id);
+    data_eval = DEG_get_evaluated(depsgraph, data);
 
     shiftx = data_eval->shiftx;
 
@@ -2413,7 +2413,7 @@ void view3d_depths_rect_create(ARegion *region, rcti *rect, ViewDepths *r_d)
   r_d->w = w;
   r_d->h = h;
 
-  r_d->depths = static_cast<float *>(MEM_mallocN(sizeof(float) * w * h, "View depths Subset"));
+  r_d->depths = MEM_malloc_arrayN<float>(w * h, "View depths Subset");
 
   {
     GPUViewport *viewport = WM_draw_region_get_viewport(region);

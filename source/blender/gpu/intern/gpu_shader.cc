@@ -269,7 +269,7 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info)
   return wrap(Context::get()->get_compiler()->compile(info, false));
 }
 
-static std::string preprocess_source(StringRefNull original)
+std::string GPU_shader_preprocess_source(StringRefNull original)
 {
   if (original.is_empty()) {
     return original;
@@ -289,10 +289,10 @@ GPUShader *GPU_shader_create_from_info_python(const GPUShaderCreateInfo *_info)
   std::string geometry_source_original = info.geometry_source_generated;
   std::string compute_source_original = info.compute_source_generated;
 
-  info.vertex_source_generated = preprocess_source(info.vertex_source_generated);
-  info.fragment_source_generated = preprocess_source(info.fragment_source_generated);
-  info.geometry_source_generated = preprocess_source(info.geometry_source_generated);
-  info.compute_source_generated = preprocess_source(info.compute_source_generated);
+  info.vertex_source_generated = GPU_shader_preprocess_source(info.vertex_source_generated);
+  info.fragment_source_generated = GPU_shader_preprocess_source(info.fragment_source_generated);
+  info.geometry_source_generated = GPU_shader_preprocess_source(info.geometry_source_generated);
+  info.compute_source_generated = GPU_shader_preprocess_source(info.compute_source_generated);
 
   GPUShader *result = wrap(Context::get()->get_compiler()->compile(info, false));
 
@@ -336,19 +336,19 @@ GPUShader *GPU_shader_create_from_python(std::optional<StringRefNull> vertcode,
   std::string library_source_processed;
 
   if (vertcode.has_value()) {
-    vertex_source_processed = preprocess_source(*vertcode);
+    vertex_source_processed = GPU_shader_preprocess_source(*vertcode);
     vertcode = vertex_source_processed;
   }
   if (fragcode.has_value()) {
-    fragment_source_processed = preprocess_source(*fragcode);
+    fragment_source_processed = GPU_shader_preprocess_source(*fragcode);
     fragcode = fragment_source_processed;
   }
   if (geomcode.has_value()) {
-    geometry_source_processed = preprocess_source(*geomcode);
+    geometry_source_processed = GPU_shader_preprocess_source(*geomcode);
     geomcode = geometry_source_processed;
   }
   if (libcode.has_value()) {
-    library_source_processed = preprocess_source(*libcode);
+    library_source_processed = GPU_shader_preprocess_source(*libcode);
     libcode = library_source_processed;
   }
 
@@ -501,25 +501,25 @@ void Shader::specialization_constants_init(const shader::ShaderCreateInfo &info)
 void GPU_shader_constant_int_ex(GPUShader *sh, int location, int value)
 {
   Shader &shader = *unwrap(sh);
-  BLI_assert(shader.constants.types[location] == gpu::shader::Type::INT);
+  BLI_assert(shader.constants.types[location] == gpu::shader::Type::int_t);
   shader.constants.is_dirty |= assign_if_different(shader.constants.values[location].i, value);
 }
 void GPU_shader_constant_uint_ex(GPUShader *sh, int location, uint value)
 {
   Shader &shader = *unwrap(sh);
-  BLI_assert(shader.constants.types[location] == gpu::shader::Type::UINT);
+  BLI_assert(shader.constants.types[location] == gpu::shader::Type::uint_t);
   shader.constants.is_dirty |= assign_if_different(shader.constants.values[location].u, value);
 }
 void GPU_shader_constant_float_ex(GPUShader *sh, int location, float value)
 {
   Shader &shader = *unwrap(sh);
-  BLI_assert(shader.constants.types[location] == gpu::shader::Type::FLOAT);
+  BLI_assert(shader.constants.types[location] == gpu::shader::Type::float_t);
   shader.constants.is_dirty |= assign_if_different(shader.constants.values[location].f, value);
 }
 void GPU_shader_constant_bool_ex(GPUShader *sh, int location, bool value)
 {
   Shader &shader = *unwrap(sh);
-  BLI_assert(shader.constants.types[location] == gpu::shader::Type::BOOL);
+  BLI_assert(shader.constants.types[location] == gpu::shader::Type::bool_t);
   shader.constants.is_dirty |= assign_if_different(shader.constants.values[location].u,
                                                    uint32_t(value));
 }

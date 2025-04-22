@@ -116,7 +116,7 @@ static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmGizmoGroupType 
 
 static void WIDGETGROUP_node_transform_setup(const bContext * /*C*/, wmGizmoGroup *gzgroup)
 {
-  wmGizmoWrapper *wwrapper = (wmGizmoWrapper *)MEM_mallocN(sizeof(wmGizmoWrapper), __func__);
+  wmGizmoWrapper *wwrapper = MEM_mallocN<wmGizmoWrapper>(__func__);
 
   wwrapper->gizmo = WM_gizmo_new("GIZMO_GT_cage_2d", gzgroup, nullptr);
 
@@ -503,6 +503,11 @@ static void WIDGETGROUP_node_box_mask_setup(const bContext * /*C*/, wmGizmoGroup
                ED_GIZMO_CAGE_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE_XFORM_FLAG_ROTATE |
                    ED_GIZMO_CAGE_XFORM_FLAG_SCALE);
 
+  RNA_enum_set(mask_group->border->ptr,
+               "draw_options",
+               ED_GIZMO_CAGE_DRAW_FLAG_XFORM_CENTER_HANDLE |
+                   ED_GIZMO_CAGE_DRAW_FLAG_CORNER_HANDLES);
+
   gzgroup->customdata = mask_group;
   gzgroup->customdata_free = [](void *customdata) {
     MEM_delete(static_cast<NodeBBoxWidgetGroup *>(customdata));
@@ -608,8 +613,10 @@ static void WIDGETGROUP_node_ellipse_mask_setup(const bContext * /*C*/, wmGizmoG
                ED_GIZMO_CAGE_XFORM_FLAG_TRANSLATE | ED_GIZMO_CAGE_XFORM_FLAG_ROTATE |
                    ED_GIZMO_CAGE_XFORM_FLAG_SCALE);
   RNA_enum_set(mask_group->border->ptr, "draw_style", ED_GIZMO_CAGE2D_STYLE_CIRCLE);
-  RNA_enum_set(
-      mask_group->border->ptr, "draw_options", ED_GIZMO_CAGE_DRAW_FLAG_XFORM_CENTER_HANDLE);
+  RNA_enum_set(mask_group->border->ptr,
+               "draw_options",
+               ED_GIZMO_CAGE_DRAW_FLAG_XFORM_CENTER_HANDLE |
+                   ED_GIZMO_CAGE_DRAW_FLAG_CORNER_HANDLES);
 
   gzgroup->customdata = mask_group;
   gzgroup->customdata_free = [](void *customdata) {
@@ -667,8 +674,7 @@ static bool WIDGETGROUP_node_sbeam_poll(const bContext *C, wmGizmoGroupType * /*
 
 static void WIDGETGROUP_node_sbeam_setup(const bContext * /*C*/, wmGizmoGroup *gzgroup)
 {
-  NodeSunBeamsWidgetGroup *sbeam_group = (NodeSunBeamsWidgetGroup *)MEM_mallocN(
-      sizeof(NodeSunBeamsWidgetGroup), __func__);
+  NodeSunBeamsWidgetGroup *sbeam_group = MEM_mallocN<NodeSunBeamsWidgetGroup>(__func__);
 
   sbeam_group->gizmo = WM_gizmo_new("GIZMO_GT_move_3d", gzgroup, nullptr);
   wmGizmo *gz = sbeam_group->gizmo;
@@ -774,8 +780,7 @@ static bool WIDGETGROUP_node_corner_pin_poll(const bContext *C, wmGizmoGroupType
 
 static void WIDGETGROUP_node_corner_pin_setup(const bContext * /*C*/, wmGizmoGroup *gzgroup)
 {
-  NodeCornerPinWidgetGroup *cpin_group = (NodeCornerPinWidgetGroup *)MEM_mallocN(
-      sizeof(NodeCornerPinWidgetGroup), __func__);
+  NodeCornerPinWidgetGroup *cpin_group = MEM_mallocN<NodeCornerPinWidgetGroup>(__func__);
   const wmGizmoType *gzt_move_3d = WM_gizmotype_find("GIZMO_GT_move_3d", false);
 
   for (int i = 0; i < 4; i++) {

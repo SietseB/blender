@@ -1141,7 +1141,7 @@ static void create_ao_raytree(MultiresBakeRender *bkr, MAOBakeData *ao_data)
 
   raytree = ao_data->raytree = RE_rayobject_create(
       bkr->raytrace_structure, faces_num, bkr->octree_resolution);
-  face = ao_data->rayfaces = MEM_calloc_arrayN<RayFace>(size_t(faces_num),
+  face = ao_data->rayfaces = MEM_calloc_arrayN<RayFace>(faces_num,
                                                         "ObjectRen faces");
 
   for (i = 0; i < grids_num; i++) {
@@ -1184,9 +1184,9 @@ static void *init_ao_data(MultiresBakeRender *bkr, ImBuf * /*ibuf*/)
   create_ao_raytree(bkr, ao_data);
 
   /* initialize permutation tables */
-  ao_data->permutation_table_1 = MEM_calloc_arrayN<ushort>(size_t(bkr->number_of_rays), "multires AO baker perm1");
-  ao_data->permutation_table_2 = MEM_calloc_arrayN<ushort>(size_t(bkr->number_of_rays), "multires AO baker perm2");
-  temp_permutation_table = MEM_calloc_arrayN<ushort>(size_t(bkr->number_of_rays), "multires AO baker temp perm");
+  ao_data->permutation_table_1 = MEM_calloc_arrayN<ushort>(bkr->number_of_rays, "multires AO baker perm1");
+  ao_data->permutation_table_2 = MEM_calloc_arrayN<ushort>(bkr->number_of_rays, "multires AO baker perm2");
+  temp_permutation_table = MEM_calloc_arrayN<ushort>(bkr->number_of_rays, "multires AO baker temp perm");
 
   build_permutation_table(
       ao_data->permutation_table_1, temp_permutation_table, bkr->number_of_rays, 1);
@@ -1506,7 +1506,7 @@ static void bake_images(MultiresBakeRender *bkr, MultiresBakeResult *result)
 
       if (ibuf->x > 0 && ibuf->y > 0) {
         BakeImBufuserData *userdata = MEM_callocN<BakeImBufuserData>("MultiresBake userdata");
-        userdata->mask_buffer = MEM_calloc_arrayN<char>(ibuf->y * ibuf->x,
+        userdata->mask_buffer = MEM_calloc_arrayN<char>(size_t(ibuf->y) * size_t(ibuf->x),
                                                         "MultiresBake imbuf mask");
         ibuf->userdata = userdata;
 

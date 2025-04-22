@@ -5137,7 +5137,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "border_width", PROP_INT, PROP_NONE);
   RNA_def_property_ui_text(prop, "Border Width", "Size of the padding around each editor.");
-  RNA_def_property_range(prop, 1.0f, 10.f);
+  RNA_def_property_range(prop, 1.0f, 10.0f);
   RNA_def_property_update(prop, 0, "rna_userdef_gpu_update");
 
   prop = RNA_def_property(srna, "ui_line_width", PROP_ENUM, PROP_NONE);
@@ -7540,13 +7540,6 @@ static void rna_def_userdef_experimental(BlenderRNA *brna)
                            "Disable library overrides automatic resync detection and process on "
                            "file load (can be useful to help fixing broken files). Also see the "
                            "`--disable-liboverride-auto-resync` command line option");
-
-  /* The DNA doesn't match the RNA name. This is intentional, and a side-effect of a massive
-   * renaming of `point_cloud` > `pointclout` which didn't want to affect people's DNA. */
-  prop = RNA_def_property(srna, "use_new_pointcloud_type", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "use_new_point_cloud_type", 1);
-  RNA_def_property_ui_text(
-      prop, "New Point Cloud Type", "Enable the new point cloud type in the ui");
 
   prop = RNA_def_property(srna, "use_new_curves_tools", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "use_new_curves_tools", 1);

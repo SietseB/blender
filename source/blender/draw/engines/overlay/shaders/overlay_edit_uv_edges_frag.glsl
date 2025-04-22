@@ -24,13 +24,13 @@ FRAGMENT_SHADER_CREATE_INFO(overlay_edit_uv_edges)
 
 void main()
 {
-  vec4 inner_color = vec4(vec3(0.0f), 1.0f);
-  vec4 outer_color = vec4(0.0f);
+  float4 inner_color = float4(float3(0.0f), 1.0f);
+  float4 outer_color = float4(0.0f);
 
-  vec2 dd = fwidth(stipplePos);
+  float2 dd = fwidth(stipplePos);
   float line_distance = distance(stipplePos, stippleStart) / max(dd.x, dd.y);
 
-  if (lineStyle == OVERLAY_UV_LINE_STYLE_OUTLINE) {
+  if (OVERLAY_UVLineStyle(lineStyle) == OVERLAY_UV_LINE_STYLE_OUTLINE) {
     if (use_edge_select) {
       /* TODO(@ideasman42): The current wire-edit color contrast enough against the selection.
        * Look into changing the default theme color instead of reducing contrast with edge-select.
@@ -40,22 +40,22 @@ void main()
     else {
       inner_color = mix(colorWireEdit, colorEdgeSelect, selectionFac);
     }
-    outer_color = vec4(vec3(0.0f), 1.0f);
+    outer_color = float4(float3(0.0f), 1.0f);
   }
-  else if (lineStyle == OVERLAY_UV_LINE_STYLE_DASH) {
+  else if (OVERLAY_UVLineStyle(lineStyle) == OVERLAY_UV_LINE_STYLE_DASH) {
     if (fract(line_distance / dashLength) < 0.5f) {
-      inner_color = mix(vec4(vec3(0.35f), 1.0f), colorEdgeSelect, selectionFac);
+      inner_color = mix(float4(float3(0.35f), 1.0f), colorEdgeSelect, selectionFac);
     }
   }
-  else if (lineStyle == OVERLAY_UV_LINE_STYLE_BLACK) {
-    vec4 base_color = vec4(vec3(0.0f), 1.0f);
+  else if (OVERLAY_UVLineStyle(lineStyle) == OVERLAY_UV_LINE_STYLE_BLACK) {
+    float4 base_color = float4(float3(0.0f), 1.0f);
     inner_color = mix(base_color, colorEdgeSelect, selectionFac);
   }
-  else if (lineStyle == OVERLAY_UV_LINE_STYLE_WHITE) {
-    vec4 base_color = vec4(1.0f);
+  else if (OVERLAY_UVLineStyle(lineStyle) == OVERLAY_UV_LINE_STYLE_WHITE) {
+    float4 base_color = float4(1.0f);
     inner_color = mix(base_color, colorEdgeSelect, selectionFac);
   }
-  else if (lineStyle == OVERLAY_UV_LINE_STYLE_SHADOW) {
+  else if (OVERLAY_UVLineStyle(lineStyle) == OVERLAY_UV_LINE_STYLE_SHADOW) {
     inner_color = colorUVShadow;
   }
 
@@ -73,7 +73,7 @@ void main()
     mix_w_outer = step(0.5f, dist_outer);
   }
 
-  vec4 final_color = mix(outer_color, inner_color, 1.0f - mix_w * outer_color.a);
+  float4 final_color = mix(outer_color, inner_color, 1.0f - mix_w * outer_color.a);
   final_color.a *= 1.0f - (outer_color.a > 0.0f ? mix_w_outer : mix_w);
 
   eObjectInfoFlag ob_flag = drw_object_infos().flag;

@@ -70,7 +70,7 @@ static const CPPType *get_socket_cpp_type(const bke::bNodeSocketType &typeinfo)
   if (type == nullptr) {
     return nullptr;
   }
-  BLI_assert(type->has_special_member_functions());
+  BLI_assert(type->has_special_member_functions);
   return type;
 }
 
@@ -1232,7 +1232,7 @@ static GMutablePointer get_socket_default_value(LinearAllocator<> &allocator,
   if (type == nullptr) {
     return {};
   }
-  void *buffer = allocator.allocate(type->size(), type->alignment());
+  void *buffer = allocator.allocate(*type);
   typeinfo.get_geometry_nodes_cpp_value(bsocket.default_value, buffer);
   return {type, buffer};
 }
@@ -2149,7 +2149,8 @@ struct GeometryNodesLazyFunctionBuilder {
   {
     ZoneBuildInfo &zone_info = zone_build_infos_[zone.index];
     /* Build a function for the closure body. */
-    ZoneBodyFunction &body_fn = this->build_zone_body_function(zone, "Closure Body", nullptr);
+    ZoneBodyFunction &body_fn = this->build_zone_body_function(
+        zone, "Closure Body", &scope_.construct<GeometryNodesLazyFunctionSideEffectProvider>());
     auto &zone_fn = build_closure_zone_lazy_function(scope_, btree_, zone, zone_info, body_fn);
     zone_info.lazy_function = &zone_fn;
   }
@@ -3623,6 +3624,8 @@ struct GeometryNodesLazyFunctionBuilder {
     BLI_assert(outputs_num == function.indices.outputs.main.size());
     BLI_assert(outputs_num == function.indices.inputs.output_usages.size());
 
+    mapping_->possible_side_effect_node_map.add(&bnode, &lf_node);
+
     for (const int i : IndexRange(inputs_num)) {
       const bNodeSocket &bsocket = bnode.input_socket(i);
       lf::InputSocket &lf_socket = lf_node.input(function.indices.inputs.main[i]);
@@ -3834,13 +3837,13 @@ struct GeometryNodesLazyFunctionBuilder {
     if (this->try_add_implicit_input(input_bsocket, input_lf_socket, graph_params)) {
       return;
     }
-    GMutablePointer value = get_socket_default_value(scope_.linear_allocator(), input_bsocket);
+    GMutablePointer value = get_socket_default_value(scope_.allocator(), input_bsocket);
     if (value.get() == nullptr) {
       /* Not possible to add a default value. */
       return;
     }
     input_lf_socket.set_default_value(value.get());
-    if (!value.type()->is_trivially_destructible()) {
+    if (!value.type()->is_trivially_destructible) {
       scope_.add_destruct_call([value]() mutable { value.destruct(); });
     }
   }
@@ -4146,7 +4149,7 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
       return nullptr;
     }
   }
-  if (const ID *id_orig = DEG_get_original_id(&btree.id)) {
+  if (const ID *id_orig = DEG_get_original(&btree.id)) {
     if (id_orig->tag & ID_TAG_MISSING) {
       return nullptr;
     }
@@ -4243,7 +4246,7 @@ GeoNodesOperatorDepsgraphs::~GeoNodesOperatorDepsgraphs()
 
 static const ID *get_only_evaluated_id(const Depsgraph &depsgraph, const ID &id_orig)
 {
-  const ID *id = DEG_get_evaluated_id(&depsgraph, &id_orig);
+  const ID *id = DEG_get_evaluated(&depsgraph, &id_orig);
   if (id == &id_orig) {
     return nullptr;
   }

@@ -33,7 +33,7 @@
 #include "editors/sculpt_paint/sculpt_automask.hh"
 #include "editors/sculpt_paint/sculpt_intern.hh"
 
-namespace blender::ed::sculpt_paint {
+namespace blender::ed::sculpt_paint::brushes {
 
 struct ScrapeSampleData {
   std::array<float3, 2> area_cos;
@@ -537,7 +537,7 @@ void do_multiplane_scrape_brush(const Depsgraph &depsgraph,
 
   const bool flip = (ss.cache->bstrength < 0.0f);
   const float radius = flip ? -ss.cache->radius : ss.cache->radius;
-  const float offset = SCULPT_brush_plane_offset_get(sd, ss);
+  const float offset = brush_plane_offset_get(brush, ss);
   const float displace = -radius * offset;
 
   float3 sculpt_plane_normal;
@@ -795,4 +795,4 @@ void multiplane_scrape_preview_draw(const uint gpuattr,
   immEnd();
 }
 
-}  // namespace blender::ed::sculpt_paint
+}  // namespace blender::ed::sculpt_paint::brushes

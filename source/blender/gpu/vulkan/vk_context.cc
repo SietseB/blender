@@ -57,7 +57,6 @@ void VKContext::sync_backbuffer(bool cycle_resource_pool)
     if (cycle_resource_pool) {
       thread_data.resource_pool_next();
       VKResourcePool &resource_pool = thread_data.resource_pool_get();
-      resource_pool.reset();
       imm = &resource_pool.immediate;
     }
 
@@ -159,6 +158,7 @@ TimelineValue VKContext::flush_render_graph(RenderGraphFlushFlags flags,
     }
   }
   descriptor_set_get().upload_descriptor_sets();
+  descriptor_pools_get().discard(*this);
   VKDevice &device = VKBackend::get().device;
   TimelineValue timeline = device.render_graph_submit(
       &render_graph_.value().get(),
@@ -385,7 +385,6 @@ void VKContext::swap_buffers_pre_handler(const GHOST_VulkanSwapChainData &swap_c
   render_graph::VKRenderGraph &render_graph = this->render_graph();
   render_graph.add_node(blit_image);
   GPU_debug_group_end();
-  descriptor_set_get().upload_descriptor_sets();
   render_graph::VKSynchronizationNode::CreateInfo synchronization = {};
   synchronization.vk_image = swap_chain_data.image;
   synchronization.vk_image_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;

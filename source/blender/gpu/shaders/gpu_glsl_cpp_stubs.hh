@@ -224,6 +224,11 @@ template<typename T> struct VecBase<T, 1> {
 };
 
 template<typename T> struct VecBase<T, 2> : VecOp<T, 2> {
+ private:
+  /* Weird non-zero value to avoid error about division by zero in constexpr. */
+  static constexpr T V = T(0.123f);
+
+ public:
   union {
     struct {
       T x, y;
@@ -237,11 +242,17 @@ template<typename T> struct VecBase<T, 2> : VecOp<T, 2> {
 
   VecBase() = default;
   template<typename U> explicit VecBase(VecOp<U, 2>) {}
-  explicit VecBase(T) {}
-  explicit VecBase(T, T) {}
+  constexpr explicit VecBase(T) : x(V), y(V) {}
+  /* Implemented correctly for GCC to compile the constexpr float2 arrays. */
+  constexpr explicit VecBase(T x_, T y_) : x(x_), y(y_) {}
 };
 
 template<typename T> struct VecBase<T, 3> : VecOp<T, 3> {
+ private:
+  /* Weird non-zero value to avoid error about division by zero in constexpr. */
+  static constexpr T V = T(0.123f);
+
+ public:
   union {
     struct {
       T x, y, z;
@@ -255,14 +266,19 @@ template<typename T> struct VecBase<T, 3> : VecOp<T, 3> {
 
   VecBase() = default;
   template<typename U> explicit VecBase(VecOp<U, 3>) {}
-  explicit VecBase(T) {}
+  constexpr explicit VecBase(T) : x(V), y(V), z(V) {}
   /* Implemented correctly for GCC to compile the constexpr gl_WorkGroupSize. */
   constexpr explicit VecBase(T x_, T y_, T z_) : x(x_), y(y_), z(z_) {}
-  explicit VecBase(VecOp<T, 2>, T) {}
-  explicit VecBase(T, VecOp<T, 2>) {}
+  constexpr explicit VecBase(VecOp<T, 2>, T) : x(V), y(V), z(V) {}
+  constexpr explicit VecBase(T, VecOp<T, 2>) : x(V), y(V), z(V) {}
 };
 
 template<typename T> struct VecBase<T, 4> : VecOp<T, 4> {
+ private:
+  /* Weird non-zero value to avoid error about division by zero in constexpr. */
+  static constexpr T V = T(0.123f);
+
+ public:
   union {
     struct {
       T x, y, z, w;
@@ -276,14 +292,15 @@ template<typename T> struct VecBase<T, 4> : VecOp<T, 4> {
 
   VecBase() = default;
   template<typename U> explicit VecBase(VecOp<U, 4>) {}
-  explicit VecBase(T) {}
-  explicit VecBase(T, T, T, T) {}
-  explicit VecBase(VecOp<T, 2>, T, T) {}
-  explicit VecBase(T, VecOp<T, 2>, T) {}
-  explicit VecBase(T, T, VecOp<T, 2>) {}
-  explicit VecBase(VecOp<T, 2>, VecOp<T, 2>) {}
-  explicit VecBase(VecOp<T, 3>, T) {}
-  explicit VecBase(T, VecOp<T, 3>) {}
+  constexpr explicit VecBase(T) : x(V), y(V), z(V), w(V) {}
+  /* Implemented correctly for GCC to compile the constexpr. */
+  constexpr explicit VecBase(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
+  constexpr explicit VecBase(VecOp<T, 2>, T, T) : x(V), y(V), z(V), w(V) {}
+  constexpr explicit VecBase(T, VecOp<T, 2>, T) : x(V), y(V), z(V), w(V) {}
+  constexpr explicit VecBase(T, T, VecOp<T, 2>) : x(V), y(V), z(V), w(V) {}
+  constexpr explicit VecBase(VecOp<T, 2>, VecOp<T, 2>) : x(V), y(V), z(V), w(V) {}
+  constexpr explicit VecBase(VecOp<T, 3>, T) : x(V), y(V), z(V), w(V) {}
+  constexpr explicit VecBase(T, VecOp<T, 3>) : x(V), y(V), z(V), w(V) {}
 };
 
 /* Boolean vectors do not have operators and are not convertible from other types. */
@@ -379,42 +396,6 @@ using bool2 = VecBase<bool, 2>;
 using bool3 = VecBase<bool, 3>;
 using bool4 = VecBase<bool, 4>;
 
-using vec2 = float2;
-using vec3 = float3;
-using vec4 = float4;
-
-using ivec2 = int2;
-using ivec3 = int3;
-using ivec4 = int4;
-
-using uvec2 = uint2;
-using uvec3 = uint3;
-using uvec4 = uint4;
-
-using bvec2 = bool2;
-using bvec3 = bool3;
-using bvec4 = bool4;
-
-using FLOAT = float;
-using VEC2 = float2;
-using VEC3 = float3;
-using VEC4 = float4;
-
-using INT = int;
-using IVEC2 = int2;
-using IVEC3 = int3;
-using IVEC4 = int4;
-
-using UINT = uint;
-using UVEC2 = uint2;
-using UVEC3 = uint3;
-using UVEC4 = uint4;
-
-using BOOL = bool;
-using BVEC2 = bool2;
-using BVEC3 = bool3;
-using BVEC4 = bool4;
-
 using bool32_t = uint;
 
 /** Packed types are needed for MSL which have different alignment rules for float3. */
@@ -504,23 +485,6 @@ using float3x4 = MatBase<3, 4>;
 using float4x2 = MatBase<4, 2>;
 using float4x3 = MatBase<4, 3>;
 using float4x4 = MatBase<4, 4>;
-
-using mat2x2 = float2x2;
-using mat2x3 = float2x3;
-using mat2x4 = float2x4;
-using mat3x2 = float3x2;
-using mat3x3 = float3x3;
-using mat3x4 = float3x4;
-using mat4x2 = float4x2;
-using mat4x3 = float4x3;
-using mat4x4 = float4x4;
-
-using mat2 = float2x2;
-using mat3 = float3x3;
-using mat4 = float4x4;
-
-using MAT4 = float4x4;
-using MAT3 = float3x3;
 
 /* Matrix reshaping functions. */
 #define RESHAPE(mat_to, mat_from, ...) \
@@ -745,12 +709,12 @@ int findMSB(uint) RET;
 /* NOTE: Declared inside a namespace and exposed behind macros to prevent
  * errors on VS2019 due to `corecrt_math` conflicting functions. */
 namespace glsl {
-template<typename T> T abs(T) RET;
+template<typename T> constexpr T abs(T) RET;
 /* TODO(fclem): These should be restricted to floats. */
-template<typename T> T ceil(T) RET;
-template<typename T> T exp(T) RET;
-template<typename T> T exp2(T) RET;
-template<typename T> T floor(T) RET;
+template<typename T> constexpr T ceil(T) RET;
+template<typename T> constexpr T exp(T) RET;
+template<typename T> constexpr T exp2(T) RET;
+template<typename T> constexpr T floor(T) RET;
 template<typename T> T fma(T, T, T) RET;
 float fma(float, float, float) RET;
 template<typename T> T frexp(T, T) RET;
@@ -758,25 +722,25 @@ bool isinf(float) RET;
 template<int D> VecBase<bool, D> isinf(VecOp<float, D>) RET;
 bool isnan(float) RET;
 template<int D> VecBase<bool, D> isnan(VecOp<float, D>) RET;
-template<typename T> T log(T) RET;
-template<typename T> T log2(T) RET;
+template<typename T> constexpr T log(T) RET;
+template<typename T> constexpr T log2(T) RET;
 template<typename T> T modf(T, T);
-template<typename T, typename U> T pow(T, U) RET;
-template<typename T> T round(T) RET;
-template<typename T> T sqrt(T) RET;
-template<typename T> T trunc(T) RET;
+template<typename T, typename U> constexpr T pow(T, U) RET;
+template<typename T> constexpr T round(T) RET;
+template<typename T> constexpr T sqrt(T) RET;
+template<typename T> constexpr T trunc(T) RET;
 template<typename T, typename U> T ldexp(T, U) RET;
 
-template<typename T> T acos(T) RET;
+template<typename T> constexpr T acos(T) RET;
 template<typename T> T acosh(T) RET;
-template<typename T> T asin(T) RET;
+template<typename T> constexpr T asin(T) RET;
 template<typename T> T asinh(T) RET;
 template<typename T> T atan(T, T) RET;
 template<typename T> T atan(T) RET;
 template<typename T> T atanh(T) RET;
-template<typename T> T cos(T) RET;
+template<typename T> constexpr T cos(T) RET;
 template<typename T> T cosh(T) RET;
-template<typename T> T sin(T) RET;
+template<typename T> constexpr T sin(T) RET;
 template<typename T> T sinh(T) RET;
 template<typename T> T tan(T) RET;
 template<typename T> T tanh(T) RET;
@@ -812,19 +776,19 @@ template<typename T> T tanh(T) RET;
 #define tan glsl::tan
 #define tanh glsl::tanh
 
-template<typename T> T max(T, T) RET;
-template<typename T> T min(T, T) RET;
-template<typename T> T sign(T) RET;
-template<typename T, typename U> T clamp(T, U, U) RET;
-template<typename T> T clamp(T, float, float) RET;
-template<typename T, typename U> T max(T, U) RET;
-template<typename T, typename U> T min(T, U) RET;
+template<typename T> constexpr T max(T, T) RET;
+template<typename T> constexpr T min(T, T) RET;
+template<typename T> constexpr T sign(T) RET;
+template<typename T, typename U> constexpr T clamp(T, U, U) RET;
+template<typename T> constexpr T clamp(T, float, float) RET;
+template<typename T, typename U> constexpr T max(T, U) RET;
+template<typename T, typename U> constexpr T min(T, U) RET;
 /* TODO(fclem): These should be restricted to floats. */
 template<typename T> T fract(T) RET;
-template<typename T> T inversesqrt(T) RET;
-float mod(float, float) RET;
-template<int D> VecBase<float, D> mod(VecOp<float, D>, float) RET;
-template<int D> VecBase<float, D> mod(VecOp<float, D>, VecOp<float, D>) RET;
+template<typename T> constexpr T inversesqrt(T) RET;
+constexpr float mod(float, float) RET;
+template<int D> VecBase<float, D> constexpr mod(VecOp<float, D>, float) RET;
+template<int D> VecBase<float, D> constexpr mod(VecOp<float, D>, VecOp<float, D>) RET;
 template<typename T> T smoothstep(T, T, T) RET;
 float step(float, float) RET;
 template<int D> VecBase<float, D> step(VecOp<float, D>, VecOp<float, D>) RET;
@@ -832,8 +796,8 @@ template<int D> VecBase<float, D> step(float, VecOp<float, D>) RET;
 float smoothstep(float, float, float) RET;
 template<int D> VecBase<float, D> smoothstep(float, float, VecOp<float, D>) RET;
 
-template<typename T> T degrees(T) RET;
-template<typename T> T radians(T) RET;
+template<typename T> constexpr T degrees(T) RET;
+template<typename T> constexpr T radians(T) RET;
 
 /* Declared explicitly to avoid type errors. */
 float mix(float, float, float) RET;

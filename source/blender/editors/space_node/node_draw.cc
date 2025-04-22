@@ -38,6 +38,7 @@
 
 #include "BLT_translation.hh"
 
+#include "BKE_compute_context_cache.hh"
 #include "BKE_compute_contexts.hh"
 #include "BKE_context.hh"
 #include "BKE_curves.hh"
@@ -3580,7 +3581,7 @@ static void node_draw_basis(const bContext &C,
     uiBut *but = uiDefIconBut(&block,
                               UI_BTYPE_BUT,
                               0,
-                              is_active ? ICON_HIDE_OFF : ICON_HIDE_ON,
+                              is_active ? ICON_RESTRICT_VIEW_OFF : ICON_RESTRICT_VIEW_ON,
                               iconofs,
                               rct.ymax - NODE_DY,
                               iconbutw,
@@ -3614,12 +3615,26 @@ static void node_draw_basis(const bContext &C,
   if (node.is_type("CompositorNodeViewer")) {
     short shortcut_icon = get_viewer_shortcut_icon(node);
     iconofs -= iconbutw;
+    const bool is_active = node.flag & NODE_DO_OUTPUT;
     UI_block_emboss_set(&block, blender::ui::EmbossType::None);
     uiDefIconBut(&block,
                  UI_BTYPE_BUT,
                  0,
-                 shortcut_icon,
+                 is_active ? ICON_RESTRICT_VIEW_OFF : ICON_RESTRICT_VIEW_ON,
                  iconofs,
+                 rct.ymax - NODE_DY,
+                 iconbutw,
+                 UI_UNIT_Y,
+                 nullptr,
+                 0,
+                 0,
+                 "");
+
+    uiDefIconBut(&block,
+                 UI_BTYPE_BUT,
+                 0,
+                 shortcut_icon,
+                 iconofs - 1.2 * iconbutw,
                  rct.ymax - NODE_DY,
                  iconbutw,
                  UI_UNIT_Y,
@@ -4363,26 +4378,18 @@ static Set<const bNodeSocket *> find_sockets_on_active_gizmo_paths(const bContex
   }
   snode.edittree->ensure_topology_cache();
 
-  /* Compute the compute context hash for the current node tree path. */
-  std::optional<ComputeContextHash> current_compute_context_hash =
-      [&]() -> std::optional<ComputeContextHash> {
-    ComputeContextBuilder compute_context_builder;
-    compute_context_builder.push<bke::ModifierComputeContext>(*object_and_modifier->nmd);
-    if (!ed::space_node::push_compute_context_for_tree_path(snode, compute_context_builder)) {
-      return std::nullopt;
-    }
-    return compute_context_builder.current()->hash();
-  }();
-  if (!current_compute_context_hash) {
+  bke::ComputeContextCache compute_context_cache;
+  const ComputeContext *current_compute_context = ed::space_node::compute_context_for_edittree(
+      snode, compute_context_cache);
+  if (!current_compute_context) {
     return {};
   }
 
   Set<const bNodeSocket *> sockets_on_gizmo_paths;
 
-  ComputeContextBuilder compute_context_builder;
   nodes::gizmos::foreach_active_gizmo(
       C,
-      compute_context_builder,
+      compute_context_cache,
       [&](const Object &gizmo_object,
           const NodesModifierData &gizmo_nmd,
           const ComputeContext &gizmo_context,
@@ -4401,7 +4408,7 @@ static Set<const bNodeSocket *> find_sockets_on_active_gizmo_paths(const bContex
             [&](const ComputeContext &compute_context,
                 const bNodeSocket &socket,
                 const nodes::inverse_eval::ElemVariant & /*elem*/) {
-              if (compute_context.hash() == *current_compute_context_hash) {
+              if (compute_context.hash() == current_compute_context->hash()) {
                 sockets_on_gizmo_paths.add(&socket);
               }
             });

@@ -214,7 +214,7 @@ if(WITH_COMPILER_ASAN AND MSVC AND NOT MSVC_CLANG)
 endif()
 
 
-# C++ standards conformace
+# C++ standards conformance
 # /permissive-    : Available from MSVC 15.5 (1912) and up. Enables standards-confirming compiler
 #                   behavior. Required until the project is marked as c++20.
 # /Zc:__cplusplus : Available from MSVC 15.7 (1914) and up. Ensures correct value of the __cplusplus
@@ -410,7 +410,7 @@ set(ZLIB_INCLUDE_DIR ${LIBDIR}/zlib/include)
 set(ZLIB_LIBRARY ${LIBDIR}/zlib/lib/libz_st.lib)
 set(ZLIB_DIR ${LIBDIR}/zlib)
 
-windows_find_package(ZLIB) # we want to find before finding things that depend on it like png
+windows_find_package(ZLIB) # We want to find before finding things that depend on it like PNG.
 windows_find_package(PNG)
 if(NOT PNG_FOUND)
   warn_hardcoded_paths(libpng)
@@ -945,7 +945,15 @@ endif()
 
 if(WITH_TBB)
   windows_find_package(TBB)
-  if(NOT TBB_FOUND)
+  if(TBB_FOUND)
+    get_target_property(TBB_LIBRARIES_RELEASE TBB::tbb LOCATION_RELEASE)
+    get_target_property(TBB_LIBRARIES_DEBUG TBB::tbb LOCATION_DEBUG)
+    set(TBB_LIBRARIES
+      optimized ${TBB_LIBRARIES_RELEASE}
+      debug ${TBB_LIBRARIES_DEBUG}
+    )
+    get_target_property(TBB_INCLUDE_DIRS TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+  else()
     if(EXISTS ${LIBDIR}/tbb/lib/tbb12.lib) # 4.4
       set(TBB_LIBRARIES
         optimized ${LIBDIR}/tbb/lib/tbb12.lib
@@ -1376,8 +1384,8 @@ if(WITH_CYCLES AND (WITH_CYCLES_DEVICE_ONEAPI OR (WITH_CYCLES_EMBREE AND EMBREE_
   )
 endif()
 
-# Add the msvc directory to the path so when building with ASAN enabled tools such as
-# msgfmt which run before the install phase can find the asan shared libraries.
+# Add the MSVC directory to the path so when building with ASAN enabled tools such as
+# `msgfmt` which run before the install phase can find the asan shared libraries.
 get_filename_component(_msvc_path ${CMAKE_C_COMPILER} DIRECTORY)
 # Environment variables to run precompiled executables that needed libraries.
 list(JOIN PLATFORM_BUNDLED_LIBRARY_DIRS ";" _library_paths)

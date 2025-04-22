@@ -390,7 +390,7 @@ template<> Mesh &DRW_object_get_data_for_drawing(const Object &object)
 
 DRWData *DRW_viewport_data_create()
 {
-  DRWData *drw_data = static_cast<DRWData *>(MEM_callocN(sizeof(DRWData), "DRWData"));
+  DRWData *drw_data = MEM_callocN<DRWData>("DRWData");
 
   drw_data->default_view = new blender::draw::View("DrawDefaultView");
 
@@ -654,7 +654,7 @@ ObjectRef::ObjectRef(DEGObjectIterData &iter_data, Object *ob)
   this->dupli_parent = iter_data.dupli_parent;
   this->dupli_object = iter_data.dupli_object_current;
   this->object = ob;
-  /* Set by the first drawcall. */
+  /* Set by the first draw-call. */
   this->handle = ResourceHandle(0);
 }
 
@@ -663,7 +663,7 @@ ObjectRef::ObjectRef(Object *ob)
   this->dupli_parent = nullptr;
   this->dupli_object = nullptr;
   this->object = ob;
-  /* Set by the first drawcall. */
+  /* Set by the first draw-call. */
   this->handle = ResourceHandle(0);
 }
 
@@ -755,7 +755,7 @@ void DRWContext::engines_init_and_sync(iter_callback_t iter_callback)
 {
   view_data_active->foreach_enabled_engine([&](DrawEngine &instance) { instance.init(); });
 
-  view_data_active->manager->begin_sync();
+  view_data_active->manager->begin_sync(this->obact);
 
   view_data_active->foreach_enabled_engine([&](DrawEngine &instance) {
     /* TODO(fclem): Remove. Only there for overlay engine. */
@@ -1699,7 +1699,7 @@ void DRW_draw_select_loop(Depsgraph *depsgraph,
       FOREACH_OBJECT_IN_MODE_BEGIN (scene, view_layer, v3d, object_type, object_mode, ob_iter) {
         /* Depsgraph usually does this, but we use a different iterator.
          * So we have to do it manually. */
-        ob_iter->runtime->select_id = DEG_get_original_object(ob_iter)->runtime->select_id;
+        ob_iter->runtime->select_id = DEG_get_original(ob_iter)->runtime->select_id;
 
         blender::draw::ObjectRef ob_ref(ob_iter);
         drw_engines_cache_populate(ob_ref, extraction);

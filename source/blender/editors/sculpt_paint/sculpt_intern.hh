@@ -609,6 +609,8 @@ bool SCULPT_brush_type_needs_all_pbvh_nodes(const Brush &brush);
 
 namespace blender::ed::sculpt_paint {
 
+float brush_plane_offset_get(const Brush &brush, const SculptSession &ss);
+
 /**
  * \warning This call is *not* idempotent and changes values inside the StrokeCache.
  *
@@ -659,8 +661,6 @@ std::optional<BMVert *> nearest_vert_calc_bmesh(const bke::pbvh::Tree &pbvh,
                                                 float max_distance,
                                                 bool use_original);
 }  // namespace blender::ed::sculpt_paint
-
-float SCULPT_brush_plane_offset_get(const Sculpt &sd, const SculptSession &ss);
 
 ePaintSymmetryAreas SCULPT_get_vertex_symm_area(const float co[3]);
 bool SCULPT_check_vertex_pivot_symmetry(const float vco[3], const float pco[3], char symm);
@@ -744,6 +744,11 @@ namespace blender::ed::sculpt_paint {
 /**
  * Tilts a normal by the x and y tilt values using the view axis.
  */
+float3 tilt_apply_to_normal(const Object &object,
+                            const float4x4 &view_inverse,
+                            const float3 &normal,
+                            const float2 &tilt,
+                            float tilt_strength);
 float3 tilt_apply_to_normal(const float3 &normal, const StrokeCache &cache, float tilt_strength);
 
 /**
@@ -885,22 +890,6 @@ void SCULPT_do_paint_brush_image(const Scene &scene,
                                  Object &ob,
                                  const blender::IndexMask &node_mask);
 bool SCULPT_use_image_paint_brush(PaintModeSettings &settings, Object &ob);
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Brush Specific Functionality
- * \{ */
-
-namespace blender::ed::sculpt_paint {
-void multiplane_scrape_preview_draw(uint gpuattr,
-                                    const Brush &brush,
-                                    const SculptSession &ss,
-                                    const float outline_col[3],
-                                    float outline_alpha);
-
-float clay_thumb_get_stabilized_pressure(const StrokeCache &cache);
-}  // namespace blender::ed::sculpt_paint
 
 /** \} */
 

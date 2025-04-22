@@ -4,8 +4,8 @@
 
 void main()
 {
-  uint px = texture(image, uvcoordsvar.xy).r;
-  fragColor = vec4(1.0f, 1.0f, 1.0f, 0.0f);
+  uint px = texture(image, screen_uv).r;
+  fragColor = float4(1.0f, 1.0f, 1.0f, 0.0f);
   if (px != 0u) {
     fragColor.a = 1.0f;
     px &= 0x3Fu;

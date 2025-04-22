@@ -73,6 +73,8 @@
 /* Needed for determining tool material/vertex-color pinning. */
 #include "grease_pencil_intern.hh"
 
+#include "brushes/brushes.hh"
+
 /* TODOs:
  *
  * Some of the cursor drawing code is doing non-draw stuff
@@ -315,10 +317,10 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
       target->old_col = col;
     }
     if (col) {
-      buffer = static_cast<uchar *>(MEM_mallocN(sizeof(uchar) * size * size * 4, "load_tex"));
+      buffer = MEM_malloc_arrayN<uchar>(size * size * 4, "load_tex");
     }
     else {
-      buffer = static_cast<uchar *>(MEM_mallocN(sizeof(uchar) * size * size, "load_tex"));
+      buffer = MEM_malloc_arrayN<uchar>(size * size, "load_tex");
     }
 
     pool = BKE_image_pool_new();
@@ -453,7 +455,7 @@ static int load_tex_cursor(Brush *br, ViewContext *vc, float zoom)
 
       cursor_snap.size = size;
     }
-    buffer = static_cast<uchar *>(MEM_mallocN(sizeof(uchar) * size * size, "load_tex"));
+    buffer = MEM_malloc_arrayN<uchar>(size * size, "load_tex");
 
     BKE_curvemapping_init(br->curve);
 
@@ -1289,6 +1291,8 @@ struct PaintCursorContext {
   /* TODO: Figure out why this and mval are used interchangeably */
   float2 translation;
 
+  float2 tilt;
+
   float final_radius;
   int pixel_radius;
 };
@@ -1296,6 +1300,8 @@ struct PaintCursorContext {
 static bool paint_cursor_context_init(bContext *C,
                                       const int x,
                                       const int y,
+                                      const float x_tilt,
+                                      const float y_tilt,
                                       PaintCursorContext &pcontext)
 {
   ARegion *region = CTX_wm_region(C);
@@ -1335,6 +1341,7 @@ static bool paint_cursor_context_init(bContext *C,
 
   pcontext.mval = {x, y};
   pcontext.translation = {float(x), float(y)};
+  pcontext.tilt = {x_tilt, y_tilt};
 
   float zoomx, zoomy;
   get_imapaint_zoom(C, &zoomx, &zoomy);
@@ -1689,7 +1696,16 @@ static void paint_cursor_drawing_setup_cursor_space(const PaintCursorContext &pc
                                                 pcontext.location);
 
   const float3 z_axis = {0.0f, 0.0f, 1.0f};
-  const math::AxisAngle between_vecs(z_axis, pcontext.normal);
+
+  const float3 normal = bke::brush::supports_tilt(*pcontext.brush) ?
+                            tilt_apply_to_normal(*pcontext.vc.obact,
+                                                 float4x4(pcontext.vc.rv3d->viewinv),
+                                                 pcontext.normal,
+                                                 pcontext.tilt,
+                                                 pcontext.brush->tilt_strength_factor) :
+                            pcontext.normal;
+
+  const math::AxisAngle between_vecs(z_axis, normal);
   const float4x4 cursor_rot = math::from_rotation<float4x4>(between_vecs);
 
   GPU_matrix_mul(cursor_trans.ptr());
@@ -2001,7 +2017,7 @@ static void paint_cursor_cursor_draw_3d_view_brush_cursor_active(PaintCursorCont
   }
 
   if (brush.sculpt_brush_type == SCULPT_BRUSH_TYPE_MULTIPLANE_SCRAPE) {
-    multiplane_scrape_preview_draw(
+    brushes::multiplane_scrape_preview_draw(
         pcontext.pos, brush, ss, pcontext.outline_col, pcontext.outline_alpha);
   }
 
@@ -2137,10 +2153,10 @@ static void paint_cursor_restore_drawing_state()
 }
 
 static void paint_draw_cursor(
-    bContext *C, int x, int y, float /*x_tilt*/, float /*y_tilt*/, void * /*unused*/)
+    bContext *C, int x, int y, float x_tilt, float y_tilt, void * /*unused*/)
 {
   PaintCursorContext pcontext;
-  if (!paint_cursor_context_init(C, x, y, pcontext)) {
+  if (!paint_cursor_context_init(C, x, y, x_tilt, y_tilt, pcontext)) {
     return;
   }
 

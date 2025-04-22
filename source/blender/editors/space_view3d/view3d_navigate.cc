@@ -813,7 +813,7 @@ bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
   View3D *v3d = CTX_wm_view3d(C);
   BKE_view_layer_synced_ensure(scene_eval, view_layer_eval);
   Object *ob_act_eval = BKE_view_layer_active_object_get(view_layer_eval);
-  Object *ob_act = DEG_get_original_object(ob_act_eval);
+  Object *ob_act = DEG_get_original(ob_act_eval);
 
   if (ob_act && (ob_act->mode & OB_MODE_ALL_PAINT) &&
       /* with weight-paint + pose-mode, fall through to using calculateTransformCenter */
@@ -822,7 +822,13 @@ bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
     BKE_paint_stroke_get_average(scene, ob_act_eval, lastofs);
     is_set = true;
   }
-  else if (ob_act && (ob_act->mode & OB_MODE_SCULPT_CURVES)) {
+  else if (ob_act && ELEM(ob_act->mode,
+                          OB_MODE_SCULPT_CURVES,
+                          OB_MODE_PAINT_GREASE_PENCIL,
+                          OB_MODE_SCULPT_GREASE_PENCIL,
+                          OB_MODE_VERTEX_GREASE_PENCIL,
+                          OB_MODE_WEIGHT_GREASE_PENCIL))
+  {
     BKE_paint_stroke_get_average(scene, ob_act_eval, lastofs);
     is_set = true;
   }
@@ -903,9 +909,6 @@ void viewops_data_free(bContext *C, ViewOpsData *vod)
 /** \name Generic View Operator Utilities
  * \{ */
 
-/**
- * \param align_to_quat: When not nullptr, set the axis relative to this rotation.
- */
 void axis_set_view(bContext *C,
                    View3D *v3d,
                    ARegion *region,

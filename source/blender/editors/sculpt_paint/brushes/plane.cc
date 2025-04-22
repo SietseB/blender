@@ -41,7 +41,7 @@
 
 #include "bmesh.hh"
 
-namespace blender::ed::sculpt_paint {
+namespace blender::ed::sculpt_paint::brushes {
 
 inline namespace plane_cc {
 
@@ -376,7 +376,7 @@ void do_plane_brush(const Depsgraph &depsgraph,
   normal = tilt_apply_to_normal(normal, *ss.cache, brush.tilt_strength_factor);
 
   const bool flip = ss.cache->initial_direction_flipped;
-  const float offset = SCULPT_brush_plane_offset_get(sd, ss);
+  const float offset = brush_plane_offset_get(brush, ss);
   const float displace = ss.cache->radius * offset * (flip ? -1.0f : 1.0f);
   center += normal * ss.cache->scale * displace;
 
@@ -464,11 +464,11 @@ void do_plane_brush(const Depsgraph &depsgraph,
   pbvh.flush_bounds_to_parents();
 }
 
-namespace brushes::plane {
-NodeMaskResult calc_node_mask(const Depsgraph &depsgraph,
-                              Object &ob,
-                              const Brush &brush,
-                              IndexMaskMemory &memory)
+namespace plane {
+CursorSampleResult calc_node_mask(const Depsgraph &depsgraph,
+                                  Object &ob,
+                                  const Brush &brush,
+                                  IndexMaskMemory &memory)
 {
   const SculptSession &ss = *ob.sculpt;
   const bke::pbvh::Tree &pbvh = *bke::object::pbvh_get(ob);
@@ -502,6 +502,6 @@ NodeMaskResult calc_node_mask(const Depsgraph &depsgraph,
 
   return {plane_mask, plane_center, plane_normal};
 }
-}  // namespace brushes::plane
+}  // namespace plane
 
-}  // namespace blender::ed::sculpt_paint
+}  // namespace blender::ed::sculpt_paint::brushes

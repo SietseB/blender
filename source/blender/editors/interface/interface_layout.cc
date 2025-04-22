@@ -180,6 +180,8 @@ struct uiLayout : uiItem {
   float units[2];
   /** Is copied to uiButs created in this layout. */
   float search_weight;
+
+  LayoutSuppressFlag suppress_flag;
 };
 
 struct uiLayoutItemFlow : uiLayout {
@@ -721,7 +723,7 @@ static void ui_item_array(uiLayout *layout,
                                        blender::ui::EmbossType::None,
                                        blender::ui::EmbossType::Pulldown))
       {
-        boolarr = static_cast<bool *>(MEM_callocN(sizeof(bool) * len, __func__));
+        boolarr = MEM_calloc_arrayN<bool>(len, __func__);
         RNA_property_boolean_get_array(ptr, prop, boolarr);
       }
 
@@ -929,7 +931,7 @@ static void ui_item_enum_expand_exec(uiLayout *layout,
   UI_block_layout_set_current(block, layout);
 
   if (free) {
-    MEM_freeN((void *)item_array);
+    MEM_freeN(item_array);
   }
 }
 static void ui_item_enum_expand(uiLayout *layout,
@@ -1090,13 +1092,19 @@ static uiBut *ui_item_with_label(uiLayout *layout,
       if (ELEM(subtype, PROP_FILEPATH, PROP_DIRPATH)) {
         if ((RNA_property_flag(prop) & PROP_PATH_SUPPORTS_BLEND_RELATIVE) == 0) {
           if (BLI_path_is_rel(but->drawstr.c_str())) {
-            UI_but_flag_enable(but, UI_BUT_REDALERT);
+
+            /* Finally check that this isn't suppressed, see: #137507. */
+            if ((uiLayoutSuppressFlagGet(layout) &
+                 LayoutSuppressFlag::PathSupportsBlendFileRelative) != LayoutSuppressFlag(0))
+            {
+              UI_but_flag_enable(but, UI_BUT_REDALERT);
+            }
           }
         }
       }
     }
 
-    /* BUTTONS_OT_file_browse calls UI_context_active_but_prop_get_filebrowser */
+    /* #BUTTONS_OT_file_browse calls #UI_context_active_but_prop_get_filebrowser. */
     uiDefIconButO(block,
                   UI_BTYPE_BUT,
                   subtype == PROP_DIRPATH ? "BUTTONS_OT_directory_browse" :
@@ -1446,7 +1454,7 @@ static StringRef ui_menu_enumpropname(uiLayout *layout,
   }
 
   if (free) {
-    MEM_freeN((void *)item);
+    MEM_freeN(item);
   }
 
   return name;
@@ -1713,7 +1721,7 @@ void uiItemsFullEnumO(uiLayout *layout,
         layout, ot, ptr, prop, properties, context, flag, item_array, totitem, active);
 
     if (free) {
-      MEM_freeN((void *)item_array);
+      MEM_freeN(item_array);
     }
   }
   else if (prop && RNA_property_type(prop) != PROP_ENUM) {
@@ -1792,7 +1800,7 @@ void uiItemEnumO_string(uiLayout *layout,
   int value;
   if (item == nullptr || RNA_enum_value_from_id(item, value_str, &value) == 0) {
     if (free) {
-      MEM_freeN((void *)item);
+      MEM_freeN(item);
     }
     RNA_warning(
         "%s.%s, enum %s not found", RNA_struct_identifier(ptr.type), propname.c_str(), value_str);
@@ -1800,7 +1808,7 @@ void uiItemEnumO_string(uiLayout *layout,
   }
 
   if (free) {
-    MEM_freeN((void *)item);
+    MEM_freeN(item);
   }
 
   RNA_property_enum_set(&ptr, prop, value);
@@ -1970,7 +1978,7 @@ static void ui_item_rna_size(uiLayout *layout,
         }
       }
       if (free) {
-        MEM_freeN((void *)item_array);
+        MEM_freeN(item_array);
       }
     }
   }
@@ -2687,7 +2695,7 @@ void uiItemEnumR_string_prop(uiLayout *layout,
   if (!RNA_enum_value_from_id(item, value, &ivalue)) {
     const StringRefNull propname = RNA_property_identifier(prop);
     if (free) {
-      MEM_freeN((void *)item);
+      MEM_freeN(item);
     }
     ui_item_disabled(layout, propname.c_str());
     RNA_warning("enum property value not found: %s", value);
@@ -2711,7 +2719,7 @@ void uiItemEnumR_string_prop(uiLayout *layout,
   }
 
   if (free) {
-    MEM_freeN((void *)item);
+    MEM_freeN(item);
   }
 }
 
@@ -2783,7 +2791,7 @@ void uiItemsEnumR(uiLayout *layout, PointerRNA *ptr, const StringRefNull propnam
   }
 
   if (free) {
-    MEM_freeN((void *)item);
+    MEM_freeN(item);
   }
 }
 
@@ -3594,7 +3602,7 @@ static int menu_item_enum_opname_menu_active(bContext *C, uiBut *but, MenuItemLe
   RNA_property_enum_items_gettexted(C, &ptr, prop, &item_array, &totitem, &free);
   int active = RNA_enum_from_name(item_array, but->str.c_str());
   if (free) {
-    MEM_freeN((void *)item_array);
+    MEM_freeN(item_array);
   }
 
   return active;
@@ -5482,6 +5490,21 @@ void uiLayoutListItemAddPadding(uiLayout *layout)
 
   /* Restore. */
   UI_block_layout_set_current(block, layout);
+}
+
+LayoutSuppressFlag uiLayoutSuppressFlagGet(const uiLayout *layout)
+{
+  return layout->suppress_flag;
+}
+
+void uiLayoutSuppressFlagSet(uiLayout *layout, LayoutSuppressFlag flag)
+{
+  layout->suppress_flag |= flag;
+}
+
+void uiLayoutSuppressFlagClear(uiLayout *layout, LayoutSuppressFlag flag)
+{
+  layout->suppress_flag &= ~flag;
 }
 
 /** \} */

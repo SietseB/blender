@@ -574,15 +574,15 @@ SamplerState PointSampler
 #    define mad(a, b, c) fma(a, b, c)
 #  elif defined(GPU_VULKAN)
 /* NOTE(Vulkan) mad macro doesn't work, define each override as work-around. */
-vec4 mad(vec4 a, vec4 b, vec4 c)
+float4 mad(float4 a, float4 b, float4 c)
 {
   return fma(a, b, c);
 }
-vec3 mad(vec3 a, vec3 b, vec3 c)
+float3 mad(float3 a, float3 b, float3 c)
 {
   return fma(a, b, c);
 }
-vec2 mad(vec2 a, vec2 b, vec2 c)
+float2 mad(float2 a, float2 b, float2 c)
 {
   return fma(a, b, c);
 }
@@ -592,18 +592,6 @@ float mad(float a, float b, float c)
 }
 #  else
 #    define mad(a, b, c) (a * b + c)
-#  endif
-/* NOTE(Metal): Types already natively declared in MSL. */
-#  ifndef GPU_METAL
-#    define float2 vec2
-#    define float3 vec3
-#    define float4 vec4
-#    define int2 ivec2
-#    define int3 ivec3
-#    define int4 ivec4
-#    define bool2 bvec2
-#    define bool3 bvec3
-#    define bool4 bvec4
 #  endif
 #endif
 
@@ -666,14 +654,7 @@ void SMAAMovc(bool4 cond, inout float4 variable, float4 value)
 /**
  * Edge Detection Vertex Shader
  */
-#  ifdef GPU_METAL
-/* NOTE: Metal API requires explicit address space qualifiers for pointer types.
- * Arrays in functions are passed as pointers, and thus require explicit address
- * space. */
-void SMAAEdgeDetectionVS(float2 texcoord, thread float4 *offset)
-#  else
-void SMAAEdgeDetectionVS(float2 texcoord, out float4 offset[3])
-#  endif
+void SMAAEdgeDetectionVS(float2 texcoord, float4 (&offset)[3])
 {
   offset[0] = mad(SMAA_RT_METRICS.xyxy, float4(-1.0f, 0.0f, 0.0f, -1.0f), texcoord.xyxy);
   offset[1] = mad(SMAA_RT_METRICS.xyxy, float4(1.0f, 0.0f, 0.0f, 1.0f), texcoord.xyxy);
@@ -683,16 +664,7 @@ void SMAAEdgeDetectionVS(float2 texcoord, out float4 offset[3])
 /**
  * Blend Weight Calculation Vertex Shader
  */
-#  ifdef GPU_METAL
-/* NOTE: Metal API requires explicit address space qualifiers for pointer types.
- * Arrays in functions are passed as pointers, and thus require explicit address
- * space. */
-void SMAABlendingWeightCalculationVS(float2 texcoord,
-                                     thread float2 &pixcoord,
-                                     thread float4 *offset)
-#  else
-void SMAABlendingWeightCalculationVS(float2 texcoord, out float2 pixcoord, out float4 offset[3])
-#  endif
+void SMAABlendingWeightCalculationVS(float2 texcoord, out float2 pixcoord, float4 (&offset)[3])
 {
   pixcoord = texcoord * SMAA_RT_METRICS.zw;
 
@@ -1319,7 +1291,7 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
 
 #  ifdef GPU_METAL
       /* Partial vector references are unsupported in MSL. */
-      vec2 _weights = weights.rg;
+      float2 _weights = weights.rg;
       SMAADetectHorizontalCornerPattern(SMAATexturePass2D(edgesTex), _weights, coords.xyzy, d);
       weights.rg = _weights;
 #  else
@@ -1370,7 +1342,7 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
 
 #  ifdef GPU_METAL
     /* Partial vector references are unsupported in MSL. */
-    vec2 _weights = weights.zw;
+    float2 _weights = weights.zw;
     SMAADetectVerticalCornerPattern(SMAATexturePass2D(edgesTex), _weights, coords.xyxz, d);
     weights.zw = _weights;
 #  else
