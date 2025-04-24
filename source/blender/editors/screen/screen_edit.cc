@@ -1842,6 +1842,11 @@ void ED_screen_animation_timer(bContext *C, int redraws, int sync, int enable)
   bScreen *stopscreen = ED_screen_animation_playing(wm);
 
   if (stopscreen) {
+    /* Return to start frame after animation playback. */
+    if (stopscreen->animtimer && (scene->r.flag & SCER_RETURN_TO_START_FRAME) != 0) {
+      ScreenAnimData *sad = static_cast<ScreenAnimData *>(stopscreen->animtimer->customdata);
+      scene->r.cfra = sad->sfra;
+    }
     WM_event_timer_remove(wm, win, stopscreen->animtimer);
     stopscreen->animtimer = nullptr;
   }

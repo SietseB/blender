@@ -8876,6 +8876,13 @@ void RNA_def_scene(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SCENE | ND_FRAME, nullptr);
   RNA_def_property_ui_icon(prop, ICON_PREVIEW_RANGE, 0);
 
+  prop = RNA_def_property(srna, "return_to_start_frame", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "r.flag", SCER_RETURN_TO_START_FRAME);
+  RNA_def_property_ui_text(
+      prop, "Return to Start Frame", "Return to start frame after stopping animation playback");
+  RNA_def_property_update(prop, NC_SCENE | ND_FRAME, nullptr);
+
   prop = RNA_def_property(srna, "frame_preview_start", PROP_INT, PROP_TIME);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_int_sdna(prop, nullptr, "r.psfra");
