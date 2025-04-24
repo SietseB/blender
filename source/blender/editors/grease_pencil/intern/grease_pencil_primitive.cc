@@ -144,6 +144,7 @@ struct PrimitiveToolOperation {
   float fill_opacity;
   float4x2 texture_space;
   float4x4 local_transform;
+  bool use_autoconfirm;
 
   RandomNumberGenerator rng;
   float stroke_random_radius_factor;
@@ -819,6 +820,8 @@ static wmOperatorStatus grease_pencil_primitive_invoke(bContext *C,
   ptd.texture_space = ed::greasepencil::calculate_texture_space(
       vc.scene, ptd.region, ptd.start_position_2d, ptd.placement);
 
+  ptd.use_autoconfirm = (gset->flag & GP_SCULPT_SETT_FLAG_PRIMITIVE_AUTO_CONFIRM) != 0;
+
   const bool use_random = (ptd.settings->flag & GP_BRUSH_GROUP_RANDOM) != 0;
   if (use_random) {
     ptd.rng = RandomNumberGenerator::from_random_seed();
@@ -1337,6 +1340,11 @@ static wmOperatorStatus grease_pencil_primitive_mouse_event(PrimitiveToolOperati
                                        OperatorMode::ChangeOpacity))
   {
     ptd.mode = OperatorMode::Idle;
+    if (ptd.use_autoconfirm &&
+        !ELEM(ptd.type, PrimitiveType::Arc, PrimitiveType::Polyline, PrimitiveType::Curve))
+    {
+      return OPERATOR_FINISHED;
+    }
     return OPERATOR_RUNNING_MODAL;
   }
 
@@ -1482,6 +1490,10 @@ static wmOperatorStatus grease_pencil_primitive_modal(bContext *C,
   switch (event->type) {
     case LEFTMOUSE: {
       const wmOperatorStatus return_val = grease_pencil_primitive_mouse_event(ptd, event);
+      if (return_val == OPERATOR_FINISHED) {
+        grease_pencil_primitive_exit(C, op);
+        return OPERATOR_FINISHED;
+      }
       if (return_val != OPERATOR_RUNNING_MODAL) {
         return return_val;
       }

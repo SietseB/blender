@@ -1333,6 +1333,8 @@ typedef enum eGP_Sculpt_SettingsFlag {
   GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE = (1 << 7),
   /** Active Material Auto-Masking for sculpt. */
   GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE = (1 << 8),
+  /** Auto-confirm primitive after drawing.  */
+  GP_SCULPT_SETT_FLAG_PRIMITIVE_AUTO_CONFIRM = (1 << 9),
 } eGP_Sculpt_SettingsFlag;
 
 /** #GP_Sculpt_Settings::gpencil_selectmode_sculpt */
@@ -2206,6 +2208,8 @@ enum {
   SCER_LOCK_FRAME_SELECTION = 1 << 1,
   /** Show/use sub-frames (for checking motion blur). */
   SCER_SHOW_SUBFRAME = 1 << 3,
+  /** Return to start frame after playback. */
+  SCER_RETURN_TO_START_FRAME = 1 << 4,
 };
 
 /** #RenderData::mode. */

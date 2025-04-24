@@ -1766,6 +1766,10 @@ def brush_basic_grease_pencil_paint_settings(layout, context, brush, props, *, c
             if settings.use_thickness_curve:
                 # Pressure curve.
                 layout.template_curve_mapping(settings, "thickness_primitive_curve", brush=True)
+
+        row = layout.row(align=True)
+        row.prop(settings, "use_primitive_autoconfirm", text="Auto-Confirm")
+
     elif grease_pencil_tool == 'DRAW':
         row = layout.row(align=True)
         if compact:

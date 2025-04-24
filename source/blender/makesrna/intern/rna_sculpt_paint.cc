@@ -1564,6 +1564,15 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 
+  prop = RNA_def_property(srna, "use_primitive_autoconfirm", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", GP_SCULPT_SETT_FLAG_PRIMITIVE_AUTO_CONFIRM);
+  RNA_def_property_ui_text(
+      prop,
+      "Auto-Confirm",
+      "Automatically confirm the primitive after drawing (Box, Circle, Line)");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
+
   prop = RNA_def_property(srna, "use_thickness_curve", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE);
   RNA_def_property_ui_text(prop, "Use Curve", "Use curve to define primitive stroke thickness");
