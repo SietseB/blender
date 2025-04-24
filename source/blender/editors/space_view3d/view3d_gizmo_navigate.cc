@@ -60,7 +60,9 @@ enum {
   GZ_INDEX_CAMERA_LOCK = 7,
   GZ_INDEX_CAMERA_UNLOCK = 8,
 
-  GZ_INDEX_TOTAL = 9,
+  GZ_INDEX_CANVAS_ROTATE = 9,
+
+  GZ_INDEX_TOTAL = 10,
 };
 
 struct NavigateGizmoInfo {
@@ -146,6 +148,12 @@ static NavigateGizmoInfo g_navigate_params[GZ_INDEX_TOTAL] = {
         ICON_VIEW_UNLOCKED,
         navigate_context_toggle_camera_lock_init,
     },
+    {
+        "VIEW3D_OT_rotate_gp_canvas",
+        "GIZMO_GT_button_2d",
+        ICON_PHYSICS,
+        nullptr,
+    },
 };
 
 static bool WIDGETGROUP_navigate_poll(const bContext *C, wmGizmoGroupType * /*gzgt*/)
@@ -158,6 +166,27 @@ static bool WIDGETGROUP_navigate_poll(const bContext *C, wmGizmoGroupType * /*gz
     return false;
   }
   return true;
+}
+
+static void gizmo_set_default_color(wmGizmo *gz)
+{
+  uchar icon_color[3];
+  UI_GetThemeColor3ubv(TH_TEXT, icon_color);
+  int color_tint, color_tint_hi;
+  if (icon_color[0] > 128) {
+    color_tint = -40;
+    color_tint_hi = 60;
+    gz->color[3] = 0.5f;
+    gz->color_hi[3] = 0.5f;
+  }
+  else {
+    color_tint = 60;
+    color_tint_hi = 60;
+    gz->color[3] = 0.5f;
+    gz->color_hi[3] = 0.75f;
+  }
+  UI_GetThemeColorShade3fv(TH_HEADER, color_tint, gz->color);
+  UI_GetThemeColorShade3fv(TH_HEADER, color_tint_hi, gz->color_hi);
 }
 
 static void WIDGETGROUP_navigate_setup(const bContext *C, wmGizmoGroup *gzgroup)
@@ -179,23 +208,7 @@ static void WIDGETGROUP_navigate_setup(const bContext *C, wmGizmoGroup *gzgroup)
       gz->color_hi[3] = 0.5f;
     }
     else {
-      uchar icon_color[3];
-      UI_GetThemeColor3ubv(TH_TEXT, icon_color);
-      int color_tint, color_tint_hi;
-      if (icon_color[0] > 128) {
-        color_tint = -40;
-        color_tint_hi = 60;
-        gz->color[3] = 0.5f;
-        gz->color_hi[3] = 0.5f;
-      }
-      else {
-        color_tint = 60;
-        color_tint_hi = 60;
-        gz->color[3] = 0.5f;
-        gz->color_hi[3] = 0.75f;
-      }
-      UI_GetThemeColorShade3fv(TH_HEADER, color_tint, gz->color);
-      UI_GetThemeColorShade3fv(TH_HEADER, color_tint_hi, gz->color_hi);
+      gizmo_set_default_color(gz);
     }
 
     /* may be overwritten later */
@@ -291,6 +304,17 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
 
   const rcti *rect_visible = ED_region_visible_rect(region);
 
+  /* Highlight rotated canvas. */
+  wmGizmo *gz = gz = navgroup->gz_array[GZ_INDEX_CANVAS_ROTATE];
+  Scene *scene = CTX_data_scene(C);
+  if (scene->camera && scene->camera->rot[1] != 0.0f) {
+    UI_GetThemeColor3fv(TH_AXIS_Z, gz->color);
+    UI_GetThemeColor3fv(TH_AXIS_Z, gz->color_hi);
+  }
+  else {
+    gizmo_set_default_color(gz);
+  }
+
   /* Ensure types match so bits are never lost on assignment. */
   CHECK_TYPE_PAIR(navgroup->state.rv3d.viewlock, rv3d->viewlock);
 
@@ -337,8 +361,6 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
       roundf(rect_visible->ymax - icon_offset_from_axis),
   };
 
-  wmGizmo *gz;
-
   for (uint i = 0; i < ARRAY_SIZE(navgroup->gz_array); i++) {
     gz = navgroup->gz_array[i];
     WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, true);
@@ -362,6 +384,13 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
 
     if ((RV3D_LOCK_FLAGS(rv3d) & RV3D_LOCK_LOCATION) == 0) {
       gz = navgroup->gz_array[GZ_INDEX_MOVE];
+      gz->matrix_basis[3][0] = roundf(co[0]);
+      gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
+      WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);
+    }
+
+    if ((RV3D_LOCK_FLAGS(rv3d) & RV3D_LOCK_ROTATION) == 0) {
+      gz = navgroup->gz_array[GZ_INDEX_CANVAS_ROTATE];
       gz->matrix_basis[3][0] = roundf(co[0]);
       gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
       WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);

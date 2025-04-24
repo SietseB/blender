@@ -165,6 +165,7 @@ void view3d_operatortypes()
   WM_operatortype_append(VIEW3D_OT_zoom);
   WM_operatortype_append(VIEW3D_OT_zoom_camera_1_to_1);
   WM_operatortype_append(VIEW3D_OT_dolly);
+  WM_operatortype_append(VIEW3D_OT_rotate_gp_canvas);
 #ifdef WITH_INPUT_NDOF
   WM_operatortype_append(VIEW3D_OT_ndof_orbit_zoom);
   WM_operatortype_append(VIEW3D_OT_ndof_orbit);

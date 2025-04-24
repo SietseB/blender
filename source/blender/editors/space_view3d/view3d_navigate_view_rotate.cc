@@ -6,11 +6,16 @@
  * \ingroup spview3d
  */
 
+#include <chrono>
+
 #include "BKE_context.hh"
 
+#include "BLI_math_base.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.h"
+
+#include "DEG_depsgraph.hh"
 
 #include "WM_api.hh"
 
@@ -385,6 +390,110 @@ void VIEW3D_OT_rotate(wmOperatorType *ot)
   ot->flag = OPTYPE_BLOCKING | OPTYPE_GRAB_CURSOR_XY;
 
   view3d_operator_properties_common(ot, V3D_OP_PROP_USE_MOUSE_INIT);
+}
+
+struct RotateCanvasOperator {
+  std::chrono::steady_clock::time_point time_start;
+  float start_angle;
+  int previous_x;
+  Scene *scene;
+  ARegion *region;
+};
+
+static void rotate_canvas_exit(wmOperator *op)
+{
+  RotateCanvasOperator *opdata = static_cast<RotateCanvasOperator *>(op->customdata);
+  DEG_id_tag_update(&opdata->scene->camera->id, ID_RECALC_TRANSFORM);
+  ED_region_tag_redraw(opdata->region);
+
+  MEM_delete(opdata);
+  op->customdata = nullptr;
+}
+
+static void rotate_canvas_cancel(bContext *C, wmOperator *op)
+{
+  Scene *scene = CTX_data_scene(C);
+  if (scene->camera) {
+    scene->camera->rot[1] = 0.0f;
+  }
+  rotate_canvas_exit(op);
+}
+
+static wmOperatorStatus rotate_canvas_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  using namespace blender;
+  using namespace std::chrono;
+
+  Scene *scene = CTX_data_scene(C);
+  RotateCanvasOperator *opdata = static_cast<RotateCanvasOperator *>(op->customdata);
+
+  if (event->type == EVT_ESCKEY) {
+    scene->camera->rot[1] = 0.0f;
+    rotate_canvas_exit(op);
+    return OPERATOR_FINISHED;
+  }
+
+  /* Reset canvas rotation on short click (< 150 ms) and small rotation change (< 2°). */
+  if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
+    auto click_duration = duration_cast<milliseconds>(high_resolution_clock::now() -
+                                                      opdata->time_start);
+    if (click_duration.count() < 150 &&
+        math::abs(scene->camera->rot[1] - opdata->start_angle) < 0.035f)
+    {
+      scene->camera->rot[1] = 0.0f;
+    }
+    rotate_canvas_exit(op);
+    return OPERATOR_FINISHED;
+  }
+
+  /* Set rotation based on mouse x position and modifier keys. */
+  const int delta_x = event->xy[0] - opdata->previous_x;
+  if (delta_x == 0) {
+    return OPERATOR_RUNNING_MODAL;
+  }
+  opdata->previous_x = event->xy[0];
+
+  const float delta_angle = 0.012f * float(delta_x) * ((event->modifier & KM_SHIFT) ? 0.4f : 1.0f);
+  scene->camera->rot[1] += delta_angle;
+
+  DEG_id_tag_update(&scene->camera->id, ID_RECALC_TRANSFORM);
+  ED_region_tag_redraw(opdata->region);
+
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static wmOperatorStatus rotate_canvas_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  Scene *scene = CTX_data_scene(C);
+  if (!scene->camera) {
+    return OPERATOR_CANCELLED;
+  }
+
+  RotateCanvasOperator *opdata = MEM_new<RotateCanvasOperator>(__func__);
+  op->customdata = opdata;
+  opdata->region = CTX_wm_region(C);
+  opdata->scene = scene;
+  opdata->time_start = std::chrono::high_resolution_clock::now();
+  opdata->previous_x = event->xy[0];
+  opdata->start_angle = scene->camera->rot[1];
+
+  WM_event_add_modal_handler(C, op);
+
+  return OPERATOR_RUNNING_MODAL;
+}
+
+void VIEW3D_OT_rotate_gp_canvas(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Rotate Canvas";
+  ot->description = "Rotate the Grease Pencil canvas (click short to reset)";
+  ot->idname = "VIEW3D_OT_rotate_gp_canvas";
+
+  /* Callbacks. */
+  ot->poll = view3d_rotation_poll;
+  ot->invoke = rotate_canvas_invoke;
+  ot->modal = rotate_canvas_modal;
+  ot->cancel = rotate_canvas_cancel;
 }
 
 /** \} */
