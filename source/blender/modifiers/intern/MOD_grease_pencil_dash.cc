@@ -400,7 +400,7 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiItemR(layout, ptr, "dash_offset", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  uiLayout *row = uiLayoutRow(layout, false);
+  uiLayout *row = &layout->row(false);
   uiLayoutSetPropSep(row, false);
 
   uiTemplateList(row,
@@ -470,7 +470,7 @@ static void segment_list_item_draw(uiList * /*ui_list*/,
                                    int /*index*/,
                                    int /*flt_flag*/)
 {
-  uiLayout *row = uiLayoutRow(layout, true);
+  uiLayout *row = &layout->row(true);
   uiItemR(row, itemptr, "name", UI_ITEM_R_NO_BG, "", ICON_NONE);
 }
 

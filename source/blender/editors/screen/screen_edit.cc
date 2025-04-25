@@ -1931,7 +1931,6 @@ void ED_update_for_newframe(Main *bmain, Depsgraph *depsgraph)
 
   DEG_time_tag_update(bmain);
 
-#ifdef DURIAN_CAMERA_SWITCH
   void *camera = BKE_scene_camera_switch_find(scene);
   if (camera && scene->camera != camera) {
     scene->camera = static_cast<Object *>(camera);
@@ -1941,7 +1940,6 @@ void ED_update_for_newframe(Main *bmain, Depsgraph *depsgraph)
     }
     DEG_id_tag_update(&scene->id, ID_RECALC_SYNC_TO_EVAL | ID_RECALC_PARAMETERS);
   }
-#endif
 
   ED_clip_update_frame(bmain, scene->r.cfra);
 

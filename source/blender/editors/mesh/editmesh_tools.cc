@@ -5572,9 +5572,9 @@ static void join_triangle_props(wmOperatorType *ot)
 void MESH_OT_tris_convert_to_quads(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Tris to Quads";
+  ot->name = "Triangles to Quads";
   ot->idname = "MESH_OT_tris_convert_to_quads";
-  ot->description = "Join triangles into quads";
+  ot->description = "Merge triangles into four sided polygons where possible";
 
   /* api callbacks */
   ot->exec = edbm_tris_convert_to_quads_exec;
@@ -5742,7 +5742,7 @@ static void edbm_decimate_ui(bContext * /*C*/, wmOperator *op)
 
   row = uiLayoutRowWithHeading(layout, true, IFACE_("Symmetry"));
   uiItemR(row, op->ptr, "use_symmetry", UI_ITEM_NONE, "", ICON_NONE);
-  sub = uiLayoutRow(row, true);
+  sub = &row->row(true);
   uiLayoutSetActive(sub, RNA_boolean_get(op->ptr, "use_symmetry"));
   uiItemR(sub, op->ptr, "symmetry_axis", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
 }

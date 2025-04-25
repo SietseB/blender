@@ -523,7 +523,7 @@ static void image_renderinfo_cb(void *rjv, RenderStats *rs)
   rr = RE_AcquireResultRead(rj->re);
 
   if (rr) {
-    /* malloc OK here, stats_draw is not in tile threads */
+    /* `malloc` is OK here, `stats_draw` is not in tile threads. */
     if (rr->text == nullptr) {
       rr->text = MEM_calloc_arrayN<char>(IMA_MAX_RENDER_TEXT_SIZE, "rendertext");
     }
@@ -877,7 +877,7 @@ static bool render_break(void * /*rjv*/)
   return false;
 }
 
-/* runs in thread, no cursor setting here works. careful with notifiers too (malloc conflicts) */
+/* runs in thread, no cursor setting here works. careful with notifiers too (`malloc` conflicts) */
 /* maybe need a way to get job send notifier? */
 static void render_drawlock(void *rjv, bool lock)
 {

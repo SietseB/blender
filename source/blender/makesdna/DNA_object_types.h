@@ -378,6 +378,10 @@ typedef struct Object {
   /** ObjectModifierFlag */
   uint8_t modifier_flag;
 
+  float shadow_terminator_normal_offset;
+  float shadow_terminator_geometry_offset;
+  float shadow_terminator_shading_offset;
+
   /** Ondine watercolor additions */
   short ondine_flag;
   char _pad8[2];
