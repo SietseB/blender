@@ -1767,6 +1767,9 @@ def brush_basic_grease_pencil_paint_settings(layout, context, brush, props, *, c
                 # Pressure curve.
                 layout.template_curve_mapping(settings, "thickness_primitive_curve", brush=True)
 
+        layout.popover("VIEW3D_PT_tools_grease_pencil_v3_brush_advanced")
+        layout.popover("VIEW3D_PT_tools_grease_pencil_v3_brush_stroke")
+
         row = layout.row(align=True)
         row.prop(settings, "use_primitive_autoconfirm", text="Auto-Confirm")
 

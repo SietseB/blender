@@ -295,7 +295,9 @@ static void draw_control_points(PrimitiveToolOperation &ptd)
 static void grease_pencil_primitive_draw(const bContext * /*C*/, ARegion * /*region*/, void *arg)
 {
   PrimitiveToolOperation &ptd = *reinterpret_cast<PrimitiveToolOperation *>(arg);
-  draw_control_points(ptd);
+  if (!ptd.use_autoconfirm) {
+    draw_control_points(ptd);
+  }
 }
 
 static void grease_pencil_primitive_save(PrimitiveToolOperation &ptd)
