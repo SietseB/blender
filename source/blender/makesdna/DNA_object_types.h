@@ -384,7 +384,7 @@ typedef struct Object {
 
   /** Ondine watercolor additions */
   short ondine_flag;
-  char _pad8[2];
+  char _pad8[6];
 
   struct PreviewImage *preview;
 

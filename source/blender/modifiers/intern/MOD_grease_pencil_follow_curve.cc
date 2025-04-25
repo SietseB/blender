@@ -834,7 +834,7 @@ static void panel_draw(const bContext *C, Panel *panel)
   col = uiLayoutColumn(layout, false);
   uiItemR(col, ptr, "entire_object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   if (entire_object) {
-    row = uiLayoutRow(col, false);
+    row = &col->row(false);
     uiItemR(row, ptr, "object_axis", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "object_center", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "completion", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
@@ -844,7 +844,7 @@ static void panel_draw(const bContext *C, Panel *panel)
   col = uiLayoutColumn(layout, false);
   uiItemR(col, ptr, "angle", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "spirals", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  row = uiLayoutRow(col, false);
+  row = &col->row(false);
   uiItemR(row, ptr, "axis", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
 
   if (!entire_object) {

@@ -358,19 +358,19 @@ static void draw_shape_key_filter_settings(uiLayout *layout, PointerRNA *ptr)
   uiLayoutSetPropSep(layout, true);
 
   col = uiLayoutColumn(layout, true);
-  row = uiLayoutRow(col, true);
+  row = &col->row(true);
   uiLayoutSetPropDecorate(row, false);
   uiItemPointerR(row, ptr, "shape_key_name", &obj_data_ptr, "shape_keys", std::nullopt, ICON_NONE);
-  sub = uiLayoutRow(row, true);
+  sub = &row->row(true);
   uiLayoutSetActive(sub, has_shape_key);
   uiLayoutSetPropDecorate(sub, false);
   uiItemR(sub, ptr, "invert_shape_key", UI_ITEM_NONE, "", ICON_ARROW_LEFTRIGHT);
 
   row = uiLayoutRowWithHeading(col, true, IFACE_("Shape Key Pass"));
   uiLayoutSetPropDecorate(row, false);
-  sub = uiLayoutRow(row, true);
+  sub = &row->row(true);
   uiItemR(sub, ptr, "use_shape_key_pass_filter", UI_ITEM_NONE, "", ICON_NONE);
-  subsub = uiLayoutRow(sub, true);
+  subsub = &sub->row(true);
   uiLayoutSetActive(subsub, use_shape_key_pass);
   uiItemR(subsub, ptr, "shape_key_pass_filter", UI_ITEM_NONE, "", ICON_NONE);
   uiItemR(subsub, ptr, "invert_shape_key_pass_filter", UI_ITEM_NONE, "", ICON_ARROW_LEFTRIGHT);
