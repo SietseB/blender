@@ -4793,11 +4793,13 @@ static FileData *read_library_file_data(FileData *basefd,
     /* Read packed file. */
     const PackedFile *pf = mainptr->curlib->packedfile;
 
+    /*
     BLO_reportf_wrap(basefd->reports,
                      RPT_INFO,
                      RPT_("Read packed library: '%s', parent '%s'"),
                      mainptr->curlib->filepath,
                      library_parent_filepath(mainptr->curlib));
+    */
     fd = blo_filedata_from_memory(pf->data, pf->size, basefd->reports);
 
     /* Needed for library_append and read_libraries. */
@@ -4805,12 +4807,14 @@ static FileData *read_library_file_data(FileData *basefd,
   }
   else {
     /* Read file on disk. */
+    /*
     BLO_reportf_wrap(basefd->reports,
                      RPT_INFO,
                      RPT_("Read library: '%s', '%s', parent '%s'"),
                      mainptr->curlib->runtime->filepath_abs,
                      mainptr->curlib->filepath,
                      library_parent_filepath(mainptr->curlib));
+    */
     fd = blo_filedata_from_file(mainptr->curlib->runtime->filepath_abs, basefd->reports);
   }
 
