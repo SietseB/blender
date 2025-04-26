@@ -1694,6 +1694,8 @@ def km_view3d(params):
         op_tool_optional(
             ("view3d.select_box", {"type": 'B', "value": 'PRESS'}, None),
             (op_tool, "builtin.select_box"), params),
+        ("view3d.select_lasso", {"type": params.action_mouse, "value": 'CLICK_DRAG', "ctrl": True, "alt": True},
+         {"properties": [("mode", 'SET')]}),
         ("view3d.select_lasso", {"type": params.action_mouse, "value": 'CLICK_DRAG', "ctrl": True},
          {"properties": [("mode", 'ADD')]}),
         ("view3d.select_lasso", {"type": params.action_mouse, "value": 'CLICK_DRAG', "shift": True, "ctrl": True},
