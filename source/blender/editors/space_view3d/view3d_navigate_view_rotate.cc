@@ -496,6 +496,35 @@ void VIEW3D_OT_rotate_gp_canvas(wmOperatorType *ot)
   ot->cancel = rotate_canvas_cancel;
 }
 
+static wmOperatorStatus camera_mirror_x_exec(bContext *C, wmOperator *op)
+{
+  Scene *scene = CTX_data_scene(C);
+  ARegion *region = CTX_wm_region(C);
+
+  if (scene->camera == nullptr) {
+    return OPERATOR_CANCELLED;
+  }
+
+  scene->camera->scale[0] *= -1.0f;
+
+  DEG_id_tag_update(&scene->camera->id, ID_RECALC_TRANSFORM);
+  ED_region_tag_redraw(region);
+
+  return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_camera_mirror_x(wmOperatorType *ot)
+{
+  /* Identifiers. */
+  ot->name = "Mirror Camera X";
+  ot->description = "Mirror the camera view on the X axis";
+  ot->idname = "VIEW3D_OT_camera_mirror_x";
+
+  /* Callbacks. */
+  ot->poll = view3d_rotation_poll;
+  ot->exec = camera_mirror_x_exec;
+}
+
 /** \} */
 
 const ViewOpsType ViewOpsType_rotate = {

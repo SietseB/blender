@@ -61,8 +61,9 @@ enum {
   GZ_INDEX_CAMERA_UNLOCK = 8,
 
   GZ_INDEX_CANVAS_ROTATE = 9,
+  GZ_INDEX_CAMERA_MIRROR_X = 10,
 
-  GZ_INDEX_TOTAL = 10,
+  GZ_INDEX_TOTAL = 11,
 };
 
 struct NavigateGizmoInfo {
@@ -152,6 +153,12 @@ static NavigateGizmoInfo g_navigate_params[GZ_INDEX_TOTAL] = {
         "VIEW3D_OT_rotate_gp_canvas",
         "GIZMO_GT_button_2d",
         ICON_PHYSICS,
+        nullptr,
+    },
+    {
+        "VIEW3D_OT_camera_mirror_x",
+        "GIZMO_GT_button_2d",
+        ICON_MOD_MIRROR,
         nullptr,
     },
 };
@@ -248,7 +255,8 @@ static void WIDGETGROUP_navigate_setup(const bContext *C, wmGizmoGroup *gzgroup)
                     GZ_INDEX_CAMERA_OFF,
                     GZ_INDEX_CAMERA_ON,
                     GZ_INDEX_CAMERA_LOCK,
-                    GZ_INDEX_CAMERA_UNLOCK};
+                    GZ_INDEX_CAMERA_UNLOCK,
+                    GZ_INDEX_CAMERA_MIRROR_X};
     for (int i = 0; i < ARRAY_SIZE(gz_ids); i++) {
       wmGizmo *gz = navgroup->gz_array[gz_ids[i]];
       RNA_boolean_set(gz->ptr, "show_drag", false);
@@ -304,10 +312,18 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
 
   const rcti *rect_visible = ED_region_visible_rect(region);
 
-  /* Highlight rotated canvas. */
-  wmGizmo *gz = gz = navgroup->gz_array[GZ_INDEX_CANVAS_ROTATE];
+  /* Highlight rotated canvas and flipped camera. */
+  wmGizmo *gz = navgroup->gz_array[GZ_INDEX_CANVAS_ROTATE];
   Scene *scene = CTX_data_scene(C);
   if (scene->camera && scene->camera->rot[1] != 0.0f) {
+    UI_GetThemeColor3fv(TH_AXIS_Z, gz->color);
+    UI_GetThemeColor3fv(TH_AXIS_Z, gz->color_hi);
+  }
+  else {
+    gizmo_set_default_color(gz);
+  }
+  gz = navgroup->gz_array[GZ_INDEX_CAMERA_MIRROR_X];
+  if (scene->camera && scene->camera->scale[0] < 0.0f) {
     UI_GetThemeColor3fv(TH_AXIS_Z, gz->color);
     UI_GetThemeColor3fv(TH_AXIS_Z, gz->color_hi);
   }
@@ -391,6 +407,13 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
 
     if ((RV3D_LOCK_FLAGS(rv3d) & RV3D_LOCK_ROTATION) == 0) {
       gz = navgroup->gz_array[GZ_INDEX_CANVAS_ROTATE];
+      gz->matrix_basis[3][0] = roundf(co[0]);
+      gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
+      WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);
+    }
+
+    if ((RV3D_LOCK_FLAGS(rv3d) & RV3D_LOCK_ROTATION) == 0) {
+      gz = navgroup->gz_array[GZ_INDEX_CAMERA_MIRROR_X];
       gz->matrix_basis[3][0] = roundf(co[0]);
       gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
       WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);

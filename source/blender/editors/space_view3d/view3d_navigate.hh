@@ -315,6 +315,7 @@ extern const ViewOpsType ViewOpsType_roll;
 void viewrotate_modal_keymap(wmKeyConfig *keyconf);
 void VIEW3D_OT_rotate(wmOperatorType *ot);
 void VIEW3D_OT_rotate_gp_canvas(wmOperatorType *ot);
+void VIEW3D_OT_camera_mirror_x(wmOperatorType *ot);
 
 extern const ViewOpsType ViewOpsType_rotate;
 
