@@ -49,20 +49,20 @@ static bool ui_view_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
   return drop_target->can_drop(*drag, &drag->drop_state.disabled_info);
 }
 
-static std::string ui_view_drop_tooltip(bContext *C,
-                                        wmDrag *drag,
-                                        const int xy[2],
-                                        wmDropBox * /*drop*/)
+static std::string ui_view_drop_tooltip_and_linehint(bContext *C,
+                                                     wmDrag *drag,
+                                                     const int xy[2],
+                                                     wmDropBox * /*drop*/)
 {
   const wmWindow *win = CTX_wm_window(C);
-  const ARegion *region = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   std::unique_ptr<DropTargetInterface> drop_target = region_views_find_drop_target_at(region, xy);
 
   if (drop_target == nullptr) {
     return {};
   }
 
-  return drop_target_tooltip(*region, *drop_target, *drag, *win->eventstate);
+  return drop_target_tooltip_and_linehint(*region, *drop_target, *drag, *win->eventstate);
 }
 
 /** \} */
@@ -158,7 +158,12 @@ void ED_dropboxes_ui()
 {
   ListBase *lb = WM_dropboxmap_find("User Interface", SPACE_EMPTY, RGN_TYPE_WINDOW);
 
-  WM_dropbox_add(lb, "UI_OT_view_drop", ui_view_drop_poll, nullptr, nullptr, ui_view_drop_tooltip);
+  WM_dropbox_add(lb,
+                 "UI_OT_view_drop",
+                 ui_view_drop_poll,
+                 nullptr,
+                 nullptr,
+                 ui_view_drop_tooltip_and_linehint);
   WM_dropbox_add(lb,
                  "UI_OT_drop_name",
                  ui_drop_name_poll,

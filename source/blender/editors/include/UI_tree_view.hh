@@ -121,6 +121,13 @@ class AbstractTreeView : public AbstractView, public TreeViewItemContainer {
    * button layout. */
   std::shared_ptr<int> scroll_value_ = nullptr;
 
+  /* Visual drag-and-drop feature: in a tree view, the drop location can be visualized with a
+   * horizontal line, indicating where the dragged item will land (before, into or after the node).
+   */
+  bool has_drop_linehint_ = false;
+  int2 drop_linehint_start_;
+  int2 drop_linehint_end_;
+
   friend class AbstractTreeViewItem;
   friend class TreeViewBuilder;
   friend class TreeViewLayoutBuilder;
@@ -130,6 +137,12 @@ class AbstractTreeView : public AbstractView, public TreeViewItemContainer {
   /* virtual */ ~AbstractTreeView() override = default;
 
   void draw_overlays(const ARegion &region, const uiBlock &block) const override;
+
+  /* Calculate the line hint position and trigger an overlay draw. */
+  void set_drop_linehint(ARegion &region,
+                         const AbstractTreeViewItem &item,
+                         const DropLocation location);
+  void clear_drop_linehint();
 
   void foreach_item(ItemIterFn iter_fn, IterOptions options = IterOptions::None) const;
 
@@ -171,6 +184,8 @@ class AbstractTreeView : public AbstractView, public TreeViewItemContainer {
                            int &visible_item_index) const;
 
   int count_visible_descendants(const AbstractTreeViewItem &parent) const;
+
+  void draw_drop_linehint() const;
 };
 
 /** \} */
@@ -396,6 +411,8 @@ class TreeViewItemDropTarget : public DropTargetInterface {
 
   std::optional<DropLocation> choose_drop_location(const ARegion &region,
                                                    const wmEvent &event) const override;
+
+  void drop_linehint(ARegion &region, const DragInfo &drag) const override;
 
   /** Request the view the item is registered for as type #ViewType. Throws a `std::bad_cast`
    * exception if the view is not of the requested type. */

@@ -91,6 +91,8 @@ class InsertCollectionDropTarget : public DropTargetInterface {
     return TIP_("Add to linking collection");
   }
 
+  void drop_linehint(ARegion & /*region*/, const DragInfo & /*drag*/) const override {}
+
   bool on_drop(bContext *C, const DragInfo &drag) const override
   {
     Main *bmain = CTX_data_main(C);

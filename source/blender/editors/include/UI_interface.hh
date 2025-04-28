@@ -186,6 +186,13 @@ class DropTargetInterface {
    * to check that again. The returned value must be a translated string.
    */
   virtual std::string drop_tooltip(const DragInfo &drag) const = 0;
+
+  /**
+   * Draw a horizontal line as a hint where the dragged data will be dropped: before, into or after
+   * the UI element. Used in tree views, as a more visual hint than the tooltip text.
+   */
+  virtual void drop_linehint(ARegion &region, const DragInfo &drag) const = 0;
+
   /**
    * Execute the logic to apply a drop of the data dragged with \a drag onto/into the UI element
    * this drop target is for.
@@ -203,13 +210,15 @@ bool drop_target_apply_drop(bContext &C,
                             const DropTargetInterface &drop_target,
                             const ListBase &drags);
 /**
- * Call #DropTargetInterface::drop_tooltip() and return the result as newly allocated C string
+ * Call #DropTargetInterface::drop_linehint(), for indicating the drop location with a horizontal
+ * line (in tree views).
+ * And call #DropTargetInterface::drop_tooltip() and return the result as newly allocated C string
  * (unless the result is empty, returns null then). Needs freeing with MEM_freeN().
  */
-std::string drop_target_tooltip(const ARegion &region,
-                                const DropTargetInterface &drop_target,
-                                const wmDrag &drag,
-                                const wmEvent &event);
+std::string drop_target_tooltip_and_linehint(ARegion &region,
+                                             const DropTargetInterface &drop_target,
+                                             const wmDrag &drag,
+                                             const wmEvent &event);
 
 /**
  * Try to find a view item with a drop target under the mouse cursor, or if not found, a view

@@ -13,6 +13,8 @@
 
 #include "BLT_translation.hh"
 
+#include "ED_screen.hh"
+
 #include "GPU_immediate.hh"
 #include "GPU_state.hh"
 
@@ -299,9 +301,79 @@ void AbstractTreeView::draw_hierarchy_lines(const ARegion &region, const uiBlock
   immUnbindProgram();
 }
 
+void AbstractTreeView::draw_drop_linehint() const
+{
+  if (!this->has_drop_linehint_) {
+    return;
+  }
+
+  GPUVertFormat *format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  immUniformThemeColorAlpha(TH_TEXT, 0.3f);
+
+  GPU_line_width(2.0f);
+  GPU_blend(GPU_BLEND_ALPHA);
+  immBegin(GPU_PRIM_LINES, 2);
+  immVertex2f(pos, drop_linehint_start_.x, drop_linehint_start_.y);
+  immVertex2f(pos, drop_linehint_end_.x, drop_linehint_end_.y);
+  immEnd();
+
+  GPU_line_width(1.0f);
+  GPU_blend(GPU_BLEND_NONE);
+
+  immUnbindProgram();
+}
+
 void AbstractTreeView::draw_overlays(const ARegion &region, const uiBlock &block) const
 {
   this->draw_hierarchy_lines(region, block);
+  this->draw_drop_linehint();
+}
+
+void AbstractTreeView::set_drop_linehint(ARegion &region,
+                                         const AbstractTreeViewItem &item,
+                                         const DropLocation location)
+{
+  /* Use the button size and position of the tree view item for calculating the horizontal line. */
+  uiButViewItem *but = item.view_item_button();
+  if (but == nullptr) {
+    has_drop_linehint_ = false;
+    return;
+  }
+
+  const uiBlock *block = but->block;
+  rcti but_rect;
+  ui_but_to_pixelrect(&but_rect, &region, block, but);
+
+  /* Get the x identation. */
+  int indent_x = item.indent_width();
+  if (location == DropLocation::Into) {
+    /* When dropping into a group, add one indentation level. */
+    indent_x += UI_TREEVIEW_INDENT;
+  }
+  const int start_x = but_rect.xmin + indent_x + uiLayoutListItemPaddingWidth() + UI_ICON_SIZE;
+
+  /* Get the y position. */
+  const int y = (location == DropLocation::Before) ? but_rect.ymax : but_rect.ymin;
+
+  /* Store the line hint position and trigger a #draw_overlays() when the line changed. */
+  const bool changed = (drop_linehint_start_.y != y || drop_linehint_start_.x != start_x ||
+                        drop_linehint_end_.x != but_rect.xmax);
+  has_drop_linehint_ = true;
+  drop_linehint_start_.x = start_x;
+  drop_linehint_start_.y = y;
+  drop_linehint_end_.x = but_rect.xmax;
+  drop_linehint_end_.y = y;
+
+  if (changed) {
+    ED_region_tag_redraw_no_rebuild(&region);
+  }
+}
+
+void AbstractTreeView::clear_drop_linehint()
+{
+  has_drop_linehint_ = false;
 }
 
 void AbstractTreeView::update_children_from_old(const AbstractView &old_view)
@@ -310,6 +382,11 @@ void AbstractTreeView::update_children_from_old(const AbstractView &old_view)
 
   custom_height_ = old_tree_view.custom_height_;
   scroll_value_ = old_tree_view.scroll_value_;
+
+  has_drop_linehint_ = old_tree_view.has_drop_linehint_;
+  drop_linehint_start_ = old_tree_view.drop_linehint_start_;
+  drop_linehint_end_ = old_tree_view.drop_linehint_end_;
+
   update_children_from_old_recursive(*this, old_tree_view);
 }
 
@@ -425,6 +502,10 @@ std::optional<DropLocation> TreeViewItemDropTarget::choose_drop_location(
 
   BLI_assert(behavior_ == DropBehavior::ReorderAndInsert);
   return DropLocation::Into;
+}
+
+void TreeViewItemDropTarget::drop_linehint(ARegion & /*region*/, const DragInfo & /*drag*/) const
+{
 }
 
 /* ---------------------------------------------------------------------- */
@@ -976,6 +1057,15 @@ void TreeViewBuilder::build_tree_view(const bContext &C,
   tree_view.filter(search_string);
 
   ensure_min_rows_items(tree_view);
+
+  /* When a drag action didn't result in a drop in the tree view, there might be an 'orphaned' drop
+   * line hint left. Ideally we would clear it in a #on_drag_end() event, but such callback
+   * doesnt't exist. So we check manually for existing drag actions. We clear the drop line hint
+   * when there are no drag actions. */
+  wmWindowManager *wm = CTX_wm_manager(&C);
+  if (BLI_listbase_is_empty(&wm->drags)) {
+    tree_view.clear_drop_linehint();
+  }
 
   /* Ensure the given layout is actually active. */
   UI_block_layout_set_current(&block, &layout);

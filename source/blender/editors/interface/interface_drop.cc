@@ -48,10 +48,10 @@ bool drop_target_apply_drop(bContext &C,
   return false;
 }
 
-std::string drop_target_tooltip(const ARegion &region,
-                                const DropTargetInterface &drop_target,
-                                const wmDrag &drag,
-                                const wmEvent &event)
+std::string drop_target_tooltip_and_linehint(ARegion &region,
+                                             const DropTargetInterface &drop_target,
+                                             const wmDrag &drag,
+                                             const wmEvent &event)
 {
   const char *disabled_hint_dummy = nullptr;
   if (!drop_target.can_drop(drag, &disabled_hint_dummy)) {
@@ -65,6 +65,11 @@ std::string drop_target_tooltip(const ARegion &region,
   }
 
   const DragInfo drag_info{drag, event, *drop_location};
+
+  /* Draw drop line hint. */
+  drop_target.drop_linehint(region, drag_info);
+
+  /* Get drop tooltip. */
   return drop_target.drop_tooltip(drag_info);
 }
 

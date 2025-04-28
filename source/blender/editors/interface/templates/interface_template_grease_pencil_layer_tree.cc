@@ -72,32 +72,17 @@ class LayerNodeDropTarget : public TreeViewItemDropTarget {
     return true;
   }
 
-  std::string drop_tooltip(const DragInfo &drag_info) const override
+  void drop_linehint(ARegion &region, const DragInfo &drag_info) const override
   {
-    const wmDragGreasePencilLayer *drag_grease_pencil =
-        static_cast<const wmDragGreasePencilLayer *>(drag_info.drag_data.poin);
-    TreeNode &drag_node = drag_grease_pencil->node->wrap();
+    /* Draw a horizontal line indicating the drop location. */
+    AbstractTreeView &view = this->view_item_.get_tree_view();
+    view.set_drop_linehint(region, this->view_item_, drag_info.drop_location);
+  }
 
-    const StringRef drag_name = drag_node.name();
-    const StringRef drop_name = drop_tree_node_.name();
-    const StringRef node_type = drag_node.is_layer() ? "layer" : "group";
-
-    switch (drag_info.drop_location) {
-      case DropLocation::Into:
-        return fmt::format(
-            fmt::runtime(TIP_("Move {} {} into {}")), node_type, drag_name, drop_name);
-      case DropLocation::Before:
-        return fmt::format(
-            fmt::runtime(TIP_("Move {} {} above {}")), node_type, drag_name, drop_name);
-      case DropLocation::After:
-        return fmt::format(
-            fmt::runtime(TIP_("Move {} {} below {}")), node_type, drag_name, drop_name);
-      default:
-        BLI_assert_unreachable();
-        break;
-    }
-
-    return "";
+  std::string drop_tooltip(const DragInfo & /*drag_info*/) const override
+  {
+    /* No tooltip, since we use line hints.*/
+    return {};
   }
 
   bool on_drop(bContext *C, const DragInfo &drag_info) const override
@@ -106,6 +91,9 @@ class LayerNodeDropTarget : public TreeViewItemDropTarget {
         static_cast<const wmDragGreasePencilLayer *>(drag_info.drag_data.poin);
     GreasePencil &grease_pencil = *drag_grease_pencil->grease_pencil;
     TreeNode &drag_node = drag_grease_pencil->node->wrap();
+
+    AbstractTreeView &view = this->view_item_.get_tree_view();
+    view.clear_drop_linehint();
 
     if (!drop_tree_node_.parent_group()) {
       /* Root node is not added to the tree view, so there should never be a drop target for this.
