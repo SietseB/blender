@@ -458,7 +458,7 @@ static void panel_draw(const bContext *C, Panel *panel)
               C, layout, ptr, "open_color_panel", ptr, "use_color", IFACE_("Color"))
               .body)
   {
-    uiLayout *color_col = uiLayoutColumn(color_layout, false);
+    uiLayout *color_col = &color_layout->column(false);
     uiLayoutSetActive(color_col, RNA_boolean_get(ptr, "use_color"));
 
     uiItemR(color_col, ptr, "modify_color", UI_ITEM_NONE, std::nullopt, ICON_NONE);

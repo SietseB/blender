@@ -159,8 +159,7 @@ static void frame_init(GreasePencilFollowCurveModifierData &mmd,
   }
 
   /* Convert Bezier curves to points. */
-  const Object *ob_eval = static_cast<Object *>(
-      DEG_get_evaluated_object(ctx->depsgraph, mmd.object));
+  const Object *ob_eval = static_cast<Object *>(DEG_get_evaluated(ctx->depsgraph, mmd.object));
   mmd.curves = nullptr;
   if (mmd.curves_len > 0) {
     mmd.curves = static_cast<GreasePencilFollowCurve *>(
@@ -827,11 +826,11 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiItemR(layout, ptr, "object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  col = uiLayoutColumn(layout, false);
+  col = &layout->column(false);
   uiItemR(col, ptr, "curve_resolution", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   uiItemS(layout);
-  col = uiLayoutColumn(layout, false);
+  col = &layout->column(false);
   uiItemR(col, ptr, "entire_object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   if (entire_object) {
     row = &col->row(false);
@@ -841,7 +840,7 @@ static void panel_draw(const bContext *C, Panel *panel)
     uiItemS(layout);
   }
 
-  col = uiLayoutColumn(layout, false);
+  col = &layout->column(false);
   uiItemR(col, ptr, "angle", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "spirals", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   row = &col->row(false);
@@ -849,17 +848,17 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   if (!entire_object) {
     uiItemS(layout);
-    col = uiLayoutColumn(layout, false);
+    col = &layout->column(false);
     uiItemR(col, ptr, "speed", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "speed_variation", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "seed", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   if (!entire_object) {
     uiItemR(col, ptr, "vary_dir", UI_ITEM_NONE, std::nullopt, ICON_NONE);
     uiItemS(layout);
-    col = uiLayoutColumn(layout, false);
+    col = &layout->column(false);
     uiItemR(col, ptr, "tail_first", UI_ITEM_NONE, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "repeat", UI_ITEM_NONE, std::nullopt, ICON_NONE);
     uiItemR(col, ptr, "scatter", UI_ITEM_NONE, std::nullopt, ICON_NONE);

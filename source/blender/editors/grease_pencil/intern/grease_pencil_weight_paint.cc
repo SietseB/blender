@@ -1223,7 +1223,7 @@ static void init_weight_gradient_tool(const bContext &C,
   /* Build a cache with screen space positions and initial vertex weights of the stroke points in
    * all editable drawings. */
   const Depsgraph *depsgraph = CTX_data_depsgraph_pointer(&C);
-  const Object *ob_eval = DEG_get_evaluated_object(depsgraph, tool.object);
+  const Object *ob_eval = DEG_get_evaluated(depsgraph, tool.object);
   const RegionView3D *rv3d = CTX_wm_region_view3d(&C);
   const ARegion *region = CTX_wm_region(&C);
   const float4x4 projection = ED_view3d_ob_project_mat_get(rv3d, tool.object);

@@ -2089,7 +2089,7 @@ bool new_from_modifier(Object *object,
     BKE_scene_graph_update_for_newframe(depsgraph);
 
     /* Create a temporary Grease Pencil object. */
-    Object *ob_eval = DEG_get_evaluated_object(depsgraph, object);
+    Object *ob_eval = DEG_get_evaluated(depsgraph, object);
     GreasePencil *grease_pencil_eval = ob_eval->runtime->data_orig ?
                                            reinterpret_cast<GreasePencil *>(
                                                ob_eval->runtime->data_orig) :
