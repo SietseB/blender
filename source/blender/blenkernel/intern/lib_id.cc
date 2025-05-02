@@ -851,7 +851,7 @@ ID *BKE_id_copy_for_use_in_bmain(Main *bmain, const ID *id)
   /* Shape keys reference on evaluated ID is preserved to keep driver paths available, but the key
    * data is likely to be invalid now due to modifiers, so clear the shape key reference avoiding
    * any possible shape corruption. */
-  if (DEG_is_evaluated_id(id)) {
+  if (DEG_is_evaluated(id)) {
     Key **key_p = BKE_key_from_id_p(newid);
     if (key_p) {
       *key_p = nullptr;
@@ -1358,7 +1358,7 @@ void *BKE_libblock_alloc_in_lib(Main *bmain,
       BLI_assert(bmain->is_locked_for_linking == false || ELEM(type, ID_WS, ID_GR, ID_NT));
       ListBase *lb = which_libbase(bmain, type);
 
-      /* This is important in 'readfile doversion after liblink' context mainly, but is a good
+      /* This is important in "read-file do-version after lib-link" context mainly, but is a good
        * behavior for consistency in general: ID created for a Main should get that main's current
        * library pointer.
        *
@@ -2526,6 +2526,10 @@ static bool id_order_compare(ID *a, ID *b)
 {
   int *order_a = id_order_get(a);
   int *order_b = id_order_get(b);
+
+  /* In practice either both or neither are set,
+   * failing to do this would result in a logically invalid sort function, see #137712. */
+  BLI_assert((order_a && order_b) || (!order_a && !order_b));
 
   if (order_a && order_b) {
     if (*order_a < *order_b) {

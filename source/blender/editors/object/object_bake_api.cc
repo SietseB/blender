@@ -6,6 +6,7 @@
  * \ingroup edobj
  */
 
+#include <cmath>
 #include <sys/stat.h>
 
 #include "MEM_guardedalloc.h"
@@ -1018,8 +1019,8 @@ static bool bake_targets_init_vertex_colors(Main *bmain,
   targets->materials_num = ob->totcol;
 
   BakeImage *bk_image = &targets->images[0];
-  bk_image->width = mesh->corners_num;
-  bk_image->height = 1;
+  bk_image->width = std::ceil(std::sqrt(mesh->corners_num));
+  bk_image->height = bk_image->width;
   bk_image->offset = 0;
   bk_image->image = nullptr;
 
@@ -1473,7 +1474,7 @@ static wmOperatorStatus bake(const BakeAPIRender *bkr,
         goto cleanup;
       }
       else {
-        ob_cage_eval = DEG_get_evaluated_object(depsgraph, ob_cage);
+        ob_cage_eval = DEG_get_evaluated(depsgraph, ob_cage);
         if (ob_cage_eval->id.orig_id != &ob_cage->id) {
           BKE_reportf(reports,
                       RPT_ERROR,
@@ -1501,7 +1502,7 @@ static wmOperatorStatus bake(const BakeAPIRender *bkr,
 
   /* Make sure depsgraph is up to date. */
   BKE_scene_graph_update_tagged(depsgraph, bmain);
-  ob_low_eval = DEG_get_evaluated_object(depsgraph, ob_low);
+  ob_low_eval = DEG_get_evaluated(depsgraph, ob_low);
 
   /* get the mesh as it arrives in the renderer */
   me_low_eval = bake_mesh_new_from_object(depsgraph, ob_low_eval, preserve_origindex);
@@ -1595,7 +1596,7 @@ static wmOperatorStatus bake(const BakeAPIRender *bkr,
         continue;
       }
 
-      Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob_iter);
+      Object *ob_eval = DEG_get_evaluated(depsgraph, ob_iter);
       if (ob_eval->id.orig_id != &ob_iter->id) {
         BKE_reportf(reports,
                     RPT_ERROR,

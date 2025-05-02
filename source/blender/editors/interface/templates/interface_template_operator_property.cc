@@ -155,7 +155,7 @@ static eAutoPropButsReturn template_operator_property_buts_draw_single(
     uiBut *but;
     uiLayout *col; /* needed to avoid alignment errors with previous buttons */
 
-    col = uiLayoutColumn(layout, false);
+    col = &layout->column(false);
     block = uiLayoutGetBlock(col);
     but = uiDefIconTextBut(block,
                            UI_BTYPE_BUT,
@@ -362,25 +362,23 @@ static void draw_export_controls(
 
 static void draw_export_properties(bContext *C,
                                    uiLayout *layout,
+                                   PointerRNA &exporter_ptr,
                                    wmOperator *op,
                                    const std::string &filename)
 {
-  uiLayout *col = uiLayoutColumn(layout, false);
+  uiLayout *col = &layout->column(false);
 
   uiLayoutSetPropSep(col, true);
   uiLayoutSetPropDecorate(col, false);
 
-  PropertyRNA *prop = RNA_struct_find_property(op->ptr, "filepath");
-
-  /* WARNING: using relative paths for the operator file-path is not exactly correct:
-   * A relative path can be set here but it is never passed to the operator.
-   * The export collection reads & expands this path before passing it to the operator.
-   * Suppress the check here to avoid this showing red-alert with an warning in the tip. */
-  uiLayoutSuppressFlagSet(layout, LayoutSuppressFlag::PathSupportsBlendFileRelative);
+  /* Note this property is used as an alternative to the `filepath` property of `op->ptr`.
+   * This property is a wrapper to access that property, see the `CollectionExport::filepath`
+   * code comments for details. */
+  PropertyRNA *prop = RNA_struct_find_property(&exporter_ptr, "filepath");
 
   std::string placeholder = "//" + filename;
   uiItemFullR(col,
-              op->ptr,
+              &exporter_ptr,
               prop,
               RNA_NO_INDEX,
               0,
@@ -395,8 +393,6 @@ static void draw_export_properties(bContext *C,
                                               UI_BUT_LABEL_ALIGN_NONE,
                                               UI_TEMPLATE_OP_PROPS_HIDE_PRESETS |
                                                   UI_TEMPLATE_OP_PROPS_ALLOW_UNDO_PUSH);
-
-  uiLayoutSuppressFlagClear(layout, LayoutSuppressFlag::PathSupportsBlendFileRelative);
 }
 
 static void draw_exporter_item(uiList * /*ui_list*/,
@@ -448,11 +444,11 @@ void uiTemplateCollectionExporters(uiLayout *layout, bContext *C)
                  1,
                  UI_TEMPLATE_LIST_FLAG_NONE);
 
-  uiLayout *col = uiLayoutColumn(row, true);
+  uiLayout *col = &row->column(true);
   uiItemM(col, "COLLECTION_MT_exporter_add", "", ICON_ADD);
   uiItemIntO(col, "", ICON_REMOVE, "COLLECTION_OT_exporter_remove", "index", index);
 
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   uiItemO(col, std::nullopt, ICON_EXPORT, "COLLECTION_OT_export_all");
   uiLayoutSetEnabled(col, !BLI_listbase_is_empty(exporters));
 
@@ -491,6 +487,7 @@ void uiTemplateCollectionExporters(uiLayout *layout, bContext *C)
   std::string label(fh->label);
   draw_export_controls(C, panel.header, label, index, true);
   if (panel.body) {
-    draw_export_properties(C, panel.body, op, fh->get_default_filename(collection->id.name + 2));
+    draw_export_properties(
+        C, panel.body, exporter_ptr, op, fh->get_default_filename(collection->id.name + 2));
   }
 }

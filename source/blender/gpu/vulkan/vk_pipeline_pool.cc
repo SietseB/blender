@@ -397,6 +397,13 @@ VkPipeline VKPipelinePool::get_or_create_graphics_pipeline(VKGraphicsInfo &graph
         att_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         att_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_SRC1_ALPHA;
         break;
+
+      case GPU_BLEND_OVERLAY_MASK_FROM_ALPHA:
+        att_state.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        att_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        att_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        att_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        break;
     }
 
     if (graphics_info.state.blend == GPU_BLEND_SUBTRACT) {
@@ -688,7 +695,7 @@ void VKPipelinePool::free_data()
 
 #ifdef WITH_BUILDINFO
 struct VKPipelineCachePrefixHeader {
-  /* 'B'lender 'C'ache + 2 bytes for file versioning. */
+  /* `BC` stands for "Blender Cache" + 2 bytes for file versioning. */
   uint32_t magic = 0xBC00;
   uint32_t blender_version = BLENDER_VERSION;
   uint32_t blender_version_patch = BLENDER_VERSION_PATCH;

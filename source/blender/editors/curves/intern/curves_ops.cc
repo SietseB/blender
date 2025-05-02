@@ -528,7 +528,7 @@ static wmOperatorStatus curves_convert_from_particle_system_exec(bContext *C, wm
   if (psys_orig == nullptr) {
     return OPERATOR_CANCELLED;
   }
-  Object *ob_from_eval = DEG_get_evaluated_object(&depsgraph, ob_from_orig);
+  Object *ob_from_eval = DEG_get_evaluated(&depsgraph, ob_from_orig);
   ParticleSystem *psys_eval = nullptr;
   LISTBASE_FOREACH (ModifierData *, md, &ob_from_eval->modifiers) {
     if (md->type != eModifierType_ParticleSystem) {
@@ -1016,7 +1016,7 @@ static void select_ends_ui(bContext * /*C*/, wmOperator *op)
 
   uiLayoutSetPropSep(layout, true);
 
-  uiLayout *col = uiLayoutColumn(layout, true);
+  uiLayout *col = &layout->column(true);
   uiLayoutSetPropDecorate(col, false);
   uiItemR(col, op->ptr, "amount_start", UI_ITEM_NONE, IFACE_("Amount Start"), ICON_NONE);
   uiItemR(col, op->ptr, "amount_end", UI_ITEM_NONE, IFACE_("End"), ICON_NONE);

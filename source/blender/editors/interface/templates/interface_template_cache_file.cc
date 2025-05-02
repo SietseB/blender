@@ -114,7 +114,7 @@ void uiTemplateCacheFileTimeSettings(uiLayout *layout, PointerRNA *fileptr)
   row = &layout->row(false);
   uiItemR(row, fileptr, "is_sequence", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-  row = uiLayoutRowWithHeading(layout, true, IFACE_("Override Frame"));
+  row = &layout->row(true, IFACE_("Override Frame"));
   sub = &row->row(true);
   uiLayoutSetPropDecorate(sub, false);
   uiItemR(sub, fileptr, "override_frame", UI_ITEM_NONE, "", ICON_NONE);
@@ -164,7 +164,7 @@ void uiTemplateCacheFileLayers(uiLayout *layout, const bContext *C, PointerRNA *
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
   uiLayout *row = &layout->row(false);
-  uiLayout *col = uiLayoutColumn(row, true);
+  uiLayout *col = &row->column(true);
 
   uiTemplateList(col,
                  (bContext *)C,
@@ -181,7 +181,7 @@ void uiTemplateCacheFileLayers(uiLayout *layout, const bContext *C, PointerRNA *
                  1,
                  UI_TEMPLATE_LIST_FLAG_NONE);
 
-  col = uiLayoutColumn(row, true);
+  col = &row->column(true);
   uiItemO(col, "", ICON_ADD, "cachefile.layer_add");
   uiItemO(col, "", ICON_REMOVE, "cachefile.layer_remove");
 

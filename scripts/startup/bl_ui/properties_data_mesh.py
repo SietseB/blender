@@ -66,6 +66,7 @@ class MESH_MT_shape_key_context_menu(Menu):
         layout.operator("object.shape_key_mirror", text="Mirror Shape Key (Topology)").use_topology = True
         layout.separator()
         layout.operator("object.join_shapes")
+        layout.operator("object.update_shapes")
         layout.operator("object.shape_key_transfer")
         layout.separator()
         props = layout.operator("object.shape_key_remove", icon='X', text="Delete All Shape Keys")
@@ -271,7 +272,11 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
             sub.operator("object.vertex_group_select", text="Select")
             sub.operator("object.vertex_group_deselect", text="Deselect")
 
-            layout.prop(context.tool_settings, "vertex_group_weight", text="Weight")
+            col = layout.column(align=True)
+            col.use_property_split = True
+            col.separator()
+            col.prop(context.tool_settings, "vertex_group_weight", text="Weight")
+            col.prop(context.tool_settings, "use_auto_normalize", text="Auto Normalize")
 
         draw_attribute_warnings(context, layout, None)
 

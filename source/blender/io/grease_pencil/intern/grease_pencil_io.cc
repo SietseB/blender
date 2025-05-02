@@ -142,8 +142,8 @@ static IndexMask get_visible_strokes(const Object &object,
 {
   const bke::CurvesGeometry &strokes = drawing.strokes();
   const bke::AttributeAccessor attributes = strokes.attributes();
-  const VArray<int> materials = *attributes.lookup<int>(attr_material_index,
-                                                        bke::AttrDomain::Curve);
+  const VArray<int> materials = *attributes.lookup_or_default<int>(
+      attr_material_index, bke::AttrDomain::Curve, 0);
 
   auto is_visible_curve = [&](const int curve_i) {
     /* Check if stroke can be drawn. */
@@ -242,7 +242,7 @@ static std::optional<Bounds<float2>> compute_objects_bounds(
   std::optional<Bounds<float2>> full_bounds = std::nullopt;
 
   for (const ObjectInfo &info : objects) {
-    const Object *object_eval = DEG_get_evaluated_object(&depsgraph, info.object);
+    const Object *object_eval = DEG_get_evaluated(&depsgraph, info.object);
     const GreasePencil &grease_pencil_eval = *static_cast<GreasePencil *>(object_eval->data);
 
     for (const int layer_index : grease_pencil_eval.layers().index_range()) {
@@ -253,7 +253,7 @@ static std::optional<Bounds<float2>> compute_objects_bounds(
       }
 
       std::optional<Bounds<float2>> layer_bounds = compute_screen_space_drawing_bounds(
-          region, rv3d, *info.object, layer_index, *drawing);
+          region, rv3d, *object_eval, layer_index, *drawing);
 
       full_bounds = bounds::merge(full_bounds, layer_bounds);
     }

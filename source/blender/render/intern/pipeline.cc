@@ -1167,7 +1167,7 @@ static void do_render_compositor_scene(Render *re, Scene *sce, int cfra)
   /* initial setup */
   RE_InitState(resc, re, &sce->r, &sce->view_layers, nullptr, winx, winy, &re->disprect);
 
-  /* We still want to use 'rendercache' setting from org (main) scene... */
+  /* We still want to use "Render Cache" setting from the original (main) scene. */
   resc->r.scemode = (resc->r.scemode & ~R_EXR_CACHE_FILE) | (re->r.scemode & R_EXR_CACHE_FILE);
 
   /* still unsure entity this... */
@@ -1355,11 +1355,6 @@ static void do_render_compositor(Render *re)
   }
 
   if (!re->test_break()) {
-
-    if (ntree) {
-      ntreeCompositTagRender(re->pipeline_scene_eval);
-    }
-
     if (ntree && re->scene->use_nodes && re->r.scemode & R_DOCOMP) {
       /* checks if there are render-result nodes that need scene */
       if ((re->r.scemode & R_SINGLE_LAYER) == 0) {
@@ -1442,7 +1437,7 @@ static void renderresult_stampinfo(Render *re)
     RE_AcquireResultImage(re, &rres, nr);
 
     if (rres.ibuf != nullptr) {
-      Object *ob_camera_eval = DEG_get_evaluated_object(re->pipeline_depsgraph, RE_GetCamera(re));
+      Object *ob_camera_eval = DEG_get_evaluated(re->pipeline_depsgraph, RE_GetCamera(re));
       BKE_image_stamp_buf(re->scene,
                           ob_camera_eval,
                           (re->scene->r.stamp & R_STAMP_STRIPMETA) ? rres.stamp_data : nullptr,
@@ -1465,8 +1460,10 @@ bool RE_seq_render_active(Scene *scene, RenderData *rd)
     return false;
   }
 
-  LISTBASE_FOREACH (Strip *, seq, &ed->seqbase) {
-    if (seq->type != STRIP_TYPE_SOUND_RAM && !blender::seq::render_is_muted(&ed->channels, seq)) {
+  LISTBASE_FOREACH (Strip *, strip, &ed->seqbase) {
+    if (strip->type != STRIP_TYPE_SOUND_RAM &&
+        !blender::seq::render_is_muted(&ed->channels, strip))
+    {
       return true;
     }
   }
@@ -1658,7 +1655,7 @@ static void do_render_full_pipeline(Render *re)
   if (re->result != nullptr) {
     /* sequence rendering should have taken care of that already */
     if (!(render_seq && (re->scene->r.stamp & R_STAMP_STRIPMETA))) {
-      Object *ob_camera_eval = DEG_get_evaluated_object(re->pipeline_depsgraph, RE_GetCamera(re));
+      Object *ob_camera_eval = DEG_get_evaluated(re->pipeline_depsgraph, RE_GetCamera(re));
       BKE_render_result_stamp_info(re->scene, ob_camera_eval, re->result, false);
     }
 
@@ -1756,23 +1753,24 @@ static int check_valid_camera(Scene *scene, Object *camera_override, ReportList 
 
   if (RE_seq_render_active(scene, &scene->r)) {
     if (scene->ed) {
-      LISTBASE_FOREACH (Strip *, seq, &scene->ed->seqbase) {
-        if ((seq->type == STRIP_TYPE_SCENE) && ((seq->flag & SEQ_SCENE_STRIPS) == 0) &&
-            (seq->scene != nullptr))
+      LISTBASE_FOREACH (Strip *, strip, &scene->ed->seqbase) {
+        if ((strip->type == STRIP_TYPE_SCENE) && ((strip->flag & SEQ_SCENE_STRIPS) == 0) &&
+            (strip->scene != nullptr))
         {
-          if (!seq->scene_camera) {
-            if (!seq->scene->camera &&
-                !BKE_view_layer_camera_find(seq->scene, BKE_view_layer_default_render(seq->scene)))
+          if (!strip->scene_camera) {
+            if (!strip->scene->camera &&
+                !BKE_view_layer_camera_find(strip->scene,
+                                            BKE_view_layer_default_render(strip->scene)))
             {
               /* camera could be unneeded due to composite nodes */
-              Object *override = (seq->scene == scene) ? camera_override : nullptr;
+              Object *override = (strip->scene == scene) ? camera_override : nullptr;
 
-              if (!check_valid_compositing_camera(seq->scene, override, reports)) {
+              if (!check_valid_compositing_camera(strip->scene, override, reports)) {
                 return false;
               }
             }
           }
-          else if (!check_valid_camera_multiview(seq->scene, seq->scene_camera, reports)) {
+          else if (!check_valid_camera_multiview(strip->scene, strip->scene_camera, reports)) {
             return false;
           }
         }
@@ -1990,9 +1988,6 @@ static bool render_init_from_main(Render *re,
   if (!re->ok) { /* if an error was printed, abort */
     return false;
   }
-
-  /* Init-state makes new result, have to send changed tags around. */
-  ntreeCompositTagRender(re->scene);
 
   re->display_init(re->result);
   re->display_clear(re->result);

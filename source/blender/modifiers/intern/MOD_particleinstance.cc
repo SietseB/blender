@@ -548,12 +548,12 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
 
   uiItemS(layout);
 
-  row = uiLayoutRowWithHeading(layout, true, IFACE_("Create Instances"));
+  row = &layout->row(true, IFACE_("Create Instances"));
   uiItemR(row, ptr, "use_normal", toggles_flag, std::nullopt, ICON_NONE);
   uiItemR(row, ptr, "use_children", toggles_flag, std::nullopt, ICON_NONE);
   uiItemR(row, ptr, "use_size", toggles_flag, std::nullopt, ICON_NONE);
 
-  row = uiLayoutRowWithHeading(layout, true, IFACE_("Show"));
+  row = &layout->row(true, IFACE_("Show"));
   uiItemR(row, ptr, "show_alive", toggles_flag, std::nullopt, ICON_NONE);
   uiItemR(row, ptr, "show_dead", toggles_flag, std::nullopt, ICON_NONE);
   uiItemR(row, ptr, "show_unborn", toggles_flag, std::nullopt, ICON_NONE);
@@ -591,10 +591,10 @@ static void path_panel_draw(const bContext * /*C*/, Panel *panel)
 
   uiLayoutSetActive(layout, RNA_boolean_get(ptr, "use_path"));
 
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   uiItemR(col, ptr, "position", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "random_position", UI_ITEM_R_SLIDER, IFACE_("Random"), ICON_NONE);
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   uiItemR(col, ptr, "rotation", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
   uiItemR(col, ptr, "random_rotation", UI_ITEM_R_SLIDER, IFACE_("Random"), ICON_NONE);
 
@@ -613,7 +613,7 @@ static void layers_panel_draw(const bContext * /*C*/, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
-  col = uiLayoutColumn(layout, false);
+  col = &layout->column(false);
   uiItemPointerR(
       col, ptr, "index_layer_name", &obj_data_ptr, "vertex_colors", IFACE_("Index"), ICON_NONE);
   uiItemPointerR(

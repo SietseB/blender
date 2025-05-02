@@ -395,7 +395,7 @@ void view3d_viewmatrix_set(const Depsgraph *depsgraph,
 {
   if (rv3d->persp == RV3D_CAMOB) { /* obs/camera */
     if (v3d->camera) {
-      Object *ob_camera_eval = DEG_get_evaluated_object(depsgraph, v3d->camera);
+      Object *ob_camera_eval = DEG_get_evaluated(depsgraph, v3d->camera);
       obmat_to_viewmat(rv3d, ob_camera_eval);
     }
     else {
@@ -416,7 +416,7 @@ void view3d_viewmatrix_set(const Depsgraph *depsgraph,
       rv3d->viewmat[3][2] -= rv3d->dist;
     }
     if (v3d->ob_center) {
-      Object *ob_eval = DEG_get_evaluated_object(depsgraph, v3d->ob_center);
+      Object *ob_eval = DEG_get_evaluated(depsgraph, v3d->ob_center);
       float vec[3];
 
       copy_v3_v3(vec, ob_eval->object_to_world().location());
@@ -454,9 +454,9 @@ void view3d_viewmatrix_set(const Depsgraph *depsgraph,
       vec[2] = 0.0f;
 
       if (rect_scale) {
-        /* Since 'RegionView3D.winmat' has been calculated and this function doesn't take the
-         * 'ARegion' we don't know about the region size.
-         * Use 'rect_scale' when drawing a sub-region to apply 2D offset,
+        /* Since `RegionView3D.winmat` has been calculated and this function doesn't take the
+         * #ARegion we don't know about the region size.
+         * Use `rect_scale` when drawing a sub-region to apply 2D offset,
          * scaled by the difference between the sub-region and the region size.
          */
         vec[0] /= rect_scale[0];
@@ -590,7 +590,7 @@ int view3d_gpu_select_ex(const ViewContext *vc,
     gpu_select_mode = GPU_SELECT_ALL;
   }
 
-  /* Important to use 'vc->obact', not 'BKE_view_layer_active_object_get(vc->view_layer)' below,
+  /* Important to use `vc->obact`, not `BKE_view_layer_active_object_get(vc->view_layer)` below,
    * so it will be nullptr when hidden. */
   struct {
     DRW_ObjectFilterFn fn;
@@ -618,7 +618,7 @@ int view3d_gpu_select_ex(const ViewContext *vc,
     case VIEW3D_SELECT_FILTER_WPAINT_POSE_MODE_LOCK: {
       Object *obact = vc->obact;
       BLI_assert(obact && (obact->mode & OB_MODE_ALL_WEIGHT_PAINT));
-      /* While this uses 'alloca' in a loop (which we typically avoid),
+      /* While this uses `alloca` in a loop (which we typically avoid),
        * the number of items is nearly always 1, maybe 2..3 in rare cases. */
       LinkNode *ob_pose_list = nullptr;
       VirtualModifierData virtual_modifier_data;
@@ -842,7 +842,7 @@ static bool view3d_localview_init(const Depsgraph *depsgraph,
         base->local_view_bits &= ~local_view_bit;
       }
       FOREACH_BASE_IN_EDIT_MODE_BEGIN (scene, view_layer, v3d, base_iter) {
-        Object *ob_eval = DEG_get_evaluated_object(depsgraph, base_iter->object);
+        Object *ob_eval = DEG_get_evaluated(depsgraph, base_iter->object);
         BKE_object_minmax(ob_eval ? ob_eval : base_iter->object, min, max);
         base_iter->local_view_bits |= local_view_bit;
         changed = true;
@@ -853,7 +853,7 @@ static bool view3d_localview_init(const Depsgraph *depsgraph,
       BKE_view_layer_synced_ensure(scene, view_layer);
       LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
         if (BASE_SELECTED(v3d, base)) {
-          Object *ob_eval = DEG_get_evaluated_object(depsgraph, base->object);
+          Object *ob_eval = DEG_get_evaluated(depsgraph, base->object);
           BKE_object_minmax(ob_eval ? ob_eval : base->object, min, max);
           base->local_view_bits |= local_view_bit;
           changed = true;

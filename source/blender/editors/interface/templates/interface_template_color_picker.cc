@@ -44,7 +44,7 @@ void uiTemplateColorPicker(uiLayout *layout,
   float softmin, softmax, step, precision;
   RNA_property_float_ui_range(ptr, prop, &softmin, &softmax, &step, &precision);
 
-  uiLayout *col = uiLayoutColumn(layout, true);
+  uiLayout *col = &layout->column(true);
   uiLayout *row = &col->row(true);
 
   uiBut *but = nullptr;
@@ -259,7 +259,7 @@ void uiTemplatePalette(uiLayout *layout,
 
   Palette *palette = static_cast<Palette *>(cptr.data);
 
-  uiLayout *col = uiLayoutColumn(layout, true);
+  uiLayout *col = &layout->column(true);
   col->row(true);
   uiDefIconButO(block,
                 UI_BTYPE_BUT,
@@ -313,7 +313,7 @@ void uiTemplatePalette(uiLayout *layout,
         block, ui_template_palette_menu, nullptr, ICON_SORTSIZE, 0, 0, UI_UNIT_X, UI_UNIT_Y, "");
   }
 
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   col->row(true);
 
   PropertyRNA *target_prop = nullptr;

@@ -361,12 +361,12 @@ static void scene_copy_data(Main *bmain,
     scene_dst->ed->show_missing_media_flag = scene_src->ed->show_missing_media_flag;
     scene_dst->ed->proxy_storage = scene_src->ed->proxy_storage;
     STRNCPY(scene_dst->ed->proxy_dir, scene_src->ed->proxy_dir);
-    blender::seq::sequence_base_dupli_recursive(scene_src,
-                                                scene_dst,
-                                                &scene_dst->ed->seqbase,
-                                                &scene_src->ed->seqbase,
-                                                STRIP_DUPE_ALL,
-                                                flag_subdata);
+    blender::seq::seqbase_duplicate_recursive(scene_src,
+                                              scene_dst,
+                                              &scene_dst->ed->seqbase,
+                                              &scene_src->ed->seqbase,
+                                              STRIP_DUPE_ALL,
+                                              flag_subdata);
     BLI_duplicatelist(&scene_dst->ed->channels, &scene_src->ed->channels);
     scene_dst->ed->displayed_channels = &scene_dst->ed->channels;
   }
@@ -826,7 +826,7 @@ static bool strip_foreach_member_id_cb(Strip *strip, void *user_data)
   IDP_foreach_property(strip->prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
     BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
   });
-  LISTBASE_FOREACH (SequenceModifierData *, smd, &strip->modifiers) {
+  LISTBASE_FOREACH (StripModifierData *, smd, &strip->modifiers) {
     FOREACHID_PROCESS_IDSUPER(data, smd->mask_id, IDWALK_CB_USER);
   }
 
@@ -1184,14 +1184,14 @@ static void link_recurs_seq(BlendDataReader *reader, ListBase *lb)
 {
   BLO_read_struct_list(reader, Strip, lb);
 
-  LISTBASE_FOREACH_MUTABLE (Strip *, seq, lb) {
+  LISTBASE_FOREACH_MUTABLE (Strip *, strip, lb) {
     /* Sanity check. */
-    if (!blender::seq::is_valid_strip_channel(seq)) {
-      BLI_freelinkN(lb, seq);
+    if (!blender::seq::is_valid_strip_channel(strip)) {
+      BLI_freelinkN(lb, strip);
       BLO_read_data_reports(reader)->count.sequence_strips_skipped++;
     }
-    else if (seq->seqbase.first) {
-      link_recurs_seq(reader, &seq->seqbase);
+    else if (strip->seqbase.first) {
+      link_recurs_seq(reader, &strip->seqbase);
     }
   }
 }
@@ -1302,8 +1302,8 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     BLO_read_struct(reader, Editing, &sce->ed);
     Editing *ed = sce->ed;
 
-    ed->act_seq = static_cast<Strip *>(
-        BLO_read_get_new_data_address_no_us(reader, ed->act_seq, sizeof(Strip)));
+    ed->act_strip = static_cast<Strip *>(
+        BLO_read_get_new_data_address_no_us(reader, ed->act_strip, sizeof(Strip)));
     ed->cache = nullptr;
     ed->prefetch_job = nullptr;
     ed->runtime.strip_lookup = nullptr;
@@ -1375,7 +1375,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       BLO_read_struct_list(reader, MetaStack, &(ed->metastack));
 
       LISTBASE_FOREACH (MetaStack *, ms, &ed->metastack) {
-        BLO_read_struct(reader, Strip, &ms->parseq);
+        BLO_read_struct(reader, Strip, &ms->parent_strip);
 
         if (ms->oldbasep == old_seqbasep) {
           ms->oldbasep = &ed->seqbase;
@@ -2475,7 +2475,7 @@ void BKE_scene_update_sound(Depsgraph *depsgraph, Main *bmain)
 
 void BKE_scene_update_tag_audio_volume(Depsgraph * /*depsgraph*/, Scene *scene)
 {
-  BLI_assert(DEG_is_evaluated_id(&scene->id));
+  BLI_assert(DEG_is_evaluated(scene));
   /* The volume is actually updated in BKE_scene_update_sound(), from either
    * scene_graph_update_tagged() or from BKE_scene_graph_update_for_newframe(). */
   scene->id.recalc |= ID_RECALC_AUDIO_VOLUME;

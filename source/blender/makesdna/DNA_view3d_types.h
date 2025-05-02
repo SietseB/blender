@@ -111,7 +111,7 @@ typedef struct RegionView3D {
 
   /** Last view (use when switching out of camera view). */
   float lviewquat[4];
-  /** Lpersp can never be set to 'RV3D_CAMOB'. */
+  /** The last perspective can never be set to #RV3D_CAMOB. */
   char lpersp;
   char lview;
   char lview_axis_roll;
@@ -556,6 +556,8 @@ enum {
   V3D_GP_SHOW_GRID_XRAY = 1 << 9,
   /** Force 3D depth rendering and ignore per-object stroke depth mode. */
   V3D_GP_FORCE_STROKE_ORDER_3D = 1 << 10,
+  /** Onion skin for active object only. */
+  V3D_GP_ONION_SKIN_ACTIVE_OBJECT = 1 << 11,
 };
 
 /** #View3DShading.flag */

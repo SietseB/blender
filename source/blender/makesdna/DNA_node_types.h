@@ -1052,7 +1052,6 @@ typedef enum CMPNodeMaskFlags {
 } CMPNodeMaskFlags;
 
 enum {
-  CMP_NODEFLAG_BLUR_VARIABLE_SIZE = (1 << 0),
   CMP_NODEFLAG_BLUR_EXTEND_BOUNDS = (1 << 1),
 };
 
@@ -1078,21 +1077,21 @@ typedef struct NodeImageAnim {
 } NodeImageAnim;
 
 typedef struct ColorCorrectionData {
-  float saturation;
-  float contrast;
-  float gamma;
-  float gain;
-  float lift;
+  float saturation DNA_DEPRECATED;
+  float contrast DNA_DEPRECATED;
+  float gamma DNA_DEPRECATED;
+  float gain DNA_DEPRECATED;
+  float lift DNA_DEPRECATED;
   char _pad[4];
 } ColorCorrectionData;
 
 typedef struct NodeColorCorrection {
-  ColorCorrectionData master;
-  ColorCorrectionData shadows;
-  ColorCorrectionData midtones;
-  ColorCorrectionData highlights;
-  float startmidtones;
-  float endmidtones;
+  ColorCorrectionData master DNA_DEPRECATED;
+  ColorCorrectionData shadows DNA_DEPRECATED;
+  ColorCorrectionData midtones DNA_DEPRECATED;
+  ColorCorrectionData highlights DNA_DEPRECATED;
+  float startmidtones DNA_DEPRECATED;
+  float endmidtones DNA_DEPRECATED;
 } NodeColorCorrection;
 
 typedef struct NodeBokehImage {
@@ -1104,20 +1103,20 @@ typedef struct NodeBokehImage {
 } NodeBokehImage;
 
 typedef struct NodeBoxMask {
-  float x;
-  float y;
-  float rotation;
-  float height;
-  float width;
+  float x DNA_DEPRECATED;
+  float y DNA_DEPRECATED;
+  float rotation DNA_DEPRECATED;
+  float height DNA_DEPRECATED;
+  float width DNA_DEPRECATED;
   char _pad[4];
 } NodeBoxMask;
 
 typedef struct NodeEllipseMask {
-  float x;
-  float y;
-  float rotation;
-  float height;
-  float width;
+  float x DNA_DEPRECATED;
+  float y DNA_DEPRECATED;
+  float rotation DNA_DEPRECATED;
+  float height DNA_DEPRECATED;
+  float width DNA_DEPRECATED;
   char _pad[4];
 } NodeEllipseMask;
 
@@ -1142,14 +1141,20 @@ typedef struct NodeBlurData {
 } NodeBlurData;
 
 typedef struct NodeDBlurData {
-  float center_x, center_y, distance, angle, spin, zoom;
-  short iter;
+  float center_x DNA_DEPRECATED;
+  float center_y DNA_DEPRECATED;
+  float distance DNA_DEPRECATED;
+  float angle DNA_DEPRECATED;
+  float spin DNA_DEPRECATED;
+  float zoom DNA_DEPRECATED;
+  short iter DNA_DEPRECATED;
   char _pad[2];
 } NodeDBlurData;
 
 typedef struct NodeBilateralBlurData {
-  float sigma_color, sigma_space;
-  short iter;
+  float sigma_color DNA_DEPRECATED;
+  float sigma_space DNA_DEPRECATED;
+  short iter DNA_DEPRECATED;
   char _pad[2];
 } NodeBilateralBlurData;
 
@@ -1289,10 +1294,13 @@ typedef struct NodeTonemap {
   int type;
 } NodeTonemap;
 
-/** Lens distortion node. */
+/* Lens Distortion node. */
 typedef struct NodeLensDist {
-  short jit, proj, fit;
+  short jit DNA_DEPRECATED;
+  short proj DNA_DEPRECATED;
+  short fit DNA_DEPRECATED;
   char _pad[2];
+  int distortion_type;
 } NodeLensDist;
 
 typedef struct NodeColorBalance {
@@ -1578,9 +1586,8 @@ typedef struct NodeShaderOutputAOV {
 } NodeShaderOutputAOV;
 
 typedef struct NodeSunBeams {
-  float source[2];
-
-  float ray_length;
+  float source[2] DNA_DEPRECATED;
+  float ray_length DNA_DEPRECATED;
 } NodeSunBeams;
 
 typedef struct CryptomatteEntry {
@@ -3011,6 +3018,12 @@ typedef enum CMPNodeChannelMatteColorSpace {
   CMP_NODE_CHANNEL_MATTE_CS_YUV = 3,
   CMP_NODE_CHANNEL_MATTE_CS_YCC = 4,
 } CMPNodeChannelMatteColorSpace;
+
+/* NodeLensDist.distortion_type. */
+typedef enum CMPNodeLensDistortionType {
+  CMP_NODE_LENS_DISTORTION_RADIAL = 0,
+  CMP_NODE_LENS_DISTORTION_HORIZONTAL = 1,
+} CMPNodeLensDistortionType;
 
 /* Point Density shader node */
 

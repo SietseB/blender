@@ -193,7 +193,7 @@ static void ensure_shrinkwrap_cache_data(GreasePencilShrinkwrapModifierData &smd
     MEM_delete(smd.cache_data);
     smd.cache_data = nullptr;
   }
-  Object *target_ob = DEG_get_evaluated_object(ctx.depsgraph, smd.target);
+  Object *target_ob = DEG_get_evaluated(ctx.depsgraph, smd.target);
   Mesh *target_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(target_ob);
 
   smd.cache_data = MEM_new<ShrinkwrapTreeData>(__func__);
@@ -263,8 +263,8 @@ static void panel_draw(const bContext *C, Panel *panel)
     uiItemR(layout, ptr, "project_limit", UI_ITEM_NONE, IFACE_("Limit"), ICON_NONE);
     uiItemR(layout, ptr, "subsurf_levels", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
-    col = uiLayoutColumn(layout, false);
-    row = uiLayoutRowWithHeading(col, true, IFACE_("Axis"));
+    col = &layout->column(false);
+    row = &col->row(true, IFACE_("Axis"));
     uiItemR(row, ptr, "use_project_x", toggles_flag, std::nullopt, ICON_NONE);
     uiItemR(row, ptr, "use_project_y", toggles_flag, std::nullopt, ICON_NONE);
     uiItemR(row, ptr, "use_project_z", toggles_flag, std::nullopt, ICON_NONE);
@@ -273,7 +273,7 @@ static void panel_draw(const bContext *C, Panel *panel)
     uiItemR(col, ptr, "use_positive_direction", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
     uiItemR(layout, ptr, "cull_face", UI_ITEM_R_EXPAND, std::nullopt, ICON_NONE);
-    col = uiLayoutColumn(layout, false);
+    col = &layout->column(false);
     uiLayoutSetActive(col,
                       RNA_boolean_get(ptr, "use_negative_direction") &&
                           RNA_enum_get(ptr, "cull_face") != 0);

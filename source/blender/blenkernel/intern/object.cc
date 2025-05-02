@@ -3359,7 +3359,7 @@ blender::float4x4 BKE_object_calc_parent(Depsgraph *depsgraph, Scene *scene, Obj
 
   /* Since this is used while calculating parenting,
    * at this moment ob_eval->parent is still nullptr. */
-  workob.parent = DEG_get_evaluated_object(depsgraph, ob->parent);
+  workob.parent = DEG_get_evaluated(depsgraph, ob->parent);
 
   workob.trackflag = ob->trackflag;
   workob.upflag = ob->upflag;
@@ -3546,7 +3546,8 @@ std::optional<Bounds<float3>> BKE_object_boundbox_eval_cached_get(const Object *
 std::optional<Bounds<float3>> BKE_object_evaluated_geometry_bounds(const Object *ob)
 {
   if (const blender::bke::GeometrySet *geometry = ob->runtime->geometry_set_eval) {
-    return geometry->compute_boundbox_without_instances();
+    const bool use_radius = ob->type != OB_CURVES_LEGACY;
+    return geometry->compute_boundbox_without_instances(use_radius);
   }
   if (const CurveCache *curve_cache = ob->runtime->curve_cache) {
     float3 min(std::numeric_limits<float>::max());
@@ -4229,7 +4230,7 @@ Mesh *BKE_object_get_original_mesh(const Object *object)
 
 const Mesh *BKE_object_get_editmesh_eval_final(const Object *object)
 {
-  BLI_assert(!DEG_is_original_id(&object->id));
+  BLI_assert(!DEG_is_original(object));
   BLI_assert(object->type == OB_MESH);
 
   const Mesh *mesh = static_cast<const Mesh *>(object->data);
@@ -4244,7 +4245,7 @@ const Mesh *BKE_object_get_editmesh_eval_final(const Object *object)
 
 const Mesh *BKE_object_get_editmesh_eval_cage(const Object *object)
 {
-  BLI_assert(!DEG_is_original_id(&object->id));
+  BLI_assert(!DEG_is_original(object));
   BLI_assert(object->type == OB_MESH);
 
   return object->runtime->editmesh_eval_cage;
@@ -4252,7 +4253,7 @@ const Mesh *BKE_object_get_editmesh_eval_cage(const Object *object)
 
 const Mesh *BKE_object_get_mesh_deform_eval(const Object *object)
 {
-  BLI_assert(!DEG_is_original_id(&object->id));
+  BLI_assert(!DEG_is_original(object));
   BLI_assert(object->type == OB_MESH);
   return object->runtime->mesh_deform_eval;
 }

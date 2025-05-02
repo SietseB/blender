@@ -293,13 +293,13 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
 
-  col = uiLayoutColumn(layout, true);
+  col = &layout->column(true);
   uiItemPointerR(
       col, ptr, "vertex_group", &ob_ptr, "vertex_groups", std::nullopt, ICON_GROUP_VERTEX);
 
   uiItemR(layout, ptr, "default_weight", UI_ITEM_R_SLIDER, std::nullopt, ICON_NONE);
 
-  col = uiLayoutColumnWithHeading(layout, false, IFACE_("Group Add"));
+  col = &layout->column(false, IFACE_("Group Add"));
   row = &col->row(true);
   uiLayoutSetPropDecorate(row, false);
   sub = &row->row(true);
@@ -310,7 +310,7 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
   uiItemR(sub, ptr, "add_threshold", UI_ITEM_R_SLIDER, IFACE_("Threshold"), ICON_NONE);
   uiItemDecoratorR(row, ptr, "add_threshold", 0);
 
-  col = uiLayoutColumnWithHeading(layout, false, IFACE_("Group Remove"));
+  col = &layout->column(false, IFACE_("Group Remove"));
   row = &col->row(true);
   uiLayoutSetPropDecorate(row, false);
   sub = &row->row(true);
