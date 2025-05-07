@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import bpy
-from bpy.types import Menu, UIList, Operator
+from bpy.types import Menu, UIList, Operator, Panel
 from bpy.app.translations import (
     contexts as i18n_contexts,
     pgettext_iface as iface_,
@@ -265,6 +265,35 @@ class GREASE_PENCIL_MT_layer_active(Menu):
 
             icon = 'GREASEPENCIL' if layer == obd.layers.active else 'NONE'
             layout.operator("grease_pencil.layer_active", text=indent + layer.name, icon=icon).layer = i
+
+
+class GREASE_PENCIL_PT_layer_active(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_label = 'Change Active Layer'
+    bl_ui_units_x = 14
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and ob.type == 'GREASEPENCIL'
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.label(text="Change Active Layer")
+
+        col = row.column()
+        sub = col.column(align=True)
+        sub.operator_context = 'INVOKE_REGION_WIN'
+        sub.operator("grease_pencil.layer_add", icon='ADD', text="").new_layer_name = "Layer"
+
+        grease_pencil = context.active_object.data
+        rows_num = len(grease_pencil.layers) + len(grease_pencil.layer_groups) + 1
+
+        row = layout.row()
+        row.template_grease_pencil_layer_tree(rows=rows_num, compact=True)
 
 
 class GPENCIL_MT_material_active(Menu):
@@ -925,6 +954,7 @@ classes = (
 
     GREASE_PENCIL_MT_move_to_layer,
     GREASE_PENCIL_MT_layer_active,
+    GREASE_PENCIL_PT_layer_active,
 
     GREASE_PENCIL_MT_snap,
     GREASE_PENCIL_MT_snap_pie,

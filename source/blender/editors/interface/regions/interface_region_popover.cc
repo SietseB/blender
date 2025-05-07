@@ -213,14 +213,29 @@ static uiBlock *ui_block_func_POPOVER(bContext *C, uiPopupBlockHandle *handle, v
         if ((but_first == nullptr) && ui_but_is_editable(but_iter.get())) {
           but_first = but_iter.get();
         }
-        if (but_iter->flag & (UI_SELECT | UI_SELECT_DRAW)) {
+        if (but_iter->type == UI_BTYPE_VIEW_ITEM &&
+            (but_iter->flag & (UI_SELECT | UI_SELECT_DRAW)))
+        {
           but = but_iter.get();
           break;
         }
       }
+      if (but == nullptr) {
+        for (const std::unique_ptr<uiBut> &but_iter : block->buttons) {
+          if (but_iter->flag & (UI_SELECT | UI_SELECT_DRAW)) {
+            but = but_iter.get();
+            break;
+          }
+        }
+      }
 
       if (but) {
-        bounds_offset[0] = -(but->rect.xmin + 0.8f * BLI_rctf_size_x(&but->rect));
+        if (but->type == UI_BTYPE_VIEW_ITEM) {
+          bounds_offset[0] = -BLI_rctf_cent_x(&but->rect);
+        }
+        else {
+          bounds_offset[0] = -(but->rect.xmin + 0.8f * BLI_rctf_size_x(&but->rect));
+        }
         bounds_offset[1] = -BLI_rctf_cent_y(&but->rect);
       }
       else {

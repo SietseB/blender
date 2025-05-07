@@ -128,6 +128,8 @@ class AbstractTreeView : public AbstractView, public TreeViewItemContainer {
   int2 drop_linehint_start_;
   int2 drop_linehint_end_;
 
+  bool is_compact_ = false;
+
   friend class AbstractTreeViewItem;
   friend class TreeViewBuilder;
   friend class TreeViewLayoutBuilder;
@@ -147,6 +149,9 @@ class AbstractTreeView : public AbstractView, public TreeViewItemContainer {
   void foreach_item(ItemIterFn iter_fn, IterOptions options = IterOptions::None) const;
 
   void scroll(ViewScrollDirection direction) override;
+
+  void set_compact();
+  bool is_compact() const;
 
   /**
    * \param xy: The mouse coordinates in window space.

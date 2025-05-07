@@ -210,7 +210,8 @@ class LayerViewItem : public AbstractTreeViewItem {
     uiLayout *sub = &row.row(true);
     uiLayoutSetPropDecorate(sub, false);
 
-    build_layer_buttons(*sub);
+    const bool is_compact = this->get_tree_view().is_compact();
+    build_layer_buttons(*sub, is_compact);
   }
 
   bool supports_collapsing() const override
@@ -299,19 +300,21 @@ class LayerViewItem : public AbstractTreeViewItem {
     }
   }
 
-  void build_layer_buttons(uiLayout &row)
+  void build_layer_buttons(uiLayout &row, const bool is_compact)
   {
     uiLayout *sub;
     PointerRNA layer_ptr = RNA_pointer_create_discrete(
         &grease_pencil_.id, &RNA_GreasePencilLayer, &layer_);
 
-    sub = &row.row(true);
-    uiLayoutSetActive(sub, layer_.parent_group().use_masks());
-    uiItemR(sub, &layer_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
+    if (!is_compact) {
+      sub = &row.row(true);
+      uiLayoutSetActive(sub, layer_.parent_group().use_masks());
+      uiItemR(sub, &layer_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
 
-    sub = &row.row(true);
-    uiLayoutSetActive(sub, layer_.parent_group().use_onion_skinning());
-    uiItemR(sub, &layer_ptr, "use_onion_skinning", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
+      sub = &row.row(true);
+      uiLayoutSetActive(sub, layer_.parent_group().use_onion_skinning());
+      uiItemR(sub, &layer_ptr, "use_onion_skinning", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
+    }
 
     sub = &row.row(true);
     uiLayoutSetActive(sub, layer_.parent_group().is_visible());
@@ -367,7 +370,8 @@ class LayerGroupViewItem : public AbstractTreeViewItem {
     uiLayout *sub = &row.row(true);
     uiLayoutSetPropDecorate(sub, false);
 
-    build_layer_group_buttons(*sub);
+    const bool is_compact = this->get_tree_view().is_compact();
+    build_layer_group_buttons(*sub, is_compact);
   }
 
   std::optional<bool> should_be_active() const override
@@ -462,23 +466,25 @@ class LayerGroupViewItem : public AbstractTreeViewItem {
     }
   }
 
-  void build_layer_group_buttons(uiLayout &row)
+  void build_layer_group_buttons(uiLayout &row, const bool is_compact)
   {
     uiLayout *sub;
     PointerRNA group_ptr = RNA_pointer_create_discrete(
         &grease_pencil_.id, &RNA_GreasePencilLayerGroup, &group_);
 
-    sub = &row.row(true);
-    if (group_.as_node().parent_group()) {
-      uiLayoutSetActive(sub, group_.as_node().parent_group()->use_masks());
-    }
-    uiItemR(sub, &group_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
+    if (!is_compact) {
+      sub = &row.row(true);
+      if (group_.as_node().parent_group()) {
+        uiLayoutSetActive(sub, group_.as_node().parent_group()->use_masks());
+      }
+      uiItemR(sub, &group_ptr, "use_masks", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
 
-    sub = &row.row(true);
-    if (group_.as_node().parent_group()) {
-      uiLayoutSetActive(sub, group_.as_node().parent_group()->use_onion_skinning());
+      sub = &row.row(true);
+      if (group_.as_node().parent_group()) {
+        uiLayoutSetActive(sub, group_.as_node().parent_group()->use_onion_skinning());
+      }
+      uiItemR(sub, &group_ptr, "use_onion_skinning", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
     }
-    uiItemR(sub, &group_ptr, "use_onion_skinning", UI_ITEM_R_ICON_ONLY, std::nullopt, ICON_NONE);
 
     sub = &row.row(true);
     if (group_.as_node().parent_group()) {
@@ -521,7 +527,7 @@ void LayerTreeView::build_tree()
 
 }  // namespace blender::ui::greasepencil
 
-void uiTemplateGreasePencilLayerTree(uiLayout *layout, bContext *C)
+void uiTemplateGreasePencilLayerTree(uiLayout *layout, bContext *C, int rows, bool compact)
 {
   using namespace blender;
 
@@ -538,7 +544,11 @@ void uiTemplateGreasePencilLayerTree(uiLayout *layout, bContext *C)
       "Grease Pencil Layer Tree View",
       std::make_unique<blender::ui::greasepencil::LayerTreeView>(*grease_pencil));
   tree_view->set_context_menu_title("Grease Pencil Layer");
-  tree_view->set_default_rows(6);
+  tree_view->set_default_rows(rows == 0 ? 6 : rows);
+
+  if (compact) {
+    tree_view->set_compact();
+  }
 
   ui::TreeViewBuilder::build_tree_view(*C, *tree_view, *layout);
 }

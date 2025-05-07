@@ -454,6 +454,16 @@ void AbstractTreeView::scroll(ViewScrollDirection direction)
   *scroll_value_ += ((direction == ViewScrollDirection::UP) ? -1 : 1);
 }
 
+void AbstractTreeView::set_compact()
+{
+  is_compact_ = true;
+}
+
+bool AbstractTreeView::is_compact() const
+{
+  return is_compact_;
+}
+
 /* ---------------------------------------------------------------------- */
 
 TreeViewItemDropTarget::TreeViewItemDropTarget(AbstractTreeViewItem &view_item,

@@ -2625,7 +2625,7 @@ void uiTemplateLightLinkingCollection(uiLayout *layout,
                                       blender::StringRefNull propname);
 
 void uiTemplateBoneCollectionTree(uiLayout *layout, bContext *C);
-void uiTemplateGreasePencilLayerTree(uiLayout *layout, bContext *C);
+void uiTemplateGreasePencilLayerTree(uiLayout *layout, bContext *C, int rows, bool compact);
 
 void uiTemplateNodeTreeInterface(uiLayout *layout, bContext *C, PointerRNA *ptr);
 /**

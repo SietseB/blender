@@ -2452,6 +2452,10 @@ void RNA_api_ui_layout(StructRNA *srna)
       srna, "template_grease_pencil_layer_tree", "uiTemplateGreasePencilLayerTree");
   RNA_def_function_ui_description(func, "View of the active Grease Pencil layer tree");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+  parm = RNA_def_property(func, "rows", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_ui_text(parm, "Rows", "Number of rows");
+  parm = RNA_def_property(func, "compact", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_ui_text(parm, "Compact", "Compact view, without mask and onion skin toggles");
 
   func = RNA_def_function(srna, "template_node_tree_interface", "uiTemplateNodeTreeInterface");
   RNA_def_function_ui_description(func, "Show a node tree interface");

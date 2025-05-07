@@ -3861,7 +3861,7 @@ def km_grease_pencil_paint_mode(params):
         # Active material
         op_menu("VIEW3D_MT_greasepencil_material_active", {"type": 'U', "value": 'PRESS'}),
         # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+        op_panel("GREASE_PENCIL_PT_layer_active", {"type": 'Y', "value": 'PRESS'}, [("keep_open", False)]),
 
         # Show/hide
         *_template_items_hide_reveal_actions("grease_pencil.layer_hide", "grease_pencil.layer_reveal"),
